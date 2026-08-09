@@ -1,6 +1,7 @@
 > [!NOTE]
 > **このチェックアウトには Windows 向けローカル/API実行補助が追加されています。**
-> まず [日本語セットアップ](LOCAL_SETUP_JA.md) を確認してください。構成の責務と境界は
+> まず [日本語セットアップ](LOCAL_SETUP_JA.md) を確認してください。構築時の判断、ハマりどころ、回避策は
+> [環境構築記録](ENVIRONMENT_SETUP_RECORD_JA.md)、構成の責務と境界は
 > [ARCHITECTURE.md](ARCHITECTURE.md)、Mermaid図は
 > [ARCHITECTURE_DIAGRAM.md](ARCHITECTURE_DIAGRAM.md)、モデル利用条件の要約は
 > [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) に分離しています。
