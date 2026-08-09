@@ -17,6 +17,7 @@ $venvPython = Join-Path $projectRoot '.venv\Scripts\python.exe'
 $comfyRoot = Join-Path $projectRoot 'runtime\ComfyUI'
 $comfyMain = Join-Path $comfyRoot 'main.py'
 $doctor = Join-Path $projectRoot 'tools\local_doctor.py'
+$metricsHelper = Join-Path $projectRoot 'tools\system_metrics.ps1'
 $outputRoot = Join-Path $projectRoot 'outputs'
 
 if (-not (Test-Path -LiteralPath $venvPython -PathType Leaf)) {
@@ -28,6 +29,11 @@ if (-not (Test-Path -LiteralPath $comfyMain -PathType Leaf)) {
 if (-not (Test-Path -LiteralPath $doctor -PathType Leaf)) {
     throw "Local doctor not found: $doctor"
 }
+if (-not (Test-Path -LiteralPath $metricsHelper -PathType Leaf)) {
+    throw "System metrics helper not found: $metricsHelper"
+}
+
+. $metricsHelper
 
 & $venvPython -B $doctor --root $projectRoot --profile $Profile
 $doctorExit = $LASTEXITCODE
@@ -74,12 +80,20 @@ else {
     Write-Host 'VRAM mode: Dynamic VRAM (no --lowvram flag)'
 }
 
-Push-Location $comfyRoot
+$startedAt = Get-Date
+Show-SystemMetrics -Phase START -StartedAt $startedAt
+$comfyExit = 1
+$locationPushed = $false
 try {
+    Push-Location $comfyRoot
+    $locationPushed = $true
     & $venvPython @comfyArguments
     $comfyExit = $LASTEXITCODE
 }
 finally {
-    Pop-Location
+    if ($locationPushed) {
+        Pop-Location
+    }
+    Show-SystemMetrics -Phase END -StartedAt $startedAt
 }
 exit $comfyExit

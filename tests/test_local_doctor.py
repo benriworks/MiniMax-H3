@@ -232,6 +232,7 @@ class PowerShellSyntaxTests(unittest.TestCase):
             "run-local.ps1",
             "run-api.ps1",
             "tools/setup_lock_helpers.ps1",
+            "tools/system_metrics.ps1",
         )
         for script in scripts:
             path = PROJECT_ROOT / script
@@ -272,6 +273,43 @@ else {
             ".\\download-models.ps1 -Profile $Profile -AcceptLicense",
             source,
         )
+
+    def test_run_local_reports_metrics_only_at_start_and_end(self) -> None:
+        source = (PROJECT_ROOT / "run-local.ps1").read_text(encoding="utf-8")
+        self.assertEqual(source.count("Show-SystemMetrics -Phase START"), 1)
+        self.assertEqual(source.count("Show-SystemMetrics -Phase END"), 1)
+        finally_block = source.split("finally {", 1)[1]
+        self.assertIn("Show-SystemMetrics -Phase END", finally_block)
+
+    def test_system_metrics_parsers(self) -> None:
+        helper = str(PROJECT_ROOT / "tools" / "system_metrics.ps1").replace("'", "''")
+        command = rf"""
+. '{helper}'
+$gpu = ConvertFrom-NvidiaSmiCsvRow -Line 'NVIDIA GeForce RTX 3070 Ti, 72, 63, 6144, 8192, 245.5' -IncludesPower
+$result = [pscustomobject]@{{
+    gpu = $gpu
+    acpiCelsius = ConvertFrom-AcpiTenthsKelvin 3152
+    invalidAcpi = ConvertFrom-AcpiTenthsKelvin 1
+}}
+$result | ConvertTo-Json -Depth 4 -Compress
+"""
+        result = subprocess.run(
+            ("powershell.exe", "-NoProfile", "-Command", command),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        parsed = json.loads(result.stdout.strip())
+        self.assertEqual(parsed["gpu"]["Name"], "NVIDIA GeForce RTX 3070 Ti")
+        self.assertEqual(parsed["gpu"]["UtilizationPercent"], 72)
+        self.assertEqual(parsed["gpu"]["TemperatureCelsius"], 63)
+        self.assertEqual(parsed["gpu"]["MemoryUsedMiB"], 6144)
+        self.assertEqual(parsed["gpu"]["PowerWatts"], 245.5)
+        self.assertAlmostEqual(parsed["acpiCelsius"], 42.05, places=2)
+        self.assertIsNone(parsed["invalidAcpi"])
 
     def test_setup_preserves_dirty_runtime_repositories(self) -> None:
         source = (PROJECT_ROOT / "setup-local.ps1").read_text(encoding="utf-8")

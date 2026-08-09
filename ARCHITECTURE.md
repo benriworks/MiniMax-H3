@@ -22,7 +22,8 @@
 | `requirements-local-lock.txt` | Windows AMD64 / CPython 3.12で確認したtorch以外のPython依存をexact pin | tracked |
 | `download-models.ps1` | license確認後、固定HF revisionからprofileモデルを取得し、容量・byte数を検査 | tracked |
 | `model-manifest.json` | model role、repo/revision/path、byte数、SHA-256、license/source URL | tracked source of truth |
-| `run-local.ps1` | doctorをgateとしてloopback ComfyUIを起動し、VRAM modeを排他的に構成 | tracked |
+| `run-local.ps1` | doctorをgateとしてloopback ComfyUIを起動し、VRAM modeを排他的に構成。開始・終了時だけsystem metricsを表示 | tracked |
+| `tools/system_metrics.ps1` | CPU使用率/温度、RAM、NVIDIA GPU使用率/温度/VRAM/電力をbest-effort取得。保存や連続監視はしない | tracked |
 | `runtime/ComfyUI/` | ComfyUI本体、custom node、モデル、Comfyの一時状態 | untracked/ignored |
 | `workflows/minimax_h3_t2v_lowvram.json` | GGUF向けT2V、0.2MP、4秒指定、20 steps | tracked |
 | ComfyUI Template Library | `official` profile用の公式T2V JSON | installed Python package/runtime |
@@ -54,10 +55,10 @@ model downloaderは `model-manifest.json` のHF revisionとremote pathを使い�
 1. operatorがprofileを選び、licenseを確認します。
 2. downloaderがHugging Faceから4 model artifactを `runtime/ComfyUI/models/` へ配置します。
 3. doctorがtotal/free VRAM、total/available RAM、pagefile、disk、core lock、モデル、workflowを検査します。
-4. `run-local.ps1` が `127.0.0.1` のComfyUIをforeground起動します。
+4. `run-local.ps1` が開始時system metricsを取得し、`127.0.0.1` のComfyUIをforeground起動します。
 5. lowvramではtracked GGUF workflow、officialではTemplate Libraryの公式T2Vを使用します。
 6. ComfyUIがtext encoder、FL2VA diffusion model、video/audio VAEを読み、videoとstereo audioをMP4にmuxします。
-7. 通常のlauncher出力先は `outputs/` です。
+7. ComfyUI終了後、launcherが終了時system metricsと経過時間を表示します。通常の生成物出力先は `outputs/` です。
 
 ComfyUIの公式モデル配置とloader名は
 [ComfyUI MiniMax H3 tutorial](https://docs.comfy.org/tutorials/video/minimax/minimax-h3)に準拠します。
@@ -81,6 +82,14 @@ profileとworkflowを交差させません。doctorもprofileに応じて別のw
 | Emergency | `--novram --cpu-vae` | Dynamic flagを外し、モデルoffloadとCPU VAEを優先 |
 
 競合するVRAM modeを避けるため、引数配列では必ず排他にします。launcherは他アプリを終了しません。
+
+## 開始・終了時のsystem metrics
+
+`tools/system_metrics.ps1` はComfyUIの起動直前と終了直後だけsnapshotを標準出力へ表示します。連続polling、ファイル保存、外部送信はしません。CPU/RAMはWindows CIM、NVIDIA GPUは `nvidia-smi` のquery interfaceを使用します。
+
+CPU package温度はWindowsが常に公開する情報ではありません。LibreHardwareMonitor/OpenHardwareMonitorのWMI sensorを優先し、なければfirmwareのACPI thermal zoneを「CPU packageではない」と明示して表示します。どちらも取得できない場合はtemperature unavailableと表示し、起動を妨げません。GPU queryを含むmetrics取得失敗もwarningへ縮退し、ComfyUIの実行可否からは分離します。
+
+一次情報: [Microsoft thermal zone diagnostics](https://learn.microsoft.com/en-us/windows-hardware/design/device-experiences/examples--requirements-and-diagnostics)、[NVIDIA nvidia-smi query fields](https://docs.nvidia.com/deploy/nvidia-smi/index.html)。
 
 ## APIデータフロー
 
@@ -142,7 +151,7 @@ APIの入力制約は、request body 64MB以下、画像/動画/音声ごとのs
 
 - lowvram 4モデル: exact bytes + full SHA-256一致
 - local doctor: `Ready: yes`、`Locked core runtime matches: yes`。free VRAM逼迫はwarning
-- 自動テスト: 29/29合格
+- 自動テスト: 31/31合格（system metrics parserとstart/end配置を含む）
 - 1-step Emergency E2E配線スモーク: H.264 video + AAC stereo audio MP4生成成功
 
 未確定:

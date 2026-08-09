@@ -33,7 +33,7 @@ MiniMaxの公開説明では、ローカルH3-Baseは768p検証、フル2K workf
 - PyTorch `2.13.0+cu130`、torchvision `0.28.0+cu130`、torchaudio `2.11.0+cu130`
 - RTX 3070 Ti 8GiB、物理RAM約47.72GiB、pagefile 60GiBの検査
 - `lowvram` 4ファイルの正確なbyte数とSHA-256一致、`local_doctor.py --hash` の `Ready: yes`
-- セキュリティ・manifest・workflow・PowerShell・fresh cloneを含む自動テスト **29/29合格**
+- セキュリティ・manifest・workflow・PowerShell・fresh clone・system metricsを含む自動テスト **31/31合格**
 
 さらに、Emergencyモード相当の `--novram --cpu-vae`、Q3/Q2、608x352で、配線確認用の1-step E2Eスモークが成功しています。出力は726,468 bytesのMP4で、ffprobeではH.264 608x352 / 24fps / 124 framesとAAC 32kHz stereoを確認しました。総所要時間は約15分50秒でした。このスモークは品質評価ではなく、同梱20-step workflowの生成成功や所要時間を保証しません。**同梱20-step workflowはまだ実生成未検証です。**
 
@@ -104,6 +104,10 @@ PowerShellでプロジェクトルートから実行します。
 ```
 
 既定では `127.0.0.1:8188` のみにlistenし、`--enable-dynamic-vram` を使います。`--lowvram` は付けません。previewを無効化し、pinned memoryも無効化します。
+
+ComfyUIの起動直前と終了直後に、時刻、CPU使用率/温度、RAM使用量、GPU使用率/温度/VRAM/電力をコンソールへ表示します。終了時には経過時間も表示します。連続監視やファイル保存は行いません。
+
+CPU温度はWindows/firmwareがsensorを公開していないPCでは `temperature unavailable` になります。これは起動失敗ではありません。LibreHardwareMonitorまたはOpenHardwareMonitorがWMI sensorを公開していれば自動利用し、firmware由来の値しかない場合は `ACPI thermal zone (not CPU package)` と区別します。GPU情報はNVIDIAの `nvidia-smi` から取得します。一次情報: [Microsoft thermal zone diagnostics](https://learn.microsoft.com/en-us/windows-hardware/design/device-experiences/examples--requirements-and-diagnostics)、[NVIDIA nvidia-smi](https://docs.nvidia.com/deploy/nvidia-smi/index.html)。
 
 ブラウザーを自動で開かず、別portを使う例:
 

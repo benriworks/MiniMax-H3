@@ -13,6 +13,7 @@ flowchart LR
         ModelManifest["model-manifest.json"]
         Doctor["tools/local_doctor.py"]
         Launcher["run-local.ps1"]
+        Metrics["tools/system_metrics.ps1<br/>start / end snapshot"]
         LowWorkflow["lowvram workflow<br/>GGUF / 0.2MP / 4s / 20 steps"]
         ApiWrapper["run-api.ps1"]
         ApiCli["tools/h3_api.py"]
@@ -29,6 +30,7 @@ flowchart LR
         Models["models<br/>lowvram or official profile"]
         OfficialWorkflow["Template Library<br/>official H3 T2V"]
         Outputs["MP4 outputs / temp"]
+        HardwareMetrics["Windows CIM / sensor WMI<br/>NVIDIA nvidia-smi"]
     end
 
     subgraph ExternalSources["External supply-chain boundary"]
@@ -66,6 +68,8 @@ flowchart LR
 
     Operator --> Launcher
     Doctor -->|"Ready gate"| Launcher
+    Launcher -->|"start and end only"| Metrics
+    Metrics -->|"read-only snapshot"| HardwareMetrics
     Launcher -->|"normal: Dynamic VRAM<br/>emergency: novram + CPU VAE"| Comfy
     LowWorkflow -->|"lowvram only"| Comfy
     OfficialWorkflow -->|"official only"| Comfy
@@ -87,8 +91,8 @@ flowchart LR
     classDef external fill:#fff3df,stroke:#9a6300,color:#432b00;
     classDef secret fill:#ffe8ee,stroke:#9c284b,color:#481023;
 
-    class Setup,RuntimeLock,Downloader,ModelManifest,Doctor,Launcher,LowWorkflow,ApiWrapper,ApiCli tracked;
-    class Venv,Comfy,GgufNode,Models,OfficialWorkflow,Outputs local;
+    class Setup,RuntimeLock,Downloader,ModelManifest,Doctor,Launcher,Metrics,LowWorkflow,ApiWrapper,ApiCli tracked;
+    class Venv,Comfy,GgufNode,Models,OfficialWorkflow,Outputs,HardwareMetrics local;
     class GitHub,PackageIndexes,HuggingFace,MiniMaxApi,OutputCdn external;
     class Env secret;
 ```
