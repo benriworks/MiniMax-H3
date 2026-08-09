@@ -1,1 +1,8 @@
 *.safetensors
+.env
+.venv/
+runtime/
+outputs/
+__pycache__/
+*.pyc
+*.gguf

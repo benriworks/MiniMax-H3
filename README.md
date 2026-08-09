@@ -1,3 +1,11 @@
+> [!NOTE]
+> **このチェックアウトには Windows 向けローカル/API実行補助が追加されています。**
+> まず [日本語セットアップ](LOCAL_SETUP_JA.md) を確認してください。構成の責務と境界は
+> [ARCHITECTURE.md](ARCHITECTURE.md)、Mermaid図は
+> [ARCHITECTURE_DIAGRAM.md](ARCHITECTURE_DIAGRAM.md)、モデル利用条件の要約は
+> [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) に分離しています。
+> 同梱low-VRAM workflowの20-step品質実行は未検証で、確認済みなのは別設定の1-step配線スモークです。
+
 <div align="center">
   <img width="100%" src="assets/minimax-h3-header.gif" alt="MiniMax H3">
 </div>
