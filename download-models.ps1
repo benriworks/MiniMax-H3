@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('lowvram', 'official')]
+    [ValidateSet('lowvram', 'lowvram_turbo', 'official')]
     [string] $Profile = 'lowvram',
 
     [switch] $AcceptLicense
@@ -27,6 +27,7 @@ if (-not $AcceptLicense) {
   https://huggingface.co/Comfy-Org/MiniMax-H3
   https://huggingface.co/Abiray/MiniMax-H3-Pruned-GGUF
   https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
+  https://huggingface.co/larryvrh/MiniMax-H3-Turbo-Lora
 Then rerun with -AcceptLicense to confirm acceptance.
 '@
     exit 2
@@ -46,7 +47,8 @@ $diffusionRoot = Join-Path $modelsRoot 'diffusion_models'
 $unetRoot = Join-Path $modelsRoot 'unet'
 $textEncoderRoot = Join-Path $modelsRoot 'text_encoders'
 $vaeRoot = Join-Path $modelsRoot 'vae'
-New-Item -ItemType Directory -Force -Path $diffusionRoot, $unetRoot, $textEncoderRoot, $vaeRoot | Out-Null
+$loraRoot = Join-Path $modelsRoot 'loras'
+New-Item -ItemType Directory -Force -Path $diffusionRoot, $unetRoot, $textEncoderRoot, $vaeRoot, $loraRoot | Out-Null
 
 $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
 if ($manifest.schema_version -ne 1) {
@@ -142,4 +144,4 @@ foreach ($entry in $entries) {
 Write-Host ''
 Write-Host "All $Profile model files passed exact-size verification."
 Write-Host "Optional full integrity check: .\.venv\Scripts\python.exe tools\local_doctor.py --profile $Profile --hash"
-Write-Host 'Run .\run-local.ps1 to start ComfyUI.'
+Write-Host "Run .\run-local.ps1 -Profile $Profile to start ComfyUI."

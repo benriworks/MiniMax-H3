@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('lowvram', 'official')]
+    [ValidateSet('lowvram', 'lowvram_turbo', 'official')]
     [string] $Profile = 'lowvram',
 
     [ValidateRange(1, 65535)]
@@ -73,6 +73,9 @@ else {
 
 Write-Host "Starting ComfyUI at http://127.0.0.1:$Port"
 Write-Host "Profile: $Profile"
+if ($Profile -eq 'lowvram_turbo') {
+    Write-Host 'Workflow: workflows\minimax_h3_t2v_lowvram_turbo.json (Turbo LoRA, 6 steps, low_vram merge)'
+}
 if ($EmergencyLowVram) {
     Write-Warning 'Emergency --novram --cpu-vae mode is enabled; generation will be substantially slower.'
 }

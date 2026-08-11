@@ -13,6 +13,7 @@ $venvPython = Join-Path $venvRoot 'Scripts\python.exe'
 $runtimeRoot = Join-Path $projectRoot 'runtime'
 $comfyRoot = Join-Path $runtimeRoot 'ComfyUI'
 $ggufRoot = Join-Path $comfyRoot 'custom_nodes\ComfyUI-GGUF'
+$turboRoot = Join-Path $comfyRoot 'custom_nodes\ComfyUI-MiniMax-H3-Turbo'
 $runtimeLockPath = Join-Path $projectRoot 'runtime-lock.json'
 $setupHelpersPath = Join-Path $projectRoot 'tools\setup_lock_helpers.ps1'
 
@@ -112,6 +113,7 @@ Write-Host "Python $pythonVersion (locked target: 3.12)"
 New-Item -ItemType Directory -Force -Path $runtimeRoot | Out-Null
 $comfySpec = $runtimeLock.repositories.comfyui
 $ggufSpec = $runtimeLock.repositories.comfyui_gguf
+$turboSpec = $runtimeLock.repositories.minimax_h3_turbo
 Set-GitRepositoryRevision `
     -Repository ([string]$comfySpec.repository) `
     -Revision ([string]$comfySpec.revision) `
@@ -120,6 +122,13 @@ Set-GitRepositoryRevision `
     -UseLatest:$Update
 
 New-Item -ItemType Directory -Force -Path (Join-Path $comfyRoot 'custom_nodes') | Out-Null
+Set-GitRepositoryRevision `
+    -Repository ([string]$turboSpec.repository) `
+    -Revision ([string]$turboSpec.revision) `
+    -Destination $turboRoot `
+    -Label 'ComfyUI-MiniMax-H3-Turbo' `
+    -UseLatest:$Update
+
 Set-GitRepositoryRevision `
     -Repository ([string]$ggufSpec.repository) `
     -Revision ([string]$ggufSpec.revision) `
@@ -218,3 +227,4 @@ else {
 }
 Write-Host 'Next: .\download-models.ps1 -Profile lowvram -AcceptLicense'
 Write-Host 'Then: .\run-local.ps1'
+Write-Host 'Optional Turbo: .\download-models.ps1 -Profile lowvram_turbo -AcceptLicense'

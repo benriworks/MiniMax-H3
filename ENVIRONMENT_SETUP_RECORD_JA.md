@@ -2,9 +2,15 @@
 
 ## この文書について
 
-この文書は、2026-08-09に `C:\Users\mono_\MiniMaxH3` へMiniMax H3の実行環境を構築した際の作業記録です。
+この文書は、2026-08-09に `C:\Users\mono_\MiniMaxH3` へMiniMax H3の実行環境を構築し、2026-08-11にVAE peak削減と任意Turbo経路を追加した際の作業記録です。
 
 操作方法だけを知りたい場合は[LOCAL_SETUP_JA.md](LOCAL_SETUP_JA.md)、現在の構成と責務は[ARCHITECTURE.md](ARCHITECTURE.md)、モデルの利用条件は[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)を参照してください。この文書では、なぜ現在の構成を選んだか、何に詰まり、どう回避したかを中心に記録します。
+
+### 2026-08-11追補
+
+- ComfyUIを、MiniMax H3 VAEをchunked I/O化した[PR #15446](https://github.com/Comfy-Org/ComfyUI/pull/15446)のmerge commitへ1 commitだけ進めました。上流報告では175 frames / 1344x768のdecode peak allocationが約3485MBから607MB、encodeが約5714MBから2402MBへ低下し、pixel-space outputはbitwise identical、速度はほぼ同等です。
+- LarryvrhのTurbo LoRAを、既存 `lowvram` を変更しない任意の `lowvram_turbo` profileと専用workflowとして追加しました。作者の対応一覧にQ3 GGUFは明記されないため、experimentalとして扱い、通常の `lowvram` をfallbackにします。
+- Turbo workflowはv4 step600 EMA、strength 1.0、simple / 6 steps、`low_vram=true` mergeです。adapterとcustom nodeは固定revision、LoRAと同梱time-conditioning gridはSHA-256で検査します。
 
 ## 最終的に構築したもの
 
@@ -40,7 +46,7 @@
 | NVIDIA driver | 610.62 |
 | Cドライブ | 構築前約544GiB空き、現在約501GiB空き |
 
-空きRAMと空きVRAMは他アプリの状態で変わります。初回監査ではVRAM空きが約3.3GiBしかなく、現在のdoctorでも約3.4GiBのため、総VRAMが8GiBあっても生成前にGPUを使うアプリを閉じる必要がありました。
+空きRAMと空きVRAMは他アプリの状態で変わります。初回監査ではVRAM空きが約3.3GiB、構築時後半のdoctorでも約3.4GiBだったため、総VRAMが8GiBあっても生成前にGPUを使うアプリを閉じる必要がありました。
 
 ### 既存ソフトウェア
 
@@ -95,8 +101,9 @@ MiniMax H3はQwen3-VL-32B系encoder、33B級のOmni Transformer、video/audio VA
 
 | コンポーネント | 固定値 |
 |---|---|
-| ComfyUI | `cbbc9dab1f03d0d9a6caa8a8be7d77a7e37e1e44` |
+| ComfyUI | `2a68ce33b4c9ea6ee4283e618a74560cefb32694` |
 | ComfyUI-GGUF | `6ea2651e7df66d7585f6ffee804b20e92fb38b8a` |
+| ComfyUI-MiniMax-H3-Turbo | `55fee864dd7b2976b1c4ce3c3d5f7968f181409f` |
 | torch | `2.13.0+cu130` |
 | torchvision | `0.28.0+cu130` |
 | torchaudio | `2.11.0+cu130` |
@@ -105,9 +112,9 @@ MiniMax H3はQwen3-VL-32B系encoder、33B級のOmni Transformer、video/audio VA
 
 再実行だけで上流最新版へ変わらないよう、通常setupは固定commitと固定packageを使います。最新版を試す操作は明示的な `-Update` に分離しました。
 
-### 2. ComfyUIとGGUF loaderを配置した
+### 2. ComfyUIと固定custom nodeを配置した
 
-`runtime/ComfyUI` にComfyUI、`runtime/ComfyUI/custom_nodes/ComfyUI-GGUF` にGGUF loaderを配置しました。どちらもGit管理外ですが、取得元とcommitはtracked lockに記録しています。
+`runtime/ComfyUI` にComfyUI、`runtime/ComfyUI/custom_nodes/ComfyUI-GGUF` にGGUF loader、`runtime/ComfyUI/custom_nodes/ComfyUI-MiniMax-H3-Turbo` に任意profile用nodeを配置しました。いずれもGit管理外ですが、取得元とcommitはtracked lockに記録しています。
 
 既存runtimeがdirtyな場合は自動resetしません。
 
@@ -129,6 +136,10 @@ MiniMax H3はQwen3-VL-32B系encoder、33B級のOmni Transformer、video/audio VA
 | Audio VAE | FP32 safetensors | 約0.56GiB |
 | 合計 |  | 約21.61GiB |
 
+#### lowvram_turbo profile
+
+`lowvram` の4ファイルに `minimax_h3_turbo_v4_step600_ema.safetensors` 779,849,816 bytes（約743.72MiB）を加え、合計23,983,726,816 bytes（約22.34GiB）です。adapterのsource revisionとSHA-256はmanifestへ固定しています。
+
 #### official profile
 
 Comfy-OrgのFL2VA int8 convrot、Qwen3-VL nvfp4 AWQ、共通VAE 2点で約39.55GiBです。構築時には共通VAEだけがあり、official固有の約34.14GiB分は未取得です。
@@ -149,6 +160,8 @@ Comfy-OrgのFL2VA int8 convrot、Qwen3-VL nvfp4 AWQ、共通VAE 2点で約39.55G
 - model名とloader pathをlowvram profileへ合わせた
 
 `official` profileではこのGGUF workflowを使わず、ComfyUI Template Libraryの公式MiniMax H3 T2Vを使います。
+
+任意の[Turbo workflow](workflows/minimax_h3_t2v_lowvram_turbo.json)はlow-VRAM workflowへTurbo LoRA / samplerを挿入し、0.2MP、5秒、simple / 6 steps、mergeを固定しました。Q3 GGUFとの組合せは作者資料で明示されないため、workflowの存在だけで公式対応とはみなしません。
 
 ### 5. VRAM/RAM不足の回避策を入れた
 
@@ -173,12 +186,13 @@ Comfy-OrgのFL2VA int8 convrot、Qwen3-VL nvfp4 AWQ、共通VAE 2点で約39.55G
 - GPU total/free VRAMとdriver
 - 物理RAM total/available、pagefile
 - モデル取得後も残るdisk容量
-- Python、PyTorch、CUDA、ComfyUI、ComfyUI-GGUF
+- Python、PyTorch、CUDA、ComfyUI、ComfyUI-GGUF、Turbo custom node
+- VAE chunked I/O code contractとTurbo time-conditioning grid hash
 - 固定Git commitとcore package version
 - profileごとのモデル名、容量、任意SHA-256
 - workflow loader、モデル名、解像度、秒数、steps
 
-total VRAMだけを見て「Ready」とすると、他アプリがVRAMを消費している状態を見逃します。そのためfree VRAMも取得し、現在のように空き約3.4GiBならEmergency modeを提案するwarningを出します。diskはモデルが揃っていても最低2GiB未満ならerror、2〜20GiBならwarningにしました。
+total VRAMだけを見て「Ready」とすると、他アプリがVRAMを消費している状態を見逃します。そのためfree VRAMも取得し、構築時に観測した約3.4GiBのような低空き状態ならEmergency modeを提案するwarningを出します。diskはモデルが揃っていても最低2GiB未満ならerror、2〜20GiBならwarningにしました。
 
 ### 7. API fallbackを安全側に実装した
 
@@ -244,6 +258,7 @@ lowvram FL2VA GGUFは `models/unet` と `UnetLoaderGGUF`、公式int8は `models
 - `git clone --no-checkout` 後にHEADが固定revisionと一致すると、checkoutをskipしてworking treeが展開されない場合がありました。
 - helperをdot-sourceした後に同名functionをsetup本体で再定義し、修正版を上書きしたことがありました。
 - native commandを `| Select-Object -First 1` へ直接pipeすると、Windows PowerShell 5.1で有効な出力があっても `$LASTEXITCODE=-1` になるケースがありました。
+- 未取得commitを調べる `git cat-file -e` の正常なprobe missがstderrを出し、呼出し元の `ErrorActionPreference=Stop` によりfetch前に終端しました。
 
 対処:
 
@@ -251,7 +266,8 @@ lowvram FL2VA GGUFは `models/unet` と `UnetLoaderGGUF`、公式int8は `models
 - 通常clone後に固定revisionへdetached checkoutする
 - Git操作helperを1箇所だけに置く
 - native出力を一度配列へ受け、直後にexit codeを保存してから先頭要素を選ぶ
-- fresh cloneとdirty repositoryを含む統合テストを追加する
+- `cat-file` probe中だけnative stderrを非終端扱いにし、必ずexit codeでfetch要否を決める
+- fresh clone、shallow cloneのmissing object、dirty repositoryを含む統合テストを追加する
 
 ### API redirectでBearerが別originへ渡る可能性があった
 
@@ -275,20 +291,24 @@ MiniMax H3は独自Community Licenseで、community quantization側はmetadata�
 
 構築時および本書作成時に次を確認しました。
 
-- `lowvram` profileの4モデルが正確なbyte数とSHA-256に一致
+- `lowvram_turbo` profileの5モデルが正確なbyte数とSHA-256に一致
 - `local_doctor.py --hash` が `Ready: yes`
-- 固定ComfyUI/GGUF commit、Python、torch3 packageがlockと一致
-- ComfyUIの必須H3 nodeと4モデルを認識
-- workflowのGGUF loader、model名、608x352、4秒、20 steps contractが一致
-- 自動テスト31/31合格
+- 固定ComfyUI/GGUF/Turbo node commit、Python、torch3 packageがlockと一致
+- ComfyUIの必須H3/Turbo/GGUF nodeと5モデルを認識
+- base workflowの608x352 / 4秒 / 20 stepsと、Turbo workflowの608x352 / 5秒 / simple / 6 steps / merge wiring contractが一致
+- 自動テスト34/34合格
 - Mermaid architecture diagramの実レンダー成功
 - Emergency相当、608x352、4秒指定、1 stepのE2E配線スモーク成功
 - 出力MP4はH.264 608x352、24fps、124 framesとAAC 32kHz stereo
 - 1-stepスモークの総所要時間は約15分50秒
+- Turbo Q3 merge、416x256、4秒指定、4 stepsのDynamic VRAM E2Eが70.35秒で完走
+- Turbo出力は605,791 bytes、H.264 24fps / 4.458秒 + AAC 32kHz stereo。同seedでLoRAなしA/Bとの差は平均PSNR 24.06 dB。[機械可読な検証記録](verification/turbo-e2e-2026-08-11.json)に条件とartifact hashを保存
+- Q3では汎用canaryの `weight_patched=False` はComfyUI-GGUFの `GGMLTensor.weight.patches` を見ないfalse negative。`208 weights patched + 51 adaln injected`、完走、A/B差を併用して適用を確認
 
 ## まだ検証していないこと
 
 - 同梱20-step lowvram workflowの完走時間と品質
+- tracked Turbo既定の0.2MP / 5秒 / 6-step完走・品質・再現性とbypass経路
 - 768p相当のローカル生成
 - `official` profile固有モデル2点を使った生成
 - API keyと課金を伴うMiniMax API実生成

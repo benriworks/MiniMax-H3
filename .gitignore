@@ -3,6 +3,7 @@
 .venv/
 runtime/
 outputs/
+.codex-remote-attachments/
 __pycache__/
 *.pyc
 *.gguf

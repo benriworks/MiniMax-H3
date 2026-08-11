@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "verified_at": "2026-08-11T10:28:44+09:00",
+  "machine": {
+    "gpu": "NVIDIA GeForce RTX 3070 Ti",
+    "vram_gib": 8,
+    "runtime_mode": "dynamic_vram"
+  },
+  "runtime": {
+    "comfyui_revision": "2a68ce33b4c9ea6ee4283e618a74560cefb32694",
+    "comfyui_gguf_revision": "6ea2651e7df66d7585f6ffee804b20e92fb38b8a",
+    "turbo_node_revision": "55fee864dd7b2976b1c4ce3c3d5f7968f181409f",
+    "turbo_lora_sha256": "5f3a626cd72c93a8b9318d6760c510bc5092d2ab13aaba1f932c5bab07a416d3"
+  },
+  "settings": {
+    "base_model": "MiniMax-H3-FL2VA-Pruned-Q3_K_M.gguf",
+    "text_encoder": "qwen3vl-32B-MiniMax-H3-Q2_K.gguf",
+    "width": 416,
+    "height": 256,
+    "requested_duration_seconds": 4,
+    "steps": 4,
+    "scheduler": "simple",
+    "seed": 20260811,
+    "lora_strength": 1.0,
+    "low_vram_merge": true
+  },
+  "turbo_run": {
+    "prompt_id": "35d1c116-51ea-4491-bfd6-fc89ddcbfb8a",
+    "execution_seconds": 70.35,
+    "accepted_weight_patches": 208,
+    "adaln_injections": 51,
+    "artifact": {
+      "path": "outputs/video/MiniMax_H3_Turbo_Smoke_00001_.mp4",
+      "bytes": 605791,
+      "sha256": "af76b19ff0833e384562b411929123674b35ec343ecb1493443640a1dc7498c5",
+      "duration_seconds": 4.458333,
+      "video": "h264 416x256 24fps",
+      "audio": "aac 32000Hz stereo"
+    }
+  },
+  "base_ab_run": {
+    "prompt_id": "de4f4231-720d-40c7-9ca3-5d62509de872",
+    "execution_seconds": 63.37,
+    "artifact": {
+      "path": "outputs/video/MiniMax_H3_Turbo_AB_Base4Step_00001_.mp4",
+      "bytes": 385206,
+      "sha256": "c2499bc614f4fffdd909a0184ce430b016774e7a240635263a906ff819cd8e92",
+      "duration_seconds": 4.458333,
+      "video": "h264 416x256 24fps",
+      "audio": "aac 32000Hz stereo"
+    }
+  },
+  "comparison": {
+    "video_psnr_average_db": 24.061044,
+    "interpretation": "The same-seed Turbo and no-LoRA outputs are materially different; this is an application check, not a quality score."
+  },
+  "ignored_runtime_evidence": {
+    "stdout_log_sha256": "30a5cb7da116e3c7458e715f4c995ceda24a0d1fb2617bec17dd078d6b8ef65d",
+    "stderr_log_sha256": "ff23b1da28c66844976562d90d9c78b485a9225d9b8738752cbbec2d3b01a7cd"
+  },
+  "scope": "This record verifies the 0.1 MP, four-second, four-step smoke only. It does not verify the tracked workflow defaults of 0.2 MP, five seconds, and six steps or the bypass path."
+}

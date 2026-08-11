@@ -41,7 +41,7 @@ class Check:
     details: dict[str, Any] | None = None
 
 
-PROFILE_NAMES = ("lowvram", "official")
+PROFILE_NAMES = ("lowvram", "lowvram_turbo", "official")
 
 LOWVRAM_WORKFLOW_MODELS = frozenset(
     (
@@ -61,6 +61,10 @@ OFFICIAL_WORKFLOW_MODELS = frozenset(
     )
 )
 
+TURBO_LORA_NAME = "minimax_h3_turbo_v4_step600_ema.safetensors"
+TURBO_WORKFLOW_MODELS = LOWVRAM_WORKFLOW_MODELS | {TURBO_LORA_NAME}
+TURBO_GRID_SHA256 = "30eb3c2cc7fb6b470d9717ff840d359313ac27cd64b705e32da1baa10f72d6a8"
+
 
 def load_runtime_lock(lock_path: Path) -> dict[str, Any]:
     try:
@@ -75,7 +79,7 @@ def load_runtime_lock(lock_path: Path) -> dict[str, Any]:
     repositories = runtime_lock.get("repositories")
     if not isinstance(repositories, dict):
         raise ValueError("runtime lock repositories object is missing")
-    for repository_id in ("comfyui", "comfyui_gguf"):
+    for repository_id in ("comfyui", "comfyui_gguf", "minimax_h3_turbo"):
         repository = repositories.get(repository_id)
         if not isinstance(repository, dict):
             raise ValueError(f"runtime lock repository {repository_id!r} is missing")
@@ -118,10 +122,16 @@ def load_model_profiles(manifest_path: Path) -> dict[str, tuple[ModelSpec, ...]]
         raise ValueError("model manifest must contain models and profiles objects")
 
     result: dict[str, tuple[ModelSpec, ...]] = {}
+    expected_counts = {"lowvram": 4, "lowvram_turbo": 5, "official": 4}
     for profile_name in PROFILE_NAMES:
         identifiers = profiles.get(profile_name)
-        if not isinstance(identifiers, list) or len(identifiers) != 4:
-            raise ValueError(f"profile {profile_name!r} must reference exactly four models")
+        expected_count = expected_counts[profile_name]
+        if not isinstance(identifiers, list) or len(identifiers) != expected_count:
+            raise ValueError(
+                f"profile {profile_name!r} must reference exactly {expected_count} models"
+            )
+        if len(set(identifiers)) != len(identifiers):
+            raise ValueError(f"profile {profile_name!r} contains duplicate model identifiers")
         specs: list[ModelSpec] = []
         for identifier in identifiers:
             entry = models.get(identifier)
@@ -360,13 +370,33 @@ def _inspect_git_lock(path: Path, expected_revision: str) -> tuple[str, str, dic
 
 def check_comfyui(root: Path, expected_revision: str) -> Check:
     comfy = root / "runtime" / "ComfyUI"
-    required = (comfy / "main.py", comfy / "comfy_extras" / "nodes_minimax_h3.py")
+    h3_vae = comfy / "comfy" / "ldm" / "minimax" / "vae.py"
+    comfy_sd = comfy / "comfy" / "sd.py"
+    required = (
+        comfy / "main.py",
+        comfy / "comfy_extras" / "nodes_minimax_h3.py",
+        h3_vae,
+        comfy_sd,
+    )
     missing = [str(path) for path in required if not path.is_file()]
     if missing:
         return Check("comfyui", "error", "ComfyUI or native MiniMax H3 nodes are missing", {"missing": missing})
+    try:
+        vae_source = h3_vae.read_text(encoding="utf-8")
+        sd_source = comfy_sd.read_text(encoding="utf-8")
+    except OSError as exc:
+        return Check("comfyui", "error", f"cannot inspect MiniMax H3 VAE optimization: {exc}")
+    if "comfy_has_chunked_io = True" not in vae_source or "comfy_has_chunked_io" not in sd_source:
+        return Check(
+            "comfyui",
+            "error",
+            "MiniMax H3 chunked VAE I/O optimization from ComfyUI PR #15446 is missing",
+            {"vae_path": str(h3_vae), "sd_path": str(comfy_sd)},
+        )
     status, revision_note, revision_details = _inspect_git_lock(comfy, expected_revision)
     details: dict[str, Any] = {"path": str(comfy), **revision_details}
-    summary = "ComfyUI with native MiniMax H3 nodes is present"
+    details["minimax_h3_chunked_vae_io"] = True
+    summary = "ComfyUI with native MiniMax H3 nodes and chunked VAE I/O is present"
     summary += revision_note
     return Check("comfyui", status, summary, details)
 
@@ -447,6 +477,58 @@ def check_custom_node(root: Path, expected_revision: str) -> Check:
         status,
         "ComfyUI-GGUF loaders are present" + revision_note,
         {"path": str(gguf), **revision_details},
+    )
+
+
+def check_turbo_custom_node(root: Path, expected_revision: str) -> Check:
+    turbo = root / "runtime" / "ComfyUI" / "custom_nodes" / "ComfyUI-MiniMax-H3-Turbo"
+    nodes_file = turbo / "__init__.py"
+    grid_file = turbo / "h3_silu_temb_grid.safetensors"
+    if not nodes_file.is_file() or not grid_file.is_file():
+        return Check(
+            "minimax_h3_turbo_node",
+            "error",
+            f"pinned MiniMax H3 Turbo custom node is missing: {turbo}",
+        )
+    try:
+        source = nodes_file.read_text(encoding="utf-8")
+    except OSError as exc:
+        return Check("minimax_h3_turbo_node", "error", f"cannot read Turbo node source: {exc}")
+    required_contracts = (
+        '"MiniMaxH3TurboLoRA"',
+        '"MiniMaxH3TurboSampler"',
+        "low_vram",
+        "weight_patched",
+    )
+    missing = [contract for contract in required_contracts if contract not in source]
+    if missing:
+        return Check(
+            "minimax_h3_turbo_node",
+            "error",
+            "required Turbo node contracts are missing",
+            {"missing": missing, "path": str(nodes_file)},
+        )
+    try:
+        grid_digest = hashlib.sha256(grid_file.read_bytes()).hexdigest()
+    except OSError as exc:
+        return Check("minimax_h3_turbo_node", "error", f"cannot hash Turbo time grid: {exc}")
+    if grid_digest != TURBO_GRID_SHA256:
+        return Check(
+            "minimax_h3_turbo_node",
+            "error",
+            "Turbo time-conditioning grid SHA-256 mismatch",
+            {
+                "path": str(grid_file),
+                "expected_sha256": TURBO_GRID_SHA256,
+                "actual_sha256": grid_digest,
+            },
+        )
+    status, revision_note, revision_details = _inspect_git_lock(turbo, expected_revision)
+    return Check(
+        "minimax_h3_turbo_node",
+        status,
+        "MiniMax H3 Turbo LoRA and sampler nodes are present" + revision_note,
+        {"path": str(turbo), "grid_sha256": grid_digest, **revision_details},
     )
 
 
@@ -611,9 +693,13 @@ def check_official_workflow(root: Path) -> Check:
 def check_workflow(root: Path, profile: str = "lowvram") -> Check:
     if profile == "official":
         return check_official_workflow(root)
-    path = root / "workflows" / "minimax_h3_t2v_lowvram.json"
+    is_turbo = profile == "lowvram_turbo"
+    workflow_name = (
+        "minimax_h3_t2v_lowvram_turbo.json" if is_turbo else "minimax_h3_t2v_lowvram.json"
+    )
+    path = root / "workflows" / workflow_name
     if not path.is_file():
-        return Check("workflow", "error", f"low-VRAM workflow is missing: {path}")
+        return Check("workflow", "error", f"{profile} workflow is missing: {path}")
     try:
         workflow = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -629,9 +715,85 @@ def check_workflow(root: Path, profile: str = "lowvram") -> Check:
         problems.append("UnetLoaderGGUF is missing")
     if "CLIPLoaderGGUF" not in node_types:
         problems.append("CLIPLoaderGGUF is missing")
-    missing_names = sorted(LOWVRAM_WORKFLOW_MODELS - strings)
+    expected_models = TURBO_WORKFLOW_MODELS if is_turbo else LOWVRAM_WORKFLOW_MODELS
+    missing_names = sorted(expected_models - strings)
     if missing_names:
         problems.append(f"loader model names missing: {', '.join(missing_names)}")
+
+    turbo_lora_nodes = [node for node in nodes if node.get("type") == "MiniMaxH3TurboLoRA"]
+    turbo_sampler_nodes = [node for node in nodes if node.get("type") == "MiniMaxH3TurboSampler"]
+    if is_turbo:
+        if len(turbo_lora_nodes) != 1:
+            problems.append("exactly one MiniMaxH3TurboLoRA node is required")
+        else:
+            lora_values = turbo_lora_nodes[0].get("widgets_values", [])
+            if (
+                not isinstance(lora_values, list)
+                or len(lora_values) < 3
+                or lora_values[0] != TURBO_LORA_NAME
+                or lora_values[1] != 1
+                or lora_values[2] is not True
+            ):
+                problems.append("Turbo LoRA must use the pinned v4 EMA file, strength 1.0, and low_vram merge")
+        if len(turbo_sampler_nodes) != 1:
+            problems.append("exactly one MiniMaxH3TurboSampler node is required")
+        definitions = workflow.get("definitions")
+        subgraphs = definitions.get("subgraphs", []) if isinstance(definitions, dict) else []
+        turbo_graphs = [
+            graph
+            for graph in subgraphs
+            if isinstance(graph, dict)
+            and isinstance(graph.get("nodes"), list)
+            and any(
+                isinstance(node, dict) and node.get("type") == "MiniMaxH3TurboLoRA"
+                for node in graph["nodes"]
+            )
+        ]
+        if len(turbo_graphs) != 1:
+            problems.append("Turbo nodes must share one inspectable subgraph")
+        else:
+            graph = turbo_graphs[0]
+            graph_nodes = {
+                node.get("id"): node for node in graph["nodes"] if isinstance(node, dict)
+            }
+            graph_links = {
+                link.get("id"): link
+                for link in graph.get("links", [])
+                if isinstance(link, dict)
+            }
+
+            def linked_origin_type(node_type: str, input_name: str) -> str | None:
+                matching = [node for node in graph_nodes.values() if node.get("type") == node_type]
+                if len(matching) != 1:
+                    return None
+                inputs = matching[0].get("inputs", [])
+                input_entry = next(
+                    (
+                        entry
+                        for entry in inputs
+                        if isinstance(entry, dict) and entry.get("name") == input_name
+                    ),
+                    None,
+                )
+                link = graph_links.get(input_entry.get("link")) if input_entry else None
+                origin = graph_nodes.get(link.get("origin_id")) if link else None
+                return str(origin.get("type")) if isinstance(origin, dict) else None
+
+            required_wiring = (
+                ("MiniMaxH3TurboLoRA", "model", "UnetLoaderGGUF"),
+                ("BasicScheduler", "model", "MiniMaxH3TurboLoRA"),
+                ("BasicGuider", "model", "MiniMaxH3TurboLoRA"),
+                ("SamplerCustomAdvanced", "sampler", "MiniMaxH3TurboSampler"),
+            )
+            for target_type, input_name, expected_origin in required_wiring:
+                actual_origin = linked_origin_type(target_type, input_name)
+                if actual_origin != expected_origin:
+                    problems.append(
+                        f"{target_type}.{input_name} must be linked from {expected_origin}, "
+                        f"found {actual_origin or 'no valid link'}"
+                    )
+    elif turbo_lora_nodes or turbo_sampler_nodes:
+        problems.append("base low-VRAM workflow must not enable Turbo nodes")
 
     selectors = [node for node in nodes if node.get("type") == "ResolutionSelector"]
     selector_values = selectors[0].get("widgets_values", []) if selectors else []
@@ -639,8 +801,14 @@ def check_workflow(root: Path, profile: str = "lowvram") -> Check:
         problems.append("ResolutionSelector is not set to 0.2 megapixels")
     schedulers = [node for node in nodes if node.get("type") == "BasicScheduler"]
     scheduler_values = schedulers[0].get("widgets_values", []) if schedulers else []
-    if not isinstance(scheduler_values, list) or len(scheduler_values) < 2 or scheduler_values[1] != 20:
-        problems.append("BasicScheduler is not set to 20 steps")
+    expected_steps = 6 if is_turbo else 20
+    if (
+        not isinstance(scheduler_values, list)
+        or len(scheduler_values) < 2
+        or scheduler_values[0] != "simple"
+        or scheduler_values[1] != expected_steps
+    ):
+        problems.append(f"BasicScheduler is not set to simple / {expected_steps} steps")
 
     definitions = workflow.get("definitions")
     subgraphs = definitions.get("subgraphs", []) if isinstance(definitions, dict) else []
@@ -653,8 +821,10 @@ def check_workflow(root: Path, profile: str = "lowvram") -> Check:
     instances = [node for node in top_nodes if isinstance(node, dict) and node.get("type") in subgraph_ids]
     if not instances or len(instances[0].get("widgets_values", [])) < 4:
         problems.append("MiniMax H3 subgraph instance is missing")
-    elif instances[0]["widgets_values"][3] != 4:
-        problems.append("workflow duration is not set to 4 seconds")
+    else:
+        expected_duration = 5 if is_turbo else 4
+        if instances[0]["widgets_values"][3] != expected_duration:
+            problems.append(f"workflow duration is not set to {expected_duration} seconds")
 
     provenance = root / "workflows" / "README.md"
     if not provenance.is_file():
@@ -667,13 +837,22 @@ def check_workflow(root: Path, profile: str = "lowvram") -> Check:
         else:
             if "video_minimax_h3_t2v.json" not in provenance_text or "5c75d9f" not in provenance_text:
                 problems.append("workflow provenance source/commit is incomplete")
+            if is_turbo and (
+                "55fee864dd7b2976b1c4ce3c3d5f7968f181409f" not in provenance_text
+                or "43a74557ac3f6539db8e0f2a959d03feb7a81480" not in provenance_text
+            ):
+                problems.append("Turbo workflow provenance revisions are incomplete")
 
     if problems:
         return Check("workflow", "error", "; ".join(problems), {"path": str(path)})
     return Check(
         "workflow",
         "ok",
-        "GGUF loaders, four model names, 0.2 MP, 4 seconds, and 20 steps verified",
+        (
+            "GGUF loaders, five model names, Turbo merge path, 0.2 MP, 5 seconds, and 6 steps verified"
+            if is_turbo
+            else "GGUF loaders, four model names, 0.2 MP, 4 seconds, and 20 steps verified"
+        ),
         {"path": str(path)},
     )
 
@@ -762,6 +941,11 @@ def inspect_environment(root: Path, profile: str, *, verify_hash: bool = False) 
                 Check("comfyui", "error", "cannot verify ComfyUI without a valid runtime lock"),
                 Check("torch_cuda", "error", "cannot verify PyTorch without a valid runtime lock"),
                 Check("comfyui_gguf", "error", "cannot verify ComfyUI-GGUF without a valid runtime lock"),
+                Check(
+                    "minimax_h3_turbo_node",
+                    "error",
+                    "cannot verify MiniMax H3 Turbo node without a valid runtime lock",
+                ),
             )
         )
     else:
@@ -773,11 +957,21 @@ def inspect_environment(root: Path, profile: str, *, verify_hash: bool = False) 
                     root,
                     str(runtime_lock["repositories"]["comfyui_gguf"]["revision"]),
                 ),
+                check_turbo_custom_node(
+                    root,
+                    str(runtime_lock["repositories"]["minimax_h3_turbo"]["revision"]),
+                ),
             )
         )
     checks.extend([manifest_check, *model_checks, check_workflow(root, profile)])
     ready = not any(check.status == "error" for check in checks)
-    reproducibility_names = {"runtime_lock", "comfyui", "torch_cuda", "comfyui_gguf"}
+    reproducibility_names = {
+        "runtime_lock",
+        "comfyui",
+        "torch_cuda",
+        "comfyui_gguf",
+        "minimax_h3_turbo_node",
+    }
     locked_core_matches = all(
         check.status == "ok" for check in checks if check.name in reproducibility_names
     ) and reproducibility_names.issubset({check.name for check in checks})

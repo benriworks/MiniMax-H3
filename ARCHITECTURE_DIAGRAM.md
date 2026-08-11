@@ -15,6 +15,7 @@ flowchart LR
         Launcher["run-local.ps1"]
         Metrics["tools/system_metrics.ps1<br/>start / end snapshot"]
         LowWorkflow["lowvram workflow<br/>GGUF / 0.2MP / 4s / 20 steps"]
+        TurboWorkflow["optional Turbo workflow<br/>GGUF + LoRA / 0.2MP / 5s / 6 steps"]
         ApiWrapper["run-api.ps1"]
         ApiCli["tools/h3_api.py"]
     end
@@ -25,9 +26,10 @@ flowchart LR
 
     subgraph LocalRuntime["Untracked local boundary"]
         Venv[".venv<br/>Python 3.12 + locked packages"]
-        Comfy["ComfyUI on 127.0.0.1<br/>native H3 nodes"]
+        Comfy["ComfyUI on 127.0.0.1<br/>native H3 nodes + chunked VAE I/O"]
         GgufNode["ComfyUI-GGUF"]
-        Models["models<br/>lowvram or official profile"]
+        TurboNode["MiniMax H3 Turbo node<br/>pinned custom code + time grid"]
+        Models["models<br/>lowvram / Turbo / official profile"]
         OfficialWorkflow["Template Library<br/>official H3 T2V"]
         Outputs["MP4 outputs / temp"]
         HardwareMetrics["Windows CIM / sensor WMI<br/>NVIDIA nvidia-smi"]
@@ -51,6 +53,7 @@ flowchart LR
     Setup --> Venv
     Setup --> Comfy
     Setup --> GgufNode
+    Setup --> TurboNode
 
     Operator -->|"-AcceptLicense"| Downloader
     ModelManifest --> Downloader
@@ -64,6 +67,7 @@ flowchart LR
     Doctor -->|"HEAD / nodes / resources"| Comfy
     Doctor -->|"size / optional SHA-256"| Models
     Doctor -->|"profile contract"| LowWorkflow
+    Doctor -->|"Turbo wiring / merge contract"| TurboWorkflow
     Doctor -->|"profile contract"| OfficialWorkflow
 
     Operator --> Launcher
@@ -72,8 +76,10 @@ flowchart LR
     Metrics -->|"read-only snapshot"| HardwareMetrics
     Launcher -->|"normal: Dynamic VRAM<br/>emergency: novram + CPU VAE"| Comfy
     LowWorkflow -->|"lowvram only"| Comfy
+    TurboWorkflow -->|"lowvram_turbo only"| Comfy
     OfficialWorkflow -->|"official only"| Comfy
     GgufNode --> Comfy
+    TurboNode -->|"optional LoRA + sampler"| Comfy
     Models --> Comfy
     Comfy --> Outputs
 
@@ -91,8 +97,8 @@ flowchart LR
     classDef external fill:#fff3df,stroke:#9a6300,color:#432b00;
     classDef secret fill:#ffe8ee,stroke:#9c284b,color:#481023;
 
-    class Setup,RuntimeLock,Downloader,ModelManifest,Doctor,Launcher,Metrics,LowWorkflow,ApiWrapper,ApiCli tracked;
-    class Venv,Comfy,GgufNode,Models,OfficialWorkflow,Outputs,HardwareMetrics local;
+    class Setup,RuntimeLock,Downloader,ModelManifest,Doctor,Launcher,Metrics,LowWorkflow,TurboWorkflow,ApiWrapper,ApiCli tracked;
+    class Venv,Comfy,GgufNode,TurboNode,Models,OfficialWorkflow,Outputs,HardwareMetrics local;
     class GitHub,PackageIndexes,HuggingFace,MiniMaxApi,OutputCdn external;
     class Env secret;
 ```

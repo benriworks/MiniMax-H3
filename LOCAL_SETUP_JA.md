@@ -10,6 +10,7 @@
 - ローカル経路はオープンウェイトの **H3-Base-FL2VA** をComfyUIで動かす経路です。H3-Baseのネイティブキャンバスは短辺768pxです。H3-Context-IRとH3-Regenerate-2Kは現時点のオープンソース公開に含まれず、2Kを含む公式フル経路はAPIを使用します。一次情報: [MiniMax H3公式リポジトリ](https://github.com/MiniMax-AI/MiniMax-H3#recommended-workflow)、[ComfyUI公式H3チュートリアル](https://docs.comfy.org/tutorials/video/minimax/minimax-h3)。
 - 同梱 `workflows/minimax_h3_t2v_lowvram.json` は、負荷を抑えるため **608x352（0.2MP）、4秒指定、20 steps** にしたT2V workflowです。768p品質設定ではありません。
 - `lowvram` のQ3/Q2 GGUFはコミュニティ量子化で、実験的です。公式ウェイトより品質、時間的一貫性、指示追従、音声品質が低下する可能性があります。
+- 任意の `lowvram_turbo` はLarryvrhのTurbo LoRAを追加し、**608x352、5秒指定、simple / 6 steps** で試す実験経路です。Q3 GGUFは作者が明示する対応baseに含まれないため、通常の `lowvram` を必ずfallbackとして残します。
 - APIで新しい生成を始める `submit` は課金され得ます。CLIは `--confirm-billable` がない限り、送信前に停止します。
 - `setup-local.ps1` と `run-local.ps1` は他のGPUアプリを自動終了しません。
 
@@ -18,6 +19,7 @@
 | 目的 | 経路 | 主な特徴 |
 |---|---|---|
 | 8GB級GPUでまず配線を試す | `lowvram` | コミュニティQ3/Q2、約21.61GiB、同梱GGUF workflow |
+| samplingを短縮して試す | `lowvram_turbo` | `lowvram` + 約743.72MiBのTurbo LoRA、約22.34GiB、専用6-step workflow。実験的 |
 | ComfyUI公式ウェイトを使う | `official` | Comfy-Org int8/nvfp4、約39.55GiB、ComfyUI Template Libraryの公式T2Vを使用 |
 | 2K、H3-Context-IR、H3-Regenerate-2K、公式ホスト実行 | MiniMax API | API利用料と外部送信が発生し得る |
 
@@ -26,17 +28,23 @@ MiniMaxの公開説明では、ローカルH3-Baseは768p検証、フル2K workf
 
 ## このフォルダで確認済みの状態
 
-2026-08-09時点で、次を確認しています。
+2026-08-11時点で、次を確認しています。
 
 - Windows AMD64 / CPython 3.12.2
-- ComfyUI `cbbc9dab1f03d0d9a6caa8a8be7d77a7e37e1e44`
+- ComfyUI `2a68ce33b4c9ea6ee4283e618a74560cefb32694`（[PR #15446](https://github.com/Comfy-Org/ComfyUI/pull/15446)のMiniMax H3 VAE chunked I/Oを含む）
 - ComfyUI-GGUF `6ea2651e7df66d7585f6ffee804b20e92fb38b8a`
+- ComfyUI-MiniMax-H3-Turbo `55fee864dd7b2976b1c4ce3c3d5f7968f181409f`
 - PyTorch `2.13.0+cu130`、torchvision `0.28.0+cu130`、torchaudio `2.11.0+cu130`
 - RTX 3070 Ti 8GiB、物理RAM約47.72GiB、pagefile 60GiBの検査
-- `lowvram` 4ファイルの正確なbyte数とSHA-256一致、`local_doctor.py --hash` の `Ready: yes`
-- セキュリティ・manifest・workflow・PowerShell・fresh clone・system metricsを含む自動テスト **31/31合格**
+- `lowvram_turbo` 5ファイル（base 4点 + LoRA 779,849,816 bytes）の正確なbyte数とfull SHA-256一致、`local_doctor.py --hash` の `Ready: yes`
+- Turbo custom nodeの2 nodeがComfyUI `object_info`に登録され、同梱time-conditioning gridのSHA-256も一致
+- セキュリティ・manifest・workflow wiring・PowerShell・fresh/shallow clone・system metricsを含む自動テスト **34/34合格**
 
-さらに、Emergencyモード相当の `--novram --cpu-vae`、Q3/Q2、608x352で、配線確認用の1-step E2Eスモークが成功しています。出力は726,468 bytesのMP4で、ffprobeではH.264 608x352 / 24fps / 124 framesとAAC 32kHz stereoを確認しました。総所要時間は約15分50秒でした。このスモークは品質評価ではなく、同梱20-step workflowの生成成功や所要時間を保証しません。**同梱20-step workflowはまだ実生成未検証です。**
+さらに、base `lowvram` はEmergencyモード相当の `--novram --cpu-vae`、Q3/Q2、608x352で、配線確認用の1-step E2Eスモークが成功しています。出力は726,468 bytesのMP4で、ffprobeではH.264 608x352 / 24fps / 124 framesとAAC 32kHz stereoを確認しました。総所要時間は約15分50秒でした。このスモークは品質評価ではなく、同梱20-step workflowの生成成功や所要時間を保証しません。**同梱20-step workflowはまだ実生成未検証です。**
+
+ComfyUI PR #15446は、長いvideo全体を一度に複製せずchunk単位でvideo VAEのencode/decode I/Oを処理します。上流の175 frames / 1344x768例ではdecode peak allocationが約3485MBから607MB、encodeが約5714MBから2402MBへ下がり、pixel-space outputはbitwise identical、速度はほぼ同等と報告されています。これはpeak削減であり、高速化や8GiB環境での全設定完走を保証するものではありません。
+
+Turboについては、Dynamic VRAM、Q3/Q2、`low_vram=true`、416x256（0.1MP）、4秒指定、4 stepsの実機スモークが70.35秒で完走しました。出力 `outputs/video/MiniMax_H3_Turbo_Smoke_00001_.mp4` は605,791 bytesで、ffprobeではH.264 416x256 / 24fps / 4.458秒とAAC 32kHz stereoを確認しました。同じseed/settingsからLoRAを外したA/Bも63.37秒で完走し、video frameの平均PSNRは24.06 dBで出力差がありました。これはTurbo適用とpipeline完走の確認であり、品質評価ではありません。実行条件とignored出力のhashは[検証記録](verification/turbo-e2e-2026-08-11.json)に残しています。**同梱workflow既定の0.2MP / 5秒 / 6 stepsはまだ実生成未検証です。**
 
 `official` 固有の約34.14GiB分の2ファイルは、この確認時点では未導入です。共通VAE 2ファイルのみ導入済みです。
 
@@ -60,7 +68,7 @@ PowerShellでプロジェクトルートから実行します。
 
 既定実行は次を固定します。
 
-- `runtime-lock.json` に記録したComfyUI / ComfyUI-GGUF commit
+- `runtime-lock.json` に記録したComfyUI / ComfyUI-GGUF / ComfyUI-MiniMax-H3-Turbo commit
 - `runtime-lock.json` に記録したPyTorch cu130 3パッケージ
 - `requirements-local-lock.txt` のWindows / CPython 3.12向け依存バージョン
 
@@ -84,6 +92,12 @@ PowerShellでプロジェクトルートから実行します。
 .\download-models.ps1 -Profile lowvram -AcceptLicense
 ```
 
+任意のTurbo profile:
+
+```powershell
+.\download-models.ps1 -Profile lowvram_turbo -AcceptLicense
+```
+
 公式ComfyUI profile:
 
 ```powershell
@@ -95,6 +109,8 @@ PowerShellでプロジェクトルートから実行します。
 ```powershell
 .\.venv\Scripts\python.exe -B tools\local_doctor.py --profile lowvram --hash
 ```
+
+Turboを選んだ場合は、同じコマンドのprofileを `lowvram_turbo` にします。
 
 ## 3. ローカルComfyUIを起動する
 
@@ -130,6 +146,20 @@ ComfyUIで `workflows/minimax_h3_t2v_lowvram.json` を開きます。これは
 [Comfy-Org公式T2V templateの固定commit](https://github.com/Comfy-Org/workflow_templates/blob/5c75d9f137bb27706a70dd337dac6249b2e51ded/templates/video_minimax_h3_t2v.json)
 からGGUF loaderへ変換したものです。詳細は[workflows/README.md](workflows/README.md)を参照してください。
 
+### lowvram_turbo workflow（任意・実験的）
+
+```powershell
+.\run-local.ps1 -Profile lowvram_turbo
+```
+
+ComfyUIで `workflows/minimax_h3_t2v_lowvram_turbo.json` を開きます。固定した
+[Turbo LoRA model card](https://huggingface.co/larryvrh/MiniMax-H3-Turbo-Lora/tree/43a74557ac3f6539db8e0f2a959d03feb7a81480)と
+[custom node](https://github.com/Larryvrh/ComfyUI-MiniMax-H3-Turbo/tree/55fee864dd7b2976b1c4ce3c3d5f7968f181409f)に基づき、v4 step600 EMA、strength 1.0、simple / 6 stepsを使います。
+
+この専用workflowは `low_vram=true` のmerge経路を明示します。量子化baseではbypassより少しsoftになる代わりにpeak VRAMを抑えます。作者資料はbf16/int8_convrotとpruned int8/fp8を挙げていますが、Q3 GGUFを明示していません。Q3との組合せはこの環境固有の実験であり、エラー、音声劣化、motion smear、品質低下があれば `lowvram` profileへ戻してください。bypass経路はこの環境の受入検証対象外です。
+
+Q3実機ログでは `[merge]: 208 weights patched + 51 adaln injected` を確認しました。一方、node内canaryの `weight_patched=False` / `is_injected=False` は、ComfyUI-GGUFが通常の `weight_function` ではなく `GGMLTensor.weight.patches` にpatchを保持するためfalse negativeになります。この2値だけでLoRA無効と断定しません。今回の受入はmerge行、4-step完走、LoRAなし同seed A/Bの出力差を組み合わせています。[open issue #17](https://github.com/Larryvrh/ComfyUI-MiniMax-H3-Turbo/issues/17)はbypassの表示・挙動に関する追加注意として参照してください。
+
 ### official workflow
 
 `official` profileを取得して起動した場合、ComfyUIの **Template Library → Video → MiniMax H3 T2V** を選びます。ComfyUI公式tutorialに記載された `UNETLoader` / `CLIPLoader` と公式モデル名を使う経路です。
@@ -157,10 +187,10 @@ JSON出力:
 .\.venv\Scripts\python.exe -B tools\local_doctor.py --profile lowvram --json
 ```
 
-doctorはGPU total/free VRAM、物理RAM total/available、pagefile、disk、runtime lock、ComfyUI/torch/CUDA/GGUF、モデル、profile別workflowを非破壊で検査します。
+doctorはGPU total/free VRAM、物理RAM total/available、pagefile、disk、runtime lock、ComfyUI/torch/CUDA/GGUF/Turbo node、VAE chunked I/O、モデル、profile別workflowを非破壊で検査します。
 
 - `Ready` は実行前提の重大エラーがないことを示します。生成品質や生成完了を保証しません。
-- `Locked core runtime matches` は、ComfyUIとGGUFの2 commit、Python 3.12、torch/vision/audioの固定値が一致するかを示します。全Python依存のinstalled freeze一致を意味しません。
+- `Locked core runtime matches` は、ComfyUI、GGUF、Turbo nodeの3 commit、Python 3.12、torch/vision/audioの固定値が一致するかを示します。全Python依存のinstalled freeze一致を意味しません。
 - total RAM/VRAM不足と、モデル取得後も2GiB未満になるdiskはerrorです。
 - 瞬間的なavailable RAM、free VRAM、2〜20GiBのdisk余裕不足はwarningです。
 
@@ -228,6 +258,8 @@ Bearer key付きAPI requestはHTTP redirectを拒否します。完了MP4のCDN 
 3. `-EmergencyLowVram` を使います。
 4. 608x352、短時間、少stepから始め、resolution・duration・stepsを同時に上げないでください。
 5. 1jobずつ実行します。
+
+TurboでOOMする場合は、専用workflowの `low_vram=true` を維持したまま `-EmergencyLowVram`、短いduration、0.2MPを組み合わせます。品質がsoftになる場合やQ3固有の不具合が疑われる場合は、Turboを外した `lowvram` workflowへ戻します。
 
 ### RAM commit不足やOSの停止が起きる
 

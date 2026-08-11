@@ -109,8 +109,19 @@ function Set-GitRepositoryRevision {
         return
     }
 
-    & git -C $Destination cat-file -e "$Revision^{commit}" 2>$null
-    if ($LASTEXITCODE -ne 0) {
+    # Windows PowerShell 5 can promote a native command's expected stderr to a
+    # terminating ErrorRecord when the caller uses ErrorActionPreference=Stop.
+    # A missing local object is a normal probe miss, so decide from the exit code.
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        & git -C $Destination cat-file -e "$Revision^{commit}" 2>$null
+        $objectExistsExitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+    if ($objectExistsExitCode -ne 0) {
         Invoke-External -FilePath 'git' -ArgumentList @(
             '-C', $Destination, 'fetch', '--depth', '1', 'origin', $Revision
         ) -Description "Fetch locked $Label revision $Revision"

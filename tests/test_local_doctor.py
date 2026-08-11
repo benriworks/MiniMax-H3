@@ -56,11 +56,18 @@ class ModelTests(unittest.TestCase):
         })
         self.assertEqual(
             runtime_lock["repositories"]["comfyui"]["revision"],
-            "cbbc9dab1f03d0d9a6caa8a8be7d77a7e37e1e44",
+            "2a68ce33b4c9ea6ee4283e618a74560cefb32694",
         )
         self.assertEqual(
             runtime_lock["repositories"]["comfyui_gguf"]["revision"],
             "6ea2651e7df66d7585f6ffee804b20e92fb38b8a",
+        )
+        self.assertEqual(
+            runtime_lock["repositories"]["minimax_h3_turbo"],
+            {
+                "repository": "https://github.com/Larryvrh/ComfyUI-MiniMax-H3-Turbo.git",
+                "revision": "55fee864dd7b2976b1c4ce3c3d5f7968f181409f",
+            },
         )
         self.assertEqual(
             runtime_lock["pytorch"]["packages"],
@@ -81,7 +88,10 @@ class ModelTests(unittest.TestCase):
     def test_tracked_manifest_has_sources_hashes_and_license_metadata(self) -> None:
         manifest = json.loads((PROJECT_ROOT / "model-manifest.json").read_text(encoding="utf-8"))
         self.assertEqual(manifest["schema_version"], 1)
-        self.assertEqual(set(manifest["profiles"]), {"lowvram", "official"})
+        self.assertEqual(
+            set(manifest["profiles"]),
+            {"lowvram", "lowvram_turbo", "official"},
+        )
         for entry in manifest["models"].values():
             self.assertGreater(entry["bytes"], 0)
             self.assertRegex(entry["sha256"], r"^[0-9a-f]{64}$")
@@ -89,8 +99,9 @@ class ModelTests(unittest.TestCase):
             self.assertTrue(entry["license"])
             self.assertTrue(entry["license_url"].startswith("https://"))
 
-    def test_profiles_have_four_exact_files(self) -> None:
+    def test_profiles_have_exact_files(self) -> None:
         self.assertEqual(len(local_doctor.MODEL_PROFILES["lowvram"]), 4)
+        self.assertEqual(len(local_doctor.MODEL_PROFILES["lowvram_turbo"]), 5)
         self.assertEqual(len(local_doctor.MODEL_PROFILES["official"]), 4)
         low_names = {Path(spec.relative_path).name for spec in local_doctor.MODEL_PROFILES["lowvram"]}
         self.assertEqual(low_names, local_doctor.LOWVRAM_WORKFLOW_MODELS)
@@ -101,6 +112,15 @@ class ModelTests(unittest.TestCase):
         self.assertEqual(
             sum(spec.expected_bytes for spec in local_doctor.MODEL_PROFILES["official"]),
             42_470_585_471,
+        )
+        turbo_names = {
+            Path(spec.relative_path).name
+            for spec in local_doctor.MODEL_PROFILES["lowvram_turbo"]
+        }
+        self.assertEqual(turbo_names, local_doctor.TURBO_WORKFLOW_MODELS)
+        self.assertEqual(
+            sum(spec.expected_bytes for spec in local_doctor.MODEL_PROFILES["lowvram_turbo"]),
+            23_983_726_816,
         )
 
     def test_model_size_check_detects_exact_and_mismatch(self) -> None:
@@ -138,11 +158,80 @@ class ModelTests(unittest.TestCase):
         self.assertEqual(bad[0].status, "error")
         self.assertEqual(missing_bad, 3)
 
+    def test_comfyui_requires_chunked_h3_vae_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            comfy = root / "runtime" / "ComfyUI"
+            (comfy / "comfy_extras").mkdir(parents=True)
+            (comfy / "comfy" / "ldm" / "minimax").mkdir(parents=True)
+            (comfy / "main.py").write_text("", encoding="utf-8")
+            (comfy / "comfy_extras" / "nodes_minimax_h3.py").write_text("", encoding="utf-8")
+            vae = comfy / "comfy" / "ldm" / "minimax" / "vae.py"
+            sd = comfy / "comfy" / "sd.py"
+            vae.write_text("comfy_has_chunked_io = True\n", encoding="utf-8")
+            sd.write_text("if comfy_has_chunked_io: pass\n", encoding="utf-8")
+            with mock.patch.object(
+                local_doctor,
+                "_inspect_git_lock",
+                return_value=("ok", "", {"revision": "a" * 40}),
+            ):
+                good = local_doctor.check_comfyui(root, "a" * 40)
+                vae.write_text("", encoding="utf-8")
+                missing = local_doctor.check_comfyui(root, "a" * 40)
+
+        self.assertEqual(good.status, "ok", good.summary)
+        self.assertTrue(good.details["minimax_h3_chunked_vae_io"])
+        self.assertEqual(missing.status, "error")
+
+    def test_turbo_node_checks_contracts_and_time_grid_hash(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            turbo = root / "runtime" / "ComfyUI" / "custom_nodes" / "ComfyUI-MiniMax-H3-Turbo"
+            turbo.mkdir(parents=True)
+            source = '\n'.join(
+                ('"MiniMaxH3TurboLoRA"', '"MiniMaxH3TurboSampler"', "low_vram", "weight_patched")
+            )
+            (turbo / "__init__.py").write_text(source, encoding="utf-8")
+            grid = turbo / "h3_silu_temb_grid.safetensors"
+            grid.write_bytes(b"grid")
+            expected = hashlib.sha256(b"grid").hexdigest()
+            with mock.patch.object(local_doctor, "TURBO_GRID_SHA256", expected), mock.patch.object(
+                local_doctor,
+                "_inspect_git_lock",
+                return_value=("ok", "", {"revision": "b" * 40}),
+            ):
+                good = local_doctor.check_turbo_custom_node(root, "b" * 40)
+                grid.write_bytes(b"bad!")
+                bad = local_doctor.check_turbo_custom_node(root, "b" * 40)
+
+        self.assertEqual(good.status, "ok", good.summary)
+        self.assertEqual(good.details["grid_sha256"], expected)
+        self.assertEqual(bad.status, "error")
+        self.assertIn("SHA-256 mismatch", bad.summary)
+
 
 class WorkflowTests(unittest.TestCase):
     def test_lowvram_workflow_loader_names_and_limits(self) -> None:
         result = local_doctor.check_workflow(PROJECT_ROOT)
         self.assertEqual(result.status, "ok", result.summary)
+
+    def test_turbo_workflow_is_pinned_low_vram_and_wired(self) -> None:
+        result = local_doctor.check_workflow(PROJECT_ROOT, "lowvram_turbo")
+        self.assertEqual(result.status, "ok", result.summary)
+
+        workflow = json.loads(
+            (PROJECT_ROOT / "workflows" / "minimax_h3_t2v_lowvram_turbo.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        nodes = list(local_doctor._walk_nodes(workflow))
+        lora = next(node for node in nodes if node.get("type") == "MiniMaxH3TurboLoRA")
+        self.assertEqual(
+            lora["widgets_values"],
+            ["minimax_h3_turbo_v4_step600_ema.safetensors", 1, True],
+        )
+        scheduler = next(node for node in nodes if node.get("type") == "BasicScheduler")
+        self.assertEqual(scheduler["widgets_values"], ["simple", 6, 1])
 
     def test_official_profile_checks_official_template(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -319,6 +408,7 @@ $result | ConvertTo-Json -Depth 4 -Compress
         self.assertNotIn("'pull'", helpers)
         self.assertNotIn("'reset'", helpers)
         self.assertIn("runtime-lock.json", source)
+        self.assertIn("ComfyUI-MiniMax-H3-Turbo", source)
         self.assertIn("requirements-local-lock.txt", (PROJECT_ROOT / "runtime-lock.json").read_text(encoding="utf-8"))
 
     def test_setup_passes_exact_torch_arguments_to_external_invoker(self) -> None:
@@ -399,6 +489,38 @@ Set-GitRepositoryRevision -Repository '{repository}' -Revision '{first_revision}
                 subprocess.check_output(("git", "-C", str(destination), "rev-parse", "HEAD"), text=True).strip(),
                 first_revision,
             )
+
+            shallow = temp_root / "runtime" / "shallow"
+            subprocess.run(
+                ("git", "clone", "--depth", "1", remote.as_uri(), str(shallow)),
+                check=True,
+                capture_output=True,
+            )
+            missing_object = subprocess.run(
+                ("git", "-C", str(shallow), "cat-file", "-e", f"{first_revision}^{{commit}}"),
+                capture_output=True,
+                check=False,
+            )
+            self.assertNotEqual(missing_object.returncode, 0)
+            shallow_checkout = str(shallow).replace("'", "''")
+            shallow_repository = remote.as_uri().replace("'", "''")
+            fetch_command = rf"""
+. '{setup}' -LoadHelpersOnly
+Set-GitRepositoryRevision -Repository '{shallow_repository}' -Revision '{first_revision}' -Destination '{shallow_checkout}' -Label 'missing-object-test'
+"""
+            fetched = subprocess.run(
+                ("powershell.exe", "-NoProfile", "-Command", fetch_command),
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                check=False,
+            )
+            self.assertEqual(fetched.returncode, 0, fetched.stdout + fetched.stderr)
+            self.assertEqual(
+                subprocess.check_output(("git", "-C", str(shallow), "rev-parse", "HEAD"), text=True).strip(),
+                first_revision,
+            )
             self.assertFalse(
                 subprocess.check_output(("git", "-C", str(destination), "status", "--porcelain"), text=True).strip()
             )
@@ -429,6 +551,8 @@ Set-GitRepositoryRevision -Repository '{repository}' -Revision '{second_revision
         self.assertIn("if (-not $AcceptLicense)", source)
         self.assertIn("$actualBytes -eq $entry.ExpectedBytes", source)
         self.assertIn("--revision", source)
+        self.assertIn("lowvram_turbo", source)
+        self.assertIn("$loraRoot", source)
 
 
 if __name__ == "__main__":

@@ -5,7 +5,9 @@
 > [ARCHITECTURE.md](ARCHITECTURE.md)、Mermaid図は
 > [ARCHITECTURE_DIAGRAM.md](ARCHITECTURE_DIAGRAM.md)、モデル利用条件の要約は
 > [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) に分離しています。
-> 同梱low-VRAM workflowの20-step品質実行は未検証で、確認済みなのは別設定の1-step配線スモークです。
+> 通常low-VRAM workflowの20-step品質実行は自動受入では未検証です。TurboはQ3 GGUF・4-stepの短い実機生成まで確認済みです。
+> ComfyUIはMiniMax H3 VAEのchunked I/O最適化を含むcommitへ固定済みです。任意の
+> `lowvram_turbo` は作者がQ3 GGUF対応を明記していない実験経路なので、通常の `lowvram` をfallbackとして残してください。
 
 <div align="center">
   <img width="100%" src="assets/minimax-h3-header.gif" alt="MiniMax H3">
