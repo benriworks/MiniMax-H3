@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('lowvram', 'lowvram_turbo', 'official')]
+    [ValidateSet('lowvram', 'lowvram_turbo', 'lowvram_q4_turbo', 'official')]
     [string] $Profile = 'lowvram',
 
     [switch] $AcceptLicense

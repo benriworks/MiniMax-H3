@@ -42,9 +42,19 @@ commit `55fee864dd7b2976b1c4ce3c3d5f7968f181409f`で、repositoryのLICENSEはAp
 
 作者は対応baseとしてbf16/int8_convrot、pruned int8/fp8を挙げますが、ここで組み合わせるcommunity Q3 GGUFを明示していません。そのため、この組合せは実験的です。LoRAがApache-2.0であっても、生成物の責任、base license、excluded territories、商用条件、UI表示条件は上記MiniMax H3 Community Licenseの確認対象として残ります。
 
+### lowvram_q4_turbo（品質優先・任意）
+
+`lowvram_q4_turbo` はQ2 text encoderの代わりに、同じlicense metadata `unknown` のrepositoryから
+[`qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf`](https://huggingface.co/realrebelai/MiniMax-H3_GGUFs/blob/daf03b4ca652cce16dfd4fcf91e79c52ffa5c1e7/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf)
+を取得し、Q3 diffusion、共通VAE 2点、Turbo adapterと組み合わせます。固定revisionは `daf03b4ca652cce16dfd4fcf91e79c52ffa5c1e7`、exact sizeは14,576,977,888 bytes、SHA-256は `1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e` です。
+
+repository READMEには配布許諾に関する作者の主張がありますが、公開LICENSEや一般的OSS licenseの表示は確認できません。Q4であることはこの不明点を解消せず、上流MiniMax H3 Community Licenseおよびrepositoryの条件確認が必要です。固定runtimeでの利用対象はMiniMax H3 T2V text conditioningです。一般的なQwen3VL vision/mmproj対応はComfyUI-GGUFの[Issue #471](https://github.com/city96/ComfyUI-GGUF/issues/471)と[PR #473](https://github.com/city96/ComfyUI-GGUF/pull/473)が未解決のため、汎用I2V対応とは扱いません。
+
+Q4 profileは実行時に必要な5ファイルだけを表し、Q2 encoderを含みません。fresh環境でQ2 Turboを比較・fallbackとして残す場合は、`lowvram_turbo` profileのlicenseも確認して別途取得してください。
+
 ## `-AcceptLicense` の意味
 
-`download-models.ps1 -Profile <profile> -AcceptLicense` は、選択profileの全ファイル（`lowvram_turbo` は5ファイル、他は4ファイル）について、この文書、各モデルカード、リンク先のライセンスを確認・受諾したという**一括の操作確認**です。
+`download-models.ps1 -Profile <profile> -AcceptLicense` は、選択profileの全ファイル（`lowvram_turbo` と `lowvram_q4_turbo` は5ファイル、他は4ファイル）について、この文書、各モデルカード、リンク先のライセンスを確認・受諾したという**一括の操作確認**です。
 
 このswitchは次を行いません。
 

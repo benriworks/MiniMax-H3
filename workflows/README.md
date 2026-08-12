@@ -46,3 +46,26 @@ of this tracked workflow's 0.2 MP / five-second / six-step defaults. On GGUF,
 ComfyUI-GGUF stores accepted patches on `GGMLTensor.weight.patches` instead of the
 module `weight_function` inspected by that canary. The smoke therefore combined
 the accepted-patch/AdaLN log, completion, and a same-seed no-LoRA A/B difference.
+
+## Quality-priority Q4 Turbo workflow provenance
+
+`minimax_h3_t2v_lowvram_q4_turbo.json` is derived from the tracked Q2 Turbo
+workflow. It preserves the Q3 diffusion model, VAEs, Turbo adapter, and merge
+wiring, but replaces only the text encoder with
+[`qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf`](https://huggingface.co/realrebelai/MiniMax-H3_GGUFs/blob/daf03b4ca652cce16dfd4fcf91e79c52ffa5c1e7/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf)
+from revision `daf03b4ca652cce16dfd4fcf91e79c52ffa5c1e7`. Hugging Face LFS metadata
+reports exactly `14,576,977,888` bytes and SHA-256
+`1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e`.
+
+The quality-priority defaults are 0.4 MP (`864 x 480` at 16:9), five seconds,
+`simple` / eight steps, strength `1.0`, and `low_vram=true`. These match the
+latest successful local Q2 Turbo job (`MiniMax_H3_00010_.mp4`) except for the
+Q4 encoder substitution. The Q4 path also completed with the same prompt, seed,
+and settings in 286.087 seconds, emitting H.264 864 x 480 video plus AAC stereo.
+Against the 313.682-second Q2 source job, video PSNR averaged 26.291812 dB and
+SSIM was 0.814451. This proves different completed outputs, not general Q4
+quality or speed superiority. Evidence is tracked in
+[`verification/q4-text-encoder-ab-2026-08-12.json`](../verification/q4-text-encoder-ab-2026-08-12.json).
+Try 0.6 MP manually only after the verified 0.4 MP baseline. The original Q2
+Turbo workflow remains the lower-memory comparison and fallback; on a fresh
+installation its profile must be downloaded separately.

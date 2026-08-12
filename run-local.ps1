@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('lowvram', 'lowvram_turbo', 'official')]
+    [ValidateSet('lowvram', 'lowvram_turbo', 'lowvram_q4_turbo', 'official')]
     [string] $Profile = 'lowvram',
 
     [ValidateRange(1, 65535)]
@@ -73,8 +73,18 @@ else {
 
 Write-Host "Starting ComfyUI at http://127.0.0.1:$Port"
 Write-Host "Profile: $Profile"
+Write-Host 'Profile selection validates prerequisites; it does not auto-load or switch the ComfyUI workflow.'
 if ($Profile -eq 'lowvram_turbo') {
-    Write-Host 'Workflow: workflows\minimax_h3_t2v_lowvram_turbo.json (Turbo LoRA, 6 steps, low_vram merge)'
+    Write-Host 'Open manually: workflows\minimax_h3_t2v_lowvram_turbo.json (Turbo LoRA, 6 steps, low_vram merge)'
+}
+elseif ($Profile -eq 'lowvram_q4_turbo') {
+    Write-Host 'Open manually: workflows\minimax_h3_t2v_lowvram_q4_turbo.json (Q4 text encoder + Turbo LoRA, 0.4 MP, 8 steps, low_vram merge)'
+}
+elseif ($Profile -eq 'lowvram') {
+    Write-Host 'Open manually: workflows\minimax_h3_t2v_lowvram.json (base GGUF, 0.2 MP, 20 steps)'
+}
+else {
+    Write-Host 'Open manually: Template Library -> Video -> MiniMax H3 official T2V (do not use the tracked GGUF workflows)'
 }
 if ($EmergencyLowVram) {
     Write-Warning 'Emergency --novram --cpu-vae mode is enabled; generation will be substantially slower.'

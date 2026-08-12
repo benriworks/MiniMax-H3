@@ -11,6 +11,7 @@
 - 同梱 `workflows/minimax_h3_t2v_lowvram.json` は、負荷を抑えるため **608x352（0.2MP）、4秒指定、20 steps** にしたT2V workflowです。768p品質設定ではありません。
 - `lowvram` のQ3/Q2 GGUFはコミュニティ量子化で、実験的です。公式ウェイトより品質、時間的一貫性、指示追従、音声品質が低下する可能性があります。
 - 任意の `lowvram_turbo` はLarryvrhのTurbo LoRAを追加し、**608x352、5秒指定、simple / 6 steps** で試す実験経路です。Q3 GGUFは作者が明示する対応baseに含まれないため、通常の `lowvram` を必ずfallbackとして残します。
+- 品質優先の `lowvram_q4_turbo` は、同じQ3 diffusion/Turbo経路でtext encoderだけを **Q4_K_M** へ上げ、**0.4MP（864x480）、5秒、simple / 8 steps** を既定にします。Q2よりtext encoder単体で約5.67GiB大きく、RAM/pagefile負荷も増えます。同条件のQ2/Q4 A/Bは両方完走しましたが、1例からQ4の品質優越は断定しません。
 - APIで新しい生成を始める `submit` は課金され得ます。CLIは `--confirm-billable` がない限り、送信前に停止します。
 - `setup-local.ps1` と `run-local.ps1` は他のGPUアプリを自動終了しません。
 
@@ -20,6 +21,7 @@
 |---|---|---|
 | 8GB級GPUでまず配線を試す | `lowvram` | コミュニティQ3/Q2、約21.61GiB、同梱GGUF workflow |
 | samplingを短縮して試す | `lowvram_turbo` | `lowvram` + 約743.72MiBのTurbo LoRA、約22.34GiB、専用6-step workflow。実験的 |
+| text理解を優先して試す | `lowvram_q4_turbo` | Q3 diffusion + Q4 text encoder + Turbo、約28.01GiB、0.4MP / 8-step専用workflow。実験的 |
 | ComfyUI公式ウェイトを使う | `official` | Comfy-Org int8/nvfp4、約39.55GiB、ComfyUI Template Libraryの公式T2Vを使用 |
 | 2K、H3-Context-IR、H3-Regenerate-2K、公式ホスト実行 | MiniMax API | API利用料と外部送信が発生し得る |
 
@@ -28,7 +30,7 @@ MiniMaxの公開説明では、ローカルH3-Baseは768p検証、フル2K workf
 
 ## このフォルダで確認済みの状態
 
-2026-08-11時点で、次を確認しています。
+2026-08-12時点で、次を確認しています。
 
 - Windows AMD64 / CPython 3.12.2
 - ComfyUI `2a68ce33b4c9ea6ee4283e618a74560cefb32694`（[PR #15446](https://github.com/Comfy-Org/ComfyUI/pull/15446)のMiniMax H3 VAE chunked I/Oを含む）
@@ -37,14 +39,17 @@ MiniMaxの公開説明では、ローカルH3-Baseは768p検証、フル2K workf
 - PyTorch `2.13.0+cu130`、torchvision `0.28.0+cu130`、torchaudio `2.11.0+cu130`
 - RTX 3070 Ti 8GiB、物理RAM約47.72GiB、pagefile 60GiBの検査
 - `lowvram_turbo` 5ファイル（base 4点 + LoRA 779,849,816 bytes）の正確なbyte数とfull SHA-256一致、`local_doctor.py --hash` の `Ready: yes`
+- `lowvram_q4_turbo` 5ファイル（Q4 encoder 14,576,977,888 bytesを含む）の正確なbyte数とfull SHA-256一致、専用workflow contract、`Ready: yes`
 - Turbo custom nodeの2 nodeがComfyUI `object_info`に登録され、同梱time-conditioning gridのSHA-256も一致
-- セキュリティ・manifest・workflow wiring・PowerShell・fresh/shallow clone・system metricsを含む自動テスト **34/34合格**
+- セキュリティ・manifest・Q4を含むworkflow wiring・PowerShell・fresh/shallow clone・system metricsを含む自動テスト **38/38合格**
 
 さらに、base `lowvram` はEmergencyモード相当の `--novram --cpu-vae`、Q3/Q2、608x352で、配線確認用の1-step E2Eスモークが成功しています。出力は726,468 bytesのMP4で、ffprobeではH.264 608x352 / 24fps / 124 framesとAAC 32kHz stereoを確認しました。総所要時間は約15分50秒でした。このスモークは品質評価ではなく、同梱20-step workflowの生成成功や所要時間を保証しません。**同梱20-step workflowはまだ実生成未検証です。**
 
 ComfyUI PR #15446は、長いvideo全体を一度に複製せずchunk単位でvideo VAEのencode/decode I/Oを処理します。上流の175 frames / 1344x768例ではdecode peak allocationが約3485MBから607MB、encodeが約5714MBから2402MBへ下がり、pixel-space outputはbitwise identical、速度はほぼ同等と報告されています。これはpeak削減であり、高速化や8GiB環境での全設定完走を保証するものではありません。
 
 Turboについては、Dynamic VRAM、Q3/Q2、`low_vram=true`、416x256（0.1MP）、4秒指定、4 stepsの実機スモークが70.35秒で完走しました。出力 `outputs/video/MiniMax_H3_Turbo_Smoke_00001_.mp4` は605,791 bytesで、ffprobeではH.264 416x256 / 24fps / 4.458秒とAAC 32kHz stereoを確認しました。同じseed/settingsからLoRAを外したA/Bも63.37秒で完走し、video frameの平均PSNRは24.06 dBで出力差がありました。これはTurbo適用とpipeline完走の確認であり、品質評価ではありません。実行条件とignored出力のhashは[検証記録](verification/turbo-e2e-2026-08-11.json)に残しています。**同梱workflow既定の0.2MP / 5秒 / 6 stepsはまだ実生成未検証です。**
+
+Q2 Turbo job `MiniMax_H3_00010_.mp4` と、text encoderだけをQ4へ置換した `MiniMax_H3_Q4_AB_00001_.mp4` は、同じprompt/seed、0.4MP / 5秒 / simple 8 steps / strength 1.0 / mergeで両方成功しました。Q4は286.087秒、Q2は313.682秒で、Q4出力はH.264 864x480 / 24fps / 5.167秒 + AAC 32kHz stereoです。video A/BはPSNR 26.291812 dB、SSIM 0.814451で差があり、両方ともcity promptへ追従しました。これはQ4経路の完走と出力差の証拠であり、**1例からQ4の品質優越や一般的な速度優位は断定しません。** 詳細は[Q2/Q4 A/B検証記録](verification/q4-text-encoder-ab-2026-08-12.json)に固定しています。
 
 `official` 固有の約34.14GiB分の2ファイルは、この確認時点では未導入です。共通VAE 2ファイルのみ導入済みです。
 
@@ -98,6 +103,18 @@ PowerShellでプロジェクトルートから実行します。
 .\download-models.ps1 -Profile lowvram_turbo -AcceptLicense
 ```
 
+品質優先のQ4 Turbo profile（Q4 encoderはQ2 encoderより約5.67GiB大）:
+
+```powershell
+.\download-models.ps1 -Profile lowvram_q4_turbo -AcceptLicense
+```
+
+このprofile単体は実行時に必要な5点、30,072,736,544 bytes（約28.01GiB）を取得し、Q2 encoderは含みません。fresh環境でもQ2 Turboを比較・fallbackとして使う場合は、次も別途実行します。両profileのunique artifact累積は38,560,704,704 bytes（約35.91GiB）です。既存Q2 Turbo環境へQ4を併置すると、新規downloadはQ4ファイル全体の14,576,977,888 bytes（約13.58GiB）です。
+
+```powershell
+.\download-models.ps1 -Profile lowvram_turbo -AcceptLicense
+```
+
 公式ComfyUI profile:
 
 ```powershell
@@ -110,7 +127,7 @@ PowerShellでプロジェクトルートから実行します。
 .\.venv\Scripts\python.exe -B tools\local_doctor.py --profile lowvram --hash
 ```
 
-Turboを選んだ場合は、同じコマンドのprofileを `lowvram_turbo` にします。
+Turboを選んだ場合は、同じコマンドのprofileを `lowvram_turbo` または `lowvram_q4_turbo` にします。
 
 ## 3. ローカルComfyUIを起動する
 
@@ -121,6 +138,8 @@ Turboを選んだ場合は、同じコマンドのprofileを `lowvram_turbo` に
 ```
 
 既定では `127.0.0.1:8188` のみにlistenし、`--enable-dynamic-vram` を使います。`--lowvram` は付けません。previewを無効化し、pinned memoryも無効化します。
+
+`-Profile` は必要モデルと対応workflowの契約をdoctorで検査しますが、ComfyUI UIへJSONを自動ロード・切替しません。launcherが表示する `Open manually:` の対象を、起動後に利用者が明示的に開いてください。前回のworkflowがUIに残っている場合も、そのまま実行しないでください。
 
 ComfyUIの起動直前と終了直後に、時刻、CPU使用率/温度、RAM使用量、GPU使用率/温度/VRAM/電力をコンソールへ表示します。終了時には経過時間も表示します。連続監視やファイル保存は行いません。
 
@@ -160,6 +179,16 @@ ComfyUIで `workflows/minimax_h3_t2v_lowvram_turbo.json` を開きます。固�
 
 Q3実機ログでは `[merge]: 208 weights patched + 51 adaln injected` を確認しました。一方、node内canaryの `weight_patched=False` / `is_injected=False` は、ComfyUI-GGUFが通常の `weight_function` ではなく `GGMLTensor.weight.patches` にpatchを保持するためfalse negativeになります。この2値だけでLoRA無効と断定しません。今回の受入はmerge行、4-step完走、LoRAなし同seed A/Bの出力差を組み合わせています。[open issue #17](https://github.com/Larryvrh/ComfyUI-MiniMax-H3-Turbo/issues/17)はbypassの表示・挙動に関する追加注意として参照してください。
 
+### lowvram_q4_turbo workflow（品質優先・実験的）
+
+```powershell
+.\run-local.ps1 -Profile lowvram_q4_turbo
+```
+
+ComfyUIで `workflows/minimax_h3_t2v_lowvram_q4_turbo.json` を開きます。このworkflowは成功済みQ2 job `MiniMax_H3_00010_.mp4` の **0.4MP / 5秒 / simple 8 steps / strength 1.0 / `low_vram=true`** を基準に、text encoderだけを `qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf` へ置換しています。固定revision、byte数、SHA-256は `model-manifest.json` に記録しています。
+
+既定0.4MPのQ4 E2Eは成功済みです。次に利用者が0.6MPへ手動で上げる場合も1jobだけにし、resolution、duration、stepsを同時に上げないでください。Q4の一般的な品質優越は未確定なので、OOM、長時間化、品質悪化時は既存 `lowvram_turbo` のQ2 workflowへ戻して同じprompt/seedで比較します。fresh環境では前節のQ2 profile downloadも必要です。
+
 ### official workflow
 
 `official` profileを取得して起動した場合、ComfyUIの **Template Library → Video → MiniMax H3 T2V** を選びます。ComfyUI公式tutorialに記載された `UNETLoader` / `CLIPLoader` と公式モデル名を使う経路です。
@@ -179,6 +208,12 @@ Q3実機ログでは `[merge]: 208 weights patched + 51 adaln injected` を確�
 
 ```powershell
 .\.venv\Scripts\python.exe -B tools\local_doctor.py --profile lowvram --hash
+```
+
+Q4 Turbo取得後はprofileを切り替え、Q4を含む5ファイルと専用workflow契約を検査します。
+
+```powershell
+.\.venv\Scripts\python.exe -B tools\local_doctor.py --profile lowvram_q4_turbo --hash
 ```
 
 JSON出力:
@@ -260,6 +295,8 @@ Bearer key付きAPI requestはHTTP redirectを拒否します。完了MP4のCDN 
 5. 1jobずつ実行します。
 
 TurboでOOMする場合は、専用workflowの `low_vram=true` を維持したまま `-EmergencyLowVram`、短いduration、0.2MPを組み合わせます。品質がsoftになる場合やQ3固有の不具合が疑われる場合は、Turboを外した `lowvram` workflowへ戻します。
+
+Q4 TurboでOOMする場合は、0.6MPへ上げず既定0.4MPを維持し、まずQ2の `lowvram_turbo` へ戻します。Q4 text encoderはQ2より6,089,009,728 bytes（約5.67GiB）大きいため、VRAMだけでなくavailable RAMとpagefileもdoctorで確認してください。
 
 ### RAM commit不足やOSの停止が起きる
 

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "verified_at": "2026-08-11",
+  "verified_at": "2026-08-12",
   "license_notice": "-AcceptLicense is one acknowledgement for all files in the selected profile. Before using it, review THIRD_PARTY_NOTICES.md, every linked model card, and the pinned upstream MiniMax H3 Community License. Community quantization repositories can impose or omit metadata in addition to upstream terms. The optional Turbo LoRA is Apache-2.0 but does not replace the base model license.",
   "upstream_license_url": "https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/bfc8ed0353f5a9733be73e6b2c98ec0948195b86/LICENSE",
   "models": {
@@ -27,8 +27,21 @@
       "bytes": 8487968160,
       "sha256": "5bbc11d0b3ef197c98df2ce8f05de8fbb8eb5917cd91c33d0b59f93759b34914",
       "license": "Repository metadata reports unknown; review repository terms and the upstream MiniMax H3 Community License",
-      "license_url": "https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/bfc8ed0353f5a9733be73e6b2c98ec0948195b86/LICENSE",
+      "license_url": "https://huggingface.co/realrebelai/MiniMax-H3_GGUFs/blob/daf03b4ca652cce16dfd4fcf91e79c52ffa5c1e7/README.md",
       "source_url": "https://huggingface.co/realrebelai/MiniMax-H3_GGUFs/blob/daf03b4ca652cce16dfd4fcf91e79c52ffa5c1e7/qwen3vl-32B-MiniMax-H3-Q2_K.gguf"
+    },
+    "qwen3vl_h3_q4_k_m": {
+      "role": "text_encoder",
+      "repository": "realrebelai/MiniMax-H3_GGUFs",
+      "revision": "daf03b4ca652cce16dfd4fcf91e79c52ffa5c1e7",
+      "remote_path": "qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf",
+      "local_dir": "text_encoders",
+      "local_path": "text_encoders/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf",
+      "bytes": 14576977888,
+      "sha256": "1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e",
+      "license": "Repository metadata reports unknown; review repository terms and the upstream MiniMax H3 Community License",
+      "license_url": "https://huggingface.co/realrebelai/MiniMax-H3_GGUFs/blob/daf03b4ca652cce16dfd4fcf91e79c52ffa5c1e7/README.md",
+      "source_url": "https://huggingface.co/realrebelai/MiniMax-H3_GGUFs/blob/daf03b4ca652cce16dfd4fcf91e79c52ffa5c1e7/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf"
     },
     "fl2va_pruned_int8_convrot": {
       "role": "diffusion_model",
@@ -106,6 +119,13 @@
     "lowvram_turbo": [
       "fl2va_pruned_q3_k_m",
       "qwen3vl_h3_q2_k",
+      "video_vae_fp16",
+      "audio_vae_fp32",
+      "minimax_h3_turbo_v4_step600_ema"
+    ],
+    "lowvram_q4_turbo": [
+      "fl2va_pruned_q3_k_m",
+      "qwen3vl_h3_q4_k_m",
       "video_vae_fp16",
       "audio_vae_fp32",
       "minimax_h3_turbo_v4_step600_ema"

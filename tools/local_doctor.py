@@ -41,7 +41,7 @@ class Check:
     details: dict[str, Any] | None = None
 
 
-PROFILE_NAMES = ("lowvram", "lowvram_turbo", "official")
+PROFILE_NAMES = ("lowvram", "lowvram_turbo", "lowvram_q4_turbo", "official")
 
 LOWVRAM_WORKFLOW_MODELS = frozenset(
     (
@@ -63,6 +63,10 @@ OFFICIAL_WORKFLOW_MODELS = frozenset(
 
 TURBO_LORA_NAME = "minimax_h3_turbo_v4_step600_ema.safetensors"
 TURBO_WORKFLOW_MODELS = LOWVRAM_WORKFLOW_MODELS | {TURBO_LORA_NAME}
+Q4_TURBO_WORKFLOW_MODELS = (
+    (LOWVRAM_WORKFLOW_MODELS - {"qwen3vl-32B-MiniMax-H3-Q2_K.gguf"})
+    | {"qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf", TURBO_LORA_NAME}
+)
 TURBO_GRID_SHA256 = "30eb3c2cc7fb6b470d9717ff840d359313ac27cd64b705e32da1baa10f72d6a8"
 
 
@@ -122,7 +126,12 @@ def load_model_profiles(manifest_path: Path) -> dict[str, tuple[ModelSpec, ...]]
         raise ValueError("model manifest must contain models and profiles objects")
 
     result: dict[str, tuple[ModelSpec, ...]] = {}
-    expected_counts = {"lowvram": 4, "lowvram_turbo": 5, "official": 4}
+    expected_counts = {
+        "lowvram": 4,
+        "lowvram_turbo": 5,
+        "lowvram_q4_turbo": 5,
+        "official": 4,
+    }
     for profile_name in PROFILE_NAMES:
         identifiers = profiles.get(profile_name)
         expected_count = expected_counts[profile_name]
@@ -693,10 +702,13 @@ def check_official_workflow(root: Path) -> Check:
 def check_workflow(root: Path, profile: str = "lowvram") -> Check:
     if profile == "official":
         return check_official_workflow(root)
-    is_turbo = profile == "lowvram_turbo"
-    workflow_name = (
-        "minimax_h3_t2v_lowvram_turbo.json" if is_turbo else "minimax_h3_t2v_lowvram.json"
-    )
+    is_q4_turbo = profile == "lowvram_q4_turbo"
+    is_turbo = profile in {"lowvram_turbo", "lowvram_q4_turbo"}
+    workflow_name = {
+        "lowvram": "minimax_h3_t2v_lowvram.json",
+        "lowvram_turbo": "minimax_h3_t2v_lowvram_turbo.json",
+        "lowvram_q4_turbo": "minimax_h3_t2v_lowvram_q4_turbo.json",
+    }[profile]
     path = root / "workflows" / workflow_name
     if not path.is_file():
         return Check("workflow", "error", f"{profile} workflow is missing: {path}")
@@ -715,7 +727,39 @@ def check_workflow(root: Path, profile: str = "lowvram") -> Check:
         problems.append("UnetLoaderGGUF is missing")
     if "CLIPLoaderGGUF" not in node_types:
         problems.append("CLIPLoaderGGUF is missing")
-    expected_models = TURBO_WORKFLOW_MODELS if is_turbo else LOWVRAM_WORKFLOW_MODELS
+    clip_loaders = [node for node in nodes if node.get("type") == "CLIPLoaderGGUF"]
+    expected_text_encoder = (
+        "qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf"
+        if is_q4_turbo
+        else "qwen3vl-32B-MiniMax-H3-Q2_K.gguf"
+    )
+    forbidden_text_encoder = (
+        "qwen3vl-32B-MiniMax-H3-Q2_K.gguf"
+        if is_q4_turbo
+        else "qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf"
+    )
+    if forbidden_text_encoder in strings:
+        problems.append(f"workflow must not reference {forbidden_text_encoder}")
+    if len(clip_loaders) != 1:
+        problems.append("exactly one CLIPLoaderGGUF node is required")
+    else:
+        clip_values = clip_loaders[0].get("widgets_values", [])
+        if (
+            not isinstance(clip_values, list)
+            or len(clip_values) < 2
+            or clip_values[0] != expected_text_encoder
+            or clip_values[1] != "minimax"
+        ):
+            problems.append(
+                f"CLIPLoaderGGUF must use {expected_text_encoder} with type minimax"
+            )
+    expected_models = (
+        Q4_TURBO_WORKFLOW_MODELS
+        if is_q4_turbo
+        else TURBO_WORKFLOW_MODELS
+        if is_turbo
+        else LOWVRAM_WORKFLOW_MODELS
+    )
     missing_names = sorted(expected_models - strings)
     if missing_names:
         problems.append(f"loader model names missing: {', '.join(missing_names)}")
@@ -753,6 +797,8 @@ def check_workflow(root: Path, profile: str = "lowvram") -> Check:
             problems.append("Turbo nodes must share one inspectable subgraph")
         else:
             graph = turbo_graphs[0]
+            if is_q4_turbo and graph.get("name") != "MiniMax H3 Q4 Turbo low-VRAM (GGUF)":
+                problems.append("Q4 Turbo subgraph name is not profile-specific")
             graph_nodes = {
                 node.get("id"): node for node in graph["nodes"] if isinstance(node, dict)
             }
@@ -795,13 +841,29 @@ def check_workflow(root: Path, profile: str = "lowvram") -> Check:
     elif turbo_lora_nodes or turbo_sampler_nodes:
         problems.append("base low-VRAM workflow must not enable Turbo nodes")
 
-    selectors = [node for node in nodes if node.get("type") == "ResolutionSelector"]
-    selector_values = selectors[0].get("widgets_values", []) if selectors else []
-    if not isinstance(selector_values, list) or len(selector_values) < 2 or selector_values[1] != 0.2:
-        problems.append("ResolutionSelector is not set to 0.2 megapixels")
+    top_nodes = workflow.get("nodes") if isinstance(workflow.get("nodes"), list) else []
+    selectors = [
+        node
+        for node in top_nodes
+        if isinstance(node, dict) and node.get("type") == "ResolutionSelector"
+    ]
+    if len(selectors) != 1:
+        problems.append("exactly one top-level ResolutionSelector node is required")
+    selector_values = selectors[0].get("widgets_values", []) if len(selectors) == 1 else []
+    expected_megapixels = 0.4 if is_q4_turbo else 0.2
+    if (
+        not isinstance(selector_values, list)
+        or len(selector_values) < 3
+        or selector_values[1] != expected_megapixels
+    ):
+        problems.append(f"ResolutionSelector is not set to {expected_megapixels} megapixels")
+    if not isinstance(selector_values, list) or len(selector_values) < 1 or selector_values[0] != "16:9 (Widescreen)":
+        problems.append("ResolutionSelector aspect ratio is not 16:9 (Widescreen)")
+    if not isinstance(selector_values, list) or len(selector_values) < 3 or selector_values[2] != 32:
+        problems.append("ResolutionSelector multiple is not 32")
     schedulers = [node for node in nodes if node.get("type") == "BasicScheduler"]
     scheduler_values = schedulers[0].get("widgets_values", []) if schedulers else []
-    expected_steps = 6 if is_turbo else 20
+    expected_steps = 8 if is_q4_turbo else 6 if is_turbo else 20
     if (
         not isinstance(scheduler_values, list)
         or len(scheduler_values) < 2
@@ -817,14 +879,60 @@ def check_workflow(root: Path, profile: str = "lowvram") -> Check:
         for subgraph in subgraphs
         if isinstance(subgraph, dict)
     }
-    top_nodes = workflow.get("nodes") if isinstance(workflow.get("nodes"), list) else []
     instances = [node for node in top_nodes if isinstance(node, dict) and node.get("type") in subgraph_ids]
-    if not instances or len(instances[0].get("widgets_values", [])) < 4:
+    if len(instances) != 1 or len(instances[0].get("widgets_values", [])) < 9:
         problems.append("MiniMax H3 subgraph instance is missing")
     else:
         expected_duration = 5 if is_turbo else 4
-        if instances[0]["widgets_values"][3] != expected_duration:
+        instance_values = instances[0]["widgets_values"]
+        if instance_values[3] != expected_duration:
             problems.append(f"workflow duration is not set to {expected_duration} seconds")
+        expected_overrides = [
+            "MiniMax-H3-FL2VA-Pruned-Q3_K_M.gguf",
+            expected_text_encoder,
+            "minimax_h3_video_vae_fp16.safetensors",
+            "minimax_h3_audio_vae_fp32.safetensors",
+        ]
+        if instance_values[5:9] != expected_overrides:
+            problems.append(
+                "MiniMax H3 subgraph model overrides must exactly select "
+                + ", ".join(expected_overrides)
+            )
+        if is_q4_turbo and instances[0].get("title") != "MiniMax H3 Q4 Turbo low-VRAM (GGUF)":
+            problems.append("Q4 Turbo subgraph instance title is not profile-specific")
+        if len(selectors) == 1:
+            top_links = workflow.get("links") if isinstance(workflow.get("links"), list) else []
+            resolution_links = [
+                link
+                for link in top_links
+                if isinstance(link, list)
+                and len(link) >= 5
+                and link[3] == instances[0].get("id")
+                and link[4] in (2, 3)
+            ]
+            actual_resolution_links = {
+                (link[1], link[2], link[4]) for link in resolution_links
+            }
+            expected_resolution_links = {
+                (selectors[0].get("id"), 0, 2),
+                (selectors[0].get("id"), 1, 3),
+            }
+            if (
+                len(resolution_links) != 2
+                or actual_resolution_links != expected_resolution_links
+            ):
+                problems.append(
+                    "ResolutionSelector width/height outputs must link to subgraph inputs 2/3"
+                )
+
+    save_video_nodes = [node for node in nodes if node.get("type") == "SaveVideo"]
+    expected_prefix = "video/MiniMax_H3_Q4" if is_q4_turbo else "video/MiniMax_H3"
+    if len(save_video_nodes) != 1:
+        problems.append("exactly one SaveVideo node is required")
+    else:
+        save_values = save_video_nodes[0].get("widgets_values", [])
+        if not isinstance(save_values, list) or not save_values or save_values[0] != expected_prefix:
+            problems.append(f"SaveVideo filename prefix must be {expected_prefix}")
 
     provenance = root / "workflows" / "README.md"
     if not provenance.is_file():
@@ -842,6 +950,12 @@ def check_workflow(root: Path, profile: str = "lowvram") -> Check:
                 or "43a74557ac3f6539db8e0f2a959d03feb7a81480" not in provenance_text
             ):
                 problems.append("Turbo workflow provenance revisions are incomplete")
+            if is_q4_turbo and (
+                "qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf" not in provenance_text
+                or "1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e"
+                not in provenance_text
+            ):
+                problems.append("Q4 workflow provenance metadata is incomplete")
 
     if problems:
         return Check("workflow", "error", "; ".join(problems), {"path": str(path)})
@@ -849,9 +963,11 @@ def check_workflow(root: Path, profile: str = "lowvram") -> Check:
         "workflow",
         "ok",
         (
-            "GGUF loaders, five model names, Turbo merge path, 0.2 MP, 5 seconds, and 6 steps verified"
+            "GGUF loaders, exact promoted model overrides, Q4 text encoder, Turbo merge path, 16:9 / multiple 32 / 0.4 MP, 5 seconds, and 8 steps verified"
+            if is_q4_turbo
+            else "GGUF loaders, exact promoted model overrides, Turbo merge path, 16:9 / multiple 32 / 0.2 MP, 5 seconds, and 6 steps verified"
             if is_turbo
-            else "GGUF loaders, four model names, 0.2 MP, 4 seconds, and 20 steps verified"
+            else "GGUF loaders, exact promoted model overrides, 16:9 / multiple 32 / 0.2 MP, 4 seconds, and 20 steps verified"
         ),
         {"path": str(path)},
     )

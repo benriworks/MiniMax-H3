@@ -2,7 +2,7 @@
 
 ## この文書について
 
-この文書は、2026-08-09に `C:\Users\mono_\MiniMaxH3` へMiniMax H3の実行環境を構築し、2026-08-11にVAE peak削減と任意Turbo経路を追加した際の作業記録です。
+この文書は、2026-08-09に `C:\Users\mono_\MiniMaxH3` へMiniMax H3の実行環境を構築し、2026-08-11にVAE peak削減と任意Turbo経路、2026-08-12に品質優先Q4 profileを追加した際の作業記録です。
 
 操作方法だけを知りたい場合は[LOCAL_SETUP_JA.md](LOCAL_SETUP_JA.md)、現在の構成と責務は[ARCHITECTURE.md](ARCHITECTURE.md)、モデルの利用条件は[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)を参照してください。この文書では、なぜ現在の構成を選んだか、何に詰まり、どう回避したかを中心に記録します。
 
@@ -11,6 +11,12 @@
 - ComfyUIを、MiniMax H3 VAEをchunked I/O化した[PR #15446](https://github.com/Comfy-Org/ComfyUI/pull/15446)のmerge commitへ1 commitだけ進めました。上流報告では175 frames / 1344x768のdecode peak allocationが約3485MBから607MB、encodeが約5714MBから2402MBへ低下し、pixel-space outputはbitwise identical、速度はほぼ同等です。
 - LarryvrhのTurbo LoRAを、既存 `lowvram` を変更しない任意の `lowvram_turbo` profileと専用workflowとして追加しました。作者の対応一覧にQ3 GGUFは明記されないため、experimentalとして扱い、通常の `lowvram` をfallbackにします。
 - Turbo workflowはv4 step600 EMA、strength 1.0、simple / 6 steps、`low_vram=true` mergeです。adapterとcustom nodeは固定revision、LoRAと同梱time-conditioning gridはSHA-256で検査します。
+
+### 2026-08-12追補
+
+- 既存Q2 profile/workflowを変更せず、Q4 text encoderへ切り替える品質優先 `lowvram_q4_turbo` profileを追加しました。
+- Q4は `realrebelai/MiniMax-H3_GGUFs@daf03b4ca652cce16dfd4fcf91e79c52ffa5c1e7` の `qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf` に固定しました。14,576,977,888 bytes、SHA-256 `1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e` で、取得後のfull hash一致を確認しました。
+- 専用workflowは成功済みQ2 job 00010の0.4MP / 5秒 / simple 8 steps / strength 1.0 / merge設定を基準にし、text encoderだけをQ4へ置換しました。同prompt/seedのQ4 E2Eも成功し、1例のA/B差を確認しましたが品質優越は断定しません。
 
 ## 最終的に構築したもの
 
@@ -140,6 +146,10 @@ MiniMax H3はQwen3-VL-32B系encoder、33B級のOmni Transformer、video/audio VA
 
 `lowvram` の4ファイルに `minimax_h3_turbo_v4_step600_ema.safetensors` 779,849,816 bytes（約743.72MiB）を加え、合計23,983,726,816 bytes（約22.34GiB）です。adapterのsource revisionとSHA-256はmanifestへ固定しています。
 
+#### lowvram_q4_turbo profile
+
+Q3 diffusion、Q4_K_M text encoder、共通VAE 2点、Turbo adapterの5ファイルで、選択profile合計30,072,736,544 bytes（約28.01GiB）です。Q4 encoderはQ2より6,089,009,728 bytes（約5.67GiB）大きいため、RAM/pagefile負荷も増えます。既存Q2 Turbo環境への追加downloadはQ4全体の14,576,977,888 bytes（約13.58GiB）、Q2/Q4両profileのunique累積は38,560,704,704 bytes（約35.91GiB）です。fresh環境でQ2 fallbackも使う場合は、`download-models.ps1 -Profile lowvram_turbo -AcceptLicense` を別途実行します。
+
 #### official profile
 
 Comfy-OrgのFL2VA int8 convrot、Qwen3-VL nvfp4 AWQ、共通VAE 2点で約39.55GiBです。構築時には共通VAEだけがあり、official固有の約34.14GiB分は未取得です。
@@ -162,6 +172,8 @@ Comfy-OrgのFL2VA int8 convrot、Qwen3-VL nvfp4 AWQ、共通VAE 2点で約39.55G
 `official` profileではこのGGUF workflowを使わず、ComfyUI Template Libraryの公式MiniMax H3 T2Vを使います。
 
 任意の[Turbo workflow](workflows/minimax_h3_t2v_lowvram_turbo.json)はlow-VRAM workflowへTurbo LoRA / samplerを挿入し、0.2MP、5秒、simple / 6 steps、mergeを固定しました。Q3 GGUFとの組合せは作者資料で明示されないため、workflowの存在だけで公式対応とはみなしません。
+
+[Q4 Turbo workflow](workflows/minimax_h3_t2v_lowvram_q4_turbo.json)はQ2 Turboを変更せず別ファイルとして追加し、0.4MP、5秒、simple / 8 steps、strength 1.0、mergeを固定しました。まず0.4MPで検証し、成功後に0.6MPを利用者が手動選択する段階設計です。
 
 ### 5. VRAM/RAM不足の回避策を入れた
 
@@ -190,7 +202,7 @@ Comfy-OrgのFL2VA int8 convrot、Qwen3-VL nvfp4 AWQ、共通VAE 2点で約39.55G
 - VAE chunked I/O code contractとTurbo time-conditioning grid hash
 - 固定Git commitとcore package version
 - profileごとのモデル名、容量、任意SHA-256
-- workflow loader、モデル名、解像度、秒数、steps
+- workflow loader、内側とtop-level実効overrideのモデル名、ResolutionSelectorのwidth/height link、解像度、秒数、steps
 
 total VRAMだけを見て「Ready」とすると、他アプリがVRAMを消費している状態を見逃します。そのためfree VRAMも取得し、構築時に観測した約3.4GiBのような低空き状態ならEmergency modeを提案するwarningを出します。diskはモデルが揃っていても最低2GiB未満ならerror、2〜20GiBならwarningにしました。
 
@@ -292,11 +304,12 @@ MiniMax H3は独自Community Licenseで、community quantization側はmetadata�
 構築時および本書作成時に次を確認しました。
 
 - `lowvram_turbo` profileの5モデルが正確なbyte数とSHA-256に一致
+- `lowvram_q4_turbo` profileの5モデルが正確なbyte数とSHA-256に一致し、Q4 loader / 0.4MP / 5秒 / simple 8-step / merge workflow contractも一致
 - `local_doctor.py --hash` が `Ready: yes`
 - 固定ComfyUI/GGUF/Turbo node commit、Python、torch3 packageがlockと一致
 - ComfyUIの必須H3/Turbo/GGUF nodeと5モデルを認識
 - base workflowの608x352 / 4秒 / 20 stepsと、Turbo workflowの608x352 / 5秒 / simple / 6 steps / merge wiring contractが一致
-- 自動テスト34/34合格
+- 自動テスト38/38合格
 - Mermaid architecture diagramの実レンダー成功
 - Emergency相当、608x352、4秒指定、1 stepのE2E配線スモーク成功
 - 出力MP4はH.264 608x352、24fps、124 framesとAAC 32kHz stereo
@@ -304,16 +317,20 @@ MiniMax H3は独自Community Licenseで、community quantization側はmetadata�
 - Turbo Q3 merge、416x256、4秒指定、4 stepsのDynamic VRAM E2Eが70.35秒で完走
 - Turbo出力は605,791 bytes、H.264 24fps / 4.458秒 + AAC 32kHz stereo。同seedでLoRAなしA/Bとの差は平均PSNR 24.06 dB。[機械可読な検証記録](verification/turbo-e2e-2026-08-11.json)に条件とartifact hashを保存
 - Q3では汎用canaryの `weight_patched=False` はComfyUI-GGUFの `GGMLTensor.weight.patches` を見ないfalse negative。`208 weights patched + 51 adaln injected`、完走、A/B差を併用して適用を確認
+- Q2 Turbo job 00010は0.4MP / 5秒 / simple 8 steps / strength 1.0 / mergeで成功。Q4 workflowは同条件からencoderだけを置換
+- Q4 Turbo A/Bは同prompt/seedで286.087秒で成功し、H.264 864x480 / 24fps / 5.167秒 + AAC 32kHz stereoを生成。Q2とのPSNR 26.291812 dB、SSIM 0.814451で出力差を確認。詳細は[検証記録](verification/q4-text-encoder-ab-2026-08-12.json)
 
 ## まだ検証していないこと
 
 - 同梱20-step lowvram workflowの完走時間と品質
 - tracked Turbo既定の0.2MP / 5秒 / 6-step完走・品質・再現性とbypass経路
+- Q4の一般的な品質・速度優越、複数promptでのQ2比較、0.6MP実行
 - 768p相当のローカル生成
 - `official` profile固有モデル2点を使った生成
 - API keyと課金を伴うMiniMax API実生成
 - 長時間連続運転時の温度、SSD負荷、pagefile耐性
 - community Q3/Q2と公式量子化の品質比較
+- community Q4 text encoderとQ2/公式encoderの品質・指示追従比較
 
 したがって「ローカルpipelineが最後まで配線されている」ことは確認済みですが、「このPCで実用速度・実用品質の20-step動画が得られる」とまでは確認していません。
 

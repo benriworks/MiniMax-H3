@@ -90,7 +90,7 @@ class ModelTests(unittest.TestCase):
         self.assertEqual(manifest["schema_version"], 1)
         self.assertEqual(
             set(manifest["profiles"]),
-            {"lowvram", "lowvram_turbo", "official"},
+            {"lowvram", "lowvram_turbo", "lowvram_q4_turbo", "official"},
         )
         for entry in manifest["models"].values():
             self.assertGreater(entry["bytes"], 0)
@@ -98,10 +98,41 @@ class ModelTests(unittest.TestCase):
             self.assertTrue(entry["source_url"].startswith("https://huggingface.co/"))
             self.assertTrue(entry["license"])
             self.assertTrue(entry["license_url"].startswith("https://"))
+        q4 = manifest["models"]["qwen3vl_h3_q4_k_m"]
+        self.assertEqual(q4["repository"], "realrebelai/MiniMax-H3_GGUFs")
+        self.assertEqual(q4["revision"], "daf03b4ca652cce16dfd4fcf91e79c52ffa5c1e7")
+        self.assertEqual(q4["remote_path"], "qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf")
+        self.assertEqual(
+            q4["license_url"],
+            "https://huggingface.co/realrebelai/MiniMax-H3_GGUFs/blob/"
+            "daf03b4ca652cce16dfd4fcf91e79c52ffa5c1e7/README.md",
+        )
+        self.assertEqual(
+            manifest["models"]["qwen3vl_h3_q2_k"]["license_url"],
+            q4["license_url"],
+        )
+
+    def test_official_manifest_entries_preserve_upstream_license_identity(self) -> None:
+        manifest = json.loads((PROJECT_ROOT / "model-manifest.json").read_text(encoding="utf-8"))
+        upstream_license_url = (
+            "https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/"
+            "bfc8ed0353f5a9733be73e6b2c98ec0948195b86/LICENSE"
+        )
+        self.assertEqual(manifest["upstream_license_url"], upstream_license_url)
+        for identifier in (
+            "fl2va_pruned_int8_convrot",
+            "qwen3vl_h3_nvfp4_awq",
+            "video_vae_fp16",
+            "audio_vae_fp32",
+        ):
+            entry = manifest["models"][identifier]
+            self.assertEqual(entry["license"], "MiniMax H3 Community License Agreement")
+            self.assertEqual(entry["license_url"], upstream_license_url)
 
     def test_profiles_have_exact_files(self) -> None:
         self.assertEqual(len(local_doctor.MODEL_PROFILES["lowvram"]), 4)
         self.assertEqual(len(local_doctor.MODEL_PROFILES["lowvram_turbo"]), 5)
+        self.assertEqual(len(local_doctor.MODEL_PROFILES["lowvram_q4_turbo"]), 5)
         self.assertEqual(len(local_doctor.MODEL_PROFILES["official"]), 4)
         low_names = {Path(spec.relative_path).name for spec in local_doctor.MODEL_PROFILES["lowvram"]}
         self.assertEqual(low_names, local_doctor.LOWVRAM_WORKFLOW_MODELS)
@@ -121,6 +152,18 @@ class ModelTests(unittest.TestCase):
         self.assertEqual(
             sum(spec.expected_bytes for spec in local_doctor.MODEL_PROFILES["lowvram_turbo"]),
             23_983_726_816,
+        )
+        q4_turbo_specs = local_doctor.MODEL_PROFILES["lowvram_q4_turbo"]
+        self.assertEqual(
+            {Path(spec.relative_path).name for spec in q4_turbo_specs},
+            local_doctor.Q4_TURBO_WORKFLOW_MODELS,
+        )
+        self.assertEqual(sum(spec.expected_bytes for spec in q4_turbo_specs), 30_072_736_544)
+        q4 = next(spec for spec in q4_turbo_specs if "Q4_K_M" in spec.relative_path)
+        self.assertEqual(q4.expected_bytes, 14_576_977_888)
+        self.assertEqual(
+            q4.sha256,
+            "1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e",
         )
 
     def test_model_size_check_detects_exact_and_mismatch(self) -> None:
@@ -232,6 +275,157 @@ class WorkflowTests(unittest.TestCase):
         )
         scheduler = next(node for node in nodes if node.get("type") == "BasicScheduler")
         self.assertEqual(scheduler["widgets_values"], ["simple", 6, 1])
+
+    def test_q4_turbo_workflow_is_quality_profile_and_preserves_q2_workflow_as_separate_fallback(self) -> None:
+        result = local_doctor.check_workflow(PROJECT_ROOT, "lowvram_q4_turbo")
+        self.assertEqual(result.status, "ok", result.summary)
+
+        q4_path = PROJECT_ROOT / "workflows" / "minimax_h3_t2v_lowvram_q4_turbo.json"
+        q4_text = q4_path.read_text(encoding="utf-8")
+        workflow = json.loads(q4_text)
+        nodes = list(local_doctor._walk_nodes(workflow))
+        clip = next(node for node in nodes if node.get("type") == "CLIPLoaderGGUF")
+        scheduler = next(node for node in nodes if node.get("type") == "BasicScheduler")
+        selector = next(node for node in nodes if node.get("type") == "ResolutionSelector")
+        lora = next(node for node in nodes if node.get("type") == "MiniMaxH3TurboLoRA")
+        self.assertEqual(
+            clip["widgets_values"],
+            ["qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf", "minimax"],
+        )
+        self.assertEqual(scheduler["widgets_values"], ["simple", 8, 1])
+        self.assertEqual(selector["widgets_values"], ["16:9 (Widescreen)", 0.4, 32])
+        self.assertEqual(
+            lora["widgets_values"],
+            ["minimax_h3_turbo_v4_step600_ema.safetensors", 1, True],
+        )
+        save_video = next(node for node in nodes if node.get("type") == "SaveVideo")
+        self.assertEqual(save_video["widgets_values"][0], "video/MiniMax_H3_Q4")
+        q4_graph = next(
+            graph
+            for graph in workflow["definitions"]["subgraphs"]
+            if any(node.get("type") == "MiniMaxH3TurboLoRA" for node in graph["nodes"])
+        )
+        self.assertEqual(q4_graph["name"], "MiniMax H3 Q4 Turbo low-VRAM (GGUF)")
+        instance = next(node for node in workflow["nodes"] if node.get("type") == q4_graph["id"])
+        self.assertEqual(instance["title"], "MiniMax H3 Q4 Turbo low-VRAM (GGUF)")
+        self.assertNotIn("qwen3vl-32B-MiniMax-H3-Q2_K.gguf", q4_text)
+
+        q2_text = (
+            PROJECT_ROOT / "workflows" / "minimax_h3_t2v_lowvram_turbo.json"
+        ).read_text(encoding="utf-8")
+        self.assertIn("qwen3vl-32B-MiniMax-H3-Q2_K.gguf", q2_text)
+        self.assertNotIn("qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf", q2_text)
+        q2_workflow = json.loads(q2_text)
+        q2_save = next(
+            node for node in local_doctor._walk_nodes(q2_workflow) if node.get("type") == "SaveVideo"
+        )
+        self.assertEqual(q2_save["widgets_values"][0], "video/MiniMax_H3")
+
+    def test_q4_turbo_workflow_rejects_q2_loader_even_if_notes_name_q4(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "workflows").mkdir()
+            workflow = json.loads(
+                (
+                    PROJECT_ROOT / "workflows" / "minimax_h3_t2v_lowvram_q4_turbo.json"
+                ).read_text(encoding="utf-8")
+            )
+            clip = next(
+                node
+                for node in local_doctor._walk_nodes(workflow)
+                if node.get("type") == "CLIPLoaderGGUF"
+            )
+            clip["widgets_values"][0] = "qwen3vl-32B-MiniMax-H3-Q2_K.gguf"
+            (root / "workflows" / "minimax_h3_t2v_lowvram_q4_turbo.json").write_text(
+                json.dumps(workflow),
+                encoding="utf-8",
+            )
+            (root / "workflows" / "README.md").write_text(
+                (PROJECT_ROOT / "workflows" / "README.md").read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+            result = local_doctor.check_workflow(root, "lowvram_q4_turbo")
+
+            workflow = json.loads(
+                (
+                    PROJECT_ROOT / "workflows" / "minimax_h3_t2v_lowvram_q4_turbo.json"
+                ).read_text(encoding="utf-8")
+            )
+            subgraph_ids = {graph["id"] for graph in workflow["definitions"]["subgraphs"]}
+            instance = next(node for node in workflow["nodes"] if node.get("type") in subgraph_ids)
+            instance["widgets_values"][5:9] = [
+                "wrong-unet.gguf",
+                "wrong-text.gguf",
+                "wrong-video.safetensors",
+                "wrong-audio.safetensors",
+            ]
+            (root / "workflows" / "minimax_h3_t2v_lowvram_q4_turbo.json").write_text(
+                json.dumps(workflow),
+                encoding="utf-8",
+            )
+            overridden = local_doctor.check_workflow(root, "lowvram_q4_turbo")
+
+        self.assertEqual(result.status, "error")
+        self.assertIn("CLIPLoaderGGUF must use", result.summary)
+        self.assertEqual(overridden.status, "error")
+        self.assertIn("subgraph model overrides", overridden.summary)
+
+    def test_q4_turbo_workflow_rejects_resolution_geometry_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "workflows").mkdir()
+            workflow = json.loads(
+                (
+                    PROJECT_ROOT / "workflows" / "minimax_h3_t2v_lowvram_q4_turbo.json"
+                ).read_text(encoding="utf-8")
+            )
+            selector = next(
+                node
+                for node in local_doctor._walk_nodes(workflow)
+                if node.get("type") == "ResolutionSelector"
+            )
+            selector["widgets_values"] = ["4:3", 0.4, 64]
+            (root / "workflows" / "minimax_h3_t2v_lowvram_q4_turbo.json").write_text(
+                json.dumps(workflow),
+                encoding="utf-8",
+            )
+            (root / "workflows" / "README.md").write_text(
+                (PROJECT_ROOT / "workflows" / "README.md").read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+            result = local_doctor.check_workflow(root, "lowvram_q4_turbo")
+
+            workflow = json.loads(
+                (
+                    PROJECT_ROOT / "workflows" / "minimax_h3_t2v_lowvram_q4_turbo.json"
+                ).read_text(encoding="utf-8")
+            )
+            subgraph_ids = {graph["id"] for graph in workflow["definitions"]["subgraphs"]}
+            instance = next(node for node in workflow["nodes"] if node.get("type") in subgraph_ids)
+            selector = next(
+                node for node in workflow["nodes"] if node.get("type") == "ResolutionSelector"
+            )
+            workflow["links"] = [
+                link
+                for link in workflow["links"]
+                if not (
+                    link[1] == selector["id"]
+                    and link[2] == 0
+                    and link[3] == instance["id"]
+                    and link[4] == 2
+                )
+            ]
+            (root / "workflows" / "minimax_h3_t2v_lowvram_q4_turbo.json").write_text(
+                json.dumps(workflow),
+                encoding="utf-8",
+            )
+            unlinked = local_doctor.check_workflow(root, "lowvram_q4_turbo")
+
+        self.assertEqual(result.status, "error")
+        self.assertIn("aspect ratio is not 16:9", result.summary)
+        self.assertIn("multiple is not 32", result.summary)
+        self.assertEqual(unlinked.status, "error")
+        self.assertIn("width/height outputs", unlinked.summary)
 
     def test_official_profile_checks_official_template(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -362,6 +556,8 @@ else {
             ".\\download-models.ps1 -Profile $Profile -AcceptLicense",
             source,
         )
+        self.assertIn("does not auto-load or switch", source)
+        self.assertIn("Open manually:", source)
 
     def test_run_local_reports_metrics_only_at_start_and_end(self) -> None:
         source = (PROJECT_ROOT / "run-local.ps1").read_text(encoding="utf-8")
@@ -552,6 +748,7 @@ Set-GitRepositoryRevision -Repository '{repository}' -Revision '{second_revision
         self.assertIn("$actualBytes -eq $entry.ExpectedBytes", source)
         self.assertIn("--revision", source)
         self.assertIn("lowvram_turbo", source)
+        self.assertIn("lowvram_q4_turbo", source)
         self.assertIn("$loraRoot", source)
 
 
