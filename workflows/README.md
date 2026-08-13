@@ -86,7 +86,16 @@ Sampler. Its `simple` / 8-step, strength `1.0`, and `low_vram=true` merge
 settings match the existing Q4 Turbo workflow. This is the faster comparison
 path, not a verified quality upgrade. An Emergency `--novram --cpu-vae` smoke
 of `official_q4` completed at 416x256, five frames, one step, and no audio; it
-verified the INT8 + Q4 loader/sampling/video-decode path and H.264 output, not
-the tracked 0.4 MP / five-second / 20-step default, audio, quality, or Turbo.
-The ignored output hash and resource observations are recorded in
+verified the INT8 + Q4 loader/sampling/video-decode path and H.264 output. The
+ignored output hash and resource observations are recorded in
 [`verification/int8-smoke-2026-08-13.json`](../verification/int8-smoke-2026-08-13.json).
+
+Under the same Emergency mode, a non-Turbo quality run completed at 1056x608
+(0.6 MP), five seconds, `res_multistep` / `simple` / 20 steps. The resulting
+H.264 High / yuv420p video plus AAC LC 32 kHz stereo MP4 fully decoded. In this
+single same-prompt, same-seed comparison, INT8 had lower visible noise and more
+stable window-grid structure, while Q3 retained more apparent fine texture. It
+is an observation, not a general quality, prompt-following, speed, or temporal
+stability ranking. The tracked 0.4 MP default and `official_q4_turbo` remain
+unverified on target hardware. Evidence is in
+[`verification/int8-quality-2026-08-14.json`](../verification/int8-quality-2026-08-14.json).

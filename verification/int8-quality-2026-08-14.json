@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "verified_at": "2026-08-14T00:17:35.806+09:00",
+  "profile": "official_q4",
+  "machine": {
+    "gpu": "NVIDIA GeForce RTX 3070 Ti",
+    "vram_gib": 8,
+    "server_flags": [
+      "--novram",
+      "--cpu-vae"
+    ]
+  },
+  "runtime": {
+    "diffusion_model": {
+      "name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+      "sha256": "e889202c41dafb67b10d67b97f0d8541508036a6090af23425a5c2615d03c47a"
+    },
+    "text_encoder": {
+      "name": "qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf",
+      "sha256": "1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e"
+    },
+    "turbo_enabled": false
+  },
+  "settings": {
+    "prompt_sha256_utf8": "b2b675daa83b410766f0b60e21cfdf08c7a4448110c328d15525ba77af140852",
+    "seed": 529716596879763,
+    "width": 1056,
+    "height": 608,
+    "megapixels": 0.6,
+    "requested_duration_seconds": 5,
+    "sampler": "res_multistep",
+    "scheduler": "simple",
+    "steps": 20,
+    "denoise": 1.0,
+    "save_codec": "h264",
+    "save_encoding": "re-encode",
+    "save_crf": 18
+  },
+  "execution": {
+    "prompt_id": "3cfad81b-02d2-4bc7-ae4a-3f15f338b1f4",
+    "start": "2026-08-13T20:46:20.842+09:00",
+    "success": "2026-08-14T00:17:35.806+09:00",
+    "elapsed_ms": 12674964,
+    "elapsed_hms": "03:31:14.964",
+    "sampling_hms": "00:10:41"
+  },
+  "artifact": {
+    "path": "outputs/video/MiniMax_H3_OFFICIAL_INT8_Q4_NoTurbo20_00001_.mp4",
+    "tracked": false,
+    "bytes": 3544076,
+    "sha256": "263912074A057FF44829CF4FCAF2100A0B96E2AC92B5A2218907ED7B978DBF16",
+    "full_decode_exit_code": 0,
+    "video": {
+      "codec": "h264",
+      "profile": "High",
+      "pixel_format": "yuv420p",
+      "width": 1056,
+      "height": 608,
+      "fps": 24,
+      "frames": 124,
+      "duration_seconds": 5.166667
+    },
+    "audio": {
+      "codec": "aac",
+      "profile": "LC",
+      "sample_rate_hz": 32000,
+      "channels": 2,
+      "channel_layout": "stereo",
+      "duration_seconds": 5.167
+    }
+  },
+  "comparison_observation": {
+    "int8": "Lower visible noise and more stable window-grid structure on this prompt and seed, but smoother fine texture.",
+    "q3": "More apparent fine texture on the comparison output.",
+    "interpretation": "This is one same-prompt, same-seed comparison observation, not a general quality ranking."
+  },
+  "boundaries": {
+    "verified": "The official INT8 ConvRot plus Q4, non-Turbo, 0.6 MP, five-second, 20-step run completed under Emergency offload and emitted a fully decodable H.264 plus AAC MP4.",
+    "not_verified": [
+      "official_q4_turbo",
+      "Dynamic VRAM execution for official INT8 plus Q4",
+      "general quality, prompt-following, speed, or temporal-stability superiority",
+      "768p or 2K execution on this machine"
+    ]
+  }
+}

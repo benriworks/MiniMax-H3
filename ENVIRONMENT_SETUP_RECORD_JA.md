@@ -21,7 +21,8 @@
 ### 2026-08-13追補
 
 - 既存Q3/Q4/Turbo profileを変更せず、Comfy-Org公式 `minimax_h3_fl2va_pruned_int8_convrot.safetensors` と既存Q4_K_M encoderを組み合わせる `official_q4`（stock 20 steps）と `official_q4_turbo`（Turbo 8 steps）を追加しました。
-- `official_q4` をEmergency `--novram --cpu-vae` で416x256、5 frames、1 step、audioなしのsmokeとして実行し、324.814秒でH.264 High / yuv420p MP4を出力・全decode確認しました。INT8 + Q4、Turboなしの配線確認であり、0.4MP / 5秒 / 20-step既定、audio、画質、prompt追従、Turboは未検証です。source/output hashとresource peakは[検証記録](verification/int8-smoke-2026-08-13.json)に記録しています。
+- `official_q4` をEmergency `--novram --cpu-vae` で416x256、5 frames、1 step、audioなしのsmokeとして実行し、324.814秒でH.264 High / yuv420p MP4を出力・全decode確認しました。INT8 + Q4、Turboなしの配線確認であり、このsmoke単体では0.4MP / 5秒 / 20-step既定、audio、画質、prompt追従、Turboは未検証です。source/output hashとresource peakは[検証記録](verification/int8-smoke-2026-08-13.json)に記録しています。
+- 同じ`official_q4` を同じEmergency条件で1056x608（0.6MP）、5秒、`res_multistep` / `simple` 20 steps、Turboなしで実行し、3時間31分14.964秒で完走しました。H.264 High / yuv420p + AAC LC 32kHz stereoのMP4は全decode成功です。同一prompt/seedの比較ではINT8は低ノイズかつ窓グリッドが安定し、Q3はより細かなtextureが見えました。これは1例の観察で一般的な優劣は主張しません。条件とartifact hashは[検証記録](verification/int8-quality-2026-08-14.json)に記録しています。tracked 0.4MP既定とTurboは未検証です。
 
 ## 最終的に構築したもの
 
@@ -188,7 +189,11 @@ Q4をprompt conditioning、Turboを速度比較として分離できるよう、
 `official_q4` は公式templateから、text loaderだけを `CLIPLoaderGGUF` のQ4_K_Mへ置換した
 tracked 0.4MP / 5秒 / simple 20-step workflowです。`official_q4_turbo` は同じINT8/Q4
 pairへTurbo LoRA/Samplerを挿入し、strength 1.0、merge、simple / 8 stepsに固定します。
-`official_q4` は最小Emergency smokeだけを完走済みです。これは導入配線の確認であり、同prompt/seedでQ3と比較するtracked既定の生成実績ではありません。`official_q4_turbo` は未実行です。
+`official_q4` は最小Emergency smokeに加え、同じEmergency条件で1056x608（0.6MP）、5秒、
+`res_multistep` / `simple` 20 steps、Turboなしのrunを完走済みです。H.264 + AAC MP4は全decode
+成功し、同prompt/seedの1例ではINT8は低ノイズかつ窓グリッドが安定、Q3はより細かなtextureが
+見えました。この観察はtracked既定0.4MP構成や一般的な品質優越を示しません。`official_q4_turbo`
+は未実行です。
 RTX 3070 Ti 8GiBでの初回INT8起動手順は`-EmergencyLowVram`です。Dynamic VRAMでのINT8/Q4比較は未検証であり、通常launcherの既定を変更する根拠にはしません。
 
 任意の[Turbo workflow](workflows/minimax_h3_t2v_lowvram_turbo.json)はlow-VRAM workflowへTurbo LoRA / samplerを挿入し、0.2MP、5秒、simple / 6 steps、mergeを固定しました。Q3 GGUFとの組合せは作者資料で明示されないため、workflowの存在だけで公式対応とはみなしません。

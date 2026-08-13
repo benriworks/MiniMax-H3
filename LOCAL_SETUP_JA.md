@@ -12,7 +12,7 @@
 - `lowvram` のQ3/Q2 GGUFはコミュニティ量子化で、実験的です。公式ウェイトより品質、時間的一貫性、指示追従、音声品質が低下する可能性があります。
 - 任意の `lowvram_turbo` はLarryvrhのTurbo LoRAを追加し、**608x352、5秒指定、simple / 6 steps** で試す実験経路です。Q3 GGUFは作者が明示する対応baseに含まれないため、通常の `lowvram` を必ずfallbackとして残します。
 - 品質優先の `lowvram_q4_turbo` は、同じQ3 diffusion/Turbo経路でtext encoderだけを **Q4_K_M** へ上げ、**0.4MP（864x480）、5秒、simple / 8 steps** を既定にします。Q2よりtext encoder単体で約5.67GiB大きく、RAM/pagefile負荷も増えます。同条件のQ2/Q4 A/Bは両方完走しましたが、1例からQ4の品質優越は断定しません。
-- `official_q4` と `official_q4_turbo` は、映像モデルをComfy-Org公式INT8 ConvRotへ上げつつ、既存Q4_K_M text encoderを使う比較経路です。前者は **0.4MP、5秒、simple / 20 steps**、後者はTurbo LoRAで **simple / 8 steps** です。モデル総量が約38.52GiB/39.25GiBとなるため、8GiB VRAM機ではDynamic VRAMとRAM/pagefile退避による長時間化を想定してください。`official_q4` は416x256・5 frames・1-stepのEmergency smokeを完走済みですが、同梱0.4MP / 20-step既定とTurbo経路は未検証です。
+- `official_q4` と `official_q4_turbo` は、映像モデルをComfy-Org公式INT8 ConvRotへ上げつつ、既存Q4_K_M text encoderを使う比較経路です。前者は **0.4MP、5秒、simple / 20 steps**、後者はTurbo LoRAで **simple / 8 steps** です。モデル総量が約38.52GiB/39.25GiBとなるため、8GiB VRAM機ではDynamic VRAMとRAM/pagefile退避による長時間化を想定してください。`official_q4` はEmergencyで0.6MP（1056x608）/5秒/20 stepsのTurboなしrunを完走済みです。tracked既定の0.4MP構成とTurbo経路は別途比較が必要です。
 - APIで新しい生成を始める `submit` は課金され得ます。CLIは `--confirm-billable` がない限り、送信前に停止します。
 - `setup-local.ps1` と `run-local.ps1` は他のGPUアプリを自動終了しません。
 
@@ -24,7 +24,7 @@
 | samplingを短縮して試す | `lowvram_turbo` | `lowvram` + 約743.72MiBのTurbo LoRA、約22.34GiB、専用6-step workflow。実験的 |
 | text理解を優先して試す | `lowvram_q4_turbo` | Q3 diffusion + Q4 text encoder + Turbo、約28.01GiB、0.4MP / 8-step専用workflow。実験的 |
 | ComfyUI公式ウェイトを使う | `official` | Comfy-Org int8/nvfp4、約39.55GiB、ComfyUI Template Libraryの公式T2Vを使用 |
-| 公式INT8の画質比較をする | `official_q4` | 公式INT8 diffusion + Q4 text encoder、約38.52GiB、0.4MP / 20-step workflow。最小smokeのみ完走 |
+| 公式INT8の画質比較をする | `official_q4` | 公式INT8 diffusion + Q4 text encoder、約38.52GiB、0.4MP / 20-step workflow。Emergencyで0.6MP / 5秒 / 20-stepのTurboなしrun完走。tracked 0.4MP既定は未検証 |
 | 公式INT8で高速比較をする | `official_q4_turbo` | 公式INT8 + Q4 + Turbo、約39.25GiB、0.4MP / 8-step workflow。未検証 |
 | 2K、H3-Context-IR、H3-Regenerate-2K、公式ホスト実行 | MiniMax API | API利用料と外部送信が発生し得る |
 
@@ -43,7 +43,8 @@ MiniMaxの公開説明では、ローカルH3-Baseは768p検証、フル2K workf
 - RTX 3070 Ti 8GiB、物理RAM約47.72GiB、pagefile 48GiBの検査
 - `lowvram_turbo` 5ファイル（base 4点 + LoRA 779,849,816 bytes）の正確なbyte数とfull SHA-256一致、`local_doctor.py --hash` の `Ready: yes`
 - `lowvram_q4_turbo` 5ファイル（Q4 encoder 14,576,977,888 bytesを含む）の正確なbyte数とfull SHA-256一致、専用workflow contract、`Ready: yes`
-- `official_q4` はEmergency `--novram --cpu-vae`、416x256、5 frames、1 step、audioなしのsmokeを324.814秒で完走。H.264 High / yuv420p MP4は全decode成功。品質評価・audio・0.4MP / 20-step既定は未検証
+- `official_q4` はEmergency `--novram --cpu-vae`、416x256、5 frames、1 step、audioなしのsmokeを324.814秒で完走。H.264 High / yuv420p MP4は全decode成功。これは導入配線の確認であり、品質評価ではありません
+- `official_q4` は同じEmergency条件で1056x608（0.6MP）、5秒、`res_multistep` / `simple` 20 steps、Turboなしのrunを3時間31分14.964秒で完走。H.264 High / yuv420p + AAC LC 32kHz stereoのMP4は全decode成功。同一prompt/seedの比較ではINT8出力は低ノイズかつ窓グリッドが安定し、Q3はより細かなtextureが見えましたが、1例による観察で一般的な品質優越は主張しません。[検証記録](verification/int8-quality-2026-08-14.json)
 - Turbo custom nodeの2 nodeがComfyUI `object_info`に登録され、同梱time-conditioning gridのSHA-256も一致
 - セキュリティ・manifest・Q4/official INT8のloader/配線/override/解像度・sampling・decode contractを含むworkflow wiring・PowerShell・fresh/shallow clone・system metricsを含む自動テスト **43/43合格**
 
@@ -218,8 +219,15 @@ encoderを `CLIPLoaderGGUF`（type `minimax`）で読みます。まず0.4MP、5
 
 `official_q4` はEmergency `--novram --cpu-vae` で416x256、5 frames、1 step、audioなしの
 smokeを324.814秒で完走し、H.264 High / yuv420p MP4の全decode成功を確認しました。これは
-INT8 + Q4のloader/sampling/video decode経路の確認だけで、品質、prompt追従、audio、0.4MP /
-5秒 / 20-step既定の完走は示しません。出力hashとresource peakは[検証記録](verification/int8-smoke-2026-08-13.json)に固定しています。
+INT8 + Q4のloader/sampling/video decode経路の確認です。出力hashとresource peakは[検証記録](verification/int8-smoke-2026-08-13.json)に固定しています。
+
+さらに同じEmergency条件で、1056x608（0.6MP）、5秒、`res_multistep` / `simple` 20 steps、
+Turboなしのrunが3時間31分14.964秒で完走しました。H.264 High / yuv420p videoとAAC LC
+32kHz stereo audioを含むMP4は全decode成功です。同一prompt/seedの比較ではINT8出力の方が
+低ノイズかつ窓グリッドが安定し、Q3の方が細かなtextureが見えました。ただしこれは1例の観察で、
+一般的な品質、prompt追従、速度、時間的一貫性の優劣は示しません。条件とartifact hashは
+[検証記録](verification/int8-quality-2026-08-14.json)に固定しています。tracked 0.4MP / 5秒 /
+20-step既定とTurbo経路は未検証です。
 このRTX 3070 Ti 8GiB機では、最初のINT8起動は必ず上記Emergency modeから始めてください。
 Dynamic VRAMでのINT8/Q4比較は未検証です。launcherの通常起動を変更したわけではありません。
 
