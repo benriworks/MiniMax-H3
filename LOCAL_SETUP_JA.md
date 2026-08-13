@@ -12,6 +12,7 @@
 - `lowvram` のQ3/Q2 GGUFはコミュニティ量子化で、実験的です。公式ウェイトより品質、時間的一貫性、指示追従、音声品質が低下する可能性があります。
 - 任意の `lowvram_turbo` はLarryvrhのTurbo LoRAを追加し、**608x352、5秒指定、simple / 6 steps** で試す実験経路です。Q3 GGUFは作者が明示する対応baseに含まれないため、通常の `lowvram` を必ずfallbackとして残します。
 - 品質優先の `lowvram_q4_turbo` は、同じQ3 diffusion/Turbo経路でtext encoderだけを **Q4_K_M** へ上げ、**0.4MP（864x480）、5秒、simple / 8 steps** を既定にします。Q2よりtext encoder単体で約5.67GiB大きく、RAM/pagefile負荷も増えます。同条件のQ2/Q4 A/Bは両方完走しましたが、1例からQ4の品質優越は断定しません。
+- `official_q4` と `official_q4_turbo` は、映像モデルをComfy-Org公式INT8 ConvRotへ上げつつ、既存Q4_K_M text encoderを使う比較経路です。前者は **0.4MP、5秒、simple / 20 steps**、後者はTurbo LoRAで **simple / 8 steps** です。モデル総量が約38.52GiB/39.25GiBとなるため、8GiB VRAM機ではDynamic VRAMとRAM/pagefile退避による長時間化を想定してください。`official_q4` は416x256・5 frames・1-stepのEmergency smokeを完走済みですが、同梱0.4MP / 20-step既定とTurbo経路は未検証です。
 - APIで新しい生成を始める `submit` は課金され得ます。CLIは `--confirm-billable` がない限り、送信前に停止します。
 - `setup-local.ps1` と `run-local.ps1` は他のGPUアプリを自動終了しません。
 
@@ -23,6 +24,8 @@
 | samplingを短縮して試す | `lowvram_turbo` | `lowvram` + 約743.72MiBのTurbo LoRA、約22.34GiB、専用6-step workflow。実験的 |
 | text理解を優先して試す | `lowvram_q4_turbo` | Q3 diffusion + Q4 text encoder + Turbo、約28.01GiB、0.4MP / 8-step専用workflow。実験的 |
 | ComfyUI公式ウェイトを使う | `official` | Comfy-Org int8/nvfp4、約39.55GiB、ComfyUI Template Libraryの公式T2Vを使用 |
+| 公式INT8の画質比較をする | `official_q4` | 公式INT8 diffusion + Q4 text encoder、約38.52GiB、0.4MP / 20-step workflow。最小smokeのみ完走 |
+| 公式INT8で高速比較をする | `official_q4_turbo` | 公式INT8 + Q4 + Turbo、約39.25GiB、0.4MP / 8-step workflow。未検証 |
 | 2K、H3-Context-IR、H3-Regenerate-2K、公式ホスト実行 | MiniMax API | API利用料と外部送信が発生し得る |
 
 MiniMaxの公開説明では、ローカルH3-Baseは768p検証、フル2K workflowはAPIとの組み合わせです。
@@ -37,11 +40,12 @@ MiniMaxの公開説明では、ローカルH3-Baseは768p検証、フル2K workf
 - ComfyUI-GGUF `6ea2651e7df66d7585f6ffee804b20e92fb38b8a`
 - ComfyUI-MiniMax-H3-Turbo `55fee864dd7b2976b1c4ce3c3d5f7968f181409f`
 - PyTorch `2.13.0+cu130`、torchvision `0.28.0+cu130`、torchaudio `2.11.0+cu130`
-- RTX 3070 Ti 8GiB、物理RAM約47.72GiB、pagefile 60GiBの検査
+- RTX 3070 Ti 8GiB、物理RAM約47.72GiB、pagefile 48GiBの検査
 - `lowvram_turbo` 5ファイル（base 4点 + LoRA 779,849,816 bytes）の正確なbyte数とfull SHA-256一致、`local_doctor.py --hash` の `Ready: yes`
 - `lowvram_q4_turbo` 5ファイル（Q4 encoder 14,576,977,888 bytesを含む）の正確なbyte数とfull SHA-256一致、専用workflow contract、`Ready: yes`
+- `official_q4` はEmergency `--novram --cpu-vae`、416x256、5 frames、1 step、audioなしのsmokeを324.814秒で完走。H.264 High / yuv420p MP4は全decode成功。品質評価・audio・0.4MP / 20-step既定は未検証
 - Turbo custom nodeの2 nodeがComfyUI `object_info`に登録され、同梱time-conditioning gridのSHA-256も一致
-- セキュリティ・manifest・Q4を含むworkflow wiring・PowerShell・fresh/shallow clone・system metricsを含む自動テスト **38/38合格**
+- セキュリティ・manifest・Q4/official INT8のloader/配線/override/解像度・sampling・decode contractを含むworkflow wiring・PowerShell・fresh/shallow clone・system metricsを含む自動テスト **43/43合格**
 
 さらに、base `lowvram` はEmergencyモード相当の `--novram --cpu-vae`、Q3/Q2、608x352で、配線確認用の1-step E2Eスモークが成功しています。出力は726,468 bytesのMP4で、ffprobeではH.264 608x352 / 24fps / 124 framesとAAC 32kHz stereoを確認しました。総所要時間は約15分50秒でした。このスモークは品質評価ではなく、同梱20-step workflowの生成成功や所要時間を保証しません。**同梱20-step workflowはまだ実生成未検証です。**
 
@@ -51,7 +55,9 @@ Turboについては、Dynamic VRAM、Q3/Q2、`low_vram=true`、416x256（0.1MP�
 
 Q2 Turbo job `MiniMax_H3_00010_.mp4` と、text encoderだけをQ4へ置換した `MiniMax_H3_Q4_AB_00001_.mp4` は、同じprompt/seed、0.4MP / 5秒 / simple 8 steps / strength 1.0 / mergeで両方成功しました。Q4は286.087秒、Q2は313.682秒で、Q4出力はH.264 864x480 / 24fps / 5.167秒 + AAC 32kHz stereoです。video A/BはPSNR 26.291812 dB、SSIM 0.814451で差があり、両方ともcity promptへ追従しました。これはQ4経路の完走と出力差の証拠であり、**1例からQ4の品質優越や一般的な速度優位は断定しません。** 詳細は[Q2/Q4 A/B検証記録](verification/q4-text-encoder-ab-2026-08-12.json)に固定しています。
 
-`official` 固有の約34.14GiB分の2ファイルは、この確認時点では未導入です。共通VAE 2ファイルのみ導入済みです。
+`official_q4` のsmokeに使った公式INT8 ConvRotは導入済みです。一方、Template Library用の
+`official` profileが必要とするNVFP4 AWQ text encoderは未導入です。両者は別artifactなので、
+`official` profileの完全導入を意味しません。
 
 ## 前提
 
@@ -196,6 +202,40 @@ ComfyUIで `workflows/minimax_h3_t2v_lowvram_q4_turbo.json` を開きます。�
 
 `official` profileで、trackedの `workflows/minimax_h3_t2v_lowvram.json` を開かないでください。このJSONはGGUF専用です。
 
+### official_q4 / official_q4_turbo workflow（INT8比較）
+
+まず、通常品質比較用の20-step経路です。
+
+```powershell
+.\download-models.ps1 -Profile official_q4 -AcceptLicense
+.\run-local.ps1 -Profile official_q4 -EmergencyLowVram
+```
+
+ComfyUIで `workflows/minimax_h3_t2v_official_q4.json` を開きます。公式の
+`minimax_h3_fl2va_pruned_int8_convrot.safetensors` を `UNETLoader` で読み、Q4
+encoderを `CLIPLoaderGGUF`（type `minimax`）で読みます。まず0.4MP、5秒、simple
+/ 20 stepsのまま、Q3と同一prompt・seedで1 jobだけ比較してください。
+
+`official_q4` はEmergency `--novram --cpu-vae` で416x256、5 frames、1 step、audioなしの
+smokeを324.814秒で完走し、H.264 High / yuv420p MP4の全decode成功を確認しました。これは
+INT8 + Q4のloader/sampling/video decode経路の確認だけで、品質、prompt追従、audio、0.4MP /
+5秒 / 20-step既定の完走は示しません。出力hashとresource peakは[検証記録](verification/int8-smoke-2026-08-13.json)に固定しています。
+このRTX 3070 Ti 8GiB機では、最初のINT8起動は必ず上記Emergency modeから始めてください。
+Dynamic VRAMでのINT8/Q4比較は未検証です。launcherの通常起動を変更したわけではありません。
+
+Turbo 8-stepとの比較には、別profileを使います。
+
+```powershell
+.\download-models.ps1 -Profile official_q4_turbo -AcceptLicense
+.\run-local.ps1 -Profile official_q4_turbo -EmergencyLowVram
+```
+
+`workflows/minimax_h3_t2v_official_q4_turbo.json` は同じINT8/Q4構成にTurbo
+LoRAを追加し、strength 1.0、`low_vram=true` merge、simple / 8 stepsを固定します。
+まずTurboなし20-stepを完走・保存確認してから同一条件で試してください。OOM、極端な
+ページング、品質低下があればQ3/Q4 Turbo workflowへ戻り、解像度・duration・stepsを
+同時に増やさないでください。
+
 ## 4. ローカルdoctor
 
 高速なサイズ・構成検査:
@@ -214,6 +254,12 @@ Q4 Turbo取得後はprofileを切り替え、Q4を含む5ファイルと専用wo
 
 ```powershell
 .\.venv\Scripts\python.exe -B tools\local_doctor.py --profile lowvram_q4_turbo --hash
+```
+
+official INT8 + Q4を取得した後は、同様に選択したprofileで検査します。
+
+```powershell
+.\.venv\Scripts\python.exe -B tools\local_doctor.py --profile official_q4 --hash
 ```
 
 JSON出力:

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "verified_at": "2026-08-12",
+  "verified_at": "2026-08-13",
   "license_notice": "-AcceptLicense is one acknowledgement for all files in the selected profile. Before using it, review THIRD_PARTY_NOTICES.md, every linked model card, and the pinned upstream MiniMax H3 Community License. Community quantization repositories can impose or omit metadata in addition to upstream terms. The optional Turbo LoRA is Apache-2.0 but does not replace the base model license.",
   "upstream_license_url": "https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/bfc8ed0353f5a9733be73e6b2c98ec0948195b86/LICENSE",
   "models": {
@@ -135,6 +135,19 @@
       "qwen3vl_h3_nvfp4_awq",
       "video_vae_fp16",
       "audio_vae_fp32"
+    ],
+    "official_q4": [
+      "fl2va_pruned_int8_convrot",
+      "qwen3vl_h3_q4_k_m",
+      "video_vae_fp16",
+      "audio_vae_fp32"
+    ],
+    "official_q4_turbo": [
+      "fl2va_pruned_int8_convrot",
+      "qwen3vl_h3_q4_k_m",
+      "video_vae_fp16",
+      "audio_vae_fp32",
+      "minimax_h3_turbo_v4_step600_ema"
     ]
   }
 }

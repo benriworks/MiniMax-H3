@@ -17,6 +17,8 @@ flowchart LR
         LowWorkflow["lowvram workflow<br/>GGUF / 0.2MP / 4s / 20 steps"]
         TurboWorkflow["optional Turbo workflow<br/>GGUF + LoRA / 0.2MP / 5s / 6 steps"]
         Q4TurboWorkflow["quality Q4 Turbo workflow<br/>Q3 + Q4 + LoRA / 0.4MP / 5s / 8 steps"]
+        OfficialQ4Workflow["official INT8 + Q4 workflow<br/>0.4MP / 5s / stock 20 steps"]
+        OfficialQ4TurboWorkflow["official INT8 + Q4 Turbo workflow<br/>0.4MP / 5s / Turbo 8 steps"]
         ApiWrapper["run-api.ps1"]
         ApiCli["tools/h3_api.py"]
     end
@@ -30,7 +32,7 @@ flowchart LR
         Comfy["ComfyUI on 127.0.0.1<br/>native H3 nodes + chunked VAE I/O"]
         GgufNode["ComfyUI-GGUF"]
         TurboNode["MiniMax H3 Turbo node<br/>pinned custom code + time grid"]
-        Models["models<br/>lowvram / Q2 Turbo / Q4 Turbo / official"]
+        Models["models<br/>lowvram / Q2 Turbo / Q4 Turbo / official / official Q4"]
         OfficialWorkflow["Template Library<br/>official H3 T2V"]
         Outputs["MP4 outputs / temp"]
         HardwareMetrics["Windows CIM / sensor WMI<br/>NVIDIA nvidia-smi"]
@@ -70,6 +72,8 @@ flowchart LR
     Doctor -->|"profile contract"| LowWorkflow
     Doctor -->|"Turbo wiring / merge contract"| TurboWorkflow
     Doctor -->|"Q4 loader / 0.4MP / 8-step contract"| Q4TurboWorkflow
+    Doctor -->|"INT8 + Q4 / 20-step contract"| OfficialQ4Workflow
+    Doctor -->|"INT8 + Q4 Turbo / 8-step contract"| OfficialQ4TurboWorkflow
     Doctor -->|"profile contract"| OfficialWorkflow
 
     Operator --> Launcher
@@ -81,6 +85,8 @@ flowchart LR
     TurboWorkflow -->|"lowvram_turbo only"| Comfy
     Q4TurboWorkflow -->|"lowvram_q4_turbo only"| Comfy
     OfficialWorkflow -->|"official only"| Comfy
+    OfficialQ4Workflow -->|"official_q4 only"| Comfy
+    OfficialQ4TurboWorkflow -->|"official_q4_turbo only"| Comfy
     GgufNode --> Comfy
     TurboNode -->|"optional LoRA + sampler"| Comfy
     Models --> Comfy
@@ -100,7 +106,7 @@ flowchart LR
     classDef external fill:#fff3df,stroke:#9a6300,color:#432b00;
     classDef secret fill:#ffe8ee,stroke:#9c284b,color:#481023;
 
-    class Setup,RuntimeLock,Downloader,ModelManifest,Doctor,Launcher,Metrics,LowWorkflow,TurboWorkflow,Q4TurboWorkflow,ApiWrapper,ApiCli tracked;
+    class Setup,RuntimeLock,Downloader,ModelManifest,Doctor,Launcher,Metrics,LowWorkflow,TurboWorkflow,Q4TurboWorkflow,OfficialQ4Workflow,OfficialQ4TurboWorkflow,ApiWrapper,ApiCli tracked;
     class Venv,Comfy,GgufNode,TurboNode,Models,OfficialWorkflow,Outputs,HardwareMetrics local;
     class GitHub,PackageIndexes,HuggingFace,MiniMaxApi,OutputCdn external;
     class Env secret;

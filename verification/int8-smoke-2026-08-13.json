@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "verified_at": "2026-08-13",
+  "profile": "official_q4",
+  "machine": {
+    "gpu": "NVIDIA GeForce RTX 3070 Ti",
+    "vram_gib": 8,
+    "server_flags": [
+      "--novram",
+      "--cpu-vae"
+    ]
+  },
+  "runtime": {
+    "diffusion_model": {
+      "name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+      "sha256": "e889202c41dafb67b10d67b97f0d8541508036a6090af23425a5c2615d03c47a"
+    },
+    "text_encoder": {
+      "name": "qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf",
+      "sha256": "1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e"
+    },
+    "turbo_enabled": false
+  },
+  "smoke_settings": {
+    "width": 416,
+    "height": 256,
+    "frames": 5,
+    "fps": 24,
+    "steps": 1,
+    "audio_enabled": false,
+    "purpose": "INT8 plus Q4 loader, sampling, video decode, and MP4 output smoke only"
+  },
+  "execution": {
+    "prompt_id": "c277ba48-ce8d-4cb8-b6d8-d4d1e5602897",
+    "start_unix_ms": 1786617616499,
+    "success_unix_ms": 1786617941313,
+    "elapsed_ms": 324814,
+    "oom_or_illegal_memory_access": false
+  },
+  "artifact": {
+    "path": "outputs/video/MiniMax_H3_OFFICIAL_Q4_Smoke1Step_00001_.mp4",
+    "tracked": false,
+    "bytes": 11132,
+    "sha256": "47D9B4A0174F3B0A05567E3FD235335635E13E941A91AB46866F8F2FDCF6890B",
+    "video": {
+      "codec": "h264",
+      "profile": "High",
+      "pixel_format": "yuv420p",
+      "width": 416,
+      "height": 256,
+      "fps": 24,
+      "frames": 5,
+      "duration_seconds": 0.208333
+    },
+    "audio": {
+      "present": false,
+      "reason": "intentional smoke design"
+    },
+    "full_decode_exit_code": 0
+  },
+  "observed_peak_resources": {
+    "process_working_set_gib": 32.64,
+    "free_physical_ram_gib": 1.14,
+    "commit_used_gib": 64.64,
+    "commit_limit_gib": 95.72,
+    "gpu_used_mib": 2092,
+    "gpu_temperature_celsius": 39
+  },
+  "boundaries": {
+    "verified": "official INT8 ConvRot plus Q4 GGUF, without Turbo, completed the recorded one-step no-audio smoke and produced a fully decodable H.264 MP4.",
+    "not_verified": [
+      "the tracked 0.4 MP, five-second, 20-step official_q4 workflow",
+      "official_q4_turbo",
+      "audio generation with official_q4",
+      "image quality, prompt following, temporal stability, or speed comparison"
+    ]
+  }
+}

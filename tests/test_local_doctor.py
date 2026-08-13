@@ -90,7 +90,14 @@ class ModelTests(unittest.TestCase):
         self.assertEqual(manifest["schema_version"], 1)
         self.assertEqual(
             set(manifest["profiles"]),
-            {"lowvram", "lowvram_turbo", "lowvram_q4_turbo", "official"},
+            {
+                "lowvram",
+                "lowvram_turbo",
+                "lowvram_q4_turbo",
+                "official",
+                "official_q4",
+                "official_q4_turbo",
+            },
         )
         for entry in manifest["models"].values():
             self.assertGreater(entry["bytes"], 0)
@@ -134,6 +141,8 @@ class ModelTests(unittest.TestCase):
         self.assertEqual(len(local_doctor.MODEL_PROFILES["lowvram_turbo"]), 5)
         self.assertEqual(len(local_doctor.MODEL_PROFILES["lowvram_q4_turbo"]), 5)
         self.assertEqual(len(local_doctor.MODEL_PROFILES["official"]), 4)
+        self.assertEqual(len(local_doctor.MODEL_PROFILES["official_q4"]), 4)
+        self.assertEqual(len(local_doctor.MODEL_PROFILES["official_q4_turbo"]), 5)
         low_names = {Path(spec.relative_path).name for spec in local_doctor.MODEL_PROFILES["lowvram"]}
         self.assertEqual(low_names, local_doctor.LOWVRAM_WORKFLOW_MODELS)
         self.assertEqual(
@@ -143,6 +152,23 @@ class ModelTests(unittest.TestCase):
         self.assertEqual(
             sum(spec.expected_bytes for spec in local_doctor.MODEL_PROFILES["official"]),
             42_470_585_471,
+        )
+        official_q4_names = {
+            Path(spec.relative_path).name
+            for spec in local_doctor.MODEL_PROFILES["official_q4"]
+        }
+        self.assertEqual(official_q4_names, local_doctor.OFFICIAL_Q4_WORKFLOW_MODELS)
+        self.assertEqual(
+            sum(spec.expected_bytes for spec in local_doctor.MODEL_PROFILES["official_q4"]),
+            41_360_420_808,
+        )
+        official_q4_turbo_names = {
+            Path(spec.relative_path).name
+            for spec in local_doctor.MODEL_PROFILES["official_q4_turbo"]
+        }
+        self.assertEqual(
+            official_q4_turbo_names,
+            local_doctor.OFFICIAL_Q4_TURBO_WORKFLOW_MODELS,
         )
         turbo_names = {
             Path(spec.relative_path).name
@@ -452,6 +478,140 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(result.status, "ok", result.summary)
         self.assertEqual(result.name, "workflow:official")
 
+    def test_official_q4_workflows_use_int8_q4_and_expected_sampling(self) -> None:
+        stock = local_doctor.check_workflow(PROJECT_ROOT, "official_q4")
+        turbo = local_doctor.check_workflow(PROJECT_ROOT, "official_q4_turbo")
+
+        self.assertEqual(stock.status, "ok", stock.summary)
+        self.assertEqual(turbo.status, "ok", turbo.summary)
+
+    @staticmethod
+    def _mutate_official_q4_workflow(
+        root: Path,
+        profile: str,
+        mutate: object,
+    ) -> local_doctor.Check:
+        workflows = root / "workflows"
+        workflows.mkdir(parents=True)
+        filename = (
+            "minimax_h3_t2v_official_q4_turbo.json"
+            if profile == "official_q4_turbo"
+            else "minimax_h3_t2v_official_q4.json"
+        )
+        workflow = json.loads((PROJECT_ROOT / "workflows" / filename).read_text(encoding="utf-8"))
+        mutate(workflow)
+        (workflows / filename).write_text(json.dumps(workflow), encoding="utf-8")
+        (workflows / "README.md").write_text(
+            (PROJECT_ROOT / "workflows" / "README.md").read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
+        return local_doctor.check_workflow(root, profile)
+
+    def test_official_q4_stock_rejects_direct_wiring_and_override_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+
+            def bad_guider(workflow: dict[str, object]) -> None:
+                links = workflow["definitions"]["subgraphs"][0]["links"]
+                next(link for link in links if link["id"] == 193)["origin_id"] = 17
+
+            wiring = self._mutate_official_q4_workflow(root, "official_q4", bad_guider)
+
+        self.assertEqual(wiring.status, "error")
+        self.assertIn("BasicGuider.model must be linked from UNETLoader", wiring.summary)
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+
+            def bad_override(workflow: dict[str, object]) -> None:
+                workflow["nodes"][2]["widgets_values"][5] = "wrong.safetensors"
+
+            override = self._mutate_official_q4_workflow(root, "official_q4", bad_override)
+
+        self.assertEqual(override.status, "error")
+        self.assertIn("subgraph model overrides must exactly select", override.summary)
+
+    def test_official_q4_turbo_rejects_turbo_and_sigma_wiring_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+
+            def bad_turbo_input(workflow: dict[str, object]) -> None:
+                links = workflow["definitions"]["subgraphs"][0]["links"]
+                next(link for link in links if link["id"] == 228)["origin_id"] = 13
+
+            turbo_input = self._mutate_official_q4_workflow(
+                root, "official_q4_turbo", bad_turbo_input
+            )
+
+        self.assertEqual(turbo_input.status, "error")
+        self.assertIn("MiniMaxH3TurboLoRA.model must be linked from UNETLoader", turbo_input.summary)
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+
+            def bad_sigmas(workflow: dict[str, object]) -> None:
+                links = workflow["definitions"]["subgraphs"][0]["links"]
+                next(link for link in links if link["id"] == 18)["origin_id"] = 16
+
+            sigmas = self._mutate_official_q4_workflow(root, "official_q4_turbo", bad_sigmas)
+
+        self.assertEqual(sigmas.status, "error")
+        self.assertIn("SamplerCustomAdvanced.sigmas must be linked from BasicScheduler", sigmas.summary)
+
+    def test_official_q4_stock_rejects_resolution_and_pipeline_contract_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+
+            def mutate(workflow: dict[str, object]) -> None:
+                next(link for link in workflow["links"] if link[0] == 219)[4] = 3
+                nodes = workflow["definitions"]["subgraphs"][0]["nodes"]
+                links = workflow["definitions"]["subgraphs"][0]["links"]
+                next(link for link in links if link["id"] == 16)["origin_id"] = 9
+                next(link for link in links if link["id"] == 189)["origin_id"] = 6
+                next(node for node in nodes if node["type"] == "KSamplerSelect")["widgets_values"] = ["euler"]
+                next(node for node in nodes if node["type"] == "CreateVideo")["widgets_values"] = [24, 10]
+                next(node for node in nodes if node["type"] == "ComfyMathExpression")["widgets_values"] = ["a"]
+
+            result = self._mutate_official_q4_workflow(root, "official_q4", mutate)
+
+        self.assertEqual(result.status, "error")
+        self.assertIn("ResolutionSelector width/height outputs", result.summary)
+        self.assertIn("SamplerCustomAdvanced.sampler must be linked from KSamplerSelect", result.summary)
+        self.assertIn("MiniMaxH3ImageToVideo.clip must be linked from CLIPLoaderGGUF", result.summary)
+        self.assertIn("stock 20-step workflow must use KSamplerSelect res_multistep", result.summary)
+        self.assertIn("CreateVideo must use 24 fps and 8-bit depth", result.summary)
+        self.assertIn("duration expression is not the MiniMax H3 frame-grid formula", result.summary)
+
+    def test_official_q4_turbo_rejects_resolution_denoise_decode_and_duration_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+
+            def mutate(workflow: dict[str, object]) -> None:
+                next(link for link in workflow["links"] if link[0] == 220)[1] = 105
+                workflow["nodes"][2]["widgets_values"][3] = 4
+                nodes = workflow["definitions"]["subgraphs"][0]["nodes"]
+                links = workflow["definitions"]["subgraphs"][0]["links"]
+                next(node for node in nodes if node["type"] == "BasicScheduler")["widgets_values"][2] = 0.5
+                next(link for link in links if link["id"] == 225)["origin_id"] = 104
+                next(link for link in links if link["id"] == 8)["origin_id"] = 24
+                next(link for link in links if link["id"] == 23)["origin_id"] = 11
+
+            result = self._mutate_official_q4_workflow(root, "official_q4_turbo", mutate)
+
+        self.assertEqual(result.status, "error")
+        self.assertIn("ResolutionSelector width/height outputs", result.summary)
+        self.assertIn("official Q4 workflow duration is not set to 5 seconds", result.summary)
+        self.assertIn("BasicScheduler denoise is not set to 1.0", result.summary)
+        self.assertIn("VAEDecode.samples must be linked from SamplerCustomAdvanced", result.summary)
+        self.assertIn(
+            "VAEDecode.vae must link from VAELoader minimax_h3_video_vae_fp16.safetensors",
+            result.summary,
+        )
+        self.assertIn(
+            "VAEDecodeAudio.vae must link from VAELoader minimax_h3_audio_vae_fp32.safetensors",
+            result.summary,
+        )
+
 
 class ResourceTests(unittest.TestCase):
     def test_low_available_memory_warns_but_low_total_memory_blocks_ready(self) -> None:
@@ -749,6 +909,8 @@ Set-GitRepositoryRevision -Repository '{repository}' -Revision '{second_revision
         self.assertIn("--revision", source)
         self.assertIn("lowvram_turbo", source)
         self.assertIn("lowvram_q4_turbo", source)
+        self.assertIn("official_q4", source)
+        self.assertIn("official_q4_turbo", source)
         self.assertIn("$loraRoot", source)
 
 

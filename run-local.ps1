@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('lowvram', 'lowvram_turbo', 'lowvram_q4_turbo', 'official')]
+    [ValidateSet('lowvram', 'lowvram_turbo', 'lowvram_q4_turbo', 'official', 'official_q4', 'official_q4_turbo')]
     [string] $Profile = 'lowvram',
 
     [ValidateRange(1, 65535)]
@@ -79,6 +79,12 @@ if ($Profile -eq 'lowvram_turbo') {
 }
 elseif ($Profile -eq 'lowvram_q4_turbo') {
     Write-Host 'Open manually: workflows\minimax_h3_t2v_lowvram_q4_turbo.json (Q4 text encoder + Turbo LoRA, 0.4 MP, 8 steps, low_vram merge)'
+}
+elseif ($Profile -eq 'official_q4') {
+    Write-Host 'Open manually: workflows\minimax_h3_t2v_official_q4.json (official INT8 diffusion + Q4 text encoder, 0.4 MP, 20 steps)'
+}
+elseif ($Profile -eq 'official_q4_turbo') {
+    Write-Host 'Open manually: workflows\minimax_h3_t2v_official_q4_turbo.json (official INT8 diffusion + Q4 text encoder + Turbo LoRA, 0.4 MP, 8 steps, low_vram merge)'
 }
 elseif ($Profile -eq 'lowvram') {
     Write-Host 'Open manually: workflows\minimax_h3_t2v_lowvram.json (base GGUF, 0.2 MP, 20 steps)'

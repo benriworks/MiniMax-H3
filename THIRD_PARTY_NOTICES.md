@@ -21,6 +21,14 @@
 
 `official` profileは[Comfy-Org/MiniMax-H3](https://huggingface.co/Comfy-Org/MiniMax-H3)のint8/nvfp4とVAEを使用します。各ファイルの取得revision、byte数、SHA-256、source URLは[model-manifest.json](model-manifest.json)に固定しています。上流MiniMax H3 Community LicenseとComfy-Orgのモデルカードを両方確認してください。
 
+### official_q4 / official_q4_turbo
+
+`official_q4` はComfy-Orgの公式INT8 ConvRotとVAEに、`lowvram_q4_turbo` と同じ
+`qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf` を組み合わせます。`official_q4_turbo` はさらに
+Apache-2.0のTurbo LoRAを加えます。Q4 repositoryのlicense metadataがunknownである点は
+公式INT8 diffusion modelを使っても変わりません。上流MiniMax H3 Community License、
+Comfy-Orgのモデルカード、Q4 repositoryの条件、Turbo adapterの条件をすべて確認してください。
+
 ### lowvram
 
 `lowvram` profileは次のコミュニティ量子化を含みます。
@@ -54,7 +62,7 @@ Q4 profileは実行時に必要な5ファイルだけを表し、Q2 encoderを�
 
 ## `-AcceptLicense` の意味
 
-`download-models.ps1 -Profile <profile> -AcceptLicense` は、選択profileの全ファイル（`lowvram_turbo` と `lowvram_q4_turbo` は5ファイル、他は4ファイル）について、この文書、各モデルカード、リンク先のライセンスを確認・受諾したという**一括の操作確認**です。
+`download-models.ps1 -Profile <profile> -AcceptLicense` は、選択profileの全ファイル（`lowvram_turbo`、`lowvram_q4_turbo`、`official_q4_turbo` は5ファイル、他は4ファイル）について、この文書、各モデルカード、リンク先のライセンスを確認・受諾したという**一括の操作確認**です。
 
 このswitchは次を行いません。
 

@@ -2,7 +2,7 @@
 
 ## この文書について
 
-この文書は、2026-08-09に `C:\Users\mono_\MiniMaxH3` へMiniMax H3の実行環境を構築し、2026-08-11にVAE peak削減と任意Turbo経路、2026-08-12に品質優先Q4 profileを追加した際の作業記録です。
+この文書は、2026-08-09に `C:\Users\mono_\MiniMaxH3` へMiniMax H3の実行環境を構築し、2026-08-11にVAE peak削減と任意Turbo経路、2026-08-12に品質優先Q4 profile、2026-08-13に公式INT8 + Q4比較profileを追加した際の作業記録です。
 
 操作方法だけを知りたい場合は[LOCAL_SETUP_JA.md](LOCAL_SETUP_JA.md)、現在の構成と責務は[ARCHITECTURE.md](ARCHITECTURE.md)、モデルの利用条件は[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)を参照してください。この文書では、なぜ現在の構成を選んだか、何に詰まり、どう回避したかを中心に記録します。
 
@@ -18,6 +18,11 @@
 - Q4は `realrebelai/MiniMax-H3_GGUFs@daf03b4ca652cce16dfd4fcf91e79c52ffa5c1e7` の `qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf` に固定しました。14,576,977,888 bytes、SHA-256 `1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e` で、取得後のfull hash一致を確認しました。
 - 専用workflowは成功済みQ2 job 00010の0.4MP / 5秒 / simple 8 steps / strength 1.0 / merge設定を基準にし、text encoderだけをQ4へ置換しました。同prompt/seedのQ4 E2Eも成功し、1例のA/B差を確認しましたが品質優越は断定しません。
 
+### 2026-08-13追補
+
+- 既存Q3/Q4/Turbo profileを変更せず、Comfy-Org公式 `minimax_h3_fl2va_pruned_int8_convrot.safetensors` と既存Q4_K_M encoderを組み合わせる `official_q4`（stock 20 steps）と `official_q4_turbo`（Turbo 8 steps）を追加しました。
+- `official_q4` をEmergency `--novram --cpu-vae` で416x256、5 frames、1 step、audioなしのsmokeとして実行し、324.814秒でH.264 High / yuv420p MP4を出力・全decode確認しました。INT8 + Q4、Turboなしの配線確認であり、0.4MP / 5秒 / 20-step既定、audio、画質、prompt追従、Turboは未検証です。source/output hashとresource peakは[検証記録](verification/int8-smoke-2026-08-13.json)に記録しています。
+
 ## 最終的に構築したもの
 
 次の2経路を用意しました。
@@ -25,7 +30,7 @@
 1. Windows native ComfyUIでH3-Base-FL2VAを動かすローカル経路
 2. ローカル性能が足りない場合にMiniMax Video Generation V2 APIを使う経路
 
-ローカル経路はRTX 3070 Ti 8GiBでも試せるよう、コミュニティ量子化を使う `lowvram` profileを主経路にしています。Comfy-Org公式量子化を使う `official` profileも定義していますが、構築時点では固有モデル2点をダウンロードしていません。
+ローカル経路はRTX 3070 Ti 8GiBでも試せるよう、コミュニティ量子化を使う `lowvram` profileを主経路にしています。Comfy-Org公式量子化を使う `official` profileも定義しています。2026-08-13に`official_q4` smoke用のINT8 ConvRotは導入しましたが、`official` template用NVFP4 AWQ text encoderは未導入です。
 
 主な成果物:
 
@@ -47,7 +52,7 @@
 | OS | Windows 11 Pro、build 26200、AMD64 |
 | CPU | Intel Core i7-13700F、16 cores / 24 threads、AVX2 |
 | 物理RAM | 約47.72GiB |
-| pagefile | 60GiB、`C:\pagefile.sys` |
+| pagefile | 構築時（2026-08-09）は60GiB、現在（2026-08-13）は48GiB、`C:\pagefile.sys` |
 | GPU | NVIDIA GeForce RTX 3070 Ti、8GiB VRAM、compute capability 8.6 |
 | NVIDIA driver | 610.62 |
 | Cドライブ | 構築前約544GiB空き、現在約501GiB空き |
@@ -152,7 +157,16 @@ Q3 diffusion、Q4_K_M text encoder、共通VAE 2点、Turbo adapterの5ファイ
 
 #### official profile
 
-Comfy-OrgのFL2VA int8 convrot、Qwen3-VL nvfp4 AWQ、共通VAE 2点で約39.55GiBです。構築時には共通VAEだけがあり、official固有の約34.14GiB分は未取得です。
+Comfy-OrgのFL2VA int8 convrot、Qwen3-VL nvfp4 AWQ、共通VAE 2点で約39.55GiBです。INT8 ConvRotは`official_q4` smoke用に導入済みですが、`official` templateを完結させるNVFP4 AWQ text encoder（15,687,142,551 bytes、約14.61GiB）は未取得です。
+
+#### official_q4 / official_q4_turbo profile
+
+`official_q4` は公式INT8 ConvRot、Q4_K_M GGUF、共通VAE 2点の4ファイルで
+41,360,420,808 bytes（約38.52GiB）です。`official_q4_turbo` はさらにTurbo LoRAを
+加え、42,140,270,624 bytes（約39.25GiB）です。Q4 encoderのライセンスmetadataは従来
+profileと同じくunknownなので、公式INT8化でこの点は変わりません。INT8をモデル描画品質、
+Q4をprompt conditioning、Turboを速度比較として分離できるよう、stock 20-stepとTurbo
+8-stepのworkflowを別ファイルにしました。
 
 モデルは大きいためGitへ入れず、`runtime/ComfyUI/models/` 配下に保存します。ダウンロード時はbyte数を検査し、必要な場合だけdoctorの `--hash` で全SHA-256を検査します。
 
@@ -170,6 +184,12 @@ Comfy-OrgのFL2VA int8 convrot、Qwen3-VL nvfp4 AWQ、共通VAE 2点で約39.55G
 - model名とloader pathをlowvram profileへ合わせた
 
 `official` profileではこのGGUF workflowを使わず、ComfyUI Template Libraryの公式MiniMax H3 T2Vを使います。
+
+`official_q4` は公式templateから、text loaderだけを `CLIPLoaderGGUF` のQ4_K_Mへ置換した
+tracked 0.4MP / 5秒 / simple 20-step workflowです。`official_q4_turbo` は同じINT8/Q4
+pairへTurbo LoRA/Samplerを挿入し、strength 1.0、merge、simple / 8 stepsに固定します。
+`official_q4` は最小Emergency smokeだけを完走済みです。これは導入配線の確認であり、同prompt/seedでQ3と比較するtracked既定の生成実績ではありません。`official_q4_turbo` は未実行です。
+RTX 3070 Ti 8GiBでの初回INT8起動手順は`-EmergencyLowVram`です。Dynamic VRAMでのINT8/Q4比較は未検証であり、通常launcherの既定を変更する根拠にはしません。
 
 任意の[Turbo workflow](workflows/minimax_h3_t2v_lowvram_turbo.json)はlow-VRAM workflowへTurbo LoRA / samplerを挿入し、0.2MP、5秒、simple / 6 steps、mergeを固定しました。Q3 GGUFとの組合せは作者資料で明示されないため、workflowの存在だけで公式対応とはみなしません。
 
@@ -189,7 +209,7 @@ Comfy-OrgのFL2VA int8 convrot、Qwen3-VL nvfp4 AWQ、共通VAE 2点で約39.55G
 .\run-local.ps1 -Profile lowvram -EmergencyLowVram
 ```
 
-48GiB RAMでもモデル全体を余裕を持って保持できるわけではないため、60GiB pagefileとComfyUIのdisk-backed/offload動作を保険にしています。ただしpagefileへ大きく退避すると非常に遅くなります。launcherは他アプリを勝手に終了しないため、VRAMが逼迫している場合は利用者がブラウザー、動画ソフト、別AI runtime等を整理します。
+48GiB RAMでもモデル全体を余裕を持って保持できるわけではないため、現在48GiBのpagefileとComfyUIのdisk-backed/offload動作を保険にしています。ただしpagefileへ大きく退避すると非常に遅くなります。launcherは他アプリを勝手に終了しないため、VRAMが逼迫している場合は利用者がブラウザー、動画ソフト、別AI runtime等を整理します。
 
 ### 6. doctorをreadiness gateにした
 
@@ -309,7 +329,7 @@ MiniMax H3は独自Community Licenseで、community quantization側はmetadata�
 - 固定ComfyUI/GGUF/Turbo node commit、Python、torch3 packageがlockと一致
 - ComfyUIの必須H3/Turbo/GGUF nodeと5モデルを認識
 - base workflowの608x352 / 4秒 / 20 stepsと、Turbo workflowの608x352 / 5秒 / simple / 6 steps / merge wiring contractが一致
-- 自動テスト38/38合格
+- 自動テスト43/43合格
 - Mermaid architecture diagramの実レンダー成功
 - Emergency相当、608x352、4秒指定、1 stepのE2E配線スモーク成功
 - 出力MP4はH.264 608x352、24fps、124 framesとAAC 32kHz stereo
@@ -326,7 +346,7 @@ MiniMax H3は独自Community Licenseで、community quantization側はmetadata�
 - tracked Turbo既定の0.2MP / 5秒 / 6-step完走・品質・再現性とbypass経路
 - Q4の一般的な品質・速度優越、複数promptでのQ2比較、0.6MP実行
 - 768p相当のローカル生成
-- `official` profile固有モデル2点を使った生成
+- `official` profileのNVFP4 AWQ text encoder導入と生成
 - API keyと課金を伴うMiniMax API実生成
 - 長時間連続運転時の温度、SSD負荷、pagefile耐性
 - community Q3/Q2と公式量子化の品質比較

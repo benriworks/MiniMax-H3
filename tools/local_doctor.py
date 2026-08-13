@@ -41,7 +41,14 @@ class Check:
     details: dict[str, Any] | None = None
 
 
-PROFILE_NAMES = ("lowvram", "lowvram_turbo", "lowvram_q4_turbo", "official")
+PROFILE_NAMES = (
+    "lowvram",
+    "lowvram_turbo",
+    "lowvram_q4_turbo",
+    "official",
+    "official_q4",
+    "official_q4_turbo",
+)
 
 LOWVRAM_WORKFLOW_MODELS = frozenset(
     (
@@ -61,12 +68,22 @@ OFFICIAL_WORKFLOW_MODELS = frozenset(
     )
 )
 
+OFFICIAL_Q4_WORKFLOW_MODELS = frozenset(
+    (
+        "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+        "qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf",
+        "minimax_h3_video_vae_fp16.safetensors",
+        "minimax_h3_audio_vae_fp32.safetensors",
+    )
+)
+
 TURBO_LORA_NAME = "minimax_h3_turbo_v4_step600_ema.safetensors"
 TURBO_WORKFLOW_MODELS = LOWVRAM_WORKFLOW_MODELS | {TURBO_LORA_NAME}
 Q4_TURBO_WORKFLOW_MODELS = (
     (LOWVRAM_WORKFLOW_MODELS - {"qwen3vl-32B-MiniMax-H3-Q2_K.gguf"})
     | {"qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf", TURBO_LORA_NAME}
 )
+OFFICIAL_Q4_TURBO_WORKFLOW_MODELS = OFFICIAL_Q4_WORKFLOW_MODELS | {TURBO_LORA_NAME}
 TURBO_GRID_SHA256 = "30eb3c2cc7fb6b470d9717ff840d359313ac27cd64b705e32da1baa10f72d6a8"
 
 
@@ -131,6 +148,8 @@ def load_model_profiles(manifest_path: Path) -> dict[str, tuple[ModelSpec, ...]]
         "lowvram_turbo": 5,
         "lowvram_q4_turbo": 5,
         "official": 4,
+        "official_q4": 4,
+        "official_q4_turbo": 5,
     }
     for profile_name in PROFILE_NAMES:
         identifiers = profiles.get(profile_name)
@@ -699,9 +718,305 @@ def check_official_workflow(root: Path) -> Check:
     )
 
 
+def check_official_q4_workflow(root: Path, profile: str) -> Check:
+    is_turbo = profile == "official_q4_turbo"
+    filename = (
+        "minimax_h3_t2v_official_q4_turbo.json"
+        if is_turbo
+        else "minimax_h3_t2v_official_q4.json"
+    )
+    path = root / "workflows" / filename
+    if not path.is_file():
+        return Check("workflow", "error", f"{profile} workflow is missing: {path}")
+    try:
+        workflow = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return Check("workflow", "error", f"workflow is not valid JSON: {exc}")
+    if not isinstance(workflow, dict):
+        return Check("workflow", "error", "workflow root must be a JSON object")
+
+    nodes = list(_walk_nodes(workflow))
+    node_types = [str(node.get("type", "")) for node in nodes]
+    strings = _all_widget_strings(nodes)
+    problems: list[str] = []
+    if node_types.count("UNETLoader") != 1:
+        problems.append("exactly one UNETLoader node is required")
+    if node_types.count("CLIPLoaderGGUF") != 1:
+        problems.append("exactly one CLIPLoaderGGUF node is required")
+    if "UnetLoaderGGUF" in node_types or "CLIPLoader" in node_types:
+        problems.append("official Q4 workflow must not use GGUF UNET or stock CLIP loaders")
+    expected_models = (
+        OFFICIAL_Q4_TURBO_WORKFLOW_MODELS if is_turbo else OFFICIAL_Q4_WORKFLOW_MODELS
+    )
+    missing_models = sorted(expected_models - strings)
+    if missing_models:
+        problems.append(f"loader model names missing: {', '.join(missing_models)}")
+
+    unet_loaders = [node for node in nodes if node.get("type") == "UNETLoader"]
+    if len(unet_loaders) == 1:
+        values = unet_loaders[0].get("widgets_values", [])
+        if not isinstance(values, list) or not values or values[0] != "minimax_h3_fl2va_pruned_int8_convrot.safetensors":
+            problems.append("UNETLoader must select the official INT8 ConvRot model")
+    clip_loaders = [node for node in nodes if node.get("type") == "CLIPLoaderGGUF"]
+    if len(clip_loaders) == 1:
+        values = clip_loaders[0].get("widgets_values", [])
+        if (
+            not isinstance(values, list)
+            or len(values) < 2
+            or values[0] != "qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf"
+            or values[1] != "minimax"
+        ):
+            problems.append("CLIPLoaderGGUF must select Q4_K_M with type minimax")
+
+    schedulers = [node for node in nodes if node.get("type") == "BasicScheduler"]
+    scheduler_values = schedulers[0].get("widgets_values", []) if len(schedulers) == 1 else []
+    expected_steps = 8 if is_turbo else 20
+    if (
+        not isinstance(scheduler_values, list)
+        or len(scheduler_values) < 3
+        or scheduler_values[0] != "simple"
+        or scheduler_values[1] != expected_steps
+    ):
+        problems.append(f"BasicScheduler is not set to simple / {expected_steps} steps")
+    elif scheduler_values[2] != 1:
+        problems.append("BasicScheduler denoise is not set to 1.0")
+    ksamplers = [node for node in nodes if node.get("type") == "KSamplerSelect"]
+    if is_turbo:
+        if ksamplers:
+            problems.append("Turbo workflow must use MiniMaxH3TurboSampler instead of KSamplerSelect")
+    elif len(ksamplers) != 1 or ksamplers[0].get("widgets_values") != ["res_multistep"]:
+        problems.append("stock 20-step workflow must use KSamplerSelect res_multistep")
+
+    turbo_loras = [node for node in nodes if node.get("type") == "MiniMaxH3TurboLoRA"]
+    turbo_samplers = [node for node in nodes if node.get("type") == "MiniMaxH3TurboSampler"]
+    definitions = workflow.get("definitions")
+    subgraphs = definitions.get("subgraphs", []) if isinstance(definitions, dict) else []
+    if not isinstance(subgraphs, list):
+        subgraphs = []
+    model_graphs = [
+        graph
+        for graph in subgraphs
+        if isinstance(graph, dict)
+        and any(
+            isinstance(node, dict) and node.get("type") == "UNETLoader"
+            for node in graph.get("nodes", [])
+        )
+    ]
+    if len(model_graphs) != 1:
+        problems.append("official Q4 nodes must share one inspectable subgraph")
+        graph_nodes: dict[Any, Any] = {}
+        graph_links: dict[Any, Any] = {}
+    else:
+        model_graph = model_graphs[0]
+        graph_nodes = {
+            node.get("id"): node
+            for node in model_graph.get("nodes", [])
+            if isinstance(node, dict)
+        }
+        graph_links = {
+            link.get("id"): link
+            for link in model_graph.get("links", [])
+            if isinstance(link, dict)
+        }
+
+    def linked_origin_node(node_type: str, input_name: str) -> Mapping[str, Any] | None:
+        matching = [node for node in graph_nodes.values() if node.get("type") == node_type]
+        if len(matching) != 1:
+            return None
+        input_entry = next(
+            (
+                entry
+                for entry in matching[0].get("inputs", [])
+                if isinstance(entry, dict) and entry.get("name") == input_name
+            ),
+            None,
+        )
+        link = graph_links.get(input_entry.get("link")) if input_entry else None
+        origin = graph_nodes.get(link.get("origin_id")) if link else None
+        return origin if isinstance(origin, dict) else None
+
+    def linked_origin_type(node_type: str, input_name: str) -> str | None:
+        origin = linked_origin_node(node_type, input_name)
+        return str(origin.get("type")) if origin else None
+
+    if is_turbo:
+        if len(turbo_loras) != 1 or len(turbo_samplers) != 1:
+            problems.append("exactly one Turbo LoRA and Turbo Sampler node are required")
+        elif turbo_loras[0].get("widgets_values") != [TURBO_LORA_NAME, 1, True]:
+            problems.append("Turbo LoRA must use the pinned v4 EMA file, strength 1.0, and low_vram merge")
+        required_wiring = (
+            ("MiniMaxH3TurboLoRA", "model", "UNETLoader"),
+            ("BasicScheduler", "model", "MiniMaxH3TurboLoRA"),
+            ("BasicGuider", "model", "MiniMaxH3TurboLoRA"),
+            ("SamplerCustomAdvanced", "sampler", "MiniMaxH3TurboSampler"),
+            ("SamplerCustomAdvanced", "sigmas", "BasicScheduler"),
+        )
+    elif turbo_loras or turbo_samplers:
+        problems.append("stock 20-step workflow must not enable Turbo nodes")
+        required_wiring = ()
+    else:
+        required_wiring = (
+            ("BasicScheduler", "model", "UNETLoader"),
+            ("BasicGuider", "model", "UNETLoader"),
+            ("SamplerCustomAdvanced", "sampler", "KSamplerSelect"),
+            ("SamplerCustomAdvanced", "sigmas", "BasicScheduler"),
+        )
+    for target_type, input_name, expected_origin in required_wiring:
+        actual_origin = linked_origin_type(target_type, input_name)
+        if actual_origin != expected_origin:
+            problems.append(
+                f"{target_type}.{input_name} must be linked from {expected_origin}, "
+                f"found {actual_origin or 'no valid link'}"
+            )
+
+    required_shared_wiring = (
+        ("MiniMaxH3ImageToVideo", "clip", "CLIPLoaderGGUF"),
+        ("VAEDecode", "samples", "SamplerCustomAdvanced"),
+        ("VAEDecodeAudio", "samples", "SamplerCustomAdvanced"),
+        ("CreateVideo", "images", "VAEDecode"),
+        ("CreateVideo", "audio", "VAEDecodeAudio"),
+        ("MiniMaxH3ImageToVideo", "length", "ComfyMathExpression"),
+        ("ComfyMathExpression", "values.a", "PrimitiveFloat"),
+    )
+    for target_type, input_name, expected_origin in required_shared_wiring:
+        actual_origin = linked_origin_type(target_type, input_name)
+        if actual_origin != expected_origin:
+            problems.append(
+                f"{target_type}.{input_name} must be linked from {expected_origin}, "
+                f"found {actual_origin or 'no valid link'}"
+            )
+
+    expected_vae_wiring = (
+        ("MiniMaxH3ImageToVideo", "vae", "minimax_h3_video_vae_fp16.safetensors"),
+        ("VAEDecode", "vae", "minimax_h3_video_vae_fp16.safetensors"),
+        ("VAEDecodeAudio", "vae", "minimax_h3_audio_vae_fp32.safetensors"),
+    )
+    for target_type, input_name, expected_name in expected_vae_wiring:
+        origin = linked_origin_node(target_type, input_name)
+        values = origin.get("widgets_values", []) if origin else []
+        if (
+            not origin
+            or origin.get("type") != "VAELoader"
+            or not isinstance(values, list)
+            or not values
+            or values[0] != expected_name
+        ):
+            problems.append(
+                f"{target_type}.{input_name} must link from VAELoader {expected_name}"
+            )
+
+    create_video = [node for node in nodes if node.get("type") == "CreateVideo"]
+    if len(create_video) != 1 or create_video[0].get("widgets_values") != [24, 8]:
+        problems.append("CreateVideo must use 24 fps and 8-bit depth")
+    duration_math = [node for node in nodes if node.get("type") == "ComfyMathExpression"]
+    expected_duration_expression = "max(5, round(a * 24)) + (5 - (max(5, round(a * 24)) % 17)) % 17"
+    if (
+        len(duration_math) != 1
+        or duration_math[0].get("widgets_values") != [expected_duration_expression]
+    ):
+        problems.append("duration expression is not the MiniMax H3 frame-grid formula")
+    primitive_floats = [node for node in graph_nodes.values() if node.get("type") == "PrimitiveFloat"]
+    if len(primitive_floats) != 1:
+        problems.append("duration PrimitiveFloat node is missing")
+    else:
+        duration_input = next(
+            (
+                entry
+                for entry in primitive_floats[0].get("inputs", [])
+                if isinstance(entry, dict) and entry.get("name") == "value"
+            ),
+            None,
+        )
+        duration_link = graph_links.get(duration_input.get("link")) if duration_input else None
+        if not isinstance(duration_link, dict) or duration_link.get("origin_id") != -10:
+            problems.append("duration PrimitiveFloat must be linked from the subgraph duration input")
+
+    selectors = [node for node in workflow.get("nodes", []) if isinstance(node, dict) and node.get("type") == "ResolutionSelector"]
+    selector_values = selectors[0].get("widgets_values", []) if len(selectors) == 1 else []
+    if (
+        not isinstance(selector_values, list)
+        or len(selector_values) < 3
+        or selector_values != ["16:9 (Widescreen)", 0.4, 32]
+    ):
+        problems.append("ResolutionSelector must be 16:9 / 0.4 MP / multiple 32")
+    top_nodes = workflow.get("nodes") if isinstance(workflow.get("nodes"), list) else []
+    subgraph_ids = {
+        graph.get("id")
+        for graph in subgraphs
+        if isinstance(graph, dict) and graph.get("id") is not None
+    }
+    instances = [
+        node
+        for node in top_nodes
+        if isinstance(node, dict) and node.get("type") in subgraph_ids
+    ]
+    expected_overrides = [
+        "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+        "qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf",
+        "minimax_h3_video_vae_fp16.safetensors",
+        "minimax_h3_audio_vae_fp32.safetensors",
+    ]
+    if len(instances) != 1 or len(instances[0].get("widgets_values", [])) < 9:
+        problems.append("official Q4 subgraph instance is missing")
+    else:
+        instance_values = instances[0]["widgets_values"]
+        if instance_values[3] != 5:
+            problems.append("official Q4 workflow duration is not set to 5 seconds")
+        if instance_values[5:9] != expected_overrides:
+            problems.append(
+                "official Q4 subgraph model overrides must exactly select "
+                + ", ".join(expected_overrides)
+            )
+        top_links = workflow.get("links") if isinstance(workflow.get("links"), list) else []
+        selector = selectors[0] if len(selectors) == 1 else None
+        expected_resolution_links = {
+            (selector.get("id"), 0, instances[0].get("id"), 2),
+            (selector.get("id"), 1, instances[0].get("id"), 3),
+        } if selector else set()
+        actual_resolution_links = {
+            (link[1], link[2], link[3], link[4])
+            for link in top_links
+            if isinstance(link, list)
+            and len(link) >= 5
+            and link[3] == instances[0].get("id")
+            and link[4] in (2, 3)
+        }
+        if actual_resolution_links != expected_resolution_links:
+            problems.append(
+                "ResolutionSelector width/height outputs must link to official Q4 subgraph inputs 2/3"
+            )
+    expected_prefix = "video/MiniMax_H3_OFFICIAL_Q4_TURBO" if is_turbo else "video/MiniMax_H3_OFFICIAL_Q4"
+    save_video_nodes = [node for node in nodes if node.get("type") == "SaveVideo"]
+    if len(save_video_nodes) != 1 or save_video_nodes[0].get("widgets_values", [None])[0] != expected_prefix:
+        problems.append(f"SaveVideo filename prefix must be {expected_prefix}")
+
+    expected_title = "MiniMax H3 official INT8 + Q4 Turbo (8-step)" if is_turbo else "MiniMax H3 official INT8 + Q4 (20-step)"
+    if expected_title not in {str(node.get("title", "")) for node in nodes} and expected_title not in {
+        str(graph.get("name", ""))
+        for graph in workflow.get("definitions", {}).get("subgraphs", [])
+        if isinstance(graph, dict)
+    }:
+        problems.append("official Q4 workflow title is missing")
+
+    provenance = root / "workflows" / "README.md"
+    if not provenance.is_file() or "official_q4" not in provenance.read_text(encoding="utf-8"):
+        problems.append("official Q4 workflow provenance is missing")
+    if problems:
+        return Check("workflow", "error", "; ".join(problems), {"path": str(path)})
+    mode = "Turbo 8-step" if is_turbo else "stock 20-step"
+    return Check(
+        "workflow",
+        "ok",
+        f"official INT8 ConvRot + Q4 GGUF {mode} workflow verified",
+        {"path": str(path)},
+    )
+
+
 def check_workflow(root: Path, profile: str = "lowvram") -> Check:
     if profile == "official":
         return check_official_workflow(root)
+    if profile in {"official_q4", "official_q4_turbo"}:
+        return check_official_q4_workflow(root, profile)
     is_q4_turbo = profile == "lowvram_q4_turbo"
     is_turbo = profile in {"lowvram_turbo", "lowvram_q4_turbo"}
     workflow_name = {

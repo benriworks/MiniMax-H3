@@ -69,3 +69,24 @@ quality or speed superiority. Evidence is tracked in
 Try 0.6 MP manually only after the verified 0.4 MP baseline. The original Q2
 Turbo workflow remains the lower-memory comparison and fallback; on a fresh
 installation its profile must be downloaded separately.
+
+## Official INT8 + Q4 workflows
+
+`minimax_h3_t2v_official_q4.json` starts from the pinned official H3 T2V
+template above. It retains the Comfy-Org
+`minimax_h3_fl2va_pruned_int8_convrot.safetensors` diffusion model and the two
+official VAEs, but replaces the stock NVFP4 text encoder with the tracked
+`qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf` loader. It deliberately keeps the stock
+`res_multistep` sampler and `simple` / 20-step schedule at 0.4 MP and five
+seconds, so it is the quality comparison baseline rather than a speed preset.
+
+`minimax_h3_t2v_official_q4_turbo.json` uses the same official INT8 + Q4
+model pairing and inserts the pinned Larryvrh v4 step600 EMA LoRA and Turbo
+Sampler. Its `simple` / 8-step, strength `1.0`, and `low_vram=true` merge
+settings match the existing Q4 Turbo workflow. This is the faster comparison
+path, not a verified quality upgrade. An Emergency `--novram --cpu-vae` smoke
+of `official_q4` completed at 416x256, five frames, one step, and no audio; it
+verified the INT8 + Q4 loader/sampling/video-decode path and H.264 output, not
+the tracked 0.4 MP / five-second / 20-step default, audio, quality, or Turbo.
+The ignored output hash and resource observations are recorded in
+[`verification/int8-smoke-2026-08-13.json`](../verification/int8-smoke-2026-08-13.json).
