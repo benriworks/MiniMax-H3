@@ -1,3 +1,9 @@
+> [!NOTE]
+> **このチェックアウトのWindows向けローカル補助資料:**
+> [セットアップ](LOCAL_SETUP_JA.md)、[制作プレイブック](PRODUCTION_PLAYBOOK_JA.md)、
+> [案件台帳](productions/README.md)、[アーキテクチャ](ARCHITECTURE.md)、
+> [Mermaid図](ARCHITECTURE_DIAGRAM.md)を参照してください。
+
 <div align="center">
   <img width="100%" src="assets/minimax-h3-header.gif" alt="MiniMax H3">
 </div>

@@ -1,0 +1,573 @@
+{
+  "schema_version": 1,
+  "production_id": "PV_20260815_original_jp_dance_unit_15s",
+  "status": "complete_independently_reviewed",
+  "status_scope": "technical_artifact_and_master_audit",
+  "technical_status": "complete_independently_reviewed",
+  "creative_status": "cut03_needs_improvement",
+  "public_release_status": "blocked_pending_rights_confirmation",
+  "tracked_documents": {
+    "cut_plan": "productions/PV_20260815_original_jp_dance_unit_15s/CUT_PLAN_JA.md",
+    "production_record": "productions/PV_20260815_original_jp_dance_unit_15s/PRODUCTION_RECORD_JA.md",
+    "asset_provenance": "productions/PV_20260815_original_jp_dance_unit_15s/ASSET_PROVENANCE_JA.md"
+  },
+  "creative_constraints": {
+    "format": {
+      "width": 864,
+      "height": 480,
+      "fps": 24,
+      "raw_frames_per_cut_target": 124,
+      "adopted_frames_per_cut_target": 120,
+      "master_frames_target": 360,
+      "master_duration_seconds_target": 15.0
+    },
+    "music": {
+      "bpm": 96,
+      "final_song_master_asset_id": "PV_15S_SONG_MASTER",
+      "final_single_procedural_instrumental_required": false,
+      "cut02_h3_native_audio": "isolated_vocal_only",
+      "h3_native_instrumental_not_used_for_master": true,
+      "final_audio_contract": {
+        "native_vocal_window_seconds": {
+          "start": 5.74,
+          "end": 9.88
+        },
+        "former_native_vocal_window_seconds": {
+          "start": 5.625,
+          "end": 9.125,
+          "status": "superseded_not_used"
+        }
+      }
+    },
+    "cut_modes": {
+      "CUT01": "I2VA_first_frame_only",
+      "CUT02": "I2VA_first_frame_only",
+      "CUT03": "FL2VA_first_and_last_frame"
+    },
+    "one_active_principal_per_cut": true
+  },
+  "synthetic_person_policy": {
+    "performers": "three_original_adult_Japanese_women_fully_synthetic",
+    "real_person_references": "prohibited",
+    "existing_artist_or_work_imitation": "prohibited",
+    "identity_continuity": "retain_the_same_three_synthetic_performers_across_D_V_S"
+  },
+  "source_assets": [
+    {
+      "asset_id": "PROCEDURAL_INSTRUMENTAL_15S",
+      "path": "outputs/productions/PV_20260815_original_jp_dance_unit_15s/03_assembly/audio/PV_15s_instrumental_premaster_f32.wav",
+      "bytes": 5760058,
+      "sha256": "40285A6051AE4EEF7EA63162017016F1AC3CC60443F8E0ECB2D4654553017FE3",
+      "source_type": "deterministic_synthesis_no_external_samples",
+      "media": {
+        "codec": "pcm_f32le",
+        "sample_format": "flt",
+        "sample_rate_hz": 48000,
+        "channels": 2,
+        "frames": 720000,
+        "duration_seconds": 15.0,
+        "full_decode": "pass",
+        "integrated_lufs": -19.7,
+        "true_peak_db": -6.0
+      },
+      "rights_status": "not_verified",
+      "status": "used_in_internal_review_master_public_rights_pending"
+    },
+    {
+      "asset_id": "CUT02_H3_NATIVE_ISOLATED_VOCAL",
+      "path": "outputs/productions/PV_20260815_original_jp_dance_unit_15s/02_cuts/CUT02/candidate/CUT02_00001_.mp4",
+      "bytes": 470580,
+      "sha256": "EF8019A2D510DF7650FF5035F9DA12F26BDF16844C6846606854355F2A2B26BB",
+      "source_type": "H3_native_isolated_vocal_embedded_in_CUT02_candidate",
+      "media": {
+        "audio_codec": "aac",
+        "audio_profile": "LC",
+        "sample_rate_hz": 32000,
+        "channels": 2,
+        "duration_seconds": 5.167,
+        "content_verification": {
+          "asr_normalized_lyric": "まだ見ぬ明日へ、いま走り出そう",
+          "asr_lyric_match": "exact",
+          "acapella": true,
+          "music_detected": false
+        }
+      },
+      "rights_status": "not_verified",
+      "status": "used_in_internal_review_master_human_listening_and_public_rights_pending"
+    },
+    {
+      "asset_id": "PV_15S_SONG_MASTER",
+      "path": "outputs/productions/PV_20260815_original_jp_dance_unit_15s/03_assembly/audio/PV_15s_song_master_f32.wav",
+      "bytes": 5760092,
+      "sha256": "50147D850DADC94394586D9BEAE2B3E5FA3BC637D5AC1545CC11EA0918E15215",
+      "source_type": "assembled_song_master_audio",
+      "media": {
+        "codec": "pcm_f32le",
+        "sample_format": "flt",
+        "sample_rate_hz": 48000,
+        "channels": 2,
+        "duration_ts": 720000,
+        "duration_seconds": 15.0,
+        "full_decode": "pass",
+        "loudnorm": {
+          "integrated_lufs": -16.0,
+          "true_peak_db": -1.87,
+          "lra": 2.7
+        },
+        "ebur128": {
+          "integrated_lufs": -15.8,
+          "true_peak_db": -1.9
+        },
+        "no_clip": true,
+        "no_nan": true,
+        "asr_hook": "まだ見ぬ明日へ、いま走り出そう",
+        "asr_hook_occurrences": 1,
+        "voice_windows_seconds": [
+          {
+            "start": 5.74,
+            "end": 9.88,
+            "content": "native_vocal"
+          }
+        ],
+        "music_only_windows_seconds": [
+          {
+            "start": 0.0,
+            "end": 5.0
+          },
+          {
+            "start": 10.0,
+            "end": 15.0
+          }
+        ]
+      },
+      "rights_status": "not_verified",
+      "status": "used_in_independently_reviewed_internal_master_public_rights_pending"
+    }
+  ],
+  "identity_reference_assets": [
+    {
+      "asset_id": "UNIT_01_IDENTITY_LINEUP",
+      "raw_path": "outputs/productions/PV_20260815_original_jp_dance_unit_15s/00_source/UNIT_01_identity_lineup_raw.png",
+      "raw_bytes": 1682838,
+      "raw_sha256": "7F37A146BA3A4E34F96F29BE84D2C866FF6F3BC56ED09C78CDAF08BEB3C3E2E9",
+      "runtime_path": "outputs/productions/PV_20260815_original_jp_dance_unit_15s/01_keyframes/UNIT_01_identity_lineup_864x480.png",
+      "runtime_bytes": 461396,
+      "runtime_sha256": "1F90327E5A23F62C5674ABEA0CAF38AADB9B3D35A9F12835AE013D461D2C5835",
+      "purpose": "identity_reference_for_the_three_original_synthetic_performers",
+      "status": "generated"
+    }
+  ],
+  "keyframe_assets": [
+    {
+      "asset_id": "UNIT_D_START",
+      "cut_id": "CUT01",
+      "endpoint": "first_frame",
+      "raw_path": "outputs/productions/PV_20260815_original_jp_dance_unit_15s/01_keyframes/CUT01_start_raw.png",
+      "raw_bytes": 1796217,
+      "raw_sha256": "62C4BBC9CD195FAC4EAB2DAA3203FA80DD63C8BA7FB2CC0D9723DA0DF6348E5F",
+      "runtime_path": "outputs/productions/PV_20260815_original_jp_dance_unit_15s/01_keyframes/CUT01_start_864x480.png",
+      "runtime_bytes": 482361,
+      "runtime_sha256": "C92BF3015217E1BDF43B881C98D8C62CB414D8003F6275B9EEEC085BAB4F60F2",
+      "derivation": "generated_original_synthetic_performers_without_real_person_reference; normalized_to_exact_864x480",
+      "status": "production_go_for_cut01_i2va_input"
+    },
+    {
+      "asset_id": "UNIT_V_START",
+      "cut_id": "CUT02",
+      "endpoint": "first_frame",
+      "raw_path": "outputs/productions/PV_20260815_original_jp_dance_unit_15s/01_keyframes/CUT02_start_raw.png",
+      "raw_bytes": 1725285,
+      "raw_sha256": "9E110103D32B994BCE96F919F2F59226DDB547315B8A2234CCF262E69B3229E3",
+      "runtime_path": "outputs/productions/PV_20260815_original_jp_dance_unit_15s/01_keyframes/CUT02_start_864x480.png",
+      "runtime_bytes": 471813,
+      "runtime_sha256": "59333D68EEA8CAEC5CC82FDFA42044FC7F61A3B0F137DFD79058672DE6F3BD90",
+      "derivation": "generated_original_synthetic_performers_without_real_person_reference; normalized_to_exact_864x480",
+      "status": "production_go_for_cut02_i2va_input"
+    },
+    {
+      "asset_id": "UNIT_S_START",
+      "cut_id": "CUT03",
+      "endpoint": "first_frame",
+      "raw_path": "outputs/productions/PV_20260815_original_jp_dance_unit_15s/01_keyframes/CUT03_start_raw.png",
+      "raw_bytes": 1729209,
+      "raw_sha256": "3789631724A4F58EAB26C07E47F87A29F3D9A2437CCE828D87A930437491529F",
+      "runtime_path": "outputs/productions/PV_20260815_original_jp_dance_unit_15s/01_keyframes/CUT03_start_864x480.png",
+      "runtime_bytes": 481626,
+      "runtime_sha256": "0F9A76E51B86A47154F77D2ECA4F1E1A43FEBACAF7C4E523BE0AC74E0DC5F0BD",
+      "derivation": "generated_original_synthetic_performers_without_real_person_reference; normalized_to_exact_864x480",
+      "status": "production_go_for_cut03_fl2va_input"
+    },
+    {
+      "asset_id": "UNIT_S_END",
+      "cut_id": "CUT03",
+      "endpoint": "last_frame",
+      "raw_path": "outputs/productions/PV_20260815_original_jp_dance_unit_15s/01_keyframes/CUT03_end_raw.png",
+      "raw_bytes": 1668641,
+      "raw_sha256": "645E2ED011D363782B22D8A5436E0415722000CA8DA192373A16F1221D067430",
+      "runtime_path": "outputs/productions/PV_20260815_original_jp_dance_unit_15s/01_keyframes/CUT03_end_864x480.png",
+      "runtime_bytes": 467108,
+      "runtime_sha256": "A9EF5974235B61B22B6EA7597ADA550A9E5AA86AA9DF1FDF0D6DBD1C28291C21",
+      "derivation": "generated_original_synthetic_performers_without_real_person_reference; normalized_to_exact_864x480",
+      "status": "production_go_for_cut03_fl2va_input"
+    }
+  ],
+  "rejected_endpoint_attempts": [
+    {
+      "cut_id": "CUT01",
+      "attempt_count": 3,
+      "input_status": "rejected_not_used",
+      "reason": "background_hand_overlap_and_identity_drift_failed_the_production_gate",
+      "last_frame_asset_required": false,
+      "note": "No CUT01 endpoint asset is used by the I2VA prompt or workflow."
+    }
+  ],
+  "prompt_files": [
+    {
+      "cut_id": "CUT01",
+      "role": "D_dance",
+      "path": "productions/PV_20260815_original_jp_dance_unit_15s/prompts/CUT01_H3.md",
+      "mode": "I2VA_first_frame_only",
+      "file_bytes": 3018,
+      "file_sha256": "d4861dd8ac8c8e271d26fea7571367a433551d3991abbb6793bb4a2e2f264d4e",
+      "submitted_prompt_bytes": 3017,
+      "submitted_prompt_sha256": "27fd025a14079527325e9822014f3b024f99a1291da058fa89bd9e9f418bd067",
+      "hash_difference_note": "The tracked Markdown file contains the submitted API text plus one final LF; removing that final LF produces the submitted prompt bytes.",
+      "status": "submitted_and_rendered_candidate"
+    },
+    {
+      "cut_id": "CUT02",
+      "role": "V_vocal",
+      "path": "productions/PV_20260815_original_jp_dance_unit_15s/prompts/CUT02_H3.md",
+      "mode": "I2VA_first_frame_only",
+      "file_bytes": 2945,
+      "file_sha256": "228f75e8c8fe66510cf3ea03f06e1bf8005cb1de2aba2da03a6c1763afb1717d",
+      "submitted_prompt_bytes": 2944,
+      "submitted_prompt_sha256": "aaf1c8483eaedf0e7907e7a556976f7eea82feee9ab2a464ae4ccf66c7837ecd",
+      "hash_difference_note": "The tracked Markdown file contains the submitted API text plus one final LF; removing that final LF produces the submitted prompt bytes.",
+      "status": "submitted_and_rendered_candidate"
+    },
+    {
+      "cut_id": "CUT03",
+      "role": "S_synth",
+      "path": "productions/PV_20260815_original_jp_dance_unit_15s/prompts/CUT03_H3.md",
+      "mode": "FL2VA_first_and_last_frame",
+      "file_bytes": 3473,
+      "file_sha256": "6fef7c3ff30377e307b149ed3f2adef6b57221f62c67a1a44a7366ea203d11fb",
+      "submitted_prompt_bytes": 3472,
+      "submitted_prompt_sha256": "d669a895b3970774c0f450f15c01b0f22cee222b1bcf3d89ae84669ff946bef7",
+      "hash_difference_note": "The tracked Markdown file contains the submitted API text plus one final LF; removing that final LF produces the submitted prompt bytes.",
+      "status": "submitted_and_rendered_candidate"
+    }
+  ],
+  "runtime": {
+    "profile": null,
+    "model_configuration": null,
+    "server_flags": null,
+    "workflow_revisions": null,
+    "execution_completed": true,
+    "recording_boundary": "Launcher profile, live runtime revisions, server flags, exact model hashes, and exact per-job resource peaks were not captured in tracked production evidence. Per-cut prompt IDs, graph hashes, seeds, execution times, artifacts, media contracts, and QC are recorded.",
+    "reproducibility": "artifact_auditable_but_not_bit_for_bit_reproducible_from_tracked_record",
+    "status": "execution_complete_with_runtime_metadata_gaps"
+  },
+  "active_generations": [],
+  "renders": [
+    {
+      "cut_id": "CUT01",
+      "role": "D_dance",
+      "status": "production_candidate_go",
+      "prompt_id": "d9ad471d-9bfb-4029-a729-134699d7278f",
+      "graph_sha256": "81a6b8510ef8e4e3e04ed951581f9775fb0159486e163670caee9eabcd9f4f55",
+      "number": 10,
+      "seed": 529716596879763,
+      "execution_history": {
+        "started_at_jst_time": "00:37:13.300",
+        "succeeded_at_jst_time": "03:34:05.003",
+        "elapsed_ms": 10611703,
+        "elapsed_hms": "02:56:51.703"
+      },
+      "artifact": {
+        "path": "outputs/productions/PV_20260815_original_jp_dance_unit_15s/02_cuts/CUT01/candidate/CUT01_00001_.mp4",
+        "bytes": 452964,
+        "sha256": "7DEFD2DAE0E75144B6E0A18D0CB5613D03C9167DF48E0282ECDDDB3117DFF9A3",
+        "media": {
+          "video_codec": "h264",
+          "video_profile": "High",
+          "pixel_format": "yuv420p",
+          "width": 864,
+          "height": 480,
+          "fps": 24,
+          "frames": 124,
+          "duration_seconds": 5.166667,
+          "audio_codec": "aac",
+          "audio_profile": "LC",
+          "audio_sample_rate_hz": 32000,
+          "audio_channels": 2,
+          "audio_duration_seconds": 5.167
+        },
+        "full_decode": "pass"
+      },
+      "qc": {
+        "status": "production_candidate_go_with_caveats",
+        "caveats": [
+          "Candidate GO is not final master selection.",
+          "Review dancer arm and hand anatomy plus temporal motion continuity before assembly.",
+          "Final audio and rights gates remain incomplete."
+        ]
+      }
+    },
+    {
+      "cut_id": "CUT02",
+      "role": "V_vocal",
+      "status": "production_candidate_go",
+      "prompt_id": "c5f88d7b-32e1-4634-9383-8294ba4e6225",
+      "graph_sha256": "d38370aa9ac68f2ce28eb3a5799cf808acfc5b1ecc4d0439da7604f07fbbe6b7",
+      "number": 11,
+      "seed": 529716596879763,
+      "execution_history": {
+        "started_at_jst_time": "03:48:14.275",
+        "succeeded_at_jst_time": "06:43:39.938",
+        "elapsed_ms": 10525663,
+        "elapsed_hms": "02:55:25.663"
+      },
+      "artifact": {
+        "path": "outputs/productions/PV_20260815_original_jp_dance_unit_15s/02_cuts/CUT02/candidate/CUT02_00001_.mp4",
+        "bytes": 470580,
+        "sha256": "EF8019A2D510DF7650FF5035F9DA12F26BDF16844C6846606854355F2A2B26BB",
+        "media": {
+          "video_codec": "h264",
+          "video_profile": "High",
+          "pixel_format": "yuv420p",
+          "width": 864,
+          "height": 480,
+          "fps": 24,
+          "frames": 124,
+          "duration_seconds": 5.166667,
+          "audio_codec": "aac",
+          "audio_profile": "LC",
+          "audio_sample_rate_hz": 32000,
+          "audio_channels": 2,
+          "audio_duration_seconds": 5.167
+        },
+        "full_decode": "pass"
+      },
+      "qc": {
+        "status": "production_candidate_go_with_caveats",
+        "visual_review": "pass",
+        "asr_normalized_lyric": "まだ見ぬ明日へ、いま走り出そう",
+        "asr_lyric_match": "exact",
+        "acapella": true,
+        "music_detected": false,
+        "caveats": [
+          "Candidate GO is not final master selection.",
+          "The native vocal is embedded in a 5.167-second raw clip; its final 5.000-second timeline placement and lip-sync alignment require assembly review.",
+          "Final audio and rights gates remain incomplete."
+        ]
+      }
+    },
+    {
+      "cut_id": "CUT03",
+      "role": "S_synth",
+      "status": "independently_reviewed_candidate_go",
+      "prompt_id": "aab50222-1d94-42c3-a817-f93452c583ec",
+      "graph_sha256": "6e29fc773ab5a65017faca6cbcae8fe6254c2e3ef4d2314e53358fb52b3e12f8",
+      "number": 12,
+      "seed": 529716596879763,
+      "mode": "FL2VA_first_and_last_frame",
+      "execution_history": {
+        "started_at_jst_time": "07:06:26.785",
+        "succeeded_at_jst_time": "10:09:27.378",
+        "elapsed_ms": 10980593,
+        "elapsed_hms": "03:03:00.593"
+      },
+      "artifact": {
+        "path": "outputs/productions/PV_20260815_original_jp_dance_unit_15s/02_cuts/CUT03/candidate/CUT03_00001_.mp4",
+        "bytes": 435562,
+        "sha256": "3BF131A3153D1D0681D7F2EB2BF312D7A94D45277DEC01D7B2EC5377778C89A4",
+        "media": {
+          "video_codec": "h264",
+          "video_profile": "High",
+          "pixel_format": "yuv420p",
+          "width": 864,
+          "height": 480,
+          "fps": 24,
+          "frames": 124,
+          "duration_seconds": 5.166667,
+          "audio_codec": "aac",
+          "audio_profile": "LC",
+          "audio_sample_rate_hz": 32000,
+          "audio_channels": 2,
+          "audio_duration_seconds": 5.167
+        },
+        "full_decode": "pass"
+      },
+      "qc": {
+        "status": "independent_candidate_go",
+        "hand_anatomy": "pass",
+        "three_key_action": "pass",
+        "background_stability": "pass",
+        "identity_continuity": "pass",
+        "first_and_last_anchor_fidelity": "pass"
+      }
+    }
+  ],
+  "assembly_plan": {
+    "timeline_fps": 24,
+    "hard_cut_frames": [120, 240],
+    "single_procedural_instrumental_asset_id": "PROCEDURAL_INSTRUMENTAL_15S",
+    "cut02_h3_native_isolated_vocal_asset_id": "CUT02_H3_NATIVE_ISOLATED_VOCAL",
+    "final_song_master_asset_id": "PV_15S_SONG_MASTER",
+    "final_song_master_status": "used_as_only_audio_source_for_assembled_video_master",
+    "native_vocal_window_seconds": {
+      "start": 5.74,
+      "end": 9.88
+    },
+    "former_native_vocal_window_seconds": {
+      "start": 5.625,
+      "end": 9.125,
+      "status": "superseded_not_used"
+    },
+    "h3_native_instrumental_used": false,
+    "cut02_native_vocal_timing_status": "final_song_master_uses_5.74_to_9.88_seconds; ASR, acoustic vocal activity, and CUT02 raw mouth-motion interval were compared; frame-accurate master lip-sync and human listening were not independently completed",
+    "source_cut_native_audio_used": false,
+    "source_cut_native_audio_disposition": "discarded",
+    "status": "complete_independently_reviewed"
+  },
+  "master": {
+    "path": "outputs/productions/PV_20260815_original_jp_dance_unit_15s/03_assembly/master/PV_20260815_original_jp_dance_unit_15s_master_864x480_24fps.mp4",
+    "bytes": 1482624,
+    "sha256": "5EB581C4427C9CC0EEBD37299C4D0B34EBC204095ECF0E6644F2342EEC624392",
+    "media": {
+      "video_codec": "h264",
+      "video_profile": "High",
+      "pixel_format": "yuv420p",
+      "color_range": "tv",
+      "color_space": "bt709",
+      "width": 864,
+      "height": 480,
+      "fps": 24,
+      "frames": 360,
+      "duration_seconds": 15.0,
+      "audio_codec": "aac",
+      "audio_profile": "LC",
+      "audio_sample_rate_hz": 48000,
+      "audio_channels": 2,
+      "audio_duration_seconds": 15.0,
+      "audio_source_asset_id": "PV_15S_SONG_MASTER",
+      "source_cut_native_audios_discarded": true,
+      "integrated_lufs": -16.06,
+      "true_peak_db": -1.79,
+      "lra": 2.8,
+      "constant_frame_rate": true,
+      "vfr_frames": 0,
+      "black_frames": 0,
+      "nan_or_inf_samples": 0,
+      "clipped_samples": 0
+    },
+    "full_decode": "pass",
+    "hard_cut_frames": [120, 240],
+    "status": "complete_independently_reviewed"
+  },
+  "independent_master_audit": {
+    "status": "go_with_static_outro_caveat",
+    "delivery_status": "go",
+    "technical_validation": {
+      "full_decode": "pass",
+      "hard_cut_frames": [120, 240],
+      "source_cut_native_audios_discarded": true,
+      "song_master_only": true,
+      "black_frames": 0,
+      "vfr_frames": 0,
+      "nan_or_inf_samples": 0,
+      "clipped_samples": 0,
+      "exact_duplicate_adjacent_frames": 0
+    },
+    "audio_validation": {
+      "integrated_lufs": -16.06,
+      "true_peak_db": -1.79,
+      "lra": 2.8,
+      "asr_segments": [
+        {
+          "start_seconds": 5.42,
+          "end_seconds": 9.44,
+          "transcript": "まだ見ぬ明日へ 今走り出そう",
+          "normalized_target_match": "exact",
+          "occurrences": 1
+        }
+      ],
+      "speech_windows": [
+        {
+          "start_seconds": 0.0,
+          "end_seconds": 5.0,
+          "speech_detected": false
+        },
+        {
+          "start_seconds": 10.0,
+          "end_seconds": 15.0,
+          "speech_detected": false
+        }
+      ]
+    },
+    "visual_validation": {
+      "hard_cuts": [
+        {
+          "from_frame": 119,
+          "to_frame": 120,
+          "time_seconds": 5.0,
+          "black_flash_or_corruption": false
+        },
+        {
+          "from_frame": 239,
+          "to_frame": 240,
+          "time_seconds": 10.0,
+          "black_flash_or_corruption": false
+        }
+      ],
+      "identity_clothes_stage_continuity": "pass",
+      "freeze_detector_holds": "intentional",
+      "cut01_holds": "acceptable",
+      "cut03_keyboard_action_completed_at_seconds_approximately": 11.83,
+      "cut03_sustain_tableau_seconds_approximately": 3.17,
+      "cut02_lip_sync_review": {
+        "scope": "CUT02 raw mouth-motion interval and final-song-master vocal placement",
+        "method": "visual mouth-motion interval review plus ASR and acoustic vocal-activity window comparison",
+        "result": "content_and_broad_timing_consistent_with_caveat",
+        "frame_accurate_master_lip_sync": "not_independently_verified",
+        "human_listening": "not_performed"
+      }
+    },
+    "caveats": [
+      "CUT03 is technically valid after the keyboard action, but the user judged the approximately 3.17-second sustain tableau too static; delivery remains technically GO and the creative result needs improvement in a future version.",
+      "Human listening was not performed."
+    ],
+    "human_listening": "not_performed"
+  },
+  "post_delivery_creative_feedback": {
+    "status": "needs_improvement",
+    "reviewed_at": "2026-08-16",
+    "cut_id": "CUT03",
+    "finding": "The latter half of CUT03 contains too little motion. The keyboard action completes at approximately 11.83 seconds on the final timeline, followed by approximately 3.17 seconds of sustain tableau.",
+    "technical_master_status": "go_unchanged",
+    "next_iteration": "Do not reuse the current CUT03 motion timing unchanged. Test action coverage through the latter part of the cut, a shorter final hold, and an I2VA start-only versus FL2VA A/B while keeping technical freeze and creative motion coverage as separate gates.",
+    "evidence_boundary": "The proposed improvements are hypotheses for the next iteration, not verified general behavior of FL2VA."
+  },
+  "rights_gates": {
+    "synthetic_person_and_likeness": "not_independently_verified_for_publication",
+    "music_lyrics_vocals_choreography": "not_independently_verified",
+    "logos_brands_backgrounds": "not_independently_verified",
+    "model_output_and_distribution_terms": "not_independently_verified",
+    "public_release": "blocked_pending_rights_confirmation"
+  },
+  "review_boundaries": {
+    "planned_outputs_are_not_evidence": true,
+    "no_publication_or_commercial_rights_claimed": true,
+    "status_workflow": [
+      "planned",
+      "ready_for_generation",
+      "generating",
+      "candidates_ready",
+      "selected_for_assembly",
+      "assembled_pending_independent_review",
+      "complete_independently_reviewed"
+    ]
+  }
+}

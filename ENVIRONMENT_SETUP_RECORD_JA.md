@@ -349,7 +349,7 @@ MiniMax H3は独自Community Licenseで、community quantization側はmetadata�
 
 - 同梱20-step lowvram workflowの完走時間と品質
 - tracked Turbo既定の0.2MP / 5秒 / 6-step完走・品質・再現性とbypass経路
-- Q4の一般的な品質・速度優越、複数promptでのQ2比較、0.6MP実行
+- Q4の一般的な品質・速度優越、複数promptでのQ2比較、`lowvram_q4_turbo` の0.6MP実行
 - 768p相当のローカル生成
 - `official` profileのNVFP4 AWQ text encoder導入と生成
 - API keyと課金を伴うMiniMax API実生成

@@ -3,7 +3,8 @@
 この文書は、このチェックアウトに追加したWindows向け補助環境の操作手順です。上流のモデル説明は
 [公式README](README.md#minimax-h3)、構成上の責務は[ARCHITECTURE.md](ARCHITECTURE.md)、
 処理経路は[ARCHITECTURE_DIAGRAM.md](ARCHITECTURE_DIAGRAM.md)、構築時の判断とトラブル記録は
-[ENVIRONMENT_SETUP_RECORD_JA.md](ENVIRONMENT_SETUP_RECORD_JA.md)を参照してください。
+[ENVIRONMENT_SETUP_RECORD_JA.md](ENVIRONMENT_SETUP_RECORD_JA.md)、短尺制作の実践的な設計・QCは
+[PRODUCTION_PLAYBOOK_JA.md](PRODUCTION_PLAYBOOK_JA.md)を参照してください。
 
 ## 最初に知っておくこと
 
@@ -33,7 +34,7 @@ MiniMaxの公開説明では、ローカルH3-Baseは768p検証、フル2K workf
 
 ## このフォルダで確認済みの状態
 
-2026-08-12時点で、次を確認しています。
+2026-08-16時点で、次を確認しています。
 
 - Windows AMD64 / CPython 3.12.2
 - ComfyUI `2a68ce33b4c9ea6ee4283e618a74560cefb32694`（[PR #15446](https://github.com/Comfy-Org/ComfyUI/pull/15446)のMiniMax H3 VAE chunked I/Oを含む）

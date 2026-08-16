@@ -163,7 +163,7 @@ APIの入力制約は、request body 64MB以下、画像/動画/音声ごとのs
 
 ## 検証済み範囲
 
-2026-08-13の確定結果:
+2026-08-14までの確定結果:
 
 - lowvram_turbo 5モデル: exact bytes + full SHA-256一致（LoRAは779,849,816 bytes）
 - lowvram_q4_turbo 5モデル: exact bytes + full SHA-256一致（Q4 encoderは14,576,977,888 bytes）と専用workflow contract一致
@@ -181,7 +181,7 @@ APIの入力制約は、request body 64MB以下、画像/動画/音声ごとのs
 
 - tracked 20-step low-VRAM workflowの完走、品質、所要時間
 - tracked Turbo既定の0.2MP / 5秒 / 6-step完走、品質、再現性とbypass経路
-- Q4の一般的な品質・速度優越、複数promptでの比較、0.6MPへの段階的拡張
+- Q4の一般的な品質・速度優越、複数promptでの比較、`lowvram_q4_turbo` の0.6MPへの段階的拡張
 - official profileに残るNVFP4 AWQ text encoder（15,687,142,551 bytes）の導入と実生成
 - official_q4 tracked 0.4MP / 5秒 / 20-step既定、official_q4_turbo、複数promptでの品質・prompt追従・時間的一貫性の比較
 - 768p/2Kのこのマシンでの性能

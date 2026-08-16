@@ -4,7 +4,9 @@
 > [環境構築記録](ENVIRONMENT_SETUP_RECORD_JA.md)、構成の責務と境界は
 > [ARCHITECTURE.md](ARCHITECTURE.md)、Mermaid図は
 > [ARCHITECTURE_DIAGRAM.md](ARCHITECTURE_DIAGRAM.md)、モデル利用条件の要約は
-> [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) に分離しています。
+> [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)、短尺制作の実践知は
+> [PRODUCTION_PLAYBOOK_JA.md](PRODUCTION_PLAYBOOK_JA.md)、案件台帳は
+> [productions/README.md](productions/README.md) に分離しています。
 > 通常low-VRAM workflowの20-step品質実行は自動受入では未検証です。Q2 TurboはQ3 GGUFの4-stepスモークと0.4MP・5秒・8-step jobまで完走確認済みです。
 > ComfyUIはMiniMax H3 VAEのchunked I/O最適化を含むcommitへ固定済みです。任意の
 > `lowvram_turbo` は作者がQ3 GGUF対応を明記していない実験経路なので、通常の `lowvram` をfallbackとして残してください。

@@ -1,0 +1,6 @@
+# Keep production records and submitted-prompt source bytes stable across platforms.
+.gitattributes text eol=lf
+PRODUCTION_PLAYBOOK_JA.md text eol=lf
+productions/*.md text eol=lf
+productions/**/*.md text eol=lf
+productions/**/*.json text eol=lf

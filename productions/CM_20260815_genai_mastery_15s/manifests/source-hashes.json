@@ -1,0 +1,432 @@
+{
+  "schema_version": 1,
+  "production_id": "CM_20260815_genai_mastery_15s",
+  "status": "complete_independently_reviewed",
+  "tracked_documents": {
+    "cut_plan": "productions/CM_20260815_genai_mastery_15s/CUT_PLAN_JA.md",
+    "production_record": "productions/CM_20260815_genai_mastery_15s/PRODUCTION_RECORD_JA.md",
+    "asset_provenance": "productions/CM_20260815_genai_mastery_15s/ASSET_PROVENANCE_JA.md"
+  },
+  "source_assets": [
+    {
+      "asset_id": "PRESENTER_REFERENCE",
+      "path": "outputs/productions/CM_20260815_genai_mastery_15s/00_source/presenter_reference.jpg",
+      "source_type": "user_provided_attachment",
+      "source_note": "Provided by the user in the Codex task on 2026-08-15 for this CM production.",
+      "rights_status": "task_use_requested_by_user_publication_portrait_secondary_use_and_model_output_release_rights_not_independently_verified",
+      "bytes": 99934,
+      "sha256": "64b7819b8d9ec9ef7a143ed9b7fce832f04a43ebc8990b5c578de8029e841263"
+    }
+  ],
+  "prompt_files": [
+    {
+      "cut_id": "CUT01",
+      "path": "productions/CM_20260815_genai_mastery_15s/prompts/CUT01_H3.md",
+      "mode": "I2VA_first_frame_only_on_FL2VA_model",
+      "file_sha256": "31b219130f5a2b8ef5afb7163e46baaad749a94789aa9f68be90279accfbce1b",
+      "submitted_prompt_sha256": "0977e9818d215a4a44302c134ed72f4a7939d524018a0e0e97144d3d4408f8cc"
+    },
+    {
+      "cut_id": "CUT02",
+      "path": "productions/CM_20260815_genai_mastery_15s/prompts/CUT02_H3.md",
+      "mode": "I2VA_first_frame_only_on_FL2VA_model",
+      "file_sha256": "0d7fa40f986ff5127e6b977cff78cb4379ecc13036b995b6f1ca5b1eaba2318d",
+      "submitted_prompt_sha256": "d0b0623bc13b5273040d75bb77f9ce5ce612e4ef05e146ed1ef19c6b2fc51e01"
+    },
+    {
+      "cut_id": "CUT03",
+      "path": "productions/CM_20260815_genai_mastery_15s/prompts/CUT03_H3.md",
+      "mode": "I2VA_first_frame_only_on_FL2VA_model",
+      "file_sha256": "33b5656b55faf3e2eb1e4bbc6a2c8ebc651664a2efe742fbc88502bf2f2cf639",
+      "submitted_prompt_sha256": "1a908f6f1c0f73b3ea470b1eb7016d413ec64ffc7a26253c3f9758af4b6633a7"
+    }
+  ],
+  "first_frame_assets": [
+    {
+      "asset_id": "PRESENTER_01_WIDE",
+      "cut_id": "CUT01",
+      "raw_path": "outputs/productions/CM_20260815_genai_mastery_15s/01_keyframes/CUT01_head_raw.png",
+      "raw_bytes": 1749035,
+      "raw_sha256": "351d5656347494b55bf06d41b7fac32d74bce6a0d98db0d60b2c34672bd3bb76",
+      "runtime_path": "outputs/productions/CM_20260815_genai_mastery_15s/01_keyframes/CUT01_head_864x480.png",
+      "runtime_bytes": 484743,
+      "runtime_sha256": "e9b230be961a5ab20047610283d61bb554811c7ac09558fc1f2304c1d09a4e27",
+      "derivation": "OpenAI image generation using PRESENTER_REFERENCE, then center-crop/scale to exact 864x480 with ffmpeg.",
+      "status": "generated_and_visually_reviewed"
+    },
+    {
+      "asset_id": "PRESENTER_01_CLOSE",
+      "cut_id": "CUT02",
+      "raw_path": "outputs/productions/CM_20260815_genai_mastery_15s/01_keyframes/CUT02_head_raw.png",
+      "raw_bytes": 1808043,
+      "raw_sha256": "6612fbd3f7aceb4f7a48648d96d9abee3b906b97bd5b9a239f976a44530bd6d2",
+      "runtime_path": "outputs/productions/CM_20260815_genai_mastery_15s/01_keyframes/CUT02_head_864x480.png",
+      "runtime_bytes": 463584,
+      "runtime_sha256": "a65b2af7f19112a90c7c39e92ac861b25ded4a9c2c357fbc0f604919faac5efe",
+      "derivation": "OpenAI image generation using PRESENTER_REFERENCE, then center-crop/scale to exact 864x480 with ffmpeg.",
+      "status": "generated_and_visually_reviewed"
+    },
+    {
+      "asset_id": "AI_VISUAL_WIDE",
+      "cut_id": "CUT03",
+      "raw_path": "outputs/productions/CM_20260815_genai_mastery_15s/01_keyframes/CUT03_head_raw.png",
+      "raw_bytes": 1842540,
+      "raw_sha256": "598c1d9922117c315ab31bdc3a0b0ef8da82e9f1e03759e1fac41390ae7842c6",
+      "runtime_path": "outputs/productions/CM_20260815_genai_mastery_15s/01_keyframes/CUT03_head_864x480.png",
+      "runtime_bytes": 515344,
+      "runtime_sha256": "59acf4dcb9a5df36a47d78c2e3bf653221ab4ced4241bd81a8d05591382442e8",
+      "derivation": "OpenAI image edit of CUT01 wide; meeting-room continuity retained and the projection changed to a text-free abstract AI visual; then center-crop/scale to exact 864x480 with ffmpeg.",
+      "status": "generated_and_visually_reviewed"
+    }
+  ],
+  "endpoint_frame_assets": [
+    {
+      "asset_id": "CUT01_FL2VA_V3_TAIL",
+      "candidate_id": "CUT01_LATERAL_DOLLY_FL2VA_V3",
+      "endpoint": "last_frame",
+      "raw_path": "outputs/productions/CM_20260815_genai_mastery_15s/01_keyframes/CUT01_FL2VA_V3_tail_raw.png",
+      "raw_bytes": 1739214,
+      "raw_sha256": "EF7D8C971AC8D9994615F583893335A892CC86393A9E8E1CA3E02014A237A171",
+      "runtime_path": "outputs/productions/CM_20260815_genai_mastery_15s/01_keyframes/CUT01_FL2VA_V3_tail_864x480.png",
+      "runtime_bytes": 513616,
+      "runtime_sha256": "93499A89053546FD0BA45216D12560ECE647D70B28AD293C86F360DA4CCB812C",
+      "derivation": "Image generation built-in identity-preserve edit, third iteration; then normalized by crop/scale to exact 864x480.",
+      "independent_endpoint_qc": "experimental_only_production_no_go",
+      "endpoint_qc_note": "Bar edge, inconsistent person shifts, vertical table/hand change, and face difference make this endpoint unsuitable for production adoption."
+    }
+  ],
+  "runtime": {
+    "profile": "official_q4",
+    "server_flags": [
+      "--novram",
+      "--cpu-vae",
+      "--disable-pinned-memory",
+      "--preview-method",
+      "none"
+    ],
+    "comfyui_revision": "2a68ce33b4c9ea6ee4283e618a74560cefb32694",
+    "comfyui_gguf_revision": "6ea2651e7df66d7585f6ffee804b20e92fb38b8a",
+    "torch": "2.13.0+cu130",
+    "models_from_model_manifest": {
+      "diffusion_model": {
+        "name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+        "sha256": "e889202c41dafb67b10d67b97f0d8541508036a6090af23425a5c2615d03c47a"
+      },
+      "text_encoder": {
+        "name": "qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf",
+        "sha256": "1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e"
+      }
+    },
+    "turbo_enabled": false,
+    "sampler": "res_multistep",
+    "scheduler": "simple",
+    "steps": 20,
+    "denoise": 1.0
+  },
+  "renders": [
+    {
+      "cut_id": "CUT01",
+      "prompt_id": "f228d949-9024-4b11-84ed-00e507048718",
+      "graph_sha256": "18d8cdba7d8d23a805c8f9fd47affd6d67b1751e7bd7f4e0eb27c5eaf41eea92",
+      "submitted_prompt_sha256": "0977e9818d215a4a44302c134ed72f4a7939d524018a0e0e97144d3d4408f8cc",
+      "seed": 529716596879763,
+      "elapsed_ms": 6483883,
+      "elapsed_hms": "01:48:03.883",
+      "artifact": {
+        "path": "outputs/productions/CM_20260815_genai_mastery_15s/02_cuts/CUT01/candidate/CUT01_00001_.mp4",
+        "bytes": 456965,
+        "sha256": "F369C9EE3A887D6B255F707904A01CA92065E83B58F74FA5C06EBEEE7A75BA2E",
+        "full_decode": "pass"
+      },
+      "media": {
+        "video_codec": "h264",
+        "width": 864,
+        "height": 480,
+        "fps": 24,
+        "frames": 124,
+        "duration_seconds": 5.1667,
+        "audio_codec": "aac",
+        "audio_sample_rate_hz": 32000
+      },
+      "editorial_observation": "Adopted into the master with minor hand and face softness recorded; this is not a general quality claim."
+    },
+    {
+      "cut_id": "CUT02",
+      "prompt_id": "714eaf57-e1df-4900-9d0f-4698606de953",
+      "graph_sha256": "f0fd96d7e7165eac433ab824a56ae0f1b34c6240b28d613f630a4e0e074a4e68",
+      "submitted_prompt_sha256": "d0b0623bc13b5273040d75bb77f9ce5ce612e4ef05e146ed1ef19c6b2fc51e01",
+      "seed": 529716596879763,
+      "elapsed_ms": 2749030,
+      "elapsed_hms": "00:45:49.030",
+      "artifact": {
+        "path": "outputs/productions/CM_20260815_genai_mastery_15s/02_cuts/CUT02/candidate/CUT02_00001_.mp4",
+        "bytes": 581174,
+        "sha256": "22503A6947C47B4B050015D9DF22D2C120EEADCB48F9C41878545351E720E854",
+        "full_decode": "pass"
+      },
+      "media": {
+        "video_codec": "h264",
+        "width": 864,
+        "height": 480,
+        "fps": 24,
+        "frames": 124,
+        "duration_seconds": 5.1667,
+        "audio_codec": "aac",
+        "audio_sample_rate_hz": 32000
+      },
+      "review": {
+        "visual": "pass_with_mild_raw_face_and_dental_fluctuation_recorded",
+        "native_audio": "faster-whisper small confirmed the exact requested phrase",
+        "assembly_audio_shift_earlier_seconds": 0.84,
+        "master_cut_local_audio_interval_seconds": [0.62, 3.9]
+      }
+    },
+    {
+      "cut_id": "CUT03",
+      "prompt_id": "a1a71279-1133-4e14-9fc8-23b4c8237da2",
+      "graph_sha256": "882a6a2914af4568d5fabd77842aa5f80b2ae227baceea7a64d61303824bb099",
+      "submitted_prompt_sha256": "1a908f6f1c0f73b3ea470b1eb7016d413ec64ffc7a26253c3f9758af4b6633a7",
+      "seed": 529716596879763,
+      "elapsed_ms": 2615198,
+      "elapsed_hms": "00:43:35.198",
+      "artifact": {
+        "path": "outputs/productions/CM_20260815_genai_mastery_15s/02_cuts/CUT03/candidate/CUT03_00001_.mp4",
+        "bytes": 595143,
+        "sha256": "7E17B4E69C34B54AF77E427EF616CEA4EC99CA63C8C7A6B14D431EFFFC489D44",
+        "full_decode": "pass"
+      },
+      "media": {
+        "video_codec": "h264",
+        "width": 864,
+        "height": 480,
+        "fps": 24,
+        "frames": 124,
+        "duration_seconds": 5.1667,
+        "audio_codec": "aac",
+        "audio_sample_rate_hz": 32000
+      },
+      "review": {
+        "visual": "pass_with_minor_projector_screen_deviation_during_final_second_recorded",
+        "audio": "silent_in_master"
+      }
+    }
+  ],
+  "alternate_candidates": [
+    {
+      "candidate_id": "CUT01_LATERAL_DOLLY_V1",
+      "cut_id": "CUT01",
+      "variant_of_canonical_artifact_sha256": "F369C9EE3A887D6B255F707904A01CA92065E83B58F74FA5C06EBEEE7A75BA2E",
+      "status": "rendered_reviewed_unselected",
+      "reused_first_frame_asset": "PRESENTER_01_WIDE",
+      "intended_camera_motion": "Truck Right",
+      "observed_camera_motion": "gentle_pan_like_leftward_whole_image_translation_approximately_20_to_25_pixels",
+      "prompt": {
+        "path": "productions/CM_20260815_genai_mastery_15s/prompts/CUT01_LATERAL_DOLLY_H3.md",
+        "submitted_prompt_utf8_sha256": "74b3ad174d69c314d0be462ebb4409d9f01bf4fef5df2832802a409e3200e3db",
+        "prompt_file_sha256": "841179fcfadbf80f5e8f0e3c8b0a5b506be58dd0cbf932705c4a4c4d7bfd359b",
+        "hash_difference_note": "The submitted embedded UTF-8 prompt was 2405 bytes without a final LF. The tracked prompt file is the same content plus one trailing LF (2406 bytes); stripping trailing LF yields the submitted prompt bytes.",
+        "prompt_id": "96a023dc-431d-4517-bb52-61f8e3d02b8c",
+        "graph_sha256": "461d451ad526ea136cd60dc2c64b1810239d609773eedb3da1945e1c8423884c",
+        "seed": 529716596879763
+      },
+      "execution": {
+        "elapsed_ms": 10645974,
+        "elapsed_hms": "02:57:25.974"
+      },
+      "artifact": {
+        "path": "outputs/productions/CM_20260815_genai_mastery_15s/02_cuts/CUT01/candidate/CUT01_LATERAL_DOLLY_V1_00001_.mp4",
+        "bytes": 742273,
+        "sha256": "F8C568A374F9B4E275944CD81839826C8545B0BCBAC5324CE4E376EC60794710",
+        "full_decode": "pass"
+      },
+      "media": {
+        "video_codec": "h264",
+        "video_profile": "High",
+        "pixel_format": "yuv420p",
+        "width": 864,
+        "height": 480,
+        "fps": 24,
+        "frames": 124,
+        "duration_seconds": 5.166667,
+        "audio_codec": "aac",
+        "audio_profile": "LC",
+        "audio_sample_rate_hz": 32000,
+        "audio_channel_layout": "stereo"
+      },
+      "quality": {
+        "video_media_stability": "pass",
+        "blackdetect": "pass",
+        "freeze_detect": "pass",
+        "audio": {
+          "integrated_lufs": -61.2,
+          "true_peak_db": -51.3,
+          "voice_or_music": "none"
+        },
+        "truck_right": "fail",
+        "truck_right_reason": "The whole image translates monotonically left by approximately 20 to 25 pixels; near/far parallax is weak or reversed and there is no clear occlusion reveal.",
+        "editorial_assessment": "Independent assessment PARTIAL: adoptable only as a gentle pan-like alternative. It is unselected and does not modify the canonical master."
+      }
+    },
+    {
+      "candidate_id": "CUT01_LATERAL_DOLLY_FL2VA_V3",
+      "cut_id": "CUT01",
+      "variant_of_canonical_artifact_sha256": "F369C9EE3A887D6B255F707904A01CA92065E83B58F74FA5C06EBEEE7A75BA2E",
+      "status": "rendered_reviewed_unselected",
+      "generation_mode": "FL2VA_first_and_last_frame",
+      "endpoint_assets": {
+        "first_frame_asset_id": "PRESENTER_01_WIDE",
+        "last_frame_asset_id": "CUT01_FL2VA_V3_TAIL"
+      },
+      "prompt": {
+        "path": "productions/CM_20260815_genai_mastery_15s/prompts/CUT01_FL2VA_V3_H3.md",
+        "submitted_prompt_utf8_sha256": "961d0cbad0f027d0d649579a2e2f0bda354917ddd09f2dc68a67607f4ad44081",
+        "prompt_file_sha256": "9412e8767d81530ec07214ed94f07bc96f7f8aa507e5ae3a82b05c7d4d6ac83e",
+        "hash_difference_note": "The submitted embedded UTF-8 prompt was 2902 bytes without a final LF. The tracked prompt file is the same content plus one trailing LF (2903 bytes); stripping trailing LF yields the submitted prompt bytes.",
+        "prompt_id": "6ffb6af0-ec84-4894-939e-e8bfcfc8393d",
+        "graph_sha256": "3369191d76d1354843263f33f207235c670b89278353159b3f657c09cb44d38e",
+        "seed": 529716596879763
+      },
+      "runtime": {
+        "profile": "official_q4",
+        "diffusion_model": "official_INT8_ConvRot",
+        "text_encoder": "Q4_GGUF",
+        "turbo_enabled": false,
+        "sampler": "res_multistep",
+        "scheduler": "simple",
+        "steps": 20,
+        "denoise": 1.0
+      },
+      "requested_media": {
+        "width": 864,
+        "height": 480,
+        "fps": 24,
+        "expected_raw_frames": 124
+      },
+      "execution": {
+        "started_at": "2026-08-15T20:58:42.669+09:00",
+        "succeeded_at": "2026-08-15T23:55:46.201+09:00",
+        "elapsed_ms": 10623532,
+        "elapsed_hms": "02:57:03.532"
+      },
+      "endpoint_quality_gate": "experimental_only_production_no_go",
+      "candidate_artifact": {
+        "path": "outputs/productions/CM_20260815_genai_mastery_15s/02_cuts/CUT01/candidate/CUT01_LATERAL_DOLLY_FL2VA_V3_00001_.mp4",
+        "bytes": 923395,
+        "sha256": "7062BA522984DA2E30F27FD8718565CA82564697CFE9A54A5A5E73CC99BDDEB7",
+        "full_decode": "pass",
+        "media": {
+          "video_codec": "h264",
+          "video_profile": "High",
+          "pixel_format": "yuv420p",
+          "width": 864,
+          "height": 480,
+          "fps": 24,
+          "frames": 124,
+          "duration_seconds": 5.166667,
+          "audio_codec": "aac",
+          "audio_profile": "LC",
+          "audio_sample_rate_hz": 32000,
+          "audio_channel_layout": "stereo",
+          "audio_duration_seconds": 5.167
+        }
+      },
+      "independent_review": {
+        "outcome": "rejected_for_production",
+        "technical_passes": {
+          "full_decode": "pass",
+          "blackdetect": "none",
+          "speech": "none",
+          "anchor_psnr_first": 31.51,
+          "anchor_psnr_last": 31.22,
+          "people_count": 4,
+          "bar_count": 8,
+          "people_and_bars_stability": "stable"
+        },
+        "rejection_reasons": {
+          "zoom_in_and_vertical_drift_percent": 12.89,
+          "homography_inlier_percent": 76.6,
+          "depth_parallax_or_occlusion_reveal": "not_correct",
+          "morphing": "face_hand_and_desk",
+          "rightmost_bar": "clipped",
+          "near_freeze_after_seconds": 4.416
+        }
+      },
+      "editorial_boundary": "Completed FL2VA two-endpoint experiment independently rejected for production. It is not part of the canonical CUT01 or master, and the canonical artifacts/status remain unchanged."
+    }
+  ],
+  "master": {
+    "path": "outputs/productions/CM_20260815_genai_mastery_15s/03_assembly/master/CM_20260815_genai_mastery_15s_master_864x480_24fps.mp4",
+    "bytes": 1331000,
+    "sha256": "CCB949E0D729B9AB5DE7D974EDB284CC0F69672DDEB607AC7851BE6317C9429D",
+    "full_decode": "pass",
+    "media": {
+      "video_codec": "h264",
+      "video_profile": "High",
+      "pixel_format": "yuv420p",
+      "width": 864,
+      "height": 480,
+      "fps": 24,
+      "frames": 360,
+      "duration_seconds": 15.0,
+      "audio_codec": "aac",
+      "audio_profile": "LC",
+      "audio_sample_rate_hz": 48000,
+      "audio_channel_layout": "stereo"
+    },
+    "assembly": {
+      "hard_cut_frames": [120, 240],
+      "cut01_audio": "digital_silence",
+      "cut02_audio": "only_the_exact_requested_phrase",
+      "cut03_audio": "digital_silence"
+    }
+  },
+  "independent_master_audit": {
+    "outcome": "green_no_blocker",
+    "technical": {
+      "exact_spec": "pass",
+      "full_decode": "pass",
+      "blackdetect": "none",
+      "freeze_longer_than_seconds": 1.0,
+      "freeze_events_longer_than_threshold": "none",
+      "hard_cut_boundaries": "natural"
+    },
+    "audio": {
+      "cut01": "no_voice_or_music",
+      "cut02": {
+        "faster_whisper_small": "exact_requested_phrase_top1",
+        "independent_dictation": "exact_requested_phrase_top2_close_confidence",
+        "assembly_shift_earlier_seconds": 0.84,
+        "residual_lip_sync_approx_seconds": "+/-0.25_to_0.30"
+      },
+      "cut03": "no_voice_or_music",
+      "music": "none",
+      "room_tone": "none",
+      "creative_effect": "intentionally_quiet_cm"
+    },
+    "visual_note": "CUT03 projector screen continues moving through the final frame; recorded as an observed ending behavior, not a blocker."
+  },
+  "planned_outputs": {
+    "root": "outputs/productions/CM_20260815_genai_mastery_15s/",
+    "ignored_by_git": true,
+    "raw_cut_frame_policy": {
+      "requested_duration_seconds": 5,
+      "observed_raw_frame_count": 124,
+      "adopted_frames_per_cut": 120,
+      "adopted_duration_seconds_per_cut": 5.0,
+      "final_frame_count": 360,
+      "final_duration_seconds": 15.0,
+      "fps": 24
+    }
+  },
+  "review_boundaries": {
+    "verified": [
+      "Recorded inputs, prompt hashes, render artifacts, artifact hashes, media facts, full decode checks, and assembly facts in this file.",
+      "CUT02 native audio phrase was confirmed by faster-whisper small as top 1 and by independent dictation as top 2 with close confidence; the assembled local interval is 0.62 to 3.90 seconds.",
+      "Independent master audit was green with no blocker: exact spec and full decode passed, blackdetect found none, no freeze longer than one second was found, and hard-cut boundaries were natural."
+    ],
+    "pending": [
+      "Publication, portrait, secondary-use, and model-output release rights",
+      "Any claim of general prompt-following, temporal stability, or model quality superiority"
+    ]
+  }
+}
