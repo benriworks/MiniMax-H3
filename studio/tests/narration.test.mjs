@@ -1,0 +1,103 @@
+import assert from 'node:assert/strict';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { dirname, join } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import test from 'node:test';
+
+const studioRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
+const testDist = join(studioRoot, '.test-dist');
+const tscPath = join(studioRoot, 'node_modules', '.bin', process.platform === 'win32' ? 'tsc.cmd' : 'tsc');
+const compile = spawnSync(tscPath, [
+  '--ignoreConfig',
+  '--target', 'ES2022',
+  '--module', 'ESNext',
+  '--moduleResolution', 'Bundler',
+  '--skipLibCheck',
+  '--outDir', testDist,
+  'src/api.ts',
+  'src/status.ts',
+  'src/types.ts',
+], { cwd: studioRoot, encoding: 'utf8', shell: process.platform === 'win32' });
+assert.equal(compile.status, 0, `${compile.stdout ?? ''}${compile.stderr ?? ''}`);
+const statusUrl = pathToFileURL(join(testDist, 'status.js')).href;
+const apiSource = await readFile(join(testDist, 'api.js'), 'utf8');
+const apiModule = apiSource.replaceAll("from './status'", `from '${statusUrl}'`);
+const api = await import(`data:text/javascript;base64,${Buffer.from(apiModule).toString('base64')}`);
+
+test('normalizeJob reads payload run/stage and converts duration_ms', () => {
+  const job = api.normalizeJob({
+    id: 'job_local_1',
+    status: 'queued',
+    payload: { run_id: 'run_local_1', stage: 'narration' },
+    result: {
+      duration_ms: 1_250,
+      provider: 'windows_sapi',
+      provider_task_id: null,
+      actual_cost: 0,
+      timing_source: 'wav_frames',
+      error: { code: 'worker_failed', message: 'SAPI failed' },
+    },
+  });
+
+  assert.equal(job.status, 'pending');
+  assert.equal(job.runId, 'run_local_1');
+  assert.equal(job.stage, 'narration');
+  assert.equal(job.durationSeconds, 1.25);
+  assert.equal(job.message, 'SAPI failed');
+  assert.equal(job.errorCode, 'worker_failed');
+  assert.equal(job.result?.durationSeconds, 1.25);
+  assert.equal(job.result?.provider, 'windows_sapi');
+  assert.equal(job.result?.providerTaskId, undefined);
+  assert.equal(job.result?.actualCost, 0);
+  assert.equal(job.result?.timingSource, 'wav_frames');
+  assert.equal(job.result?.errorCode, 'worker_failed');
+});
+
+test('normalizeRun converts stage attempt duration_ms and retains attempt metadata', () => {
+  const run = api.normalizeRun({
+    id: 'run_local_1',
+    requested_stages: ['narration'],
+    stage_attempts: [{
+      id: 'attempt_1',
+      job_id: 'job_local_1',
+      stage: 'narration',
+      status: 'succeeded',
+      attempt: 1,
+      duration_ms: 2_500,
+      cache_hit: true,
+      result: {
+        provider: 'windows_sapi',
+        provider_task_id: null,
+        actual_cost: 0,
+        timing_source: 'wav_frames',
+        artifacts: [{ id: 'audio_1', name: 'narration.wav', kind: 'audio' }],
+      },
+    }],
+  });
+
+  assert.deepEqual(run.requestedStages, ['narration']);
+  assert.equal(run.stageAttempts[0].durationSeconds, 2.5);
+  assert.equal(run.stageAttempts[0].cacheHit, true);
+  assert.equal(run.stageAttempts[0].jobId, 'job_local_1');
+  assert.equal(run.stageAttempts[0].provider, 'windows_sapi');
+  assert.equal(run.stageAttempts[0].actualCost, 0);
+  assert.equal(run.stageAttempts[0].timingSource, 'wav_frames');
+  assert.equal(run.stageAttempts[0].artifacts[0].name, 'narration.wav');
+});
+
+test('normalizeNarrationInput removes empty lines and enforces segment and text limits', () => {
+  const limits = api.LOCAL_NARRATION_LIMITS;
+  const valid = api.normalizeNarrationInput(` first line\n\nsecond line `, 0);
+  assert.deepEqual(valid.segments, ['first line', 'second line']);
+  assert.deepEqual(valid.errors, []);
+
+  const tooMany = api.normalizeNarrationInput(Array.from({ length: limits.maxSegments + 1 }, () => 'x').join('\n'), 0);
+  assert.ok(tooMany.errors.some((error) => error.includes(`${limits.maxSegments}行以内`)));
+
+  const tooLong = api.normalizeNarrationInput('x'.repeat(limits.maxSegmentLength + 1), 0);
+  assert.ok(tooLong.errors.some((error) => error.includes(`${limits.maxSegmentLength.toLocaleString()}文字以内`)));
+
+  const tooMuch = api.normalizeNarrationInput(Array.from({ length: 26 }, () => 'x'.repeat(2_000)).join('\n'), 0);
+  assert.ok(tooMuch.errors.some((error) => error.includes(`${limits.maxTotalLength.toLocaleString()}文字以内`)));
+});

@@ -1,22 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { api } from './api';
+import { api, LOCAL_NARRATION_LIMITS, StudioApiError, normalizeNarrationInput } from './api';
 import type {
   Approval,
   Artifact,
   CostEntry,
   HealthStatus,
   Job,
+  LocalNarrationRequest,
   ProductionDetail,
   ProductionRun,
   ProductionSummary,
   ProviderStatus,
   RerunChanges,
   RerunPlan,
+  StageAttempt,
   StudioEvent,
   StudioStatus,
 } from './types';
 
-type DetailTab = 'overview' | 'artifacts' | 'compare' | 'logs' | 'audit';
+type DetailTab = 'overview' | 'narration' | 'artifacts' | 'compare' | 'logs' | 'audit';
 
 const STATUS_LABEL: Record<StudioStatus, string> = {
   pending: '待機',
@@ -112,6 +114,37 @@ const runCostApprovalLabel = (run: ProductionRun): string => {
   if ((run.estimatedCost ?? 0) <= 0) return '費用承認不要';
   return costApprovalLabel(run.status) ?? '費用承認待ち';
 };
+
+const jobStatusLabel = (status: StudioStatus): string => {
+  if (status === 'pending') return 'キュー待ち';
+  if (status === 'running') return '実行中';
+  if (status === 'succeeded') return '完了';
+  if (status === 'failed') return '失敗';
+  return STATUS_LABEL[status];
+};
+
+const localNarrationError = (error: unknown): string => {
+  if (error instanceof StudioApiError && error.unsupported) {
+    return 'このStudio backendはローカルナレーション実行に対応していません。backendを更新してから再試行してください。';
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  const normalized = message.toLowerCase();
+  if (normalized.includes('unsupported') || normalized.includes('not implemented') || normalized.includes('not found')) {
+    return 'ローカルナレーションworkerは現在利用できません。対応するbackendが起動しているか確認してください。';
+  }
+  if (normalized.includes('profile') && normalized.includes('local')) {
+    return 'このRunはlocal_sapi実行用ではありません。ローカル音声プロファイルでRunを作成してください。';
+  }
+  return `ローカルナレーション実行に失敗しました：${message}`;
+};
+
+const normalizeRequestedStage = (value: string): string => value.toLowerCase().replaceAll('-', '_').replaceAll(' ', '_');
+
+const hasNarrationStage = (run: ProductionRun): boolean =>
+  run.requestedStages.some((stage) => ['narration', 'script', 'copy', 'voice', 'pronunciation'].includes(normalizeRequestedStage(stage)))
+  || run.stages.some((stage) => ['narration', 'script', 'copy', 'voice', 'pronunciation'].includes(normalizeRequestedStage(stage.name)));
+
+const hasLocalSapiProfile = (run?: ProductionRun): boolean => run?.executionProfile === 'local_sapi';
 
 const EmptyState = ({ title, description }: { title: string; description?: string }) => (
   <div className="empty-state">
@@ -370,6 +403,7 @@ function ProductionWorkspace({ detail, jobs, onReload }: { detail: ProductionDet
 
   const tabs: { id: DetailTab; label: string; count?: number }[] = [
     { id: 'overview', label: '概要' },
+    { id: 'narration', label: 'ナレーション' },
     { id: 'artifacts', label: '成果物', count: detail.artifacts.length },
     { id: 'compare', label: 'A/B比較' },
     { id: 'logs', label: 'ログ', count: detail.events.length },
@@ -405,16 +439,17 @@ function ProductionWorkspace({ detail, jobs, onReload }: { detail: ProductionDet
         </div>
       </section>
 
-      <nav className="tabs" aria-label="制作情報">
+      <nav className="tabs" aria-label="制作情報" role="tablist">
         {tabs.map((item) => (
-          <button key={item.id} className={tab === item.id ? 'is-active' : ''} onClick={() => setTab(item.id)}>
+          <button key={item.id} id={`production-tab-${item.id}`} role="tab" aria-selected={tab === item.id} aria-controls="production-tabpanel" className={tab === item.id ? 'is-active' : ''} onClick={() => setTab(item.id)}>
             {item.label}{item.count !== undefined && <span>{item.count}</span>}
           </button>
         ))}
       </nav>
 
-      <div className="tab-content">
+      <div className="tab-content" id="production-tabpanel" role="tabpanel" aria-labelledby={`production-tab-${tab}`}>
         {tab === 'overview' && <Overview detail={detail} latestRun={latestRun} onReload={onReload} />}
+        {tab === 'narration' && <NarrationPanel detail={detail} jobs={jobs} onReload={onReload} />}
         {tab === 'artifacts' && <ArtifactsPanel artifacts={detail.artifacts} />}
         {tab === 'compare' && <ComparisonPanel artifacts={detail.artifacts} />}
         {tab === 'logs' && <LogPanel events={detail.events} />}
@@ -430,7 +465,7 @@ function Overview({ detail, latestRun, onReload }: { detail: ProductionDetail; l
       <div className="overview-main">
         <section className="panel">
           <div className="panel-header">
-            <div><span className="section-kicker">PIPELINE PLAN</span><h3>要求工程（未実行）</h3></div>
+            <div><span className="section-kicker">PIPELINE PLAN</span><h3>要求工程</h3></div>
             {latestRun && <span className="muted">{latestRun.label} · {formatDate(latestRun.createdAt)}</span>}
           </div>
           {!latestRun && <EmptyState title="Runがありません" description="再実行計画を作成すると、工程がここに表示されます。" />}
@@ -505,13 +540,172 @@ const RERUN_STAGES = [
   ['qc', '品質検査'],
 ] as const;
 
+function NarrationPanel({ detail, jobs, onReload }: { detail: ProductionDetail; jobs: Job[]; onReload: () => Promise<void> }) {
+  const eligibleRuns = useMemo(
+    () => [...detail.runs].filter(hasNarrationStage).sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')),
+    [detail.runs],
+  );
+  const [selectedRunId, setSelectedRunId] = useState(eligibleRuns[0]?.id ?? '');
+  const [script, setScript] = useState('');
+  const [voice, setVoice] = useState('');
+  const [rate, setRate] = useState(0);
+  const [pronunciations, setPronunciations] = useState([{ source: '', target: '' }]);
+  const [job, setJob] = useState<Job>();
+  const [busy, setBusy] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+  const [message, setMessage] = useState<{ type: 'error' | 'success' | 'info'; text: string }>();
+  const reloadedTerminalJob = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (!eligibleRuns.some((run) => run.id === selectedRunId)) setSelectedRunId(eligibleRuns[0]?.id ?? '');
+  }, [eligibleRuns, selectedRunId]);
+
+  const selectedRun = eligibleRuns.find((run) => run.id === selectedRunId);
+  const normalizedInput = useMemo(() => normalizeNarrationInput(script, rate), [rate, script]);
+  const { segments, errors: validationErrors } = normalizedInput;
+
+  const currentAttempt = selectedRun?.stageAttempts[selectedRun.stageAttempts.length - 1];
+  const visibleJob = job ?? jobs.find((item) => item.id === currentAttempt?.jobId || (item.runId === selectedRun?.id && (item.stage === 'narration' || item.type === 'local_narration')));
+  const isTerminal = visibleJob?.status === 'succeeded' || visibleJob?.status === 'failed' || visibleJob?.status === 'cancelled';
+
+  useEffect(() => {
+    if (!job || isTerminal) {
+      if (isTerminal && !submitting) setBusy(false);
+      return;
+    }
+    const timer = window.setInterval(() => {
+      void api.jobs().then((nextJobs) => {
+        const next = nextJobs.find((item) => item.id === job.id);
+        if (next) {
+          setJob(next);
+        }
+      }).catch(() => undefined);
+    }, 2_000);
+    return () => window.clearInterval(timer);
+  }, [isTerminal, job, submitting]);
+
+  useEffect(() => {
+    if (!visibleJob || !isTerminal || reloadedTerminalJob.current === visibleJob.id) return;
+    reloadedTerminalJob.current = visibleJob.id;
+    void onReload().catch(() => undefined);
+  }, [isTerminal, onReload, visibleJob]);
+
+  const execute = async () => {
+    if (submittingRef.current) return;
+    if (!selectedRun) {
+      setMessage({ type: 'error', text: 'ナレーション工程を含むRunを選択してください。' });
+      return;
+    }
+    if (!hasLocalSapiProfile(selectedRun)) {
+      setMessage({ type: 'error', text: 'このRunはlocal_sapi実行用ではありません。概要の再調整からローカル音声プロファイルでRunを作成してください。' });
+      return;
+    }
+    if (validationErrors.length > 0) {
+      setMessage({ type: 'error', text: validationErrors[0] });
+      return;
+    }
+    submittingRef.current = true;
+    setSubmitting(true);
+    const pronunciationList = pronunciations
+      .map(({ source, target }) => ({ source: source.trim(), target: target.trim() }))
+      .filter(({ source, target }) => source && target);
+    const request: LocalNarrationRequest = {
+      segments: segments.map((text) => ({ text })),
+      voice: voice.trim() || undefined,
+      rate,
+      pronunciations: pronunciationList.length > 0 ? pronunciationList : undefined,
+    };
+    setBusy(true);
+    setJob(undefined);
+    setMessage({ type: 'info', text: '実行をキューに登録しています。成功とはまだ判定していません。' });
+    try {
+      const submitted = await api.executeLocalNarration(selectedRun.id, request);
+      setJob(submitted);
+      setMessage({ type: submitted.status === 'failed' ? 'error' : 'success', text: submitted.status === 'failed' ? localNarrationError(submitted.message ?? 'workerが失敗しました') : 'ナレーションworkerをキューに登録しました。' });
+      try {
+        await onReload();
+      } catch {
+        setMessage({ type: 'info', text: 'workerは登録済みです。制作詳細の再読込だけ失敗したため、job監視を継続します。' });
+      }
+      if (submitted.status === 'succeeded' || submitted.status === 'failed' || submitted.status === 'cancelled') setBusy(false);
+    } catch (error) {
+      setBusy(false);
+      setMessage({ type: 'error', text: localNarrationError(error) });
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
+  };
+
+  const addPronunciation = () => setPronunciations((current) => [...current, { source: '', target: '' }]);
+  const updatePronunciation = (index: number, key: 'source' | 'target', value: string) => {
+    setPronunciations((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, [key]: value } : item));
+  };
+  const removePronunciation = (index: number) => setPronunciations((current) => current.length === 1 ? current : current.filter((_, itemIndex) => itemIndex !== index));
+
+  if (eligibleRuns.length === 0) {
+    return <section className="panel narration-panel"><div className="panel-header"><div><span className="section-kicker">LOCAL NARRATION</span><h3>ローカル音声＋字幕worker</h3></div></div><EmptyState title="ナレーション工程を含むRunがありません" description="概要の再調整で narration を選択し、local_sapi プロファイルのRunを作成してください。" /></section>;
+  }
+
+  const resultArtifacts = visibleJob?.result?.artifacts ?? currentAttempt?.artifacts ?? [];
+  return (
+    <div className="narration-grid">
+      <div>
+        <section className="panel narration-panel">
+          <div className="panel-header"><div><span className="section-kicker">LOCAL NARRATION</span><h3>ローカル音声＋字幕worker</h3></div><span className="tag">費用 0円</span></div>
+          <p className="panel-lead">SAPIをこのPC上で実行します。音声・字幕テキストは外部APIへ送信しません。backendの検証を正本とし、ここでは入力ミスを早期表示します。</p>
+          <label className="field"><span>対象Run（narration工程を要求したものだけ）</span><select value={selectedRunId} disabled={busy || submitting} onChange={(event) => { setSelectedRunId(event.target.value); setJob(undefined); setMessage(undefined); }} aria-label="ナレーション対象Run">
+            {eligibleRuns.map((run) => <option key={run.id} value={run.id}>{run.label} · {run.id}{run.executionProfile === 'local_sapi' ? ' · local_sapi' : ' · 別profile'}</option>)}
+          </select></label>
+          <div className="narration-run-summary"><span>Run ID</span><strong className="mono">{selectedRun?.id}</strong><span>要求工程</span><strong>{selectedRun?.requestedStages.map(stageLabel).join('、') || 'narration'}</strong><span>実行profile</span><strong>{selectedRun?.executionProfile ?? '未指定'}</strong></div>
+          {!hasLocalSapiProfile(selectedRun) && <div className="notice notice-warning"><div><strong>local_sapiではありません</strong><p>このRunは履歴の閲覧対象ですが、ローカルworkerの実行対象にはできません。local_sapi Runを作成してください。</p></div></div>}
+          <label className="field"><span>論理セグメント（1行=1セグメント、空行は除去）</span><textarea rows={9} value={script} onChange={(event) => setScript(event.target.value)} placeholder={'例：\nClaude Codeで、開発をもっと速く。\nまずはCLAUDE.mdを用意しましょう。'} aria-describedby="narration-segment-help" />
+            <small id="narration-segment-help" className="field-help">{segments.length} / {LOCAL_NARRATION_LIMITS.maxSegments} セグメント · {segments.join('').length.toLocaleString()} / {LOCAL_NARRATION_LIMITS.maxTotalLength.toLocaleString()} 文字</small>
+          </label>
+          {validationErrors.length > 0 && <div className="validation-list" role="status">{validationErrors.map((error) => <div key={error}>・{error}</div>)}</div>}
+          <div className="narration-form-grid">
+            <label className="field"><span>Voice（任意）</span><input value={voice} onChange={(event) => setVoice(event.target.value)} placeholder="既定：ローカルSAPI" /></label>
+            <label className="field"><span>Rate（-10〜10）</span><input type="number" min={-10} max={10} step={1} value={rate} onChange={(event) => setRate(Number(event.target.value))} /></label>
+          </div>
+          <fieldset className="pronunciation-fieldset"><legend>発音置換（任意）</legend>{pronunciations.map((item, index) => <div className="pronunciation-row" key={index}><input value={item.source} onChange={(event) => updatePronunciation(index, 'source', event.target.value)} placeholder="表記" aria-label={`発音置換 ${index + 1} 表記`} /><span aria-hidden="true">→</span><input value={item.target} onChange={(event) => updatePronunciation(index, 'target', event.target.value)} placeholder="読み" aria-label={`発音置換 ${index + 1} 読み`} /><button className="button button-ghost" type="button" onClick={() => removePronunciation(index)} disabled={pronunciations.length === 1}>削除</button></div>)}<button className="button button-secondary" type="button" onClick={addPronunciation}>＋置換を追加</button></fieldset>
+          <div className="narration-confirm"><strong>実行前確認</strong><span>Run <b className="mono">{selectedRun?.id}</b> に {segments.length} セグメントを送信</span><span>外部送信なし · ローカルSAPI · 費用0円</span></div>
+          <button className="button button-primary full-button" type="button" onClick={() => void execute()} disabled={submitting || busy || validationErrors.length > 0 || !hasLocalSapiProfile(selectedRun)}>{submitting ? '登録中…' : busy ? 'worker監視中…' : 'ローカルナレーションを実行'}</button>
+          {message && <div className={`inline-message is-${message.type}`} role="status">{message.text}</div>}
+        </section>
+      </div>
+      <aside>
+        <NarrationJobStatus job={visibleJob} attempt={currentAttempt} artifacts={resultArtifacts} />
+        <NarrationAttemptHistory attempts={selectedRun?.stageAttempts ?? []} />
+      </aside>
+    </div>
+  );
+}
+
+function NarrationJobStatus({ job, attempt, artifacts }: { job?: Job; attempt?: StageAttempt; artifacts: Artifact[] }) {
+  const status = job?.status ?? attempt?.status;
+  const cacheHit = job?.cacheHit ?? attempt?.cacheHit;
+  const result = job?.result;
+  const provider = result?.provider ?? attempt?.provider;
+  const providerTaskId = result?.providerTaskId ?? attempt?.providerTaskId;
+  const actualCost = result?.actualCost ?? attempt?.actualCost;
+  const timingSource = result?.timingSource ?? attempt?.timingSource;
+  const active = status === 'pending' || status === 'running';
+  return <section className="panel compact-panel narration-status-panel" aria-live="polite" aria-busy={active}><div className="panel-header"><div><span className="section-kicker">WORKER STATUS</span><h3>実行状況</h3></div>{status ? <StatusBadge status={status} label={jobStatusLabel(status)} /> : <span className="muted">未実行</span>}</div>{!job && !attempt && <p className="muted">実行すると、キュー投入後の状態をここで監視します。</p>}<dl className="narration-metrics"><div><dt>Job</dt><dd className="mono">{job?.id ?? attempt?.jobId ?? '—'}</dd></div><div><dt>Attempt</dt><dd>{job?.attempt ?? attempt?.attempt ?? '—'}</dd></div><div><dt>Cache hit</dt><dd>{cacheHit === undefined ? '—' : cacheHit ? 'はい' : 'いいえ'}</dd></div><div><dt>所要時間</dt><dd>{formatDuration(job?.durationSeconds ?? attempt?.durationSeconds)}</dd></div><div><dt>Provider</dt><dd>{provider ?? '—'}</dd></div><div><dt>Provider task</dt><dd className="mono">{provider ? providerTaskId ?? 'なし' : '—'}</dd></div><div><dt>実費</dt><dd>{actualCost === undefined ? '—' : `${actualCost}（local）`}</dd></div><div><dt>Timing</dt><dd>{timingSource ?? '—'}</dd></div><div><dt>更新</dt><dd>{formatDate(job?.updatedAt ?? attempt?.finishedAt ?? attempt?.startedAt)}</dd></div></dl>{job?.message && <p className={job.status === 'failed' ? 'narration-error-text' : 'muted'}>{job.message}</p>}<div className="narration-artifact-list"><strong>生成artifact</strong>{artifacts.length === 0 ? <span className="muted">まだありません</span> : artifacts.map((artifact) => <a key={artifact.id} href={artifact.url} target="_blank" rel="noreferrer">{artifact.name} ↗</a>)}</div><p className="gate-separation-note">これはworkerの実行履歴です。費用承認・技術/表現/公開ゲートとは別の記録です。</p></section>;
+}
+
+function NarrationAttemptHistory({ attempts }: { attempts: StageAttempt[] }) {
+  return <section className="panel compact-panel"><div className="panel-header"><div><span className="section-kicker">STAGE ATTEMPTS</span><h3>ナレーション試行履歴</h3></div><span className="count-chip">{attempts.length}</span></div>{attempts.length === 0 ? <p className="muted">stage attempt記録はまだありません。</p> : <div className="attempt-list">{attempts.map((attempt) => <article className="attempt-row" key={attempt.id}><div><strong>#{attempt.attempt ?? '—'} · {attempt.id}</strong><small>{formatDate(attempt.startedAt ?? attempt.createdAt)}{attempt.finishedAt ? ` → ${formatDate(attempt.finishedAt)}` : ''}</small></div><StatusBadge status={attempt.status} label={jobStatusLabel(attempt.status)} /><div><span>{attempt.cacheHit === undefined ? 'cache —' : attempt.cacheHit ? 'cache hit' : 'cache miss'}</span><span>{formatDuration(attempt.durationSeconds)}</span><span>{attempt.artifacts.length} artifact</span></div>{attempt.message && <p>{attempt.message}</p>}</article>)}</div>}</section>;
+}
+
 function RerunPanel({ productionId, onReload }: { productionId: string; onReload: () => Promise<void> }) {
-  const [changes, setChanges] = useState<RerunChanges>({ stages: [], note: '', allowPaidApi: false });
+  const [changes, setChanges] = useState<RerunChanges>({ stages: [], note: '', allowPaidApi: false, executionProfile: 'default' });
   const [plan, setPlan] = useState<RerunPlan>();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string }>();
 
   const toggleStage = (stage: string) => {
+    if (changes.executionProfile === 'local_sapi' && stage !== 'narration') return;
     setPlan(undefined);
     setChanges((current) => ({
       ...current,
@@ -537,7 +731,11 @@ function RerunPanel({ productionId, onReload }: { productionId: string; onReload
 
   const startRun = async () => {
     if (!plan) return;
-    if (plan.requiresCostEstimate && (!changes.allowPaidApi || !changes.maxCostJpy || changes.maxCostJpy <= 0)) {
+    if (changes.executionProfile === 'local_sapi' && !changes.stages.includes('narration')) {
+      setMessage({ type: 'error', text: 'local_sapiはナレーション工程を含むRunにのみ指定できます。' });
+      return;
+    }
+    if (plan.requiresCostEstimate && changes.executionProfile !== 'local_sapi' && (!changes.allowPaidApi || !changes.maxCostJpy || changes.maxCostJpy <= 0)) {
       setMessage({ type: 'error', text: '課金工程を含むため、有料APIの計画を有効にして見積額を入力してください。' });
       return;
     }
@@ -557,15 +755,19 @@ function RerunPanel({ productionId, onReload }: { productionId: string; onReload
   return (
     <section className="panel rerun-panel">
       <div className="panel-header"><div><span className="section-kicker">PARTIAL RERUN</span><h3>再調整</h3></div></div>
-      <p className="panel-lead">変更箇所から再実行範囲と再利用候補を計算し、監査可能なRun計画として保存します。MVPでは生成処理はまだ開始しません。</p>
+      <p className="panel-lead">変更箇所から再実行範囲と再利用候補を計算し、監査可能なRun計画として保存します。local_sapiのナレーションだけは、Run作成後にナレーション画面から明示実行できます。</p>
       <fieldset className="stage-checks">
         <legend>変更する工程</legend>
         {RERUN_STAGES.map(([id, label]) => (
           <label key={id}>
-            <input type="checkbox" checked={changes.stages.includes(id)} onChange={() => toggleStage(id)} />
+            <input type="checkbox" checked={changes.stages.includes(id)} onChange={() => toggleStage(id)} disabled={changes.executionProfile === 'local_sapi' && id !== 'narration'} />
             <span>{label}</span>
           </label>
         ))}
+      </fieldset>
+      <fieldset className="execution-profile-fieldset"><legend>実行プロファイル</legend>
+        <label className="profile-option"><input type="radio" name={`execution-profile-${productionId}`} value="default" checked={changes.executionProfile !== 'local_sapi'} onChange={() => { setPlan(undefined); setChanges((current) => ({ ...current, executionProfile: 'default' })); }} /><span><strong>通常</strong><small>既存のRun計画・費用ルールを使用</small></span></label>
+        <label className="profile-option"><input type="radio" name={`execution-profile-${productionId}`} value="local_sapi" checked={changes.executionProfile === 'local_sapi'} onChange={() => { setPlan(undefined); setChanges((current) => ({ ...current, executionProfile: 'local_sapi', stages: ['narration'], allowPaidApi: false, maxCostJpy: undefined })); }} /><span><strong>local_sapi（ローカル音声）</strong><small>narration起点・見積0円・外部送信なし</small></span></label>
       </fieldset>
       <label className="field">
         <span>変更内容・理由</span>
@@ -580,9 +782,10 @@ function RerunPanel({ productionId, onReload }: { productionId: string; onReload
         <input
           type="checkbox"
           checked={changes.allowPaidApi}
-          onChange={(event) => { setPlan(undefined); setChanges((current) => ({ ...current, allowPaidApi: event.target.checked })); }}
+          disabled={changes.executionProfile === 'local_sapi'}
+          onChange={(event) => { setPlan(undefined); setChanges((current) => ({ ...current, allowPaidApi: event.target.checked, executionProfile: event.target.checked ? 'default' : current.executionProfile })); }}
         />
-          <span><strong>有料APIを使う計画</strong><small>Run作成後、監査タブで上限を承認します</small></span>
+          <span><strong>有料APIを使う計画</strong><small>{changes.executionProfile === 'local_sapi' ? 'local_sapiと相互排他的です' : 'Run作成後、監査タブで上限を承認します'}</small></span>
       </label>
       {changes.allowPaidApi && (
         <label className="field inline-field">
@@ -598,8 +801,8 @@ function RerunPanel({ productionId, onReload }: { productionId: string; onReload
           <dl>
             <div><dt>再実行</dt><dd>{(plan.stages.length ? plan.stages : changes.stages).map(stageLabel).join('、')}</dd></div>
             <div><dt>再利用</dt><dd>{plan.reusedStages.length ? plan.reusedStages.map(stageLabel).join('、') : 'APIから情報なし'}</dd></div>
-            <div><dt>課金工程</dt><dd>{plan.billableStages.length ? plan.billableStages.map(stageLabel).join('、') : 'なし'}</dd></div>
-            <div><dt>見積費用</dt><dd>{plan.estimatedCost === undefined ? (plan.requiresCostEstimate ? (changes.maxCostJpy && changes.maxCostJpy > 0 ? formatMoney(changes.maxCostJpy, 'JPY') : '見積入力が必要') : '課金なし') : formatMoney(plan.estimatedCost, plan.currency)}</dd></div>
+            <div><dt>課金工程</dt><dd>{changes.executionProfile === 'local_sapi' ? 'なし（ローカル）' : plan.billableStages.length ? plan.billableStages.map(stageLabel).join('、') : 'なし'}</dd></div>
+            <div><dt>見積費用</dt><dd>{changes.executionProfile === 'local_sapi' ? '0円（外部送信なし）' : plan.estimatedCost === undefined ? (plan.requiresCostEstimate ? (changes.maxCostJpy && changes.maxCostJpy > 0 ? formatMoney(changes.maxCostJpy, 'JPY') : '見積入力が必要') : '課金なし') : formatMoney(plan.estimatedCost, plan.currency)}</dd></div>
           </dl>
           <div className="button-row">
             <button className="button button-ghost" onClick={() => setPlan(undefined)} disabled={busy}>戻る</button>

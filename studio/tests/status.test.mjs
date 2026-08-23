@@ -12,3 +12,5 @@ test('compound production gates retain pass and blocker semantics', () => {
   assert.equal(normalizeStatus('cut03_needs_improvement'), 'blocked');
   assert.equal(normalizeStatus('blocked_pending_rights_review'), 'blocked');
 });
+
+await import('./narration.test.mjs');

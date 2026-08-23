@@ -14,6 +14,7 @@ from pathlib import Path
 from unittest import mock
 
 from tools.studio.instance_lock import StudioInstanceLockError
+from tools.studio.database import SCHEMA_VERSION, StudioDatabase
 from tools.studio.secrets import SecretStore, dpapi_available
 from tools.studio.security import (
     SecurityError,
@@ -22,6 +23,7 @@ from tools.studio.security import (
     workspace_path,
 )
 from tools.studio.server import create_server
+from tools.studio.execution import narration_cache_key
 from tools.studio.service import RequestValidationError, StudioService, build_rerun_plan
 
 
@@ -31,6 +33,60 @@ RAW_LOG_SECRET = "audit-log-secret-123456"
 RAW_JSON_SECRET = "plainprovidercredential123"
 RAW_CONFIG_SECRET = "structured-config-secret-123456"
 RAW_UNKNOWN_SECRET = "unknown-format-secret-123456"
+
+
+def fake_local_narration_result(
+    workspace: Path,
+    *,
+    production_id: str,
+    run_id: str,
+    payload: dict[str, object],
+) -> dict[str, object]:
+    del production_id
+    cache_key = narration_cache_key(payload)
+    output_directory = (
+        workspace
+        / "outputs"
+        / "studio"
+        / "runs"
+        / run_id
+        / "narration"
+        / cache_key
+    )
+    output_directory.mkdir(parents=True, exist_ok=True)
+    files = {
+        "narration.wav": ("audio", "audio/wav", b"local-audio"),
+        "captions.srt": (
+            "subtitle",
+            "application/x-subrip",
+            b"1\n00:00:00,000 --> 00:00:00,125\nhello local narration\n",
+        ),
+        "timings.json": ("document", "application/json", b"{}\n"),
+        "manifest.json": ("document", "application/json", b"{}\n"),
+    }
+    artifacts = []
+    for name, (kind, media_type, content) in files.items():
+        output = output_directory / name
+        output.write_bytes(content)
+        artifacts.append(
+            {
+                "rel_path": output.relative_to(workspace).as_posix(),
+                "kind": kind,
+                "media_type": media_type,
+                "bytes": len(content),
+                "sha256": hashlib.sha256(content).hexdigest().upper(),
+            }
+        )
+    return {
+        "artifacts": artifacts,
+        "duration_ms": 125,
+        "cache_key": cache_key,
+        "cache_hit": False,
+        "provider": "windows_sapi",
+        "provider_task_id": None,
+        "actual_cost": 0,
+        "timing_source": "wav_frames",
+    }
 
 
 class WorkspaceFixture:
@@ -98,6 +154,55 @@ class WorkspaceFixture:
 
     def close(self) -> None:
         self.temporary.cleanup()
+
+
+class DatabaseMigrationTests(unittest.TestCase):
+    def test_v1_database_migrates_runs_and_stage_attempt_schema(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary).resolve()
+            database_path = workspace / "outputs" / "studio" / "studio.sqlite3"
+            database_path.parent.mkdir(parents=True)
+            with closing(sqlite3.connect(database_path)) as connection:
+                connection.executescript(
+                    """
+                    CREATE TABLE schema_meta (
+                        key TEXT PRIMARY KEY,
+                        value TEXT NOT NULL
+                    );
+                    INSERT INTO schema_meta(key, value) VALUES('schema_version', '1');
+                    CREATE TABLE runs (
+                        id TEXT PRIMARY KEY,
+                        production_id TEXT NOT NULL,
+                        revision_id TEXT NOT NULL,
+                        created_at TEXT NOT NULL,
+                        requested_stages_json TEXT NOT NULL,
+                        estimated_cost_minor INTEGER NOT NULL CHECK(estimated_cost_minor >= 0),
+                        currency TEXT NOT NULL,
+                        immutable_digest TEXT NOT NULL
+                    );
+                    """
+                )
+
+            database = StudioDatabase(database_path, workspace=workspace)
+            with database.session() as connection:
+                run_columns = {
+                    row["name"] for row in connection.execute("PRAGMA table_info(runs)")
+                }
+                schema_version = connection.execute(
+                    "SELECT value FROM schema_meta WHERE key='schema_version'"
+                ).fetchone()["value"]
+                stage_attempts = connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='stage_attempts'"
+                ).fetchone()
+                stage_attempt_columns = {
+                    row["name"]
+                    for row in connection.execute("PRAGMA table_info(stage_attempts)")
+                }
+
+            self.assertIn("execution_profile", run_columns)
+            self.assertEqual(schema_version, str(SCHEMA_VERSION))
+            self.assertIsNotNone(stage_attempts)
+            self.assertIn("job_id", stage_attempt_columns)
 
 
 class ServiceTests(unittest.TestCase):
@@ -235,6 +340,225 @@ class ServiceTests(unittest.TestCase):
                 },
             )
         self.assertEqual(raised.exception.code, "cost_approval_not_required")
+
+    def test_local_sapi_run_records_stage_attempt_and_reuses_success(self) -> None:
+        calls: list[tuple[str, dict[str, object]]] = []
+
+        def fake_generate(
+            workspace: Path,
+            *,
+            production_id: str,
+            run_id: str,
+            payload: dict[str, object],
+        ) -> dict[str, object]:
+            calls.append((run_id, payload))
+            running = self.service.run(run_id)
+            assert running is not None
+            self.assertIsNotNone(running["stage_attempts"][-1]["job_id"])
+            return fake_local_narration_result(
+                workspace,
+                production_id=production_id,
+                run_id=run_id,
+                payload=payload,
+            )
+
+        created = self.service.create_run(
+            PRODUCTION_ID,
+            {"changes": [{"type": "script"}], "execution_profile": "local_sapi"},
+        )
+        self.assertEqual(created["run"]["execution_profile"], "local_sapi")
+        body = {"segments": [{"text": "hello local narration"}], "rate": 0}
+        with mock.patch("tools.studio.narration.generate_local_narration", side_effect=fake_generate):
+            first = self.service.execute_local_narration(created["run"]["id"], body)
+            completed_first = self.service.jobs.wait(first["id"], timeout=10)
+            self.assertIsNotNone(completed_first)
+            self.assertEqual(completed_first["status"], "succeeded")
+            self.assertFalse(completed_first["result"]["cache_hit"])
+
+            second = self.service.execute_local_narration(created["run"]["id"], body)
+            completed_second = self.service.jobs.wait(second["id"], timeout=10)
+            self.assertIsNotNone(completed_second)
+            self.assertEqual(completed_second["status"], "succeeded")
+            self.assertTrue(completed_second["result"]["cache_hit"])
+
+            audio = next(
+                artifact
+                for artifact in completed_first["result"]["artifacts"]
+                if artifact["name"] == "narration.wav"
+            )
+            (self.fixture.root / audio["rel_path"]).write_bytes(b"tampered")
+            third = self.service.execute_local_narration(created["run"]["id"], body)
+            completed_third = self.service.jobs.wait(third["id"], timeout=10)
+            self.assertIsNotNone(completed_third)
+            self.assertEqual(completed_third["status"], "succeeded")
+            self.assertFalse(completed_third["result"]["cache_hit"])
+
+            with closing(self.service.database.connect()) as connection:
+                corrupted = dict(completed_third["result"])
+                corrupted["provider"] = "unexpected_provider"
+                connection.execute(
+                    "UPDATE stage_attempts SET result_json=? WHERE id=?",
+                    (
+                        json.dumps(corrupted, ensure_ascii=False),
+                        completed_third["result"]["stage_attempt_id"],
+                    ),
+                )
+            fourth = self.service.execute_local_narration(created["run"]["id"], body)
+            completed_fourth = self.service.jobs.wait(fourth["id"], timeout=10)
+            self.assertIsNotNone(completed_fourth)
+            self.assertEqual(completed_fourth["status"], "succeeded")
+            self.assertFalse(completed_fourth["result"]["cache_hit"])
+
+        self.assertEqual(len(calls), 3)
+        detail = self.service.run(created["run"]["id"])
+        assert detail is not None
+        self.assertEqual(
+            [attempt["status"] for attempt in detail["stage_attempts"]],
+            ["succeeded", "succeeded", "succeeded", "succeeded"],
+        )
+        self.assertEqual(
+            [attempt["attempt"] for attempt in detail["stage_attempts"]],
+            [1, 2, 3, 4],
+        )
+        self.assertEqual(
+            [attempt["job_id"] for attempt in detail["stage_attempts"]],
+            [first["id"], second["id"], third["id"], fourth["id"]],
+        )
+        first_attempt = detail["stage_attempts"][0]
+        with closing(self.service.database.connect()) as connection:
+            linked_events_before = connection.execute(
+                "SELECT COUNT(*) AS count FROM events WHERE event_type='stage.attempt.job_linked'"
+            ).fetchone()["count"]
+        linked_again = self.service.database.link_stage_attempt_job(
+            first_attempt["id"], first["id"]
+        )
+        with closing(self.service.database.connect()) as connection:
+            linked_events_after = connection.execute(
+                "SELECT COUNT(*) AS count FROM events WHERE event_type='stage.attempt.job_linked'"
+            ).fetchone()["count"]
+        self.assertEqual(linked_again["job_id"], first["id"])
+        self.assertEqual(linked_events_after, linked_events_before)
+        audit = self.service.audit_export(PRODUCTION_ID, {"include_media": False})
+        completed_audit = self.service.jobs.wait(audit["id"], timeout=10)
+        assert completed_audit is not None
+        self.assertEqual(completed_audit["status"], "succeeded")
+        archive_path = self.fixture.root / completed_audit["result"]["artifact"]["rel_path"]
+        with zipfile.ZipFile(archive_path) as archive:
+            names = set(archive.namelist())
+            narration_root = (
+                f"workspace/outputs/studio/runs/{created['run']['id']}/narration/"
+                f"{completed_first['result']['cache_key']}/"
+            )
+            self.assertIn(f"{narration_root}captions.srt", names)
+            self.assertIn(f"{narration_root}timings.json", names)
+            self.assertIn(f"{narration_root}manifest.json", names)
+            self.assertNotIn(f"{narration_root}narration.wav", names)
+
+    def test_invalid_worker_metadata_fails_before_artifact_registration(self) -> None:
+        created = self.service.create_run(
+            PRODUCTION_ID,
+            {"changes": [{"type": "script"}], "execution_profile": "local_sapi"},
+        )
+        before = self.service.production_detail(PRODUCTION_ID)
+        assert before is not None
+        before_ids = {artifact["id"] for artifact in before["artifacts"]}
+
+        invalid_overrides = (
+            {"provider": "unexpected_provider"},
+            {"provider_task_id": "invented-task"},
+            {"actual_cost": False},
+            {"timing_source": "unverified"},
+        )
+        for override in invalid_overrides:
+            with self.subTest(override=override):
+                def invalid_result(*args: object, **kwargs: object) -> dict[str, object]:
+                    result = fake_local_narration_result(*args, **kwargs)
+                    result.update(override)
+                    return result
+
+                with mock.patch(
+                    "tools.studio.narration.generate_local_narration", side_effect=invalid_result
+                ):
+                    job = self.service.execute_local_narration(
+                        created["run"]["id"], {"segments": [{"text": f"must fail {override}"}]}
+                    )
+                    completed = self.service.jobs.wait(job["id"], timeout=10)
+                assert completed is not None
+                self.assertEqual(completed["status"], "failed")
+        run = self.service.run(created["run"]["id"])
+        assert run is not None
+        self.assertTrue(all(attempt["status"] == "failed" for attempt in run["stage_attempts"]))
+        after = self.service.production_detail(PRODUCTION_ID)
+        assert after is not None
+        self.assertEqual({artifact["id"] for artifact in after["artifacts"]}, before_ids)
+
+    def test_active_attempt_is_failed_on_database_reopen(self) -> None:
+        created = self.service.create_run(
+            PRODUCTION_ID,
+            {"changes": [{"type": "script"}], "execution_profile": "local_sapi"},
+        )
+        attempt = self.service.database.create_stage_attempt(
+            created["run"]["id"], "narration", "a" * 64, {"segment_count": 1}
+        )
+        self.service.database.update_stage_attempt(attempt["id"], "running")
+        self.service.close()
+        self.service = StudioService(self.fixture.root)
+
+        recovered = self.service.database.get_stage_attempt(attempt["id"])
+        assert recovered is not None
+        self.assertEqual(recovered["status"], "failed")
+        self.assertEqual(recovered["error"]["code"], "process_interrupted")
+        mirror = self.service.database.event_mirror_path("run", created["run"]["id"])
+        events = [
+            json.loads(line)
+            for line in mirror.read_text(encoding="utf-8").splitlines()
+            if line
+        ]
+        self.assertEqual(events[-1]["event_type"], "stage.attempt.failed")
+
+    def test_local_sapi_rejects_external_profile_and_disallowed_zero_cost_stage(self) -> None:
+        external = self.service.create_run(
+            PRODUCTION_ID,
+            {"changes": [{"type": "script"}], "estimated_cost": {"amount": 1, "currency": "USD"}},
+        )
+        with self.assertRaises(RequestValidationError) as raised:
+            self.service.execute_local_narration(
+                external["run"]["id"], {"segments": [{"text": "no"}]}
+            )
+        self.assertEqual(raised.exception.code, "execution_profile_required")
+
+        with self.assertRaises(RequestValidationError) as raised:
+            self.service.create_run(
+                PRODUCTION_ID,
+                {
+                    "changes": [{"type": "video"}],
+                    "execution_profile": "local_sapi",
+                },
+            )
+        self.assertEqual(raised.exception.code, "local_profile_stage_not_allowed")
+
+    def test_local_narration_payload_limits_and_unknown_fields_fail_closed(self) -> None:
+        created = self.service.create_run(
+            PRODUCTION_ID,
+            {"changes": [{"type": "script"}], "execution_profile": "local_sapi"},
+        )
+        run_id = created["run"]["id"]
+        with self.assertRaises(RequestValidationError):
+            self.service.execute_local_narration(
+                run_id, {"segments": [{"text": "ok"}], "unexpected": True}
+            )
+        with self.assertRaises(RequestValidationError):
+            self.service.execute_local_narration(
+                run_id, {"segments": [{"text": "ok"}], "rate": 11}
+            )
+        with self.assertRaises(RequestValidationError):
+            self.service.execute_local_narration(
+                run_id,
+                {
+                    "segments": [{"text": "ok"}],
+                    "pronunciations": [{"source": "x", "target": "y"}, {"source": "x", "target": "z"}],
+                },
+            )
 
     def test_audit_snapshot_uses_one_database_read_transaction(self) -> None:
         created = self.service.create_run(
@@ -494,6 +818,23 @@ class ServiceTests(unittest.TestCase):
                 "note": "approved before rebuild",
             },
         )
+        local = self.service.create_run(
+            PRODUCTION_ID,
+            {
+                "changes": [{"type": "script", "note": "local restore proof"}],
+                "execution_profile": "local_sapi",
+            },
+        )
+        with mock.patch(
+            "tools.studio.narration.generate_local_narration",
+            side_effect=fake_local_narration_result,
+        ):
+            local_job = self.service.execute_local_narration(
+                local["run"]["id"], {"segments": [{"text": "restore proof"}]}
+            )
+            completed_local = self.service.jobs.wait(local_job["id"], timeout=10)
+        assert completed_local is not None
+        self.assertEqual(completed_local["status"], "succeeded")
         database_path = self.service.database.path
         self.service.close()
         self.service = None
@@ -504,13 +845,20 @@ class ServiceTests(unittest.TestCase):
         rebuilt = StudioService(self.fixture.root)
         self.service = rebuilt
         result = rebuilt.indexer.refresh()
-        self.assertEqual(result["domain_records_restored"]["revisions"], 1)
-        self.assertEqual(result["domain_records_restored"]["runs"], 1)
+        self.assertEqual(result["domain_records_restored"]["revisions"], 2)
+        self.assertEqual(result["domain_records_restored"]["runs"], 2)
+        self.assertEqual(result["domain_records_restored"]["stage_attempts"], 1)
         self.assertEqual(result["domain_records_restored"]["approvals"], 1)
         detail = rebuilt.production_detail(PRODUCTION_ID)
         assert detail is not None
-        self.assertEqual(detail["runs"][0]["id"], created["run"]["id"])
-        self.assertEqual(detail["runs"][0]["latest_approval"]["decision"], "approved")
+        restored_external = next(
+            run for run in detail["runs"] if run["id"] == created["run"]["id"]
+        )
+        self.assertEqual(restored_external["latest_approval"]["decision"], "approved")
+        restored_local = next(run for run in detail["runs"] if run["id"] == local["run"]["id"])
+        self.assertEqual(restored_local["execution_profile"], "local_sapi")
+        self.assertEqual(restored_local["stage_attempts"][0]["status"], "succeeded")
+        self.assertEqual(restored_local["stage_attempts"][0]["job_id"], local_job["id"])
         audit = rebuilt.audit_export(PRODUCTION_ID, {"include_media": False})
         completed = rebuilt.jobs.wait(audit["id"], timeout=10)
         assert completed is not None
@@ -614,6 +962,54 @@ class HTTPTests(unittest.TestCase):
             headers={"X-Studio-Token": self.token},
         )
         self.assertEqual(status, 202)
+
+    def test_local_narration_http_endpoint_records_attempt_and_run_detail(self) -> None:
+        created = self.server.service.create_run(
+            PRODUCTION_ID,
+            {
+                "changes": [{"type": "script"}],
+                "execution_profile": "local_sapi",
+            },
+        )
+        run_id = created["run"]["id"]
+        with mock.patch(
+            "tools.studio.narration.generate_local_narration",
+            side_effect=fake_local_narration_result,
+        ):
+            status, _headers, body = self.request(
+                "POST",
+                f"/api/runs/{run_id}/execute-local-narration",
+                body={"segments": [{"text": "hello local narration"}], "rate": 0},
+                headers={"X-Studio-Token": self.token},
+            )
+            self.assertEqual(status, 202)
+            job_id = json.loads(body)["id"]
+            completed = self.server.service.jobs.wait(job_id, timeout=10)
+            assert completed is not None
+            self.assertEqual(completed["status"], "succeeded")
+
+        status, _headers, body = self.request("GET", f"/api/runs/{run_id}")
+        self.assertEqual(status, 200)
+        run = json.loads(body)
+        self.assertEqual(run["execution_profile"], "local_sapi")
+        self.assertEqual(run["stage_attempts"][0]["status"], "succeeded")
+        self.assertEqual(run["stage_attempts"][0]["job_id"], job_id)
+
+        external = self.server.service.create_run(
+            PRODUCTION_ID,
+            {
+                "changes": [{"type": "script"}],
+                "estimated_cost": {"amount": 1, "currency": "USD"},
+            },
+        )
+        status, _headers, body = self.request(
+            "POST",
+            f"/api/runs/{external['run']['id']}/execute-local-narration",
+            body={"segments": [{"text": "must fail closed"}]},
+            headers={"X-Studio-Token": self.token},
+        )
+        self.assertEqual(status, 422)
+        self.assertEqual(json.loads(body)["error"]["code"], "execution_profile_required")
 
     def test_workspace_allows_only_one_studio_server(self) -> None:
         with self.assertRaises(StudioInstanceLockError):

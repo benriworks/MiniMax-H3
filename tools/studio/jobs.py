@@ -55,10 +55,31 @@ class JobManager:
         callback: JobCallable,
         *,
         production_id: str | None = None,
+        before_enqueue: Callable[[dict[str, Any]], None] | None = None,
     ) -> dict[str, Any]:
         job = self.database.create_job(kind, payload, production_id=production_id)
         with self._lock:
             self._finished[job["id"]] = threading.Event()
+        try:
+            if before_enqueue is not None:
+                before_enqueue(job)
+        except Exception:
+            # Persist setup failure and never expose an unlinked queued worker.
+            # The caller remains responsible for failing its stage attempt.
+            try:
+                self.database.update_job(
+                    job["id"],
+                    "failed",
+                    error_code="job_setup_failed",
+                    error_message="The background job could not be prepared.",
+                )
+            except Exception:
+                pass
+            with self._lock:
+                event = self._finished.get(job["id"])
+                if event:
+                    event.set()
+            raise
         self._queue.put((job["id"], callback))
         return job
 
@@ -119,8 +140,6 @@ class AuditExporter:
 
     @staticmethod
     def _allowed_sidecar(artifact: dict[str, Any], include_media: bool) -> bool:
-        if artifact["origin"] == "studio":
-            return False
         if artifact["kind"] in {"video", "audio", "image"}:
             return include_media
         return artifact["kind"] in {"document", "log", "subtitle"}
