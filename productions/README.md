@@ -28,6 +28,7 @@ planned、queued、runningは生成成功の証拠ではありません。status
 | --- | --- | --- | --- |
 | `CM_20260815_genai_mastery_15s` | プレゼンターを使った15秒生成AI CM。camera Truck Right失敗候補も保持 | canonical master independently reviewed。公開権利は別gate | [制作記録](CM_20260815_genai_mastery_15s/PRODUCTION_RECORD_JA.md) |
 | `PV_20260815_original_jp_dance_unit_15s` | 完全合成3人組のdance / vocal / synth 15秒PV | master independently reviewed。CUT03後半はcreative needs improvement。公開権利は別gate | [制作記録](PV_20260815_original_jp_dance_unit_15s/PRODUCTION_RECORD_JA.md) |
+| `SHORT_20260823_claude_md_15s` | `CLAUDE.md`を説明する縦型15秒YouTube Short | overlay版と完全クリーン版の1080x1920 masterを作成・検査済み。technical / creative / phonetic semantic PASS。人による試聴と公開権利は別gate | [制作記録](SHORT_20260823_claude_md_15s/PRODUCTION_RECORD_JA.md) |
 
 ## 記録上の注意
 

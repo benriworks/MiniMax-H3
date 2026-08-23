@@ -65,6 +65,9 @@
 - 生成は1 jobずつにします。並列queueを入れず、同時に重いGPU / RAMアプリを起動しません。
 - GPU sampling完了後にGPU utilizationが0%へ落ち、CPUとRAMが長時間動く状態は、直ちにhangとは限りません。CPU累積時間、working set、queue、history、stderrを合わせて判断します。
 - 中止条件は、OOM / CUDA / traceback、process exit、commit limitへの継続接近、またはCPUが長時間停止しqueue / history / outputが不変な場合です。経過時間だけで中止しません。
+- 長時間runの定期監視は、モデルとの会話turnではなく、単一の軽量watcherがqueue、process、free RAM、commit、outputをローカルログへ追記する方式を優先します。モデルは投入直後、異常閾値到達、主要stage遷移、30–60分ごとの要約、完了時だけログを読みます。
+- 監視専用subagentへ長い制作履歴を継承しません。必要なprompt ID、PID、開始時刻、出力path、閾値だけを渡し、rootへは変化または異常だけを報告します。変化のない1分ごとのagent turnは作りません。
+- ユーザーへの進捗共有も、同じ数値を繰り返すheartbeatではなく、開始、検証通過、stage遷移、リスク変化、完了のmilestone単位にまとめます。
 - 15秒1本のローカル生成は未検証です。現時点では5秒に分割します。
 
 ## 5. 制作設計: 1 cut 1 active principal

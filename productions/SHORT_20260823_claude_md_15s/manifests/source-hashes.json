@@ -1,0 +1,200 @@
+{
+  "production_id": "SHORT_20260823_claude_md_15s",
+  "status": "complete_independently_reviewed",
+  "technical_status": "master_pass",
+  "creative_status": "master_visual_safe_area_pass",
+  "public_release_status": "blocked_pending_rights_review",
+  "source_assets": [
+    {
+      "asset_id": "PRESENTER_REFERENCE",
+      "path": "outputs/productions/SHORT_20260823_claude_md_15s/00_source/SOURCE_PORTRAIT.jpg",
+      "bytes": 55241,
+      "sha256": "C6D9C5D493B36F38096F1284B80A62553838C02BD1E49F7AB6E3FA43AEF8A6D6",
+      "width": 1280,
+      "height": 960,
+      "source_type": "user_provided_attachment",
+      "public_rights_status": "unverified"
+    }
+  ],
+  "keyframes": [
+    {"cut":"CUT01","raw_sha256":"C4D2A8C7F16DF90EDBF72DE182F4693925D23EFCADDA736985571A211F8A2D0E","runtime_sha256":"160C59DC146E831A98BADC1DDECE2FC1606648407F467029AC3FC9D30EB50E29","runtime_media":"480x864 RGB"},
+    {"cut":"CUT02","raw_sha256":"054EE53FA6018A62233FBC2458140AE4F1D9D24B5EEDE8D741202F5E7AE7115D","runtime_sha256":"776DD33AD0E03D4713CDB94C6468CD1A360DA3FF2E1121836EDD18BDC6681B86","runtime_media":"480x864 RGB"},
+    {"cut":"CUT03","raw_sha256":"58B94A51AF9720EE4DC5A8EFD3110510CF6E30CD7F3F645A79E90A8200C9326B","runtime_sha256":"CDF58475A2D824F1A2D25BE00D7B5AB6EF5BC6B5BED22260BF91540F02C98A57","runtime_media":"480x864 RGB"}
+  ],
+  "selected_overlays": [
+    {"name":"CUT01_TAG.png","sha256":"0ED7B30EF09EC2208DB10A0C5A3A041014EC26272BB362031DEEB6043B7E91B5"},
+    {"name":"CUT01_HOOK.png","sha256":"EA251BBDAFCBFF3BB69B2C3A13B28388CE897664646F7BC4AEDC340294AF555E"},
+    {"name":"CUT01_SUBTITLE.png","sha256":"B2DEB469C9D25000814353005DFA6A19FDE95D3D6940D86B0A81C444D4339169"},
+    {"name":"CUT02_CARD.png","sha256":"4FFE7BA64C5665A54E49EC22B79A6D2C171E78AAA158994F1395B028AB8C47C2"},
+    {"name":"CUT02_SUBTITLE.png","sha256":"B4EC6A04CBB76F0AFF3189F930BDB235E4C9C1EBF9545648DD54C0BA179A771A"},
+    {"name":"CUT03_DIAGRAM.png","sha256":"A85947DC192B807626C93E6C5213822B87DE8CDDA10E9C2B5BE0614727E01137"},
+    {"name":"CUT03_SUBTITLE_A.png","sha256":"6C69CFB7BF7E56A5F1D075F9ADC082AC8CF80247EC56A05EDD2CA97F74E3800E"},
+    {"name":"CUT03_CTA.png","sha256":"E67D79B93193ADC7929202CA45FC649B7104F0346DBCE6A16A7CC679214A3008"}
+  ],
+  "overlay_storyboard": {
+    "path": "outputs/productions/SHORT_20260823_claude_md_15s/03_assembly/preview/SHORT_20260823_claude_md_15s_storyboard_1080x1920.mp4",
+    "bytes": 1273423,
+    "sha256": "6A80FFA7555747CFD746EBCAE009327A4DE91BACCF09BEF9FB681DAC68AABA4B",
+    "media": "1080x1920 H.264 High, AAC 48kHz stereo silence, 24fps, 360 frames, 15.000s",
+    "independent_creative_qc": "safe_area_pass_after_revision",
+    "is_final_master": false
+  },
+  "runtime": {
+    "profile": "official_q4",
+    "resolution": "480x864",
+    "fps": 24,
+    "requested_seconds": 5.0,
+    "expected_raw_frames": 124,
+    "sampler": "res_multistep",
+    "scheduler": "simple",
+    "steps": 20,
+    "denoise": 1.0,
+    "seed": 529716596879763,
+    "renders": [
+      {
+        "cut": "CUT01",
+        "status": "technical_visual_asr_pass",
+        "prompt_id": "0ed57604-3e45-4661-922b-2ccccf74fc37",
+        "queue_number": 13,
+        "submitted_prompt_sha256": "2DF6A249C8DE9CD515200116869AC9CA2A51757B514A48A7FA951FE1FC2ECE4C",
+        "graph_sha256": "8FCBFB31061BB9FC60C36903860145D1187E9208DE2A901271E2BD9EF4930D09",
+        "started_at": "2026-08-23T01:56:32.963+09:00",
+        "completed_at": "2026-08-23T04:50:39.270+09:00",
+        "elapsed_seconds": 10446.307,
+        "artifact": {
+          "path": "outputs/productions/SHORT_20260823_claude_md_15s/02_cuts/CUT01/candidate/CUT01_00001_.mp4",
+          "bytes": 693470,
+          "sha256": "C2E7861FFD0327D3475F23C5DE18BB48506D302E533751784902DDD3B6FEF209",
+          "media": "H.264 High yuv420p 480x864 24fps 124f 5.166667s + AAC-LC 32kHz stereo",
+          "full_decode": "pass"
+        },
+        "asr": {
+          "engine": "faster-whisper small cpu int8",
+          "start_s": 1.26,
+          "end_s": 4.24,
+          "text": "クロードコードの重要ファイル 知ってる?",
+          "semantic_match": "exact"
+        },
+        "assembly_audio_shift_frames": -3,
+        "assembly_audio_shift_seconds": -0.125,
+        "lip_sync_basis": "mouth crop frame-difference vs 48kHz/24fps RMS cross-correlation; audio lag 3-6 frames; conservative 3-frame advance selected",
+        "overlay_adjustment": "CUT01 hook fades out 3.25-3.70s to avoid hair overlap; speech subtitle fades in 0.95-1.08s and out 4.22-4.42s"
+      },
+      {
+        "cut": "CUT02",
+        "status": "technical_creative_asr_pass",
+        "prompt_id": "65eed5d3-7343-4766-8ae5-beaaa58295be",
+        "queue_number": 14,
+        "submitted_prompt_sha256": "30D2B60E95D89C3F8F08C19F884BAD4B9A34BB73814ABD3A5BEDC92969A26DC9",
+        "graph_sha256": "B07FF70BA97B3BD6E1F313C2FD87792B34DC84333F0D06F1B89167108BC7A7F2",
+        "started_at": "2026-08-23T04:51:57.435+09:00",
+        "completed_at": "2026-08-23T07:43:57.771+09:00",
+        "elapsed_seconds": 10320.336,
+        "artifact": {
+          "path": "outputs/productions/SHORT_20260823_claude_md_15s/02_cuts/CUT02/candidate/CUT02_00001_.mp4",
+          "bytes": 570088,
+          "sha256": "7A773C44F1D4FAEDE285FB4FB651BF12E0FAEF365775F041D4C00C3DCE55BF64",
+          "media": "H.264 High yuv420p 480x864 24fps 124f 5.166667s + AAC-LC 32kHz stereo",
+          "full_decode": "pass"
+        },
+        "asr": {
+          "engine": "faster-whisper small cpu int8",
+          "start_s": 0.34,
+          "end_s": 3.96,
+          "text": "クロードMD 開始時に読む指示です。",
+          "semantic_match": "exact"
+        },
+        "assembly_audio_shift_frames": 0,
+        "assembly_gain_db": -4.0,
+        "lip_sync_basis": "4 of 5 mouth crops vs audio envelope peak at lag 0 frames; conservative residual plus or minus 3 frames"
+      },
+      {
+        "cut": "CUT03",
+        "status": "technical_creative_phonetic_semantic_pass",
+        "prompt_id": "f01de037-d13b-4010-bd18-651f07efd327",
+        "queue_number": 15,
+        "submitted_prompt_sha256": "F725BA5168639659EC1A890C5FED15B7EE80E5D05D3CE0B1F10BA2ABA5F085F0",
+        "graph_sha256": "04715FED0795820F3A0D4D76355CCC07BC144BBFBD32BDF09391CEC63D9870AE",
+        "started_at": "2026-08-23T07:45:53.284+09:00",
+        "completed_at": "2026-08-23T10:37:57.058+09:00",
+        "elapsed_seconds": 10323.774,
+        "minimum_observed_free_ram_gib": 1.24,
+        "artifact": {
+          "path": "outputs/productions/SHORT_20260823_claude_md_15s/02_cuts/CUT03/candidate/CUT03_00001_.mp4",
+          "bytes": 550054,
+          "sha256": "1245C1204E122535959A7609450D37E13A3D94AB37764D7D9E48044633D059A6",
+          "media": "H.264 High yuv420p 480x864 24fps 124f 5.166667s + AAC-LC 32kHz stereo",
+          "full_decode": "pass"
+        },
+        "asr": {
+          "engine": "faster-whisper small cpu int8",
+          "start_s": 0.02,
+          "end_s": 3.92,
+          "text": "企薬をかけば指示が減る フォローしてね",
+          "strict_orthographic_match": false,
+          "phonetic_semantic_match": true,
+          "note": "企薬 and 規約, plus かけば and 書けば, are homophonic in this utterance"
+        },
+        "assembly_audio_shift_frames": -5,
+        "assembly_audio_shift_seconds": -0.208333,
+        "assembly_gain_db": -1.6,
+        "lip_sync_basis": "all 5 mouth crops vs audio envelope peak at 5-frame audio lag before correction; master peak lag 0 frames after correction"
+      }
+    ]
+  },
+  "assembly": {
+    "video_contract": "first 120 frames from each raw, hard cuts at master frames 120 and 240, Lanczos upscale to 1080x1920, post overlays",
+    "audio_contract": "CUT01 shift -3f gain 0dB; CUT02 shift 0f gain -4.0dB; CUT03 shift -5f gain -1.6dB; each cut 240000 samples; concat then two-pass loudnorm",
+    "partial_10s_review": {
+      "path": "outputs/productions/SHORT_20260823_claude_md_15s/03_assembly/preview/PARTIAL_10S_review_1080x1920.mp4",
+      "bytes": 2178433,
+      "sha256": "7B597A976C12E893B45EF010CC2BDEF466F4E3E39B30B6B4E0C2D718D188FBF7",
+      "media": "1080x1920 H.264 High + AAC-LC 48kHz stereo, 24fps, 240f, 10.000s",
+      "full_decode": "pass"
+    }
+  },
+  "audio_master": {
+    "path": "outputs/productions/SHORT_20260823_claude_md_15s/03_assembly/audio/SHORT_20260823_claude_md_15s_audio_master_f32.wav",
+    "bytes": 5760092,
+    "sha256": "75FCED3EE9F13B3E8FB201AE7131378B9A426028A6569F360AEDFB55009C383E",
+    "media": "PCM f32le 48kHz stereo, 720000 samples, 15.000s",
+    "loudness": "-16.0 LUFS-I, approximately -3.3 dBTP",
+    "full_decode": "pass",
+    "nan_inf_clip": "none"
+  },
+  "master": {
+    "path": "outputs/productions/SHORT_20260823_claude_md_15s/03_assembly/master/SHORT_20260823_claude_md_15s_master_1080x1920_24fps.mp4",
+    "bytes": 5805862,
+    "sha256": "BE62CC00B76DE0398638184D47DFF326E2C30BF96B051B6FFCF2FD08939D2055",
+    "media": "H.264 High yuv420p bt709 1080x1920 CFR 24fps 360f 15.000s + AAC-LC 48kHz stereo 15.000s",
+    "full_decode": "pass",
+    "black_events": 0,
+    "freeze_events_over_1s": 0,
+    "flash_or_corruption_events": 0,
+    "hard_cut_qc": "pass at frames 119-120 and 239-240",
+    "audio_qc": "-15.86 LUFS-I, -3.24 dBTP, LRA 2.40, no NaN Inf denormal clip or boundary click",
+    "lip_sync_qc": "master mouth-motion vs audio-envelope peak lag 0 frames for all three cuts",
+    "asr_qc": "three logical lines in correct order exactly once; phonetic semantic pass; strict orthographic exact false due homophone and context-dependent ASR spelling",
+    "independent_technical_qc": "pass",
+    "independent_creative_qc": "pass",
+    "human_listening": "not_performed",
+    "public_release_status": "blocked_pending_rights_review"
+  },
+  "alternate_masters": [
+    {
+      "variant": "clean_no_overlays",
+      "path": "outputs/productions/SHORT_20260823_claude_md_15s/03_assembly/master/SHORT_20260823_claude_md_15s_clean_no_overlays_1080x1920_24fps.mp4",
+      "bytes": 5931492,
+      "sha256": "1BDD0C4937A76E56E2F417545CA8ADA45763EB4BA559DA29ED7243DA28E95893",
+      "media": "H.264 High yuv420p bt709 1080x1920 CFR 24fps 360f 15.000s + AAC-LC 48kHz stereo 15.000s",
+      "removed_elements": ["headline", "subtitles", "CLAUDE.md card", "folder diagram", "CTA"],
+      "audio_source": "audio_master",
+      "full_decode": "pass",
+      "black_events": 0,
+      "freeze_events_over_1s": 0,
+      "visual_contact_qc": "pass_no_generated_or_post_overlay_text",
+      "human_listening": "not_performed",
+      "public_release_status": "blocked_pending_rights_review"
+    }
+  ]
+}
