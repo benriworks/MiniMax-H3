@@ -4,7 +4,7 @@
 
 MiniMaxH3 Studioは、制作案件、ログ、中間成果物、費用、承認履歴を1か所で確認するためのローカルWebアプリです。チャットは企画と監督の窓口、Studioは実行状態と証跡を保持する制御盤として分離します。
 
-このMVPはPowerDirectorのような汎用ノンリニア編集ソフトではありません。既存の`productions/`と`outputs/productions/`を読み込み、制作記録の閲覧、再実行計画、承認、監査exportを扱う土台です。TTS、画面収録、Remotion、H3、外部有料APIを実際に実行するworkerは後続段階です。
+このMVPはPowerDirectorのような汎用ノンリニア編集ソフトではありません。既存の`productions/`と`outputs/productions/`を読み込み、制作記録の閲覧、再実行計画、承認、監査exportを扱う土台です。Windows SAPIによるローカルナレーションworkerまでを実装済みで、画面収録、Remotion、H3、外部有料APIの実行workerは後続段階です。
 
 ## MVPでできること
 
@@ -19,16 +19,21 @@ MiniMaxH3 Studioは、制作案件、ログ、中間成果物、費用、承認�
 - manifest、記録、成果物hashを監査ZIPとしてexportする。
 - SQLite索引を、ファイル上の制作台帳から更新する。
 - provider secretをWindows DPAPIで暗号化して登録、状態確認、削除する。
+- `local_sapi`の0円runを作り、1行1segmentの日本語ナレーションを明示実行する。
+- voice、読み上げ速度、原文を保持した発音置換を指定する。
+- 実WAV frameに基づく`narration.wav`、`captions.srt`、`timings.json`、`manifest.json`を生成する。
+- stage attemptと実行jobの永続リンク、queued/running/succeeded/failed、所要時間、cache hit、provider、task ID、実費、timing source、成果物hashをUIと監査記録で追跡する。
+- 同一入力の成功cacheをhash検証後に再利用し、改変・欠落時は再生成する。
 
 MVPが行わないこと:
 
-- 有料処理の自動実行
-- TTS、画面収録、動画生成、合成、QC workerの起動
+- 外部有料処理または外部TTSの自動実行
+- 画面収録、動画生成、合成、QC workerの起動
 - ブラウザから任意ローカルpathを読むこと
 - creativeまたは公開権利を自動承認すること
 
-「run作成」は監査可能な実行計画を保存する操作です。現在のMVPでは、それだけで映像生成や課金API呼び出しは始まりません。
-課金対象のrequested stageを含むrunには正の見積額が必須です。0以下または未指定の見積はfail closedで拒否し、runを残しません。
+「run作成」は監査可能な実行計画を保存する操作で、それだけではworkerや課金APIを開始しません。`local_sapi` runでは、作成後にナレーション画面の実行操作または専用APIを明示したときだけローカルworkerを開始します。
+通常の課金対象requested stageを含むrunには正の見積額が必須です。0以下または未指定の見積はfail closedで拒否し、runを残しません。`local_sapi`はnarration、captions、assembly、qcだけを対象にする0円profileで、映像生成などへ転用できません。
 
 ## セットアップと起動
 
@@ -86,9 +91,10 @@ tools/studio/                   Python backendと索引・監査処理
 productions/<production-id>/    Git管理する既存の制作仕様と台帳
 outputs/productions/<id>/       ignoredの画像・音声・動画・詳細QC
 outputs/studio/
-  studio.sqlite3                再構築可能なSQLite検索索引とStudio記録
+  studio.sqlite3                schema v3の再構築可能なSQLite検索索引とStudio記録
   events/<scope>/<id>.jsonl     hash chain付きevent mirror
   secrets/<provider>.dpapi      Windowsユーザーに紐づく暗号化secret
+  runs/<run>/narration/<cache>/ narration.wav / captions.srt / timings.json / manifest.json
   audits/<production>/<job>.zip 監査export
   audits/<production>/<job>.zip.sha256 監査ZIPの外部hash sidecar
 ```
@@ -104,7 +110,10 @@ Production
   └─ Revision
        └─ Run
             ├─ Requested stages
-            └─ Cost approval history
+            ├─ Cost approval history
+            └─ Stage attempt
+                 ├─ Background Job ID
+                 └─ Provider/result metadata / Artifact set
 ```
 
 - 既存revisionとrunは上書きしません。修正は新しいrunとして残します。
@@ -115,7 +124,7 @@ Production
 - SQLiteはUI検索とMVP操作用です。既存のtracked台帳を置き換えません。
 - Studio外で既存台帳が更新された場合は「索引を更新」で再読込します。
 
-MVPは変更種別から`requested_stages`と再利用工程を計画します。実行worker導入時にStage / Attemptを追加し、そのcache keyを工程種別、入力artifact hash、prompt hash、provider/model、設定、実装versionから作ります。例えば字幕だけを変更した場合、映像やナレーションを再利用し、合成とQCだけを新runで実行する設計です。
+MVPは変更種別から`requested_stages`と再利用工程を計画します。ローカルnarrationではStage / Attemptを実装済みで、cache keyは正規化segment、voice、rate、発音置換、Windows SAPIに固定した実装versionから作ります。成功attemptと4成果物のpath、bytes、SHA-256がすべて一致するときだけ再利用します。例えば字幕だけを変更した場合、将来は映像やナレーションを再利用し、合成とQCだけを新runで実行する設計です。
 
 ## ログ、成果物、監査
 
@@ -126,20 +135,26 @@ Studioでは次を別々に扱います。
 | event | 索引、revision/run、job、費用承認の時刻、状態、hash chain |
 | artifact | path、bytes、MIME、origin、version、取得できた場合のSHA-256 |
 | run cost | 見積、通貨、承認上限、承認／却下履歴 |
+| stage attempt | stage、attempt番号、cache key、状態、所要時間、provider、task ID、実費、timing source |
 | status / approval | 台帳由来のtechnical・creative・public status、run費用上限の承認／却下と理由 |
 
-provider task ID、redaction済みrequest/response、実費、ffprobeや音量等の自動QCは、各workerを接続した段階で同じevent/artifactモデルへ追加します。MVPは存在しないprovider実行ログを作ったようには表示しません。
+ローカルSAPI attemptは`provider=windows_sapi`、`provider_task_id=null`、`actual_cost=0`、`timing_source=wav_frames`として記録します。外部providerのtask ID、redaction済みrequest/response、実費、ffprobeや音量等の自動QCは、各workerを接続した段階で同じevent/artifactモデルへ追加します。存在しない外部実行ログを作ったようには表示しません。
 
-監査exportは、SQLiteを1つのread transactionで固定した時点の記録をZIPへまとめる派生成果物です。event mirrorもそのsnapshotと一致する検証済みprefixをmemoryへ固定してから格納します。一般テキスト副生成物はZIP格納前に既知の秘密情報patternをredactし、変更対象をpackage manifestの`redacted_text_files`へ記録します。安全な構造化処理を保証できないYAML/YML、INI/CFG/CONF、TOML、CSV/TSV、XML、HTML/XHTML、SVGは`structured_text_requires_local_review`として除外します。未知形式と外部archiveも`unsupported_artifact_kind`として除外します。package manifest自身を除く格納entryごとの実bytes/SHA-256、scope別event chain末尾、検証できず除外したmirrorを記録し、ZIP閉鎖後に全entryを再検証します。ZIP全体のSHA-256は隣接sidecarへ保存します。DB snapshot後に元artifactが更新された場合、artifact metadataの時点とcopy時点は異なり得るため、ZIP内実体については`archive_entries`のbytes/hashを正本とします。既定の`include_media=false`では、record由来を含む動画、音声、画像をZIPへ含めません。監査ZIPが存在するだけで公開権利や人の通し試聴が確認済みになったとは扱いません。
+監査exportは、SQLiteを1つのread transactionで固定した時点の記録をZIPへまとめる派生成果物です。event mirrorもそのsnapshotと一致する検証済みprefixをmemoryへ固定してから格納します。一般テキスト副生成物はZIP格納前に既知の秘密情報patternをredactし、変更対象をpackage manifestの`redacted_text_files`へ記録します。安全な構造化処理を保証できないYAML/YML、INI/CFG/CONF、TOML、CSV/TSV、XML、HTML/XHTML、SVGは`structured_text_requires_local_review`として除外します。未知形式と外部archiveも`unsupported_artifact_kind`として除外します。Studio生成のSRT、timings、manifestは既定で含め、WAVは他のaudio/video/imageと同様に`include_media=true`のときだけ含めます。監査ZIP自身は再帰的に含めません。package manifest自身を除く格納entryごとの実bytes/SHA-256、scope別event chain末尾、検証できず除外したmirrorを記録し、ZIP閉鎖後に全entryを再検証します。ZIP全体のSHA-256は隣接sidecarへ保存します。DB snapshot後に元artifactが更新された場合、artifact metadataの時点とcopy時点は異なり得るため、ZIP内実体については`archive_entries`のbytes/hashを正本とします。監査ZIPが存在するだけで公開権利や人の通し試聴が確認済みになったとは扱いません。
 
 ## セキュリティ境界
 
 - HTTPは`127.0.0.1`だけにbindします。
-- 変更系POSTは起動ごとのsession tokenとloopback Originで保護し、tokenを永続ログへ保存しません。読取GETはloopback bindとHost検査を境界とします。
+- 変更系POSTは起動ごとのsession tokenとloopback Originで保護し、tokenを永続ログへ保存しません。認証拒否時は上限内の宣言済みrequest bodyだけを破棄してから接続を閉じ、WindowsでもHTTP 403を安定して返します。長さ不正・上限超過bodyは読み込まずfail closedにします。読取GETはloopback bindとHost検査を境界とします。
 - 同じworkspaceへ2つのStudio serverを起動しません。serverはworkspace単位のprocess-lifetime lockを保持し、2台目を起動時に拒否してevent mirrorの多重writerを防ぎます。
 - frontendへAPIキーを返すendpointはありません。
 - `.env`拡張子、`.env.*`、credential/secret key file、DPAPI secretは索引対象外です。JSON/JSONLは構造化redactionし、一般テキストはAuthorization、Basic/Bearer、Cookie、API key、署名値など既知patternをbest-effortでredactします。
 - artifact配信は登録済みかつ許可されたroot内のfileだけを対象にします。
+- narration workerは文字列をPowerShell commandへ展開せず、run配下の専用一時directoryにUTF-8 JSONとして渡します。一時fileは同じWindowsユーザー／workspace ACLを信頼境界とし、処理後に削除します。tracked helperだけを起動し、戻り値はprovider、task ID、実費、cache key、exact artifact path/name/kind/MIME/bytes/SHA-256のallowlistで検証してから登録します。
+- attemptとbackground jobはjobをworker queueへ入れる前に同一ID関係を永続化し、`stage.attempt.job_linked` eventとしてmirrorへ残します。同じリンクの再適用はeventを重複させません。schema v1/v2の既存DBは起動時にschema v3へ移行し、event mirrorから再構築してもattempt側の履歴Job IDを復元します。jobs検索表そのものは再構築対象ではないため、DB再構築後の完了状態・成果物はattempt記録を正本として表示します。
+- cache hit時もmanifest自己hashと4成果物のhash、DBに記録済みbytes/hashを再検証します。欠落、symlink、path逸脱、改変、worker契約違反は再利用または成功扱いにしません。
+- 異常出力によるメモリ圧迫を抑えるため、1 segmentのWAVは32 MiB、結合WAVは128 MiB、総尺は30分を上限としてfail closedにします。これは短尺制作向けの安全上限で、長尺音声配信を保証する値ではありません。
+- Studio再起動時にqueued/runningだったjobは`interrupted`、stage attemptは`failed(process_interrupted)`へ追記遷移し、永続的な実行中表示を残しません。
 - browser内でinline表示するのはraster image、audio、videoだけです。対応済み`.json`、`.jsonl`、`.log`、`.md`、`.txt`、`.srt`、`.ass`、`.vtt`は`attachment`とCSP sandboxを付け、redact済み内容だけを返します。不正JSON/JSONL、その他の設定・source code・markup・未知形式・外部archiveはMVPではHTTP 415で拒否します。Studio自身が生成・検証した監査ZIPだけはdownloadできます。
 - 監査ZIPへ含める対応済みdocument、log、subtitleは秘密情報をredactし、変更対象と格納後hashをmanifestへ記録します。redactionは秘密がないことの証明ではないため、外部共有前に人がpackage manifestと内容を確認してください。
 - request/response、Authorization、署名付きURL、Cookieは将来のprovider adapterで保存前にredactします。
@@ -152,16 +167,20 @@ Studioは個人用loopbackツールです。LANからの攻撃面を作らない
 
 1. ユーザーがチャットで制作や修正を依頼する。
 2. CodexがStudioのローカルAPIまたはCLIを通して新しいrevision/runを作る。
-3. 現在のStudioが索引・監査jobと、成果物、費用計画、ログを保持する。制作worker接続後は長時間工程も同じ台帳へ保持する。
+3. Studioが索引・監査job、ローカルnarration attempt、成果物、費用計画、ログを保持する。後続workerも同じ台帳へ保持する。
 4. ユーザーはStudioで候補や中間成果物を確認する。
 5. Codexは完了、失敗、承認待ちなど節目だけを確認する。
-6. MVPでは修正の影響工程と再利用候補を新runへ記録し、worker接続後はその範囲だけを実行する。
+6. ローカルnarrationは明示実行してcache可否を記録する。他工程は修正影響と再利用候補だけを新runへ記録し、worker接続後にその範囲を実行する。
 
-現MVPだけで削減できるのは索引・監査jobの監視です。制作worker接続後は、長時間生成もStudioが継続・記録し、チャットは節目だけを確認することで監視トークンを抑えます。Studioへ記録済みの状態はチャットを閉じてもローカルに残ります。
+現MVPは索引・監査jobに加えてローカルnarrationもバックグラウンド実行します。dashboard全体のhealth/job一覧は15秒間隔、実行中のnarration jobは2秒間隔で取得し、terminal状態を検出した時点でproduction detailを再読込します。チャットは節目だけを確認することで監視トークンを抑えられます。Studioへ記録済みの状態はチャットを閉じてもローカルに残ります。
+
+ナレーション画面は操作性のため1行2,000文字・合計50,000文字を先に警告します。backendの正本上限は1 segment 4,000文字・合計100,000文字・100 segmentで、UIを迂回したrequestにも必ず適用します。
 
 ## 次段階
 
-1. TTS provider adapter、字幕timing、発音辞書、provider別の実費・task記録
+実装済み: Windows SAPI adapter、segment字幕timing、発音置換、stage attempt/cache、provider/task/実費欄の記録。
+
+1. 外部有料TTS provider adapter、単語単位alignment、provider別の実費・task記録と課金承認gate
 2. RemotionとFFmpegによるpreview／字幕入り／clean master
 3. PlaywrightとWindows画面収録
 4. ComfyUIとMiniMax APIのtask永続化、再開、二重課金防止

@@ -45,6 +45,9 @@ export interface ProductionRun {
   startedAt?: string;
   finishedAt?: string;
   stages: RunStage[];
+  requestedStages: string[];
+  executionProfile?: 'local_sapi' | string;
+  stageAttempts: StageAttempt[];
   estimatedCost?: number;
   currency?: string;
   latestApproval?: Approval;
@@ -67,6 +70,27 @@ export interface Artifact {
   sha256?: string;
   description?: string;
   metadata: Record<string, unknown>;
+  raw: Record<string, unknown>;
+}
+
+export interface StageAttempt {
+  id: string;
+  stage: string;
+  status: StudioStatus;
+  attempt?: number;
+  jobId?: string;
+  createdAt?: string;
+  startedAt?: string;
+  finishedAt?: string;
+  durationSeconds?: number;
+  cacheHit?: boolean;
+  provider?: string;
+  providerTaskId?: string;
+  actualCost?: number;
+  timingSource?: string;
+  artifacts: Artifact[];
+  message?: string;
+  errorCode?: string;
   raw: Record<string, unknown>;
 }
 
@@ -110,9 +134,40 @@ export interface ProductionDetail extends ProductionSummary {
   specification?: Record<string, unknown>;
 }
 
+export interface JobResult {
+  attempt?: number;
+  artifacts: Artifact[];
+  cacheHit?: boolean;
+  durationSeconds?: number;
+  provider?: string;
+  providerTaskId?: string;
+  actualCost?: number;
+  timingSource?: string;
+  message?: string;
+  errorCode?: string;
+  raw: Record<string, unknown>;
+}
+
+export interface LocalNarrationSegment {
+  text: string;
+}
+
+export interface PronunciationOverride {
+  source: string;
+  target: string;
+}
+
+export interface LocalNarrationRequest {
+  segments: LocalNarrationSegment[];
+  voice?: string;
+  rate?: number;
+  pronunciations?: PronunciationOverride[];
+}
+
 export interface Job {
   id: string;
   productionId?: string;
+  runId?: string;
   type: string;
   stage?: string;
   status: StudioStatus;
@@ -120,6 +175,12 @@ export interface Job {
   message?: string;
   startedAt?: string;
   updatedAt?: string;
+  attempt?: number;
+  cacheHit?: boolean;
+  durationSeconds?: number;
+  result?: JobResult;
+  errorCode?: string;
+  raw: Record<string, unknown>;
 }
 
 export interface ProviderStatus {
@@ -143,6 +204,7 @@ export interface RerunChanges {
   note: string;
   allowPaidApi: boolean;
   maxCostJpy?: number;
+  executionProfile?: 'local_sapi' | 'default';
 }
 
 export interface RerunPlan {

@@ -35,9 +35,11 @@ _SAFE_INLINE_IMAGE_SUFFIXES = {".bmp", ".gif", ".jpeg", ".jpg", ".png", ".webp"}
 _PRODUCTION_DETAIL_RE = re.compile(r"^/api/productions/([^/]+)$")
 _ARTIFACT_FILE_RE = re.compile(r"^/api/artifacts/([^/]+)/(?:file|content)$")
 _JOB_DETAIL_RE = re.compile(r"^/api/jobs/([^/]+)$")
+_RUN_DETAIL_RE = re.compile(r"^/api/runs/([^/]+)$")
 _RERUN_PLAN_RE = re.compile(r"^/api/productions/([^/]+)/rerun-plan$")
 _RUN_CREATE_RE = re.compile(r"^/api/productions/([^/]+)/runs$")
 _RUN_APPROVE_RE = re.compile(r"^/api/runs/([^/]+)/approve$")
+_RUN_LOCAL_NARRATION_RE = re.compile(r"^/api/runs/([^/]+)/execute-local-narration$")
 _AUDIT_EXPORT_RE = re.compile(r"^/api/productions/([^/]+)/audit-export$")
 
 
@@ -245,6 +247,29 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
             raise RequestValidationError("request body must be an object")
         return value
 
+    def _discard_bounded_request_body(self) -> None:
+        """Drain a small unauthorized POST body before closing its socket.
+
+        Closing a Windows TCP connection while unread request bytes remain can
+        emit a reset instead of the intended HTTP 403 response.  Only the same
+        bounded Content-Length accepted by the JSON parser is drained; invalid,
+        chunked, or oversized bodies still fail closed without unbounded reads.
+        """
+
+        raw_length = self.headers.get("Content-Length")
+        try:
+            length = int(raw_length or "0")
+        except ValueError:
+            return
+        if length < 0 or length > MAX_JSON_BODY:
+            return
+        remaining = length
+        while remaining:
+            chunk = self.rfile.read(min(64 * 1024, remaining))
+            if not chunk:
+                return
+            remaining -= len(chunk)
+
     def do_GET(self) -> None:  # noqa: N802
         self._dispatch_get(send_body=True)
 
@@ -253,10 +278,12 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         if not self._host_is_allowed():
+            self._discard_bounded_request_body()
             self.close_connection = True
             self._error(403, "forbidden_host", "The Host header is not allowed.")
             return
         if not self._post_is_authorized():
+            self._discard_bounded_request_body()
             self.close_connection = True
             self._error(403, "forbidden", "A valid Studio session is required.")
             return
@@ -358,6 +385,14 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
             else:
                 self._send_json(200, job, send_body=send_body)
             return
+        match = _RUN_DETAIL_RE.fullmatch(path)
+        if match:
+            run = service.run(match.group(1))
+            if run is None:
+                self._error(404, "not_found", "The run was not found.", send_body=send_body)
+            else:
+                self._send_json(200, run, send_body=send_body)
+            return
         match = _ARTIFACT_FILE_RE.fullmatch(path)
         if match:
             self._serve_artifact(match.group(1), send_body=send_body)
@@ -380,6 +415,10 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
         match = _RUN_APPROVE_RE.fullmatch(path)
         if match:
             self._send_json(200, service.approve_run(match.group(1), body))
+            return
+        match = _RUN_LOCAL_NARRATION_RE.fullmatch(path)
+        if match:
+            self._send_json(202, service.execute_local_narration(match.group(1), body))
             return
         match = _AUDIT_EXPORT_RE.fullmatch(path)
         if match:

@@ -5,6 +5,8 @@ import type {
   CostEntry,
   HealthStatus,
   Job,
+  JobResult,
+  LocalNarrationRequest,
   ProductionDetail,
   ProductionRun,
   ProductionSummary,
@@ -12,6 +14,7 @@ import type {
   RerunChanges,
   RerunPlan,
   RunStage,
+  StageAttempt,
   StudioEvent,
 } from './types';
 import { normalizeStatus } from './status';
@@ -40,6 +43,13 @@ const number = (value: unknown): number | undefined => {
   return undefined;
 };
 
+const durationSeconds = (record: UnknownRecord): number | undefined => {
+  const seconds = number(pick(record, ['duration_seconds', 'duration', 'elapsed_seconds']));
+  if (seconds !== undefined) return seconds;
+  const milliseconds = number(pick(record, ['duration_ms', 'elapsed_ms']));
+  return milliseconds === undefined ? undefined : milliseconds / 1000;
+};
+
 const boolean = (value: unknown, fallback = false): boolean => {
   if (typeof value === 'boolean') return value;
   if (typeof value === 'number') return value !== 0;
@@ -47,7 +57,33 @@ const boolean = (value: unknown, fallback = false): boolean => {
   return fallback;
 };
 
+export const LOCAL_NARRATION_LIMITS = {
+  maxSegments: 100,
+  maxSegmentLength: 2_000,
+  maxTotalLength: 50_000,
+  minRate: -10,
+  maxRate: 10,
+} as const;
+
+export interface NormalizedNarrationInput {
+  segments: string[];
+  errors: string[];
+}
+
+export const normalizeNarrationInput = (script: string, rate: number): NormalizedNarrationInput => {
+  const segments = script.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const errors: string[] = [];
+  if (segments.length === 0) errors.push('セグメントを1行以上入力してください。');
+  if (segments.length > LOCAL_NARRATION_LIMITS.maxSegments) errors.push(`セグメントは${LOCAL_NARRATION_LIMITS.maxSegments}行以内にしてください。`);
+  if (segments.some((segment) => segment.length > LOCAL_NARRATION_LIMITS.maxSegmentLength)) errors.push(`1行あたり${LOCAL_NARRATION_LIMITS.maxSegmentLength.toLocaleString()}文字以内にしてください。`);
+  if (segments.join('').length > LOCAL_NARRATION_LIMITS.maxTotalLength) errors.push(`合計${LOCAL_NARRATION_LIMITS.maxTotalLength.toLocaleString()}文字以内にしてください。`);
+  if (!Number.isInteger(rate) || rate < LOCAL_NARRATION_LIMITS.minRate || rate > LOCAL_NARRATION_LIMITS.maxRate) errors.push(`読み上げ速度は整数 ${LOCAL_NARRATION_LIMITS.minRate}〜${LOCAL_NARRATION_LIMITS.maxRate} の範囲で指定してください。`);
+  return { segments, errors };
+};
+
 const list = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
+
+const stringList = (value: unknown): string[] => list(value).map((item) => text(item)).filter(Boolean);
 
 const items = (value: unknown, keys: string[]): unknown[] => {
   if (Array.isArray(value)) return value;
@@ -56,6 +92,19 @@ const items = (value: unknown, keys: string[]): unknown[] => {
     if (Array.isArray(record[key])) return record[key] as unknown[];
   }
   return [];
+};
+
+interface NormalizedError {
+  message?: string;
+  code?: string;
+}
+
+const normalizeError = (record: UnknownRecord, fallback = ''): NormalizedError => {
+  const nested = asRecord(pick(record, ['error']));
+  const rawErrorMessage = text(pick(record, ['error']), '');
+  const message = text(pick(record, ['message', 'detail']), text(pick(nested, ['message', 'detail']), rawErrorMessage || fallback)) || undefined;
+  const code = text(pick(record, ['error_code', 'errorCode']), text(pick(nested, ['code']), '')) || undefined;
+  return { message, code };
 };
 
 const inferArtifactKind = (record: UnknownRecord): ArtifactKind => {
@@ -99,9 +148,11 @@ const normalizeStage = (value: unknown, index: number): RunStage => {
   };
 };
 
-const normalizeRun = (value: unknown, index: number): ProductionRun => {
+export const normalizeRun = (value: unknown, index: number): ProductionRun => {
   const record = asRecord(value);
-  const stageValues = items(pick(record, ['stages', 'steps', 'pipeline', 'requested_stages']), ['items', 'stages', 'steps', 'requested_stages']);
+  const requestedStageValue = pick(record, ['requested_stages', 'requestedStages', 'stages', 'steps', 'pipeline']);
+  const stageValues = items(requestedStageValue, ['items', 'stages', 'steps', 'requested_stages']);
+  const requestedStages = stringList(stageValues.length > 0 ? stageValues : requestedStageValue);
   const estimatedCost = asRecord(pick(record, ['estimated_cost', 'cost']));
   const latestApprovalValue = pick(record, ['latest_approval', 'approval']);
   return {
@@ -113,6 +164,9 @@ const normalizeRun = (value: unknown, index: number): ProductionRun => {
     startedAt: text(pick(record, ['started_at', 'startedAt']), '') || undefined,
     finishedAt: text(pick(record, ['finished_at', 'finishedAt', 'completed_at']), '') || undefined,
     stages: stageValues.map(normalizeStage),
+    requestedStages,
+    executionProfile: text(pick(record, ['execution_profile', 'executionProfile', 'profile']), '') || undefined,
+    stageAttempts: items(pick(record, ['stage_attempts', 'stageAttempts', 'attempts']), ['items', 'stage_attempts', 'stageAttempts', 'attempts']).map(normalizeStageAttempt),
     estimatedCost: number(pick(estimatedCost, ['amount', 'value'])),
     currency: text(pick(estimatedCost, ['currency']), '') || undefined,
     latestApproval: latestApprovalValue ? normalizeApproval(latestApprovalValue, index) : undefined,
@@ -140,6 +194,85 @@ const normalizeArtifact = (value: unknown, index: number): Artifact => {
     sha256: text(pick(record, ['sha256', 'hash', 'checksum']), '') || undefined,
     description: text(pick(record, ['description', 'summary']), '') || undefined,
     metadata,
+    raw: record,
+  };
+};
+
+const normalizeStageAttempt = (value: unknown, index: number): StageAttempt => {
+  const record = asRecord(value);
+  const stage = text(pick(record, ['stage', 'stage_name', 'name', 'type']), 'narration');
+  const result = asRecord(pick(record, ['result', 'output']));
+  const error = normalizeError(record, normalizeError(result).message ?? '');
+  const artifactValues = items(pick(record, ['artifacts', 'outputs']), ['items', 'artifacts', 'outputs']);
+  const resultArtifactValues = items(pick(result, ['artifacts', 'outputs']), ['items', 'artifacts', 'outputs']);
+  const artifacts = (artifactValues.length > 0 ? artifactValues : resultArtifactValues).map(normalizeArtifact);
+  return {
+    id: text(pick(record, ['id', 'attempt_id', 'stage_attempt_id']), `stage-attempt-${index}`),
+    stage,
+    status: normalizeStatus(pick(record, ['status', 'state']) ?? pick(result, ['status', 'state'])),
+    attempt: number(pick(record, ['attempt', 'attempt_number', 'try'])) ?? number(pick(result, ['attempt', 'attempt_number'])),
+    jobId: text(pick(record, ['job_id', 'jobId']), '') || undefined,
+    createdAt: text(pick(record, ['created_at', 'createdAt']), '') || undefined,
+    startedAt: text(pick(record, ['started_at', 'startedAt']), '') || undefined,
+    finishedAt: text(pick(record, ['finished_at', 'finishedAt', 'completed_at']), '') || undefined,
+    durationSeconds: durationSeconds(record) ?? durationSeconds(result),
+    cacheHit: pick(record, ['cache_hit', 'cacheHit', 'cached']) === undefined
+      ? (pick(result, ['cache_hit', 'cacheHit', 'cached']) === undefined ? undefined : boolean(pick(result, ['cache_hit', 'cacheHit', 'cached'])))
+      : boolean(pick(record, ['cache_hit', 'cacheHit', 'cached'])),
+    provider: text(pick(record, ['provider']) ?? pick(result, ['provider']), '') || undefined,
+    providerTaskId: text(pick(record, ['provider_task_id', 'providerTaskId']) ?? pick(result, ['provider_task_id', 'providerTaskId']), '') || undefined,
+    actualCost: number(pick(record, ['actual_cost', 'actualCost']) ?? pick(result, ['actual_cost', 'actualCost'])),
+    timingSource: text(pick(record, ['timing_source', 'timingSource']) ?? pick(result, ['timing_source', 'timingSource']), '') || undefined,
+    artifacts,
+    message: error.message,
+    errorCode: error.code,
+    raw: record,
+  };
+};
+
+const normalizeJobResult = (value: unknown): JobResult | undefined => {
+  if (!value || typeof value !== 'object') return undefined;
+  const record = asRecord(value);
+  const error = normalizeError(record);
+  return {
+    attempt: number(pick(record, ['attempt', 'attempt_number', 'try'])),
+    artifacts: items(pick(record, ['artifacts', 'outputs']), ['items', 'artifacts', 'outputs']).map(normalizeArtifact),
+    cacheHit: pick(record, ['cache_hit', 'cacheHit', 'cached']) === undefined ? undefined : boolean(pick(record, ['cache_hit', 'cacheHit', 'cached'])),
+    durationSeconds: durationSeconds(record),
+    provider: text(pick(record, ['provider']), '') || undefined,
+    providerTaskId: text(pick(record, ['provider_task_id', 'providerTaskId']), '') || undefined,
+    actualCost: number(pick(record, ['actual_cost', 'actualCost'])),
+    timingSource: text(pick(record, ['timing_source', 'timingSource']), '') || undefined,
+    message: error.message,
+    errorCode: error.code,
+    raw: record,
+  };
+};
+
+export const normalizeJob = (value: unknown, index = 0): Job => {
+  const root = asRecord(value);
+  const nested = asRecord(pick(root, ['job', 'data', 'item']));
+  const record = Object.keys(nested).length > 0 ? nested : root;
+  const payload = asRecord(pick(record, ['payload', 'request', 'meta']));
+  const field = (keys: string[]): unknown => pick(record, keys) ?? pick(payload, keys);
+  const result = normalizeJobResult(pick(record, ['result', 'job_result', 'output'])) ?? normalizeJobResult(pick(root, ['result', 'job_result', 'output']));
+  const error = normalizeError(record, result?.message ?? '');
+  return {
+    id: text(field(['id', 'job_id']), `job-${index}`),
+    productionId: text(field(['production_id', 'productionId']), '') || undefined,
+    runId: text(field(['run_id', 'runId']), '') || undefined,
+    type: text(field(['type', 'kind', 'name']), 'ジョブ'),
+    stage: text(field(['stage', 'step']), '') || undefined,
+    status: normalizeStatus(field(['status', 'state'])),
+    progress: number(field(['progress', 'percent', 'percentage'])),
+    message: error.message,
+    startedAt: text(field(['started_at', 'startedAt']), '') || undefined,
+    updatedAt: text(field(['updated_at', 'updatedAt', 'finished_at', 'finishedAt', 'completed_at']), '') || undefined,
+    attempt: number(field(['attempt', 'attempt_number', 'try'])) ?? result?.attempt,
+    cacheHit: field(['cache_hit', 'cacheHit', 'cached']) === undefined ? result?.cacheHit : boolean(field(['cache_hit', 'cacheHit', 'cached'])),
+    durationSeconds: durationSeconds(record) ?? durationSeconds(payload) ?? result?.durationSeconds,
+    result,
+    errorCode: error.code ?? result?.errorCode,
     raw: record,
   };
 };
@@ -211,15 +344,37 @@ const normalizeProduction = (value: unknown, index: number): ProductionSummary =
   };
 };
 
-const parseError = async (response: Response): Promise<string> => {
+interface ParsedApiError {
+  message: string;
+  code?: string;
+}
+
+export class StudioApiError extends Error {
+  readonly status: number;
+  readonly code?: string;
+  readonly unsupported: boolean;
+
+  constructor(message: string, status: number, code?: string) {
+    super(message);
+    this.name = 'StudioApiError';
+    this.status = status;
+    this.code = code;
+    this.unsupported = status === 404 || status === 405 || code === 'unsupported' || code === 'unsupported_media_type' || code === 'not_implemented';
+  }
+}
+
+const parseError = async (response: Response): Promise<ParsedApiError> => {
   const body = await response.text();
-  if (!body) return `${response.status} ${response.statusText}`;
+  if (!body) return { message: `${response.status} ${response.statusText}` };
   try {
     const parsed = asRecord(JSON.parse(body));
     const nested = asRecord(parsed.error);
-    return text(pick(parsed, ['message', 'detail']), text(pick(nested, ['message', 'detail']), body));
+    return {
+      message: text(pick(parsed, ['message', 'detail']), text(pick(nested, ['message', 'detail']), body)),
+      code: text(pick(parsed, ['code']), text(pick(nested, ['code']), '')) || undefined,
+    };
   } catch {
-    return body;
+    return { message: body };
   }
 };
 
@@ -231,7 +386,10 @@ const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
       ...init?.headers,
     },
   });
-  if (!response.ok) throw new Error(await parseError(response));
+  if (!response.ok) {
+    const parsed = await parseError(response);
+    throw new StudioApiError(parsed.message, response.status, parsed.code);
+  }
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
 };
@@ -299,20 +457,7 @@ export const api = {
 
   async jobs(): Promise<Job[]> {
     const value = await request<unknown>('/api/jobs');
-    return items(value, ['items', 'jobs', 'data']).map((item, index) => {
-      const record = asRecord(item);
-      return {
-        id: text(pick(record, ['id', 'job_id']), `job-${index}`),
-        productionId: text(pick(record, ['production_id', 'productionId']), '') || undefined,
-        type: text(pick(record, ['type', 'kind', 'name']), 'ジョブ'),
-        stage: text(pick(record, ['stage', 'step']), '') || undefined,
-        status: normalizeStatus(pick(record, ['status', 'state'])),
-        progress: number(pick(record, ['progress', 'percent', 'percentage'])),
-        message: text(pick(record, ['message', 'detail', 'error']), '') || undefined,
-        startedAt: text(pick(record, ['started_at', 'startedAt']), '') || undefined,
-        updatedAt: text(pick(record, ['updated_at', 'updatedAt']), '') || undefined,
-      };
-    });
+    return items(value, ['items', 'jobs', 'data']).map(normalizeJob);
   },
 
   async providers(): Promise<ProviderStatus[]> {
@@ -360,13 +505,23 @@ export const api = {
   createRun: (productionId: string, plan: RerunPlan, changes: RerunChanges): Promise<unknown> => {
     const changeList = changes.stages.map((stage) => ({ type: stage, note: changes.note }));
     const estimatedAmount = plan.estimatedCost ?? (changes.allowPaidApi ? changes.maxCostJpy ?? 0 : 0);
-    return post(`/api/productions/${encodeURIComponent(productionId)}/runs`, {
+    const body: Record<string, unknown> = {
       changes: changeList,
       estimated_cost: {
         amount: estimatedAmount,
         currency: plan.currency ?? (changes.allowPaidApi ? 'JPY' : 'USD'),
       },
-    });
+    };
+    if (changes.executionProfile === 'local_sapi') {
+      body.execution_profile = 'local_sapi';
+      body.estimated_cost = { amount: 0, currency: 'JPY' };
+    }
+    return post(`/api/productions/${encodeURIComponent(productionId)}/runs`, body);
+  },
+
+  async executeLocalNarration(runId: string, body: LocalNarrationRequest): Promise<Job> {
+    const value = await post<unknown>(`/api/runs/${encodeURIComponent(runId)}/execute-local-narration`, body);
+    return normalizeJob(value);
   },
 
   approveRun: (runId: string, approved: boolean, note: string, maxCost: number, currency: string): Promise<unknown> =>

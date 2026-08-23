@@ -16,8 +16,10 @@ from typing import Any, Iterator, Sequence
 from .security import canonical_json, sanitize_for_storage, workspace_path
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 3
 MAX_EVENT_LINE_BYTES = 2 * 1024 * 1024
+_RUN_EXECUTION_PROFILES = {"external", "local_sapi"}
+_LOCAL_SAPI_ZERO_COST_STAGES = {"narration", "captions", "assembly", "qc"}
 
 
 def utc_now() -> str:
@@ -65,6 +67,7 @@ class StudioDatabase:
         self._mirror_issues: dict[str, dict[str, str]] = {}
         self.initialize()
         self.restore_events_from_mirror()
+        self.interrupt_active_work()
         self.sync_event_mirror()
 
     def connect(self) -> sqlite3.Connection:
@@ -475,6 +478,7 @@ class StudioDatabase:
                     requested_stages_json TEXT NOT NULL,
                     estimated_cost_minor INTEGER NOT NULL CHECK(estimated_cost_minor >= 0),
                     currency TEXT NOT NULL,
+                    execution_profile TEXT NOT NULL DEFAULT 'external',
                     immutable_digest TEXT NOT NULL
                 );
 
@@ -519,6 +523,29 @@ class StudioDatabase:
                 );
                 CREATE INDEX IF NOT EXISTS jobs_created_idx ON jobs(created_at DESC);
 
+                CREATE TABLE IF NOT EXISTS stage_attempts (
+                    id TEXT PRIMARY KEY,
+                    run_id TEXT NOT NULL REFERENCES runs(id),
+                    production_id TEXT NOT NULL REFERENCES productions(id),
+                    job_id TEXT,
+                    stage TEXT NOT NULL,
+                    attempt INTEGER NOT NULL CHECK(attempt >= 1),
+                    status TEXT NOT NULL CHECK(status IN ('queued', 'running', 'succeeded', 'failed')),
+                    cache_key TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    started_at TEXT,
+                    completed_at TEXT,
+                    payload_json TEXT NOT NULL,
+                    result_json TEXT,
+                    error_code TEXT,
+                    error_message TEXT,
+                    UNIQUE(run_id, stage, attempt)
+                );
+                CREATE INDEX IF NOT EXISTS stage_attempts_run_idx
+                    ON stage_attempts(run_id, stage, attempt);
+                CREATE INDEX IF NOT EXISTS stage_attempts_cache_idx
+                    ON stage_attempts(stage, cache_key, status, completed_at);
+
                 CREATE TRIGGER IF NOT EXISTS revisions_immutable_update
                     BEFORE UPDATE ON revisions BEGIN
                         SELECT RAISE(ABORT, 'revisions are immutable');
@@ -551,20 +578,85 @@ class StudioDatabase:
                     BEFORE DELETE ON events BEGIN
                         SELECT RAISE(ABORT, 'events are append-only');
                     END;
+                CREATE TRIGGER IF NOT EXISTS stage_attempts_immutable_delete
+                    BEFORE DELETE ON stage_attempts BEGIN
+                        SELECT RAISE(ABORT, 'stage attempts are append-only');
+                    END;
                 """
             )
+            # SQLite's CREATE TABLE IF NOT EXISTS does not add columns to an
+            # existing database.  Keep this migration idempotent for the v1
+            # Studio databases already created by the MVP.
+            run_columns = {
+                row["name"]
+                for row in connection.execute("PRAGMA table_info(runs)").fetchall()
+            }
+            if "execution_profile" not in run_columns:
+                connection.execute(
+                    "ALTER TABLE runs ADD COLUMN execution_profile TEXT NOT NULL DEFAULT 'external'"
+                )
+            attempt_columns = {
+                row["name"]
+                for row in connection.execute("PRAGMA table_info(stage_attempts)").fetchall()
+            }
+            if "job_id" not in attempt_columns:
+                connection.execute("ALTER TABLE stage_attempts ADD COLUMN job_id TEXT")
             connection.execute(
                 "INSERT INTO schema_meta(key, value) VALUES('schema_version', ?) "
                 "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
                 (str(SCHEMA_VERSION),),
             )
-            # A process ending mid-job must never leave a job looking active.
+
+    def interrupt_active_work(self) -> dict[str, int]:
+        """Fail closed when a prior Studio process ended during active work."""
+
+        timestamp = utc_now()
+        counts = {"jobs": 0, "stage_attempts": 0}
+        with self.transaction() as connection:
             connection.execute(
                 "UPDATE jobs SET status='interrupted', completed_at=?, "
                 "error_code='process_interrupted', error_message='The previous Studio process stopped.' "
                 "WHERE status IN ('queued', 'running')",
-                (utc_now(),),
+                (timestamp,),
             )
+            counts["jobs"] = int(
+                connection.execute("SELECT changes() AS count").fetchone()["count"]
+            )
+            rows = connection.execute(
+                "SELECT * FROM stage_attempts WHERE status IN ('queued', 'running') "
+                "ORDER BY created_at, rowid"
+            ).fetchall()
+            for row in rows:
+                connection.execute(
+                    "UPDATE stage_attempts SET status='failed', completed_at=?, result_json=NULL, "
+                    "error_code='process_interrupted', error_message='The previous Studio process stopped.' "
+                    "WHERE id=? AND status IN ('queued', 'running')",
+                    (timestamp, row["id"]),
+                )
+                changed = connection.execute(
+                    "SELECT changes() AS count"
+                ).fetchone()["count"]
+                if changed != 1:
+                    continue
+                counts["stage_attempts"] += 1
+                self._append_event(
+                    connection,
+                    "run",
+                    row["run_id"],
+                    "stage.attempt.failed",
+                    {
+                        "attempt_id": row["id"],
+                        "production_id": row["production_id"],
+                        "stage": row["stage"],
+                        "attempt": row["attempt"],
+                        "cache_key": row["cache_key"],
+                        "result": None,
+                        "error_code": "process_interrupted",
+                        "error_message": "The previous Studio process stopped.",
+                    },
+                    created_at=timestamp,
+                )
+        return counts
 
     @staticmethod
     def _append_event(
@@ -1015,6 +1107,8 @@ class StudioDatabase:
                 "created_at": row["created_at"],
                 "requested_stages": _loads(row["requested_stages_json"], []),
                 "estimated_cost": money_from_minor(estimated, row["currency"]),
+                "execution_profile": row["execution_profile"] or "external",
+                "stage_attempts": self._stage_attempt_dicts(connection, row["id"]),
                 "state": state,
                 "latest_approval": approval,
                 "immutable_digest": row["immutable_digest"],
@@ -1032,6 +1126,7 @@ class StudioDatabase:
         currency: str,
         *,
         parent_revision_id: str | None = None,
+        execution_profile: str = "external",
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         revision_id = f"rev_{uuid.uuid4().hex}"
         run_id = f"run_{uuid.uuid4().hex}"
@@ -1090,11 +1185,12 @@ class StudioDatabase:
                 "requested_stages": stages,
                 "estimated_cost_minor": estimated_cost_minor,
                 "currency": currency,
+                "execution_profile": execution_profile,
             }
             run_digest = hashlib.sha256(canonical_json(run_payload).encode("utf-8")).hexdigest()
             connection.execute(
-                "INSERT INTO runs(id, production_id, revision_id, created_at, requested_stages_json, estimated_cost_minor, currency, immutable_digest) "
-                "VALUES(?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO runs(id, production_id, revision_id, created_at, requested_stages_json, estimated_cost_minor, currency, execution_profile, immutable_digest) "
+                "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     run_id,
                     production_id,
@@ -1103,6 +1199,7 @@ class StudioDatabase:
                     _json(stages),
                     estimated_cost_minor,
                     currency,
+                    execution_profile,
                     run_digest,
                 ),
             )
@@ -1120,6 +1217,7 @@ class StudioDatabase:
                         "created_at": timestamp,
                         "requested_stages": stages,
                         "estimated_cost": money_from_minor(estimated_cost_minor, currency),
+                        "execution_profile": execution_profile,
                         "immutable_digest": run_digest,
                     },
                 },
@@ -1138,6 +1236,7 @@ class StudioDatabase:
                         "created_at": timestamp,
                         "requested_stages": stages,
                         "estimated_cost": money_from_minor(estimated_cost_minor, currency),
+                        "execution_profile": execution_profile,
                         "immutable_digest": run_digest,
                     },
                     "requires_cost_approval": estimated_cost_minor > 0,
@@ -1149,6 +1248,245 @@ class StudioDatabase:
             revision = self._revision_dict(revision_row)
             run = self._run_dict(run_row, connection)
         return revision, run
+
+    @staticmethod
+    def _stage_attempt_dict(row: sqlite3.Row) -> dict[str, Any]:
+        return {
+            "id": row["id"],
+            "run_id": row["run_id"],
+            "production_id": row["production_id"],
+            "job_id": row["job_id"],
+            "stage": row["stage"],
+            "attempt": row["attempt"],
+            "status": row["status"],
+            "cache_key": row["cache_key"],
+            "created_at": row["created_at"],
+            "started_at": row["started_at"],
+            "completed_at": row["completed_at"],
+            "payload": _loads(row["payload_json"], {}),
+            "result": _loads(row["result_json"], None),
+            "error": (
+                {"code": row["error_code"], "message": row["error_message"]}
+                if row["error_code"]
+                else None
+            ),
+        }
+
+    def _stage_attempt_dicts(
+        self, connection: sqlite3.Connection, run_id: str
+    ) -> list[dict[str, Any]]:
+        rows = connection.execute(
+            "SELECT * FROM stage_attempts WHERE run_id=? ORDER BY stage, attempt",
+            (run_id,),
+        ).fetchall()
+        return [self._stage_attempt_dict(row) for row in rows]
+
+    def create_stage_attempt(
+        self,
+        run_id: str,
+        stage: str,
+        cache_key: str,
+        payload: Any,
+    ) -> dict[str, Any]:
+        """Append a queued stage attempt; never reuse a prior attempt row."""
+
+        attempt_id = f"attempt_{uuid.uuid4().hex}"
+        timestamp = utc_now()
+        safe_payload = sanitize_for_storage(payload)
+        with self.transaction() as connection:
+            run = connection.execute(
+                "SELECT id, production_id FROM runs WHERE id=?", (run_id,)
+            ).fetchone()
+            if not run:
+                raise KeyError("run not found")
+            latest = connection.execute(
+                "SELECT COALESCE(MAX(attempt), 0) AS attempt FROM stage_attempts "
+                "WHERE run_id=? AND stage=?",
+                (run_id, stage),
+            ).fetchone()
+            attempt_number = int(latest["attempt"]) + 1
+            connection.execute(
+                "INSERT INTO stage_attempts(id, run_id, production_id, stage, attempt, status, cache_key, created_at, payload_json) "
+                "VALUES(?, ?, ?, ?, ?, 'queued', ?, ?, ?)",
+                (
+                    attempt_id,
+                    run_id,
+                    run["production_id"],
+                    stage,
+                    attempt_number,
+                    cache_key,
+                    timestamp,
+                    _json(safe_payload),
+                ),
+            )
+            self._append_event(
+                connection,
+                "run",
+                run_id,
+                "stage.attempt.queued",
+                {
+                    "attempt_id": attempt_id,
+                    "production_id": run["production_id"],
+                    "stage": stage,
+                    "attempt": attempt_number,
+                    "cache_key": cache_key,
+                    "payload": safe_payload,
+                },
+                created_at=timestamp,
+            )
+            row = connection.execute(
+                "SELECT * FROM stage_attempts WHERE id=?", (attempt_id,)
+            ).fetchone()
+            assert row is not None
+            result = self._stage_attempt_dict(row)
+        return result
+
+    def link_stage_attempt_job(self, attempt_id: str, job_id: str) -> dict[str, Any]:
+        """Persist the one job that executes an already-created attempt."""
+
+        if not re.fullmatch(r"attempt_[0-9a-f]{32}", attempt_id):
+            raise ValueError("invalid stage attempt id")
+        if not re.fullmatch(r"job_[0-9a-f]{32}", job_id):
+            raise ValueError("invalid job id")
+        timestamp = utc_now()
+        with self.transaction() as connection:
+            attempt = connection.execute(
+                "SELECT * FROM stage_attempts WHERE id=?", (attempt_id,)
+            ).fetchone()
+            job = connection.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
+            if not attempt or not job:
+                raise KeyError("stage attempt or job not found")
+            job_payload = _loads(job["payload_json"], {})
+            if (
+                job["production_id"] != attempt["production_id"]
+                or not isinstance(job_payload, dict)
+                or job_payload.get("run_id") != attempt["run_id"]
+                or job_payload.get("stage") != attempt["stage"]
+            ):
+                raise ValueError("job does not belong to the stage attempt")
+            if attempt["job_id"] not in {None, job_id}:
+                raise ValueError("stage attempt is already linked to another job")
+            if attempt["job_id"] == job_id:
+                return self._stage_attempt_dict(attempt)
+            connection.execute(
+                "UPDATE stage_attempts SET job_id=? WHERE id=? AND job_id IS NULL",
+                (job_id, attempt_id),
+            )
+            if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                raise ValueError("stage attempt job link changed concurrently")
+            self._append_event(
+                connection,
+                "run",
+                attempt["run_id"],
+                "stage.attempt.job_linked",
+                {
+                    "attempt_id": attempt_id,
+                    "production_id": attempt["production_id"],
+                    "stage": attempt["stage"],
+                    "attempt": attempt["attempt"],
+                    "cache_key": attempt["cache_key"],
+                    "job_id": job_id,
+                    "linked_at": timestamp,
+                },
+                created_at=timestamp,
+            )
+            updated = connection.execute(
+                "SELECT * FROM stage_attempts WHERE id=?", (attempt_id,)
+            ).fetchone()
+            assert updated is not None
+            output = self._stage_attempt_dict(updated)
+        return output
+
+    def update_stage_attempt(
+        self,
+        attempt_id: str,
+        status: str,
+        *,
+        result: Any = None,
+        error_code: str | None = None,
+        error_message: str | None = None,
+    ) -> dict[str, Any]:
+        """Advance one attempt without overwriting previous attempts."""
+
+        if status not in {"running", "succeeded", "failed"}:
+            raise ValueError("unsupported stage attempt state")
+        timestamp = utc_now()
+        safe_result = sanitize_for_storage(result) if result is not None else None
+        safe_error = str(sanitize_for_storage(error_message or ""))[:1000] or None
+        with self.transaction() as connection:
+            row = connection.execute(
+                "SELECT * FROM stage_attempts WHERE id=?", (attempt_id,)
+            ).fetchone()
+            if not row:
+                raise KeyError("stage attempt not found")
+            current = row["status"]
+            if status == "running":
+                if current != "queued":
+                    raise ValueError("stage attempt is not queued")
+                connection.execute(
+                    "UPDATE stage_attempts SET status='running', started_at=? WHERE id=? AND status='queued'",
+                    (timestamp, attempt_id),
+                )
+            elif status == "succeeded":
+                if current != "running":
+                    raise ValueError("stage attempt is not running")
+                connection.execute(
+                    "UPDATE stage_attempts SET status='succeeded', completed_at=?, result_json=?, error_code=NULL, error_message=NULL "
+                    "WHERE id=? AND status='running'",
+                    (timestamp, _json(safe_result), attempt_id),
+                )
+            elif status == "failed":
+                if current not in {"queued", "running"}:
+                    raise ValueError("stage attempt is not active")
+                connection.execute(
+                    "UPDATE stage_attempts SET status='failed', completed_at=?, result_json=NULL, error_code=?, error_message=? "
+                    "WHERE id=? AND status IN ('queued', 'running')",
+                    (timestamp, error_code, safe_error, attempt_id),
+                )
+            changed = connection.execute("SELECT changes() AS count").fetchone()["count"]
+            if changed != 1:
+                raise ValueError("stage attempt state changed concurrently")
+            updated = connection.execute(
+                "SELECT * FROM stage_attempts WHERE id=?", (attempt_id,)
+            ).fetchone()
+            assert updated is not None
+            self._append_event(
+                connection,
+                "run",
+                updated["run_id"],
+                f"stage.attempt.{status}",
+                {
+                    "attempt_id": updated["id"],
+                    "production_id": updated["production_id"],
+                    "stage": updated["stage"],
+                    "attempt": updated["attempt"],
+                    "cache_key": updated["cache_key"],
+                    "result": safe_result if status == "succeeded" else None,
+                    "error_code": error_code if status == "failed" else None,
+                    "error_message": safe_error if status == "failed" else None,
+                },
+                created_at=timestamp,
+            )
+            output = self._stage_attempt_dict(updated)
+        return output
+
+    def find_successful_stage_attempt(
+        self, production_id: str, stage: str, cache_key: str
+    ) -> dict[str, Any] | None:
+        with self.session() as connection:
+            row = connection.execute(
+                "SELECT * FROM stage_attempts WHERE production_id=? AND stage=? AND cache_key=? AND status='succeeded' "
+                "ORDER BY completed_at DESC, rowid DESC LIMIT 1",
+                (production_id, stage, cache_key),
+            ).fetchone()
+        return self._stage_attempt_dict(row) if row else None
+
+    def get_stage_attempt(self, attempt_id: str) -> dict[str, Any] | None:
+        with self.session() as connection:
+            row = connection.execute(
+                "SELECT * FROM stage_attempts WHERE id=?", (attempt_id,)
+            ).fetchone()
+        return self._stage_attempt_dict(row) if row else None
 
     def get_run(self, run_id: str) -> dict[str, Any] | None:
         with self.session() as connection:
@@ -1269,8 +1607,8 @@ class StudioDatabase:
             return detail
 
     def restore_domain_records_from_events(self) -> dict[str, int]:
-        """Rebuild immutable revisions/runs/approvals from verified event mirrors."""
-        restored = {"revisions": 0, "runs": 0, "approvals": 0}
+        """Rebuild revisions, runs, stage attempts, and approvals from verified mirrors."""
+        restored = {"revisions": 0, "runs": 0, "stage_attempts": 0, "approvals": 0}
         with self.transaction() as connection:
             revision_events = connection.execute(
                 "SELECT payload_json FROM events WHERE event_type='revision.created' ORDER BY id"
@@ -1317,37 +1655,218 @@ class StudioDatabase:
                     )
                     restored["revisions"] += int(connection.total_changes > before)
 
+                    if (
+                        run.get("production_id") != revision_core["production_id"]
+                        or run.get("revision_id") != revision_core["id"]
+                    ):
+                        continue
                     estimated = run["estimated_cost"]
                     estimated_minor = money_to_minor(estimated["amount"])
                     currency = str(estimated["currency"])
+                    execution_profile = str(run.get("execution_profile") or "external")
+                    requested_stages = run.get("requested_stages")
+                    if (
+                        execution_profile not in _RUN_EXECUTION_PROFILES
+                        or not re.fullmatch(r"[A-Z]{3}", currency)
+                        or not isinstance(requested_stages, list)
+                        or not requested_stages
+                        or any(
+                            not isinstance(stage, str)
+                            or not re.fullmatch(r"[a-z][a-z0-9_]{0,63}", stage)
+                            for stage in requested_stages
+                        )
+                    ):
+                        continue
+                    if execution_profile == "local_sapi" and (
+                        estimated_minor != 0
+                        or not set(requested_stages).issubset(
+                            _LOCAL_SAPI_ZERO_COST_STAGES
+                        )
+                    ):
+                        continue
                     run_core = {
                         "id": run["id"],
                         "production_id": run["production_id"],
                         "revision_id": run["revision_id"],
                         "created_at": run["created_at"],
-                        "requested_stages": run["requested_stages"],
+                        "requested_stages": requested_stages,
                         "estimated_cost_minor": estimated_minor,
                         "currency": currency,
+                        "execution_profile": execution_profile,
                     }
                     run_digest = hashlib.sha256(canonical_json(run_core).encode("utf-8")).hexdigest()
+                    if run_digest != run["immutable_digest"] and execution_profile == "external":
+                        # v1 event payloads did not include the profile in the
+                        # digest; preserve their restorability while all new
+                        # runs use the v2 digest above.
+                        legacy_core = dict(run_core)
+                        legacy_core.pop("execution_profile")
+                        legacy_digest = hashlib.sha256(
+                            canonical_json(legacy_core).encode("utf-8")
+                        ).hexdigest()
+                        if legacy_digest == run["immutable_digest"]:
+                            run_digest = legacy_digest
                     if run_digest != run["immutable_digest"]:
                         continue
                     before = connection.total_changes
                     connection.execute(
-                        "INSERT OR IGNORE INTO runs(id, production_id, revision_id, created_at, requested_stages_json, estimated_cost_minor, currency, immutable_digest) "
-                        "VALUES(?, ?, ?, ?, ?, ?, ?, ?)",
+                        "INSERT OR IGNORE INTO runs(id, production_id, revision_id, created_at, requested_stages_json, estimated_cost_minor, currency, execution_profile, immutable_digest) "
+                        "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)",
                         (
                             run["id"],
                             run["production_id"],
                             run["revision_id"],
                             run["created_at"],
-                            _json(run["requested_stages"]),
+                            _json(requested_stages),
                             estimated_minor,
                             currency,
+                            str(run.get("execution_profile") or "external"),
                             run_digest,
                         ),
                     )
                     restored["runs"] += int(connection.total_changes > before)
+                except (KeyError, TypeError, ValueError, sqlite3.IntegrityError):
+                    continue
+
+            attempt_events = connection.execute(
+                "SELECT scope_id, event_type, created_at, payload_json FROM events "
+                "WHERE event_type IN ('stage.attempt.queued', 'stage.attempt.job_linked', "
+                "'stage.attempt.running', 'stage.attempt.succeeded', 'stage.attempt.failed') ORDER BY id"
+            ).fetchall()
+            attempts: dict[str, dict[str, Any]] = {}
+            for event in attempt_events:
+                payload = _loads(event["payload_json"], {})
+                if not isinstance(payload, dict):
+                    continue
+                attempt_id = payload.get("attempt_id")
+                if not isinstance(attempt_id, str) or not re.fullmatch(
+                    r"attempt_[0-9a-f]{32}", attempt_id
+                ):
+                    continue
+                event_type = event["event_type"]
+                if event_type == "stage.attempt.queued":
+                    if attempt_id in attempts:
+                        continue
+                    stage = payload.get("stage")
+                    cache_key = payload.get("cache_key")
+                    attempt_number = payload.get("attempt")
+                    if (
+                        not isinstance(stage, str)
+                        or not re.fullmatch(r"[a-z][a-z0-9_]{0,63}", stage)
+                        or not isinstance(cache_key, str)
+                        or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,256}", cache_key)
+                        or isinstance(attempt_number, bool)
+                        or not isinstance(attempt_number, int)
+                        or attempt_number < 1
+                    ):
+                        continue
+                    run = connection.execute(
+                        "SELECT production_id FROM runs WHERE id=?", (event["scope_id"],)
+                    ).fetchone()
+                    if not run or payload.get("production_id") != run["production_id"]:
+                        continue
+                    attempts[attempt_id] = {
+                        "id": attempt_id,
+                        "run_id": event["scope_id"],
+                        "production_id": run["production_id"],
+                        "job_id": None,
+                        "stage": stage,
+                        "attempt": attempt_number,
+                        "status": "queued",
+                        "cache_key": cache_key,
+                        "created_at": event["created_at"],
+                        "started_at": None,
+                        "completed_at": None,
+                        "payload": sanitize_for_storage(payload.get("payload", {})),
+                        "result": None,
+                        "error_code": None,
+                        "error_message": None,
+                    }
+                    continue
+                attempt = attempts.get(attempt_id)
+                if attempt is None or attempt["run_id"] != event["scope_id"]:
+                    continue
+                if event_type == "stage.attempt.job_linked":
+                    job_id = payload.get("job_id")
+                    if (
+                        isinstance(job_id, str)
+                        and re.fullmatch(r"job_[0-9a-f]{32}", job_id)
+                        and attempt["job_id"] in {None, job_id}
+                    ):
+                        attempt["job_id"] = job_id
+                    continue
+                if event_type == "stage.attempt.running" and attempt["status"] == "queued":
+                    attempt["status"] = "running"
+                    attempt["started_at"] = event["created_at"]
+                elif event_type == "stage.attempt.succeeded" and attempt["status"] == "running":
+                    attempt["status"] = "succeeded"
+                    attempt["completed_at"] = event["created_at"]
+                    attempt["result"] = sanitize_for_storage(payload.get("result"))
+                elif event_type == "stage.attempt.failed" and attempt["status"] in {
+                    "queued",
+                    "running",
+                }:
+                    attempt["status"] = "failed"
+                    attempt["completed_at"] = event["created_at"]
+                    code = payload.get("error_code")
+                    message = payload.get("error_message")
+                    attempt["error_code"] = str(code)[:128] if code else None
+                    attempt["error_message"] = str(
+                        sanitize_for_storage(message or "")
+                    )[:1000] or None
+            for attempt in attempts.values():
+                try:
+                    before = connection.total_changes
+                    connection.execute(
+                        "INSERT OR IGNORE INTO stage_attempts(id, run_id, production_id, job_id, stage, attempt, status, cache_key, created_at, started_at, completed_at, payload_json, result_json, error_code, error_message) "
+                        "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        (
+                            attempt["id"],
+                            attempt["run_id"],
+                            attempt["production_id"],
+                            attempt["job_id"],
+                            attempt["stage"],
+                            attempt["attempt"],
+                            attempt["status"],
+                            attempt["cache_key"],
+                            attempt["created_at"],
+                            attempt["started_at"],
+                            attempt["completed_at"],
+                            _json(attempt["payload"]),
+                            _json(attempt["result"])
+                            if attempt["result"] is not None
+                            else None,
+                            attempt["error_code"],
+                            attempt["error_message"],
+                        ),
+                    )
+                    inserted = int(connection.total_changes > before)
+                    restored["stage_attempts"] += inserted
+                    if inserted and attempt["status"] in {"queued", "running"}:
+                        completed_at = utc_now()
+                        connection.execute(
+                            "UPDATE stage_attempts SET status='failed', completed_at=?, result_json=NULL, "
+                            "error_code='process_interrupted', error_message='The previous Studio process stopped.' "
+                            "WHERE id=? AND status IN ('queued', 'running')",
+                            (completed_at, attempt["id"]),
+                        )
+                        self._append_event(
+                            connection,
+                            "run",
+                            attempt["run_id"],
+                            "stage.attempt.failed",
+                            {
+                                "attempt_id": attempt["id"],
+                                "production_id": attempt["production_id"],
+                                "stage": attempt["stage"],
+                                "attempt": attempt["attempt"],
+                                "cache_key": attempt["cache_key"],
+                                "result": None,
+                                "error_code": "process_interrupted",
+                                "error_message": "The previous Studio process stopped.",
+                            },
+                            created_at=completed_at,
+                        )
                 except (KeyError, TypeError, ValueError, sqlite3.IntegrityError):
                     continue
 
@@ -1421,12 +1940,26 @@ class StudioDatabase:
                     "UPDATE jobs SET status='running', started_at=? WHERE id=? AND status='queued'",
                     (timestamp, job_id),
                 )
-            elif status in {"succeeded", "failed"}:
+            elif status == "succeeded":
                 connection.execute(
                     "UPDATE jobs SET status=?, completed_at=?, result_json=?, error_code=?, error_message=? "
                     "WHERE id=? AND status='running'",
                     (
                         status,
+                        timestamp,
+                        _json(safe_result) if result is not None else None,
+                        error_code,
+                        safe_error,
+                        job_id,
+                    ),
+                )
+            elif status == "failed":
+                # A job can fail during setup before it reaches the worker, or
+                # while running. Both are terminal and must be durable.
+                connection.execute(
+                    "UPDATE jobs SET status='failed', completed_at=?, result_json=?, error_code=?, error_message=? "
+                    "WHERE id=? AND status IN ('queued', 'running')",
+                    (
                         timestamp,
                         _json(safe_result) if result is not None else None,
                         error_code,
