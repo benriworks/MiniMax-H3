@@ -1,0 +1,658 @@
+from __future__ import annotations
+
+import argparse
+import http.cookies
+import ipaddress
+import json
+import mimetypes
+import os
+import re
+import secrets
+import sys
+import threading
+import urllib.parse
+import webbrowser
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from typing import Any
+
+from .instance_lock import StudioInstanceLockError, WorkspaceInstanceLock
+from .security import (
+    SecurityError,
+    UnsafeTextArtifactError,
+    redact_artifact_text,
+    tokens_equal,
+    unsafe_structured_text_suffix,
+    workspace_path,
+)
+from .service import RequestValidationError, StudioService
+
+
+SESSION_COOKIE = "StudioSession"
+MAX_JSON_BODY = 1024 * 1024
+MAX_REDACTED_TEXT_BYTES = 16 * 1024 * 1024
+_SAFE_INLINE_IMAGE_SUFFIXES = {".bmp", ".gif", ".jpeg", ".jpg", ".png", ".webp"}
+_PRODUCTION_DETAIL_RE = re.compile(r"^/api/productions/([^/]+)$")
+_ARTIFACT_FILE_RE = re.compile(r"^/api/artifacts/([^/]+)/(?:file|content)$")
+_JOB_DETAIL_RE = re.compile(r"^/api/jobs/([^/]+)$")
+_RERUN_PLAN_RE = re.compile(r"^/api/productions/([^/]+)/rerun-plan$")
+_RUN_CREATE_RE = re.compile(r"^/api/productions/([^/]+)/runs$")
+_RUN_APPROVE_RE = re.compile(r"^/api/runs/([^/]+)/approve$")
+_AUDIT_EXPORT_RE = re.compile(r"^/api/productions/([^/]+)/audit-export$")
+
+
+def _textual_artifact(artifact: dict[str, Any], path: Path) -> bool:
+    media_type = str(artifact.get("media_type", "")).casefold()
+    return bool(
+        artifact.get("kind") in {"document", "log", "subtitle"}
+        or media_type.startswith("text/")
+        or any(marker in media_type for marker in ("json", "javascript", "xml", "yaml"))
+        or unsafe_structured_text_suffix(path.suffix)
+        or path.suffix.casefold() in {".ass", ".csv", ".json", ".jsonl", ".log", ".md", ".srt", ".tsv", ".txt", ".vtt", ".yaml", ".yml"}
+    )
+
+
+def _safe_inline_artifact(artifact: dict[str, Any], path: Path) -> bool:
+    kind = artifact.get("kind")
+    return bool(
+        kind in {"audio", "video"}
+        or (kind == "image" and path.suffix.casefold() in _SAFE_INLINE_IMAGE_SUFFIXES)
+    )
+
+
+def _studio_audit_download(artifact: dict[str, Any], path: Path) -> bool:
+    relative = str(artifact.get("rel_path", "")).replace("\\", "/").casefold()
+    return bool(
+        artifact.get("kind") == "audit"
+        and artifact.get("origin") == "studio"
+        and path.suffix.casefold() == ".zip"
+        and relative.startswith("outputs/studio/audits/")
+    )
+
+
+def _loopback_host(host: str) -> bool:
+    if host.casefold() == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def _parse_authority(authority: str, *, default_port: int) -> tuple[str, int] | None:
+    try:
+        parsed = urllib.parse.urlsplit(f"//{authority}")
+        if not parsed.hostname:
+            return None
+        return parsed.hostname.casefold(), parsed.port or default_port
+    except ValueError:
+        return None
+
+
+def _normalized_origin(origin: str) -> str | None:
+    try:
+        parsed = urllib.parse.urlsplit(origin)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            return None
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        return f"{parsed.scheme}://{parsed.hostname.casefold()}:{port}"
+    except ValueError:
+        return None
+
+
+class StudioHTTPServer(ThreadingHTTPServer):
+    daemon_threads = True
+    allow_reuse_address = True
+
+    def __init__(
+        self,
+        server_address: tuple[str, int],
+        service: StudioService,
+        *,
+        session_token: str,
+        static_dir: Path | None,
+        allowed_origins: set[str],
+        instance_lock: WorkspaceInstanceLock,
+    ):
+        self.service = service
+        self.session_token = session_token
+        self.static_dir = static_dir
+        self.allowed_origins = allowed_origins
+        self.instance_lock = instance_lock
+        self._service_closed = False
+        super().__init__(server_address, StudioRequestHandler)
+
+    def server_close(self) -> None:
+        try:
+            if not self._service_closed:
+                self.service.close()
+                self._service_closed = True
+        finally:
+            try:
+                self.instance_lock.close()
+            finally:
+                super().server_close()
+
+    def handle_error(self, _request: object, _client_address: object) -> None:
+        # Client disconnects must not dump request context or stack traces into
+        # the operator terminal. Endpoint errors are returned as bounded JSON.
+        return
+
+
+class StudioRequestHandler(BaseHTTPRequestHandler):
+    server: StudioHTTPServer
+    protocol_version = "HTTP/1.1"
+
+    def log_message(self, _format: str, *_args: object) -> None:
+        # Request bodies, query values and credentials must not become logs.
+        return
+
+    def _host_is_allowed(self) -> bool:
+        authority = self.headers.get("Host", "")
+        parsed = _parse_authority(authority, default_port=self.server.server_port)
+        return bool(parsed and _loopback_host(parsed[0]))
+
+    def _origin_is_allowed(self, origin: str) -> bool:
+        normalized = _normalized_origin(origin)
+        if normalized is None:
+            return False
+        if normalized in self.server.allowed_origins:
+            return True
+        parsed_origin = urllib.parse.urlsplit(normalized)
+        host = _parse_authority(
+            self.headers.get("Host", ""), default_port=self.server.server_port
+        )
+        return bool(
+            host
+            and parsed_origin.scheme == "http"
+            and parsed_origin.hostname.casefold() == host[0]
+            and parsed_origin.port == host[1]
+        )
+
+    def _cookie_token(self) -> str | None:
+        raw = self.headers.get("Cookie")
+        if not raw:
+            return None
+        cookie = http.cookies.SimpleCookie()
+        try:
+            cookie.load(raw)
+        except http.cookies.CookieError:
+            return None
+        morsel = cookie.get(SESSION_COOKIE)
+        return morsel.value if morsel else None
+
+    def _post_is_authorized(self) -> bool:
+        origin = self.headers.get("Origin")
+        header_token = self.headers.get("X-Studio-Token")
+        if tokens_equal(self.server.session_token, header_token):
+            return origin is None or self._origin_is_allowed(origin)
+        cookie_token = self._cookie_token()
+        return bool(
+            origin
+            and self._origin_is_allowed(origin)
+            and tokens_equal(self.server.session_token, cookie_token)
+        )
+
+    def _common_headers(self) -> None:
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Referrer-Policy", "no-referrer")
+        if self.close_connection:
+            self.send_header("Connection", "close")
+
+    def _send_json(self, status: int, value: Any, *, send_body: bool = True) -> None:
+        body = (json.dumps(value, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self._common_headers()
+        self.end_headers()
+        if send_body:
+            self.wfile.write(body)
+
+    def _error(self, status: int, code: str, message: str, *, send_body: bool = True) -> None:
+        self._send_json(
+            status,
+            {"error": {"code": code, "message": message}},
+            send_body=send_body,
+        )
+
+    def _decoded_request(self) -> tuple[str, dict[str, list[str]]]:
+        parsed = urllib.parse.urlsplit(self.path)
+        try:
+            path = urllib.parse.unquote(parsed.path, errors="strict")
+        except UnicodeDecodeError as exc:
+            raise RequestValidationError("request path is invalid") from exc
+        return path, urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
+
+    def _read_json(self) -> dict[str, Any]:
+        content_type = self.headers.get("Content-Type", "")
+        if content_type.split(";", 1)[0].strip().casefold() != "application/json":
+            raise RequestValidationError("Content-Type must be application/json", code="unsupported_media_type")
+        raw_length = self.headers.get("Content-Length")
+        try:
+            length = int(raw_length or "0")
+        except ValueError as exc:
+            raise RequestValidationError("Content-Length is invalid") from exc
+        if length < 0 or length > MAX_JSON_BODY:
+            raise RequestValidationError("request body is too large", code="request_too_large")
+        try:
+            value = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise RequestValidationError("request body is not valid JSON") from exc
+        if not isinstance(value, dict):
+            raise RequestValidationError("request body must be an object")
+        return value
+
+    def do_GET(self) -> None:  # noqa: N802
+        self._dispatch_get(send_body=True)
+
+    def do_HEAD(self) -> None:  # noqa: N802
+        self._dispatch_get(send_body=False)
+
+    def do_POST(self) -> None:  # noqa: N802
+        if not self._host_is_allowed():
+            self.close_connection = True
+            self._error(403, "forbidden_host", "The Host header is not allowed.")
+            return
+        if not self._post_is_authorized():
+            self.close_connection = True
+            self._error(403, "forbidden", "A valid Studio session is required.")
+            return
+        try:
+            path, _query = self._decoded_request()
+            body = self._read_json()
+            self._dispatch_post(path, body)
+        except SecurityError:
+            self._error(400, "invalid_path", "The requested path is invalid.")
+        except RequestValidationError as exc:
+            status = 415 if exc.code == "unsupported_media_type" else 413 if exc.code == "request_too_large" else 422
+            self._error(status, exc.code, str(exc))
+        except KeyError:
+            self._error(404, "not_found", "The requested resource was not found.")
+        except Exception:
+            self._error(500, "internal_error", "The request could not be completed.")
+
+    def do_OPTIONS(self) -> None:  # noqa: N802
+        # Deliberately no CORS negotiation; the production UI is same-origin.
+        self._error(405, "method_not_allowed", "CORS is not enabled.")
+
+    def _method_not_allowed(self) -> None:
+        self.close_connection = True
+        self._error(405, "method_not_allowed", "The HTTP method is not supported.")
+
+    def do_DELETE(self) -> None:  # noqa: N802
+        self._method_not_allowed()
+
+    def do_PUT(self) -> None:  # noqa: N802
+        self._method_not_allowed()
+
+    def do_PATCH(self) -> None:  # noqa: N802
+        self._method_not_allowed()
+
+    def _dispatch_get(self, *, send_body: bool) -> None:
+        if not self._host_is_allowed():
+            self._error(403, "forbidden_host", "The Host header is not allowed.", send_body=send_body)
+            return
+        try:
+            path, query = self._decoded_request()
+            if path.startswith("/api/"):
+                self._get_api(path, query, send_body=send_body)
+            else:
+                self._serve_static(path, send_body=send_body)
+        except SecurityError:
+            self._error(400, "invalid_path", "The requested path is invalid.", send_body=send_body)
+        except RequestValidationError as exc:
+            self._error(422, exc.code, str(exc), send_body=send_body)
+        except Exception:
+            self._error(500, "internal_error", "The request could not be completed.", send_body=send_body)
+
+    @staticmethod
+    def _query_integer(
+        query: dict[str, list[str]], name: str, default: int, *, minimum: int, maximum: int
+    ) -> int:
+        raw = query.get(name, [str(default)])[0]
+        try:
+            value = int(raw)
+        except ValueError as exc:
+            raise RequestValidationError(f"{name} must be an integer") from exc
+        return max(minimum, min(value, maximum))
+
+    def _get_api(
+        self, path: str, query: dict[str, list[str]], *, send_body: bool
+    ) -> None:
+        service = self.server.service
+        if path == "/api/health":
+            self._send_json(200, service.health(), send_body=send_body)
+            return
+        if path == "/api/productions":
+            self._send_json(200, service.list_productions(), send_body=send_body)
+            return
+        if path == "/api/jobs":
+            limit = self._query_integer(query, "limit", 100, minimum=1, maximum=500)
+            self._send_json(200, service.list_jobs(limit=limit), send_body=send_body)
+            return
+        if path == "/api/providers/status":
+            self._send_json(200, service.providers_status(), send_body=send_body)
+            return
+        match = _PRODUCTION_DETAIL_RE.fullmatch(path)
+        if match:
+            limit = self._query_integer(query, "artifact_limit", 5000, minimum=1, maximum=10_000)
+            offset = self._query_integer(
+                query, "artifact_offset", 0, minimum=0, maximum=100_000_000
+            )
+            detail = service.production_detail(
+                match.group(1), artifact_limit=limit, artifact_offset=offset
+            )
+            if detail is None:
+                self._error(404, "not_found", "The production was not found.", send_body=send_body)
+            else:
+                self._send_json(200, detail, send_body=send_body)
+            return
+        match = _JOB_DETAIL_RE.fullmatch(path)
+        if match:
+            job = service.job(match.group(1))
+            if job is None:
+                self._error(404, "not_found", "The job was not found.", send_body=send_body)
+            else:
+                self._send_json(200, job, send_body=send_body)
+            return
+        match = _ARTIFACT_FILE_RE.fullmatch(path)
+        if match:
+            self._serve_artifact(match.group(1), send_body=send_body)
+            return
+        self._error(404, "not_found", "The API endpoint was not found.", send_body=send_body)
+
+    def _dispatch_post(self, path: str, body: dict[str, Any]) -> None:
+        service = self.server.service
+        if path == "/api/index/refresh":
+            self._send_json(202, service.refresh_index())
+            return
+        match = _RERUN_PLAN_RE.fullmatch(path)
+        if match:
+            self._send_json(200, service.rerun_plan(match.group(1), body.get("changes")))
+            return
+        match = _RUN_CREATE_RE.fullmatch(path)
+        if match:
+            self._send_json(201, service.create_run(match.group(1), body))
+            return
+        match = _RUN_APPROVE_RE.fullmatch(path)
+        if match:
+            self._send_json(200, service.approve_run(match.group(1), body))
+            return
+        match = _AUDIT_EXPORT_RE.fullmatch(path)
+        if match:
+            self._send_json(202, service.audit_export(match.group(1), body))
+            return
+        self._error(404, "not_found", "The API endpoint was not found.")
+
+    @staticmethod
+    def _range(value: str | None, size: int) -> tuple[int, int] | None:
+        if value is None:
+            return None
+        if not value.startswith("bytes=") or "," in value:
+            raise RequestValidationError("Only one byte range is supported", code="invalid_range")
+        specification = value[6:].strip()
+        if "-" not in specification:
+            raise RequestValidationError("The byte range is invalid", code="invalid_range")
+        start_raw, end_raw = specification.split("-", 1)
+        try:
+            if start_raw:
+                start = int(start_raw)
+                end = int(end_raw) if end_raw else size - 1
+            else:
+                suffix = int(end_raw)
+                if suffix <= 0:
+                    raise ValueError
+                start = max(0, size - suffix)
+                end = size - 1
+        except ValueError as exc:
+            raise RequestValidationError("The byte range is invalid", code="invalid_range") from exc
+        if start < 0 or start >= size or end < start:
+            raise RequestValidationError("The byte range is unsatisfiable", code="invalid_range")
+        return start, min(end, size - 1)
+
+    def _serve_artifact(self, artifact_id: str, *, send_body: bool) -> None:
+        try:
+            artifact = self.server.service.artifact(artifact_id)
+        except SecurityError:
+            artifact = None
+        if artifact is None or not artifact["available"]:
+            self._error(404, "not_found", "The artifact was not found.", send_body=send_body)
+            return
+        try:
+            path = workspace_path(
+                self.server.service.workspace, artifact["rel_path"], must_exist=True
+            )
+            if not path.is_file() or path.is_symlink():
+                raise OSError
+            raw_size = path.stat().st_size
+        except (OSError, SecurityError):
+            self._error(404, "not_found", "The artifact file is unavailable.", send_body=send_body)
+            return
+        textual = _textual_artifact(artifact, path)
+        if not textual and not _safe_inline_artifact(artifact, path) and not _studio_audit_download(artifact, path):
+            self._error(
+                415,
+                "artifact_format_requires_local_review",
+                "This artifact format is not exposed by the browser endpoint.",
+                send_body=send_body,
+            )
+            return
+        payload: bytes | None = None
+        if textual:
+            if raw_size > MAX_REDACTED_TEXT_BYTES:
+                self._error(
+                    413,
+                    "artifact_too_large_for_safe_preview",
+                    "The text artifact is too large for a redacted browser preview.",
+                    send_body=send_body,
+                )
+                return
+            try:
+                original = path.read_text(encoding="utf-8-sig", errors="replace")
+                payload = redact_artifact_text(original, suffix=path.suffix).encode("utf-8")
+            except UnsafeTextArtifactError:
+                self._error(
+                    415,
+                    "artifact_format_requires_local_review",
+                    "This structured text format is not exposed because safe redaction is unavailable.",
+                    send_body=send_body,
+                )
+                return
+            except OSError:
+                self._error(404, "not_found", "The artifact file is unavailable.", send_body=send_body)
+                return
+        size = len(payload) if payload is not None else raw_size
+        try:
+            byte_range = self._range(self.headers.get("Range"), size)
+        except RequestValidationError:
+            self.send_response(416)
+            self.send_header("Content-Range", f"bytes */{size}")
+            self.send_header("Content-Length", "0")
+            self._common_headers()
+            self.end_headers()
+            return
+        start, end = byte_range if byte_range is not None else (0, size - 1)
+        length = max(0, end - start + 1)
+        self.send_response(206 if byte_range is not None else 200)
+        content_type = artifact["media_type"]
+        if textual and "charset=" not in content_type.casefold():
+            content_type = f"{content_type}; charset=utf-8"
+        self.send_header("Content-Type", content_type)
+        self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Content-Length", str(length))
+        quoted_name = urllib.parse.quote(path.name, safe="")
+        inline = _safe_inline_artifact(artifact, path) and not textual
+        disposition = "inline" if inline else "attachment"
+        self.send_header("Content-Disposition", f"{disposition}; filename*=UTF-8''{quoted_name}")
+        self.send_header("Cross-Origin-Resource-Policy", "same-origin")
+        if textual:
+            self.send_header("X-Studio-Content-Redacted", "true")
+        if not inline:
+            self.send_header(
+                "Content-Security-Policy",
+                "sandbox; default-src 'none'; base-uri 'none'; form-action 'none'",
+            )
+        if byte_range is not None:
+            self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+        self._common_headers()
+        self.end_headers()
+        if not send_body or length == 0:
+            return
+        try:
+            if payload is not None:
+                self.wfile.write(payload[start : end + 1])
+            else:
+                with path.open("rb") as handle:
+                    handle.seek(start)
+                    remaining = length
+                    while remaining:
+                        chunk = handle.read(min(1024 * 1024, remaining))
+                        if not chunk:
+                            break
+                        self.wfile.write(chunk)
+                        remaining -= len(chunk)
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            return
+
+    def _serve_static(self, request_path: str, *, send_body: bool) -> None:
+        static_root = self.server.static_dir
+        if static_root is None or not static_root.is_dir():
+            self._error(404, "not_found", "The Studio frontend is not installed.", send_body=send_body)
+            return
+        relative = request_path.lstrip("/") or "index.html"
+        candidate = workspace_path(
+            self.server.service.workspace, static_root / relative
+        )
+        try:
+            candidate.relative_to(static_root)
+        except ValueError as exc:
+            raise SecurityError("static path is outside static directory") from exc
+        if not candidate.is_file() and "." not in Path(relative).name:
+            candidate = static_root / "index.html"
+        if not candidate.is_file() or candidate.is_symlink():
+            self._error(404, "not_found", "The frontend resource was not found.", send_body=send_body)
+            return
+        content = candidate.read_bytes()
+        self.send_response(200)
+        self.send_header(
+            "Content-Type",
+            mimetypes.guess_type(candidate.name)[0] or "application/octet-stream",
+        )
+        self.send_header("Content-Length", str(len(content)))
+        if candidate.name.casefold() == "index.html":
+            fetch_site = self.headers.get("Sec-Fetch-Site", "none").casefold()
+            if fetch_site in {"none", "same-origin", "same-site", ""}:
+                cookie = http.cookies.SimpleCookie()
+                cookie[SESSION_COOKIE] = self.server.session_token
+                cookie[SESSION_COOKIE]["path"] = "/"
+                cookie[SESSION_COOKIE]["httponly"] = True
+                cookie[SESSION_COOKIE]["samesite"] = "Strict"
+                self.send_header("Set-Cookie", cookie.output(header="").strip())
+        self._common_headers()
+        self.end_headers()
+        if send_body:
+            self.wfile.write(content)
+
+
+def create_server(
+    workspace: Path,
+    *,
+    host: str = "127.0.0.1",
+    port: int = 8765,
+    static_dir: str | Path | None = None,
+    session_token: str | None = None,
+    allowed_origins: list[str] | tuple[str, ...] = (),
+    initial_refresh: bool = True,
+    database_path: Path | None = None,
+) -> StudioHTTPServer:
+    if not _loopback_host(host):
+        raise ValueError("Studio only binds to a loopback host")
+    workspace = workspace.resolve(strict=True)
+    resolved_static: Path | None = None
+    if static_dir is not None:
+        resolved_static = workspace_path(workspace, static_dir)
+    token = session_token or secrets.token_urlsafe(32)
+    if len(token) < 32:
+        raise ValueError("session token must contain at least 32 characters")
+    normalized_origins: set[str] = set()
+    for origin in allowed_origins:
+        normalized = _normalized_origin(origin)
+        if normalized is None:
+            raise ValueError("allowed origin is invalid")
+        origin_host = urllib.parse.urlsplit(normalized).hostname
+        if origin_host is None or not _loopback_host(origin_host):
+            raise ValueError("allowed origin must use a loopback host")
+        normalized_origins.add(normalized)
+    instance_lock = WorkspaceInstanceLock(workspace)
+    service: StudioService | None = None
+    try:
+        service = StudioService(workspace, database_path=database_path)
+        if initial_refresh:
+            service.indexer.refresh()
+        return StudioHTTPServer(
+            (host, port),
+            service,
+            session_token=token,
+            static_dir=resolved_static,
+            allowed_origins=normalized_origins,
+            instance_lock=instance_lock,
+        )
+    except BaseException:
+        if service is not None:
+            service.close()
+        instance_lock.close()
+        raise
+
+
+def _default_workspace() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Run the local MiniMaxH3 Studio backend")
+    parser.add_argument("--workspace", type=Path, default=_default_workspace())
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--static-dir", type=Path, default=None)
+    parser.add_argument("--allowed-origin", action="append", default=[])
+    parser.add_argument("--no-initial-refresh", action="store_true")
+    parser.add_argument("--open", action="store_true", help="Open the same-origin Studio UI")
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    arguments = build_parser().parse_args(argv)
+    token = os.environ.get("MINIMAXH3_STUDIO_SESSION_TOKEN") or None
+    try:
+        server = create_server(
+            arguments.workspace,
+            host=arguments.host,
+            port=arguments.port,
+            static_dir=arguments.static_dir,
+            session_token=token,
+            allowed_origins=arguments.allowed_origin,
+            initial_refresh=not arguments.no_initial_refresh,
+        )
+    except (OSError, ValueError, SecurityError, StudioInstanceLockError) as exc:
+        print(f"Studio server could not start: {exc}", file=sys.stderr)
+        return 2
+    url = f"http://{arguments.host}:{server.server_port}/"
+    print(f"MiniMaxH3 Studio listening on {url}")
+    print("POST protection is active; the browser receives an HttpOnly same-site session cookie.")
+    if arguments.open:
+        webbrowser.open(url)
+    try:
+        server.serve_forever(poll_interval=0.25)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.shutdown()
+        server.server_close()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

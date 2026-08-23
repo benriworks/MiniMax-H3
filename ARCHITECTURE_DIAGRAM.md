@@ -1,10 +1,10 @@
 # Architecture diagram
 
-この図は、tracked workspace、untracked local runtime、外部配布元、MiniMax APIの信頼境界と主要データフローを示します。責務と制約の詳細は[ARCHITECTURE.md](ARCHITECTURE.md)を参照してください。
+この図は、tracked workspace、untracked local runtime、Studio、外部配布元、MiniMax APIの信頼境界と主要データフローを示します。責務と制約の詳細は[ARCHITECTURE.md](ARCHITECTURE.md)を参照してください。
 
 ```mermaid
 flowchart LR
-    Operator["Operator<br/>PowerShell / ComfyUI browser"]
+    Operator["Operator<br/>PowerShell / browser"]
 
     subgraph Workspace["Tracked workspace"]
         Setup["setup-local.ps1"]
@@ -21,10 +21,17 @@ flowchart LR
         OfficialQ4TurboWorkflow["official INT8 + Q4 Turbo workflow<br/>0.4MP / 5s / Turbo 8 steps"]
         ApiWrapper["run-api.ps1"]
         ApiCli["tools/h3_api.py"]
+        ProductionLedgers["productions/&lt;id&gt;<br/>tracked ledgers / manifests"]
+        StudioSetup["setup-studio.ps1"]
+        StudioLauncher["run-studio.ps1"]
+        StudioFrontend["studio/<br/>React / Vite source"]
+        StudioBackend["tools/studio/<br/>local API / index / audit"]
+        StudioCli["tools.studio.cli<br/>secret control"]
     end
 
     subgraph LocalSecrets["Local secret / untracked boundary"]
         Env[".env<br/>MiniMax API key"]
+        StudioSecrets["outputs/studio/secrets<br/>Windows DPAPI ciphertext"]
     end
 
     subgraph LocalRuntime["Untracked local boundary"]
@@ -36,11 +43,17 @@ flowchart LR
         OfficialWorkflow["Template Library<br/>official H3 T2V"]
         Outputs["MP4 outputs / temp"]
         HardwareMetrics["Windows CIM / sensor WMI<br/>NVIDIA nvidia-smi"]
+        StudioBuild["studio/node_modules + dist"]
+        StudioUi["Studio UI<br/>127.0.0.1 only"]
+        StudioDb["outputs/studio/studio.sqlite3<br/>index + immutable run rows"]
+        StudioEvents["outputs/studio/events<br/>hash-chained JSONL mirror"]
+        AuditExports["outputs/studio/audits<br/>ZIP + SHA-256 sidecar"]
+        ProductionArtifacts["outputs/productions<br/>media / logs / QC"]
     end
 
     subgraph ExternalSources["External supply-chain boundary"]
         GitHub["GitHub<br/>pinned repository commits"]
-        PackageIndexes["PyTorch cu130 index / PyPI<br/>exact versions by default"]
+        PackageIndexes["PyTorch cu130 / PyPI / npm<br/>locked or package-managed dependencies"]
         HuggingFace["Hugging Face<br/>pinned model revisions"]
     end
 
@@ -101,15 +114,35 @@ flowchart LR
     OutputCdn -->|"GET without Authorization"| ApiCli
     ApiCli --> Outputs
 
+    Operator --> StudioSetup
+    PackageIndexes -->|"npm registry"| StudioSetup
+    StudioFrontend --> StudioSetup
+    StudioSetup --> StudioBuild
+    Operator --> StudioLauncher
+    StudioLauncher -->|"python -m tools.studio.server"| StudioBackend
+    StudioBuild -->|"normal: static dist<br/>Dev: Vite"| StudioUi
+    StudioUi -->|"GET: loopback Host<br/>POST: cookie/session + Origin"| StudioBackend
+    ProductionLedgers -->|"read / refresh index"| StudioBackend
+    ProductionArtifacts -->|"registered artifacts only"| StudioBackend
+    StudioBackend --> StudioDb
+    StudioDb -->|"append"| StudioEvents
+    StudioEvents -->|"verified restore<br/>revision / run / cost approval"| StudioDb
+    StudioEvents -->|"full-chain health / degraded warning"| StudioBackend
+    StudioBackend -->|"entry hashes + scope tails<br/>text redaction / media opt-in"| AuditExports
+    Operator --> StudioCli
+    StudioCli -->|"set / status / delete"| StudioSecrets
+    StudioSecrets -->|"configured status only"| StudioBackend
+    Env -->|"configured status only"| StudioBackend
+
     classDef tracked fill:#e8f1ff,stroke:#2457a7,color:#10223f;
     classDef local fill:#e9f8ee,stroke:#247a3c,color:#12351d;
     classDef external fill:#fff3df,stroke:#9a6300,color:#432b00;
     classDef secret fill:#ffe8ee,stroke:#9c284b,color:#481023;
 
-    class Setup,RuntimeLock,Downloader,ModelManifest,Doctor,Launcher,Metrics,LowWorkflow,TurboWorkflow,Q4TurboWorkflow,OfficialQ4Workflow,OfficialQ4TurboWorkflow,ApiWrapper,ApiCli tracked;
-    class Venv,Comfy,GgufNode,TurboNode,Models,OfficialWorkflow,Outputs,HardwareMetrics local;
+    class Setup,RuntimeLock,Downloader,ModelManifest,Doctor,Launcher,Metrics,LowWorkflow,TurboWorkflow,Q4TurboWorkflow,OfficialQ4Workflow,OfficialQ4TurboWorkflow,ApiWrapper,ApiCli,ProductionLedgers,StudioSetup,StudioLauncher,StudioFrontend,StudioBackend,StudioCli tracked;
+    class Venv,Comfy,GgufNode,TurboNode,Models,OfficialWorkflow,Outputs,HardwareMetrics,StudioBuild,StudioUi,StudioDb,StudioEvents,AuditExports,ProductionArtifacts local;
     class GitHub,PackageIndexes,HuggingFace,MiniMaxApi,OutputCdn external;
-    class Env secret;
+    class Env,StudioSecrets secret;
 ```
 
-Local経路のprompt/mediaはloopback ComfyUIへ渡ります。API経路のprompt/mediaはMiniMaxの外部境界を越えます。Bearer key付きrequestはredirectを拒否し、MP4 CDN downloadにはkeyを付けません。
+Local経路のprompt/mediaはloopback ComfyUIへ渡ります。API経路のprompt/mediaはMiniMaxの外部境界を越えます。Bearer key付きrequestはredirectを拒否し、MP4 CDN downloadにはkeyを付けません。Studio MVPはsession保護されたloopback内で台帳とartifactを索引化し、外部providerや課金APIを呼びません。
