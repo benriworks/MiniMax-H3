@@ -1,17 +1,22 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
 import mimetypes
 import os
 import queue
+import signal
+import subprocess
 import threading
+import time
 import zipfile
+from dataclasses import dataclass
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from .database import StudioDatabase
+from .database import AtomicStageCompletion, StudioDatabase
 from .security import (
     UnsafeTextArtifactError,
     canonical_json,
@@ -24,7 +29,346 @@ from .security import (
 )
 
 
-JobCallable = Callable[[str], dict[str, Any]]
+JobCallable = Callable[..., dict[str, Any] | AtomicStageCompletion]
+
+
+# Job records are part of the public Studio API.  Keep this list deliberately
+# explicit: an arbitrary exception attribute must never become a persisted
+# error code (it may contain a path, command line, or secret).
+_PUBLIC_ERROR_CODES = frozenset(
+    {
+        "approval_rejected",
+        "assembly_narration_changed",
+        "assembly_narration_not_available",
+        "assembly_video_changed",
+        "assembly_video_not_available",
+        "assembly_video_size_invalid",
+        "audit_export_failed",
+        "cache_key_mismatch",
+        "caption_timing_out_of_range",
+        "cost_approval_not_required",
+        "cost_estimate_required",
+        "execution_profile_required",
+        "input_changed",
+        "input_hash_mismatch",
+        "invalid_cache",
+        "invalid_cache_key",
+        "invalid_captions",
+        "invalid_ffprobe_result",
+        "invalid_identifier",
+        "invalid_input_path",
+        "invalid_local_assembly_request",
+        "invalid_local_narration_request",
+        "invalid_local_qc_request",
+        "invalid_range",
+        "invalid_media",
+        "invalid_output_media",
+        "invalid_provenance",
+        "invalid_tool_identity",
+        "invalid_worker_result",
+        "invalid_workspace",
+        "io_error",
+        "job_failed",
+        "job_setup_failed",
+        "local_assembly_failed",
+        "local_ffmpeg_failed",
+        "local_ffmpeg_qc_timeout",
+        "local_ffmpeg_timeout",
+        "local_ffmpeg_unavailable",
+        "local_narration_failed",
+        "local_profile_cost_not_allowed",
+        "local_profile_stage_not_allowed",
+        "local_qc_failed",
+        "local_qc_unavailable",
+        "local_worker_unavailable",
+        "metadata_too_large",
+        "narration_invalid",
+        "narration_longer_than_source",
+        "narration_synthesis_failed",
+        "process_interrupted",
+        "publish_failed",
+        "qc_assembly_changed",
+        "qc_assembly_not_available",
+        "qc_variant_not_available",
+        "request_too_large",
+        "stage_not_requested",
+        "unsupported_media_type",
+        "unsafe_input_path",
+        "unsafe_output_path",
+        "unsafe_worker_artifact",
+        "windows_sapi_unavailable",
+    }
+)
+
+_PROCESS_TERMINATION_TIMEOUT = 2.0
+_PROCESS_WAIT_TIMEOUT = 0.2
+_FINAL_SWEEP_COUNT = 3
+_FINAL_SWEEP_DELAY = 0.01
+
+
+def _public_error_code(exc: BaseException) -> str:
+    candidate = getattr(exc, "error_code", None)
+    if isinstance(candidate, str) and candidate in _PUBLIC_ERROR_CODES:
+        return candidate
+    return "job_failed"
+
+
+def _public_error_message(exc: BaseException, code: str) -> str:
+    # An unknown exception is not trusted merely because it exposes a
+    # ``public_message`` attribute.  Keep the fallback fully fixed so paths,
+    # command lines, and secrets cannot cross the job-record boundary.
+    if code == "job_failed":
+        return "The background job failed."
+    candidate = getattr(exc, "public_message", None)
+    if isinstance(candidate, str):
+        return candidate[:1000]
+    return "The background job failed."
+
+
+class JobManagerClosed(RuntimeError):
+    """Raised when a request races with Studio shutdown."""
+
+
+class JobCancelled(RuntimeError):
+    """Raised by a cooperative worker after the Studio shutdown signal."""
+
+    error_code = "process_interrupted"
+    public_message = "The Studio process stopped before the job completed."
+
+
+class JobExecutionContext(threading.Event):
+    """Cancellation token and process registry for one background job.
+
+    The class deliberately subclasses :class:`threading.Event`, so existing
+    workers can use ``is_set()``/``wait()`` directly while newer workers can
+    register subprocesses for a reliable process-tree shutdown.
+    """
+
+    def __init__(self, job_id: str):
+        super().__init__()
+        self.job_id = job_id
+        self._process_lock = threading.Lock()
+        self._processes: dict[int, object] = {}
+        self._baseline_processes: set[int] = set()
+
+    def set(self) -> None:
+        """Publish cancellation under the same lock as process admission.
+
+        A worker can create a child and call ``register_process`` at exactly
+        the same time as shutdown.  Serialising both operations means the
+        child is either visible to the shutdown sweep or is rejected and
+        killed by ``register_process`` after the lock is released.
+        """
+
+        with self._process_lock:
+            super().set()
+
+    def clear(self) -> None:
+        # Event.clear() is not used by JobManager, but keeping it lock-safe
+        # preserves the Event contract for existing callers.
+        with self._process_lock:
+            super().clear()
+
+    def raise_if_cancelled(self) -> None:
+        if self.is_set():
+            raise JobCancelled()
+
+    def register_process(self, process: object) -> None:
+        pid = getattr(process, "pid", None)
+        valid_pid = isinstance(pid, int) and not isinstance(pid, bool) and pid > 0
+        with self._process_lock:
+            cancelled = self.is_set()
+            if not cancelled and valid_pid:
+                self._processes[pid] = process
+        if cancelled:
+            # close() raced with Popen: fail closed and stop the process
+            # before exposing it to any later stage of the worker.  Do this
+            # outside the registry lock so a slow OS operation cannot reopen
+            # the shutdown/registration window.
+            if valid_pid:
+                _terminate_process_tree(pid)
+            raise JobCancelled()
+
+    def unregister_process(self, process: object) -> None:
+        pid = getattr(process, "pid", None)
+        if isinstance(pid, int):
+            with self._process_lock:
+                self._processes.pop(pid, None)
+
+    def process_pids(self) -> set[int]:
+        with self._process_lock:
+            return set(self._processes)
+
+    def set_baseline_processes(self, pids: set[int]) -> None:
+        with self._process_lock:
+            self._baseline_processes = set(pids)
+
+    def baseline_processes(self) -> set[int]:
+        with self._process_lock:
+            return set(self._baseline_processes)
+
+
+@dataclass(frozen=True)
+class _QueuedJob:
+    job_id: str
+    callback: JobCallable
+    context: JobExecutionContext
+
+
+def _child_process_ids() -> set[int]:
+    """Return this server's descendant PIDs when psutil is available.
+
+    psutil is optional: registered ``Popen`` objects still get a direct
+    ``taskkill``/process-group fallback on installations without it.
+    """
+
+    try:
+        import psutil  # type: ignore[import-not-found]
+
+        children = psutil.Process(os.getpid()).children(recursive=True)
+    except Exception:
+        return set()
+
+    result: set[int] = set()
+    try:
+        children = list(children)
+    except Exception:
+        return set()
+    for child in children:
+        try:
+            if child.is_running():
+                result.add(int(child.pid))
+        except Exception:
+            # One disappearing/inaccessible child must not hide the rest of
+            # the process tree from the shutdown sweep.
+            continue
+    return result
+
+
+def _terminate_with_psutil(pid: int, *, deadline: float | None = None) -> bool:
+    """Best-effort tree termination through psutil.
+
+    The helper intentionally catches psutil's whole exception family around
+    each operation.  Processes can disappear between enumeration, kill, and
+    wait; an exception for one target must not prevent attempts on the rest.
+    """
+
+    try:
+        import psutil  # type: ignore[import-not-found]
+    except Exception:
+        return False
+
+    try:
+        root = psutil.Process(pid)
+    except Exception:
+        return False
+
+    try:
+        children = list(root.children(recursive=True))
+    except Exception:
+        children = []
+
+    targets = list(reversed(children)) + [root]
+    for process in targets:
+        try:
+            process.kill()
+        except Exception:
+            # NoSuchProcess, AccessDenied, ZombieProcess, and platform-specific
+            # psutil errors are all non-fatal to the remaining targets.
+            continue
+
+    wait_timeout = _PROCESS_WAIT_TIMEOUT
+    if deadline is not None:
+        wait_timeout = min(wait_timeout, max(0.0, deadline - time.monotonic()))
+    try:
+        _gone, alive = psutil.wait_procs(targets, timeout=wait_timeout)
+    except Exception:
+        alive = targets
+    for process in alive or []:
+        try:
+            process.kill()
+        except Exception:
+            continue
+    return True
+
+
+def _force_kill_pid(pid: int) -> None:
+    try:
+        os.kill(pid, signal.SIGKILL)
+    except Exception:
+        # The process may have exited, or the platform may reject a direct
+        # kill after taskkill/psutil already handled it.
+        pass
+
+
+def _terminate_process_tree(pid: int, *, deadline: float | None = None) -> None:
+    """Stop one subprocess and all descendants, bounded but not join-only."""
+
+    if not isinstance(pid, int) or pid <= 0 or pid == os.getpid():
+        return
+    if os.name == "nt":
+        try:
+            command_timeout = _PROCESS_TERMINATION_TIMEOUT
+            if deadline is not None:
+                command_timeout = min(
+                    command_timeout, max(0.0, deadline - time.monotonic())
+                )
+                if command_timeout <= 0:
+                    _force_kill_pid(pid)
+                    return
+            result = subprocess.run(
+                ["taskkill", "/PID", str(pid), "/T", "/F"],
+                shell=False,
+                check=False,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=command_timeout,
+            )
+            # A taskkill invocation can start successfully while reporting a
+            # non-zero target/result status.  Only a zero exit status is a
+            # successful tree termination; otherwise continue to fallback.
+            if getattr(result, "returncode", None) == 0:
+                return
+        except (OSError, subprocess.SubprocessError):
+            pass
+    else:
+        try:
+            os.killpg(os.getpgid(pid), signal.SIGTERM)
+        except (OSError, ProcessLookupError):
+            pass
+
+    # ``taskkill`` is the strongest Windows tree operation.  This fallback
+    # also covers non-zero taskkill results, test doubles, and Unix process
+    # groups without psutil.  Keep the direct kill after psutil so an
+    # inaccessible/disappearing psutil child cannot stop the remaining root
+    # attempt.
+    _terminate_with_psutil(pid, deadline=deadline)
+    _force_kill_pid(pid)
+
+
+def _terminate_context_processes(
+    context: JobExecutionContext, *, deadline: float | None = None
+) -> None:
+    try:
+        baseline = context.baseline_processes()
+    except Exception:
+        baseline = set()
+    try:
+        pids = context.process_pids()
+    except Exception:
+        pids = set()
+    try:
+        descendants = _child_process_ids()
+    except Exception:
+        descendants = set()
+    for pid in sorted((pids | descendants) - baseline):
+        try:
+            _terminate_process_tree(pid, deadline=deadline)
+        except Exception:
+            # A broken process adapter or psutil implementation must not
+            # prevent later registered/descendant processes from being tried.
+            continue
 
 
 def _sha256_bytes(value: bytes) -> str:
@@ -42,9 +386,13 @@ def _sha256_file(path: Path) -> str:
 class JobManager:
     def __init__(self, database: StudioDatabase):
         self.database = database
-        self._queue: queue.Queue[tuple[str, JobCallable] | None] = queue.Queue()
+        self._queue: queue.Queue[_QueuedJob | None] = queue.Queue()
         self._finished: dict[str, threading.Event] = {}
+        self._active: dict[str, JobExecutionContext] = {}
         self._lock = threading.Lock()
+        self._closed = False
+        self._shutdown_enqueued = False
+        self._shutdown_interrupt_started = False
         self._thread = threading.Thread(target=self._worker, name="studio-job-worker", daemon=True)
         self._thread.start()
 
@@ -57,31 +405,68 @@ class JobManager:
         production_id: str | None = None,
         before_enqueue: Callable[[dict[str, Any]], None] | None = None,
     ) -> dict[str, Any]:
-        job = self.database.create_job(kind, payload, production_id=production_id)
         with self._lock:
+            if self._closed:
+                raise JobManagerClosed("Studio background jobs are closed.")
+            # Keep creation, stage-attempt linking, and queue insertion under
+            # one admission lock. close() cannot interrupt between a durable
+            # queued row and its in-memory queue item.
+            job = self.database.create_job(kind, payload, production_id=production_id)
+            context = JobExecutionContext(job["id"])
             self._finished[job["id"]] = threading.Event()
-        try:
-            if before_enqueue is not None:
-                before_enqueue(job)
-        except Exception:
-            # Persist setup failure and never expose an unlinked queued worker.
-            # The caller remains responsible for failing its stage attempt.
+            self._active[job["id"]] = context
             try:
-                self.database.update_job(
-                    job["id"],
-                    "failed",
-                    error_code="job_setup_failed",
-                    error_message="The background job could not be prepared.",
-                )
+                if before_enqueue is not None:
+                    before_enqueue(job)
+                self._queue.put(_QueuedJob(job["id"], callback, context))
             except Exception:
-                pass
-            with self._lock:
+                # Persist setup failure and never expose an unlinked queued
+                # worker. The caller remains responsible for failing its
+                # stage attempt.
+                try:
+                    self.database.update_job(
+                        job["id"],
+                        "failed",
+                        error_code="job_setup_failed",
+                        error_message="The background job could not be prepared.",
+                    )
+                except Exception:
+                    pass
+                self._active.pop(job["id"], None)
                 event = self._finished.get(job["id"])
                 if event:
                     event.set()
-            raise
-        self._queue.put((job["id"], callback))
-        return job
+                raise
+            return job
+
+    @staticmethod
+    def _invoke(
+        callback: JobCallable, job_id: str, context: JobExecutionContext
+    ) -> dict[str, Any] | AtomicStageCompletion:
+        """Call old one-argument workers and new cooperative workers safely."""
+
+        try:
+            signature = inspect.signature(callback)
+        except (TypeError, ValueError):
+            return callback(job_id)
+        parameters = list(signature.parameters.values())
+        if any(parameter.kind == inspect.Parameter.VAR_POSITIONAL for parameter in parameters):
+            return callback(job_id, context)
+        positional = [
+            parameter
+            for parameter in parameters
+            if parameter.kind
+            in {inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD}
+        ]
+        if len(positional) >= 2:
+            return callback(job_id, context)
+        for parameter in parameters:
+            if parameter.kind == inspect.Parameter.KEYWORD_ONLY and parameter.name in {
+                "cancel_event",
+                "context",
+            }:
+                return callback(job_id, **{parameter.name: context})
+        return callback(job_id)
 
     def _worker(self) -> None:
         while True:
@@ -89,27 +474,64 @@ class JobManager:
             if item is None:
                 self._queue.task_done()
                 return
-            job_id, callback = item
+            job_id, callback, context = item.job_id, item.callback, item.context
             try:
+                context.raise_if_cancelled()
+                job = self.database.get_job(job_id)
+                if job is None or job.get("status") != "queued":
+                    # shutdown() has already moved this queued row to the
+                    # terminal interrupted state. Never run it afterwards.
+                    continue
                 self.database.update_job(job_id, "running")
-                result = callback(job_id)
-                self.database.update_job(job_id, "succeeded", result=result)
-            except Exception as exc:  # The worker boundary must keep later jobs alive.
-                code = getattr(exc, "error_code", "job_failed")
-                # Do not persist repr/traceback/request values; only a bounded,
-                # redacted public description from explicitly safe exceptions.
-                public_message = getattr(exc, "public_message", "The background job failed.")
-                try:
-                    self.database.update_job(
+                context.raise_if_cancelled()
+                context.set_baseline_processes(_child_process_ids())
+                # Shutdown may have started while the descendant baseline was
+                # collected.  Re-check immediately before invoking a queued
+                # callback so it cannot begin after cancellation is published.
+                context.raise_if_cancelled()
+                result = self._invoke(callback, job_id, context)
+                context.raise_if_cancelled()
+                if isinstance(result, AtomicStageCompletion):
+                    # Worker-backed stages have two durable terminal records.
+                    # Commit both rows and both audit events in one SQLite
+                    # transaction so shutdown can win or lose the race, but
+                    # can never leave stage/job truth split across outcomes.
+                    self.database.complete_job_with_stage_attempt(
                         job_id,
-                        "failed",
-                        error_code=str(code)[:128],
-                        error_message=str(public_message)[:1000],
+                        result.stage_attempt_id,
+                        result.public_result,
                     )
+                else:
+                    current = self.database.get_job(job_id)
+                    if current is not None and current.get("status") == "running":
+                        self.database.update_job(job_id, "succeeded", result=result)
+            except JobCancelled:
+                try:
+                    self.database.interrupt_job(job_id)
+                except Exception:
+                    pass
+            except Exception as exc:  # The worker boundary must keep later jobs alive.
+                try:
+                    if context.is_set():
+                        self.database.interrupt_job(job_id)
+                    else:
+                        # Do not persist repr/traceback/request values; only a
+                        # bounded, redacted public description from explicitly
+                        # safe exceptions.
+                        error_code = _public_error_code(exc)
+                        self.database.update_job(
+                            job_id,
+                            "failed",
+                            error_code=error_code,
+                            error_message=_public_error_message(exc, error_code),
+                        )
                 except Exception:
                     pass
             finally:
+                if context.is_set():
+                    _terminate_context_processes(context)
                 with self._lock:
+                    self._active.pop(job_id, None)
                     event = self._finished.get(job_id)
                     if event:
                         event.set()
@@ -123,8 +545,82 @@ class JobManager:
         return self.database.get_job(job_id)
 
     def shutdown(self, timeout: float = 5.0) -> None:
-        self._queue.put(None)
-        self._thread.join(timeout)
+        """Cancel active work, terminate child trees, then drain the worker.
+
+        ``join(timeout)`` alone leaves FFmpeg/SAPI descendants alive. The
+        cancellation token is published before the DB transition, active
+        process trees are repeatedly terminated while the worker winds down,
+        and queued work is skipped after it has been durably interrupted.
+        """
+
+        with self._lock:
+            if not self._closed:
+                self._closed = True
+                contexts = list(self._active.values())
+                for context in contexts:
+                    context.set()
+            else:
+                contexts = list(self._active.values())
+            enqueue_sentinel = not self._shutdown_enqueued
+            self._shutdown_enqueued = True
+            interrupt_active_work = not self._shutdown_interrupt_started
+            self._shutdown_interrupt_started = True
+
+        wait_seconds = max(0.0, float(timeout))
+        deadline = time.monotonic() + wait_seconds
+        # Start a process sweep before touching SQLite.  A busy DB must never
+        # postpone the first kill attempt.  The interrupt runs in parallel so
+        # repeated sweeps can continue while SQLite waits on another writer.
+        for context in contexts:
+            initial_deadline = deadline
+            if wait_seconds <= 0:
+                # timeout=0 still gets one short, bounded kill attempt.
+                initial_deadline = time.monotonic() + _PROCESS_WAIT_TIMEOUT
+            _terminate_context_processes(context, deadline=initial_deadline)
+
+        interrupt_thread: threading.Thread | None = None
+        if interrupt_active_work:
+            interrupt_thread = threading.Thread(
+                target=self._interrupt_active_work_best_effort,
+                name="studio-job-shutdown-db",
+                daemon=True,
+            )
+            interrupt_thread.start()
+        if enqueue_sentinel:
+            self._queue.put(None)
+
+        while self._thread.is_alive():
+            for context in contexts:
+                _terminate_context_processes(context, deadline=deadline)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            self._thread.join(min(0.1, remaining))
+        # A callback that ignores cancellation cannot be killed as a Python
+        # thread, but its registered/descendant subprocesses must still be
+        # gone before close returns.
+        final_deadline = max(deadline, time.monotonic()) + _PROCESS_WAIT_TIMEOUT
+        for context in contexts:
+            for sweep in range(_FINAL_SWEEP_COUNT):
+                _terminate_context_processes(context, deadline=final_deadline)
+                if sweep + 1 < _FINAL_SWEEP_COUNT:
+                    time.sleep(_FINAL_SWEEP_DELAY)
+        # Do not let a database busy timeout extend shutdown indefinitely.  A
+        # normal, fast interrupt gets a short chance to finish; a blocked
+        # daemon thread is intentionally left for its own SQLite timeout.
+        if interrupt_thread is not None and interrupt_thread.is_alive():
+            interrupt_thread.join(timeout=min(0.1, max(0.0, deadline - time.monotonic())))
+
+    def _interrupt_active_work_best_effort(self) -> None:
+        """Persist the shutdown interruption without blocking process kills."""
+
+        try:
+            self.database.interrupt_active_work()
+        except Exception:
+            # The worker still receives cancellation and attempts a best-effort
+            # terminal update below; never leave a process tree running merely
+            # because the audit mirror/database is temporarily unavailable.
+            pass
 
 
 class AuditExportError(RuntimeError):

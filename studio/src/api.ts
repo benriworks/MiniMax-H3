@@ -6,6 +6,10 @@ import type {
   HealthStatus,
   Job,
   JobResult,
+  LocalAssemblyRequest,
+  LocalQcRequest,
+  LocalQcVariant,
+  LocalQcVerdict,
   LocalNarrationRequest,
   ProductionDetail,
   ProductionRun,
@@ -13,6 +17,7 @@ import type {
   ProviderStatus,
   RerunChanges,
   RerunPlan,
+  QcCheck,
   RunStage,
   StageAttempt,
   StudioEvent,
@@ -81,6 +86,262 @@ export const normalizeNarrationInput = (script: string, rate: number): Normalize
   return { segments, errors };
 };
 
+export interface NormalizedAssemblyInput {
+  request: LocalAssemblyRequest;
+  errors: string[];
+}
+
+export const normalizeLocalAssemblyInput = (
+  videoArtifactId: string,
+  narrationAttemptId: string,
+  includeCaptioned: boolean,
+): NormalizedAssemblyInput => {
+  const request: LocalAssemblyRequest = {
+    videoArtifactId: videoArtifactId.trim(),
+    narrationAttemptId: narrationAttemptId.trim(),
+    includeCaptioned: Boolean(includeCaptioned),
+  };
+  const errors: string[] = [];
+  if (!request.videoArtifactId) errors.push('動画artifactを選択してください。');
+  if (!request.narrationAttemptId) errors.push('成功済みナレーション試行を選択してください。');
+  return { request, errors };
+};
+
+export const LOCAL_QC_VARIANTS = ['clean', 'captioned'] as const;
+
+export interface LocalQcPayload {
+  assembly_attempt_id: string;
+  variant: LocalQcVariant;
+}
+
+export interface NormalizedLocalQcInput {
+  request: LocalQcRequest;
+  payload: LocalQcPayload;
+  errors: string[];
+}
+
+export const isLocalQcVariant = (value: unknown): value is LocalQcVariant =>
+  value === 'clean' || value === 'captioned';
+
+const localQcVariant = (value: unknown): LocalQcVariant | undefined => {
+  if (typeof value !== 'string') return undefined;
+  const normalized = value.trim().toLowerCase();
+  return isLocalQcVariant(normalized) ? normalized : undefined;
+};
+
+/** Build the wire body and intentionally drop every field except the API contract. */
+export const buildLocalQcPayload = (value: unknown): LocalQcPayload => {
+  const record = asRecord(value);
+  const assemblyAttemptId = text(
+    pick(record, ['assemblyAttemptId', 'assembly_attempt_id']),
+    '',
+  ).trim();
+  const variant = localQcVariant(pick(record, ['variant']));
+  if (!assemblyAttemptId) throw new TypeError('assembly_attempt_id is required');
+  if (!variant) throw new TypeError("variant must be 'clean' or 'captioned'");
+  return { assembly_attempt_id: assemblyAttemptId, variant };
+};
+
+export const toLocalQcPayload = buildLocalQcPayload;
+
+export const normalizeLocalQcInput = (
+  assemblyAttemptId: unknown,
+  variant: unknown,
+): NormalizedLocalQcInput => {
+  const normalizedAttemptId = typeof assemblyAttemptId === 'string' ? assemblyAttemptId.trim() : '';
+  const normalizedVariant = localQcVariant(variant) ?? 'clean';
+  const errors: string[] = [];
+  if (!normalizedAttemptId) errors.push('品質検査対象のassembly試行を選択してください。');
+  if (!isLocalQcVariant(variant)) errors.push('variantはcleanまたはcaptionedを指定してください。');
+  const request: LocalQcRequest = {
+    assemblyAttemptId: normalizedAttemptId,
+    variant: normalizedVariant,
+  };
+  return {
+    request,
+    payload: { assembly_attempt_id: normalizedAttemptId, variant: normalizedVariant },
+    errors,
+  };
+};
+
+export const normalizeStudioStageName = (value: unknown): string =>
+  text(value, '').toLowerCase().trim().replaceAll('-', '_').replaceAll(' ', '_');
+
+const rawAttemptArtifacts = (value: unknown): unknown[] => {
+  const record = asRecord(value);
+  const result = asRecord(pick(record, ['result', 'output']));
+  const direct = items(pick(record, ['artifacts', 'outputs']), ['items', 'artifacts', 'outputs']);
+  return direct.length > 0
+    ? direct
+    : items(pick(result, ['artifacts', 'outputs']), ['items', 'artifacts', 'outputs']);
+};
+
+const rawRunRequestedStages = (value: unknown): string[] => {
+  const record = asRecord(value);
+  return items(
+    pick(record, ['requestedStages', 'requested_stages']),
+    ['items', 'requestedStages', 'requested_stages', 'stages'],
+  ).map((stage) => text(stage, '')).filter(Boolean);
+};
+
+export const hasRequestedLocalQcStages = (value: unknown): boolean => {
+  const stages = rawRunRequestedStages(value).map(normalizeStudioStageName);
+  return stages.includes('assembly') && stages.includes('qc');
+};
+
+const isSucceededStatus = (value: unknown): boolean =>
+  ['succeeded', 'success', 'completed', 'complete', 'done'].includes(text(value, '').toLowerCase());
+
+export const isSucceededLocalFfmpegAssemblyAttempt = (value: unknown): boolean => {
+  const record = asRecord(value);
+  const result = asRecord(pick(record, ['result', 'output']));
+  const stage = normalizeStudioStageName(pick(record, ['stage', 'stage_name', 'name', 'type']));
+  const provider = text(pick(record, ['provider']) ?? pick(result, ['provider']), '').toLowerCase();
+  const status = pick(record, ['status', 'state']) ?? pick(result, ['status', 'state']);
+  return stage === 'assembly' && provider === 'local_ffmpeg' && isSucceededStatus(status);
+};
+
+export const getLocalQcAssemblyAttempts = (value: unknown): StageAttempt[] => {
+  const record = asRecord(value);
+  const values = items(
+    pick(record, ['stageAttempts', 'stage_attempts', 'attempts']),
+    ['items', 'stageAttempts', 'stage_attempts', 'attempts'],
+  );
+  return values
+    .filter(isSucceededLocalFfmpegAssemblyAttempt)
+    .sort((left, right) => {
+      const leftDate = text(pick(asRecord(left), ['createdAt', 'created_at', 'finishedAt', 'finished_at']), '');
+      const rightDate = text(pick(asRecord(right), ['createdAt', 'created_at', 'finishedAt', 'finished_at']), '');
+      return rightDate.localeCompare(leftDate);
+    }) as StageAttempt[];
+};
+
+export const eligibleLocalQcAssemblyAttempts = getLocalQcAssemblyAttempts;
+
+const artifactVariant = (value: unknown): LocalQcVariant | undefined => {
+  const record = asRecord(value);
+  const metadata = asRecord(pick(record, ['metadata', 'meta']));
+  const name = text(pick(record, ['name', 'filename', 'path', 'rel_path', 'url']), '').toLowerCase().split('?')[0];
+  const kind = text(pick(record, ['kind', 'artifact_type', 'type']), '').toLowerCase();
+  if (kind && kind !== 'video') return undefined;
+  if (!kind && !/\.(mp4|mov|mkv|webm)$/.test(name)) return undefined;
+  const hint = [
+    text(pick(record, ['variant', 'version', 'label', 'role']), ''),
+    text(pick(metadata, ['variant', 'version', 'label', 'role']), ''),
+    name,
+  ].join(' ').toLowerCase();
+  if (/caption(?:ed|s)?|burn[ _-]?in|with[ _-]?caption/.test(hint)) return 'captioned';
+  if (/clean|master/.test(hint) || /(?:^|[\\/])master\.(?:mp4|mov|mkv|webm)$/.test(name)) return 'clean';
+  return undefined;
+};
+
+export const getLocalQcAvailableVariants = (value: unknown): LocalQcVariant[] => {
+  const variants = new Set<LocalQcVariant>();
+  rawAttemptArtifacts(value).forEach((artifact) => {
+    const variant = artifactVariant(artifact);
+    if (variant) variants.add(variant);
+  });
+  return LOCAL_QC_VARIANTS.filter((variant) => variants.has(variant));
+};
+
+export const availableLocalQcVariants = getLocalQcAvailableVariants;
+
+export const getLocalQcVariantAvailability = (value: unknown): Record<LocalQcVariant, boolean> => {
+  const variants = new Set(getLocalQcAvailableVariants(value));
+  return { clean: variants.has('clean'), captioned: variants.has('captioned') };
+};
+
+export const isEligibleLocalQcRun = (value: unknown): boolean => {
+  const record = asRecord(value);
+  return text(pick(record, ['executionProfile', 'execution_profile', 'profile']), '').toLowerCase() === 'local_sapi'
+    && hasRequestedLocalQcStages(record)
+    && getLocalQcAssemblyAttempts(record).some((attempt) => getLocalQcAvailableVariants(attempt).length > 0);
+};
+
+export const eligibleLocalQcRuns = (values: unknown): ProductionRun[] =>
+  (Array.isArray(values) ? values : []).filter(isEligibleLocalQcRun) as ProductionRun[];
+
+export type LocalQcResultPhase =
+  | 'pending'
+  | 'running'
+  | 'job_succeeded_analysis_complete_pass'
+  | 'job_succeeded_analysis_complete_fail'
+  | 'job_succeeded_analysis_incomplete'
+  | 'analysis_failed'
+  | 'job_failed'
+  | 'job_cancelled'
+  | 'unknown';
+
+export interface LocalQcResultStatus {
+  phase: LocalQcResultPhase;
+  jobStatus: string;
+  jobSucceeded: boolean;
+  analysisStatus?: string;
+  analysisComplete: boolean;
+  technicalVerdict?: LocalQcVerdict;
+  technicalPassed: boolean;
+  technicalFailed: boolean;
+}
+
+export const getLocalQcResultStatus = (value: unknown): LocalQcResultStatus => {
+  const root = asRecord(value);
+  const result = asRecord(pick(root, ['result', 'job_result', 'output']));
+  const source = Object.keys(result).length > 0 ? result : root;
+  const jobStatus = text(pick(root, ['status', 'state']), '').toLowerCase();
+  const jobSucceeded = ['succeeded', 'success', 'completed', 'complete', 'done'].includes(jobStatus);
+  const analysisStatus = text(pick(source, ['analysisStatus', 'analysis_status']), '').toLowerCase() || undefined;
+  const verdictValue = text(pick(source, ['technicalVerdict', 'technical_verdict']), '').toLowerCase();
+  const technicalVerdict = verdictValue === 'pass' || verdictValue === 'fail' ? verdictValue : undefined;
+  const analysisComplete = jobSucceeded && analysisStatus === 'succeeded';
+  let phase: LocalQcResultPhase = 'unknown';
+  if (['queued', 'pending', 'created'].includes(jobStatus)) phase = 'pending';
+  else if (['running', 'processing'].includes(jobStatus)) phase = 'running';
+  else if (['failed', 'error', 'errored'].includes(jobStatus)) phase = 'job_failed';
+  else if (['cancelled', 'canceled', 'interrupted', 'aborted', 'stopped'].includes(jobStatus)) phase = 'job_cancelled';
+  else if (jobSucceeded && analysisStatus === 'failed') phase = 'analysis_failed';
+  else if (jobSucceeded && analysisComplete && technicalVerdict === 'pass') phase = 'job_succeeded_analysis_complete_pass';
+  else if (jobSucceeded && analysisComplete && technicalVerdict === 'fail') phase = 'job_succeeded_analysis_complete_fail';
+  else if (jobSucceeded) phase = 'job_succeeded_analysis_incomplete';
+  return {
+    phase,
+    jobStatus,
+    jobSucceeded,
+    analysisStatus,
+    analysisComplete,
+    technicalVerdict,
+    technicalPassed: technicalVerdict === 'pass',
+    technicalFailed: technicalVerdict === 'fail',
+  };
+};
+
+export const localQcResultStatus = getLocalQcResultStatus;
+
+export const isLocalQcJobForSelection = (
+  value: unknown,
+  selection: { runId?: string; assemblyAttemptId: string; variant: LocalQcVariant },
+): boolean => {
+  const record = asRecord(value);
+  const result = asRecord(pick(record, ['result', 'job_result', 'output']));
+  const payload = asRecord(pick(record, ['payload', 'request', 'meta']));
+  const runId = text(pick(record, ['run_id', 'runId']) ?? pick(payload, ['run_id', 'runId']), '');
+  const stage = normalizeStudioStageName(pick(record, ['stage', 'step', 'type', 'kind']));
+  const jobType = text(pick(record, ['type', 'kind']), '');
+  const assemblyAttemptId = text(
+    pick(record, ['assembly_attempt_id', 'assemblyAttemptId'])
+      ?? pick(result, ['assembly_attempt_id', 'assemblyAttemptId'])
+      ?? pick(payload, ['assembly_attempt_id', 'assemblyAttemptId']),
+    '',
+  );
+  const variant = localQcVariant(pick(record, ['variant']) ?? pick(result, ['variant']) ?? pick(payload, ['variant']));
+  return Boolean(
+    selection.assemblyAttemptId
+      && assemblyAttemptId === selection.assemblyAttemptId
+      && variant === selection.variant
+      && (!selection.runId || runId === selection.runId)
+      && (stage === 'qc' || jobType === 'local_qc'),
+  );
+};
+
 const list = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
 
 const stringList = (value: unknown): string[] => list(value).map((item) => text(item)).filter(Boolean);
@@ -105,6 +366,44 @@ const normalizeError = (record: UnknownRecord, fallback = ''): NormalizedError =
   const message = text(pick(record, ['message', 'detail']), text(pick(nested, ['message', 'detail']), rawErrorMessage || fallback)) || undefined;
   const code = text(pick(record, ['error_code', 'errorCode']), text(pick(nested, ['code']), '')) || undefined;
   return { message, code };
+};
+
+const normalizeQcVerdict = (value: unknown): LocalQcVerdict | undefined => {
+  const normalized = text(value, '').toLowerCase();
+  return normalized === 'pass' || normalized === 'fail' ? normalized : undefined;
+};
+
+const normalizeQcChecks = (value: unknown): QcCheck[] => {
+  const values = items(value, ['items', 'checks']);
+  if (values.length > 0) {
+    return values.map((item) => {
+      if (typeof item === 'string' || typeof item === 'number') return { name: String(item) };
+      return asRecord(item) as QcCheck;
+    });
+  }
+  const record = asRecord(value);
+  return Object.entries(record).map(([name, item]) => {
+    if (item && typeof item === 'object' && !Array.isArray(item)) {
+      const check = asRecord(item) as QcCheck;
+      return { name: check.name === undefined ? name : String(check.name), ...check };
+    }
+    return { name, status: typeof item === 'boolean' ? (item ? 'pass' : 'fail') : text(item, '') || undefined };
+  });
+};
+
+const normalizeQcFields = (record: UnknownRecord, result: UnknownRecord, payload: UnknownRecord = {}): Pick<StageAttempt, 'durationMs' | 'analysisStatus' | 'technicalVerdict' | 'assemblyAttemptId' | 'variant' | 'checks' | 'mediaFacts'> => {
+  const field = (keys: string[]): unknown => pick(record, keys) ?? pick(result, keys) ?? pick(payload, keys);
+  const checkValue = field(['checks', 'qc_checks']);
+  const factsValue = field(['media_facts', 'mediaFacts', 'facts']);
+  return {
+    durationMs: number(field(['duration_ms', 'elapsed_ms'])),
+    analysisStatus: text(field(['analysis_status', 'analysisStatus']), '').toLowerCase() || undefined,
+    technicalVerdict: normalizeQcVerdict(field(['technical_verdict', 'technicalVerdict'])),
+    assemblyAttemptId: text(field(['assembly_attempt_id', 'assemblyAttemptId']), '') || undefined,
+    variant: localQcVariant(field(['variant'])),
+    checks: normalizeQcChecks(checkValue),
+    mediaFacts: asRecord(factsValue),
+  };
 };
 
 const inferArtifactKind = (record: UnknownRecord): ArtifactKind => {
@@ -202,6 +501,7 @@ const normalizeStageAttempt = (value: unknown, index: number): StageAttempt => {
   const record = asRecord(value);
   const stage = text(pick(record, ['stage', 'stage_name', 'name', 'type']), 'narration');
   const result = asRecord(pick(record, ['result', 'output']));
+  const payload = asRecord(pick(record, ['payload', 'request', 'meta']));
   const error = normalizeError(record, normalizeError(result).message ?? '');
   const artifactValues = items(pick(record, ['artifacts', 'outputs']), ['items', 'artifacts', 'outputs']);
   const resultArtifactValues = items(pick(result, ['artifacts', 'outputs']), ['items', 'artifacts', 'outputs']);
@@ -216,6 +516,7 @@ const normalizeStageAttempt = (value: unknown, index: number): StageAttempt => {
     startedAt: text(pick(record, ['started_at', 'startedAt']), '') || undefined,
     finishedAt: text(pick(record, ['finished_at', 'finishedAt', 'completed_at']), '') || undefined,
     durationSeconds: durationSeconds(record) ?? durationSeconds(result),
+    ...normalizeQcFields(record, result, payload),
     cacheHit: pick(record, ['cache_hit', 'cacheHit', 'cached']) === undefined
       ? (pick(result, ['cache_hit', 'cacheHit', 'cached']) === undefined ? undefined : boolean(pick(result, ['cache_hit', 'cacheHit', 'cached'])))
       : boolean(pick(record, ['cache_hit', 'cacheHit', 'cached'])),
@@ -239,6 +540,7 @@ const normalizeJobResult = (value: unknown): JobResult | undefined => {
     artifacts: items(pick(record, ['artifacts', 'outputs']), ['items', 'artifacts', 'outputs']).map(normalizeArtifact),
     cacheHit: pick(record, ['cache_hit', 'cacheHit', 'cached']) === undefined ? undefined : boolean(pick(record, ['cache_hit', 'cacheHit', 'cached'])),
     durationSeconds: durationSeconds(record),
+    ...normalizeQcFields(record, {}),
     provider: text(pick(record, ['provider']), '') || undefined,
     providerTaskId: text(pick(record, ['provider_task_id', 'providerTaskId']), '') || undefined,
     actualCost: number(pick(record, ['actual_cost', 'actualCost'])),
@@ -255,8 +557,16 @@ export const normalizeJob = (value: unknown, index = 0): Job => {
   const record = Object.keys(nested).length > 0 ? nested : root;
   const payload = asRecord(pick(record, ['payload', 'request', 'meta']));
   const field = (keys: string[]): unknown => pick(record, keys) ?? pick(payload, keys);
-  const result = normalizeJobResult(pick(record, ['result', 'job_result', 'output'])) ?? normalizeJobResult(pick(root, ['result', 'job_result', 'output']));
+  const resultValue = pick(record, ['result', 'job_result', 'output']) ?? pick(root, ['result', 'job_result', 'output']);
+  const result = normalizeJobResult(resultValue);
   const error = normalizeError(record, result?.message ?? '');
+  const assemblyAttemptId = text(
+    field(['assembly_attempt_id', 'assemblyAttemptId'])
+      ?? pick(asRecord(resultValue), ['assembly_attempt_id', 'assemblyAttemptId']),
+    '',
+  ) || undefined;
+  const variantValue = field(['variant']) ?? pick(asRecord(resultValue), ['variant']);
+  const variant = localQcVariant(variantValue);
   return {
     id: text(field(['id', 'job_id']), `job-${index}`),
     productionId: text(field(['production_id', 'productionId']), '') || undefined,
@@ -269,6 +579,8 @@ export const normalizeJob = (value: unknown, index = 0): Job => {
     startedAt: text(field(['started_at', 'startedAt']), '') || undefined,
     updatedAt: text(field(['updated_at', 'updatedAt', 'finished_at', 'finishedAt', 'completed_at']), '') || undefined,
     attempt: number(field(['attempt', 'attempt_number', 'try'])) ?? result?.attempt,
+    assemblyAttemptId,
+    variant,
     cacheHit: field(['cache_hit', 'cacheHit', 'cached']) === undefined ? result?.cacheHit : boolean(field(['cache_hit', 'cacheHit', 'cached'])),
     durationSeconds: durationSeconds(record) ?? durationSeconds(payload) ?? result?.durationSeconds,
     result,
@@ -521,6 +833,23 @@ export const api = {
 
   async executeLocalNarration(runId: string, body: LocalNarrationRequest): Promise<Job> {
     const value = await post<unknown>(`/api/runs/${encodeURIComponent(runId)}/execute-local-narration`, body);
+    return normalizeJob(value);
+  },
+
+  async executeLocalAssembly(runId: string, body: LocalAssemblyRequest): Promise<Job> {
+    const value = await post<unknown>(`/api/runs/${encodeURIComponent(runId)}/execute-local-assembly`, {
+      video_artifact_id: body.videoArtifactId,
+      narration_attempt_id: body.narrationAttemptId,
+      include_captioned: body.includeCaptioned,
+    });
+    return normalizeJob(value);
+  },
+
+  async executeLocalQc(runId: string, body: LocalQcRequest): Promise<Job> {
+    const value = await post<unknown>(
+      `/api/runs/${encodeURIComponent(runId)}/execute-local-qc`,
+      buildLocalQcPayload(body),
+    );
     return normalizeJob(value);
   },
 

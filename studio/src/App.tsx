@@ -1,11 +1,28 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { api, LOCAL_NARRATION_LIMITS, StudioApiError, normalizeNarrationInput } from './api';
+import {
+  api,
+  LOCAL_NARRATION_LIMITS,
+  StudioApiError,
+  getLocalQcAvailableVariants,
+  getLocalQcAssemblyAttempts,
+  getLocalQcResultStatus,
+  hasRequestedLocalQcStages,
+  isEligibleLocalQcRun,
+  isLocalQcJobForSelection,
+  isSucceededLocalFfmpegAssemblyAttempt,
+  normalizeLocalAssemblyInput,
+  normalizeLocalQcInput,
+  normalizeNarrationInput,
+} from './api';
 import type {
   Approval,
   Artifact,
   CostEntry,
   HealthStatus,
   Job,
+  LocalAssemblyRequest,
+  LocalQcRequest,
+  LocalQcVariant,
   LocalNarrationRequest,
   ProductionDetail,
   ProductionRun,
@@ -18,7 +35,7 @@ import type {
   StudioStatus,
 } from './types';
 
-type DetailTab = 'overview' | 'narration' | 'artifacts' | 'compare' | 'logs' | 'audit';
+type DetailTab = 'overview' | 'narration' | 'assembly' | 'qc' | 'artifacts' | 'compare' | 'logs' | 'audit';
 
 const STATUS_LABEL: Record<StudioStatus, string> = {
   pending: '待機',
@@ -144,7 +161,48 @@ const hasNarrationStage = (run: ProductionRun): boolean =>
   run.requestedStages.some((stage) => ['narration', 'script', 'copy', 'voice', 'pronunciation'].includes(normalizeRequestedStage(stage)))
   || run.stages.some((stage) => ['narration', 'script', 'copy', 'voice', 'pronunciation'].includes(normalizeRequestedStage(stage.name)));
 
+const hasAssemblyStage = (run: ProductionRun): boolean =>
+  run.requestedStages.some((stage) => normalizeRequestedStage(stage) === 'assembly')
+  || run.stages.some((stage) => normalizeRequestedStage(stage.name) === 'assembly');
+
 const hasLocalSapiProfile = (run?: ProductionRun): boolean => run?.executionProfile === 'local_sapi';
+
+const localAssemblyError = (error: unknown): string => {
+  if (error instanceof StudioApiError && error.unsupported) {
+    return 'このStudio backendはローカル編集・合成に対応していません。backendを更新してから再試行してください。';
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  const normalized = message.toLowerCase();
+  if (normalized.includes('profile') && normalized.includes('local')) {
+    return 'このRunはlocal_sapi実行用ではありません。ローカル音声プロファイルでRunを作成してください。';
+  }
+  return `ローカル編集・合成に失敗しました：${message}`;
+};
+
+const localQcError = (error: unknown): string => {
+  if (error instanceof StudioApiError && error.unsupported) {
+    return 'このStudio backendはローカル技術QCに対応していません。backendを更新してから再試行してください。';
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  const normalized = message.toLowerCase();
+  if (normalized.includes('profile') && normalized.includes('local')) {
+    return 'このRunはlocal_sapi実行用ではありません。assembly＋qcを含むlocal_sapi Runを選択してください。';
+  }
+  if (normalized.includes('caption')) {
+    return '選択したassembly attemptにcaptioned masterがありません。実在するmasterだけを選択してください。';
+  }
+  return `ローカル技術QCに失敗しました：${message}`;
+};
+
+const displayQcValue = (value: unknown): string => {
+  if (value === undefined || value === null || value === '') return '—';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return '（表示できない値）';
+  }
+};
 
 const EmptyState = ({ title, description }: { title: string; description?: string }) => (
   <div className="empty-state">
@@ -404,6 +462,8 @@ function ProductionWorkspace({ detail, jobs, onReload }: { detail: ProductionDet
   const tabs: { id: DetailTab; label: string; count?: number }[] = [
     { id: 'overview', label: '概要' },
     { id: 'narration', label: 'ナレーション' },
+    { id: 'assembly', label: '編集・合成' },
+    { id: 'qc', label: '品質検査' },
     { id: 'artifacts', label: '成果物', count: detail.artifacts.length },
     { id: 'compare', label: 'A/B比較' },
     { id: 'logs', label: 'ログ', count: detail.events.length },
@@ -450,6 +510,8 @@ function ProductionWorkspace({ detail, jobs, onReload }: { detail: ProductionDet
       <div className="tab-content" id="production-tabpanel" role="tabpanel" aria-labelledby={`production-tab-${tab}`}>
         {tab === 'overview' && <Overview detail={detail} latestRun={latestRun} onReload={onReload} />}
         {tab === 'narration' && <NarrationPanel detail={detail} jobs={jobs} onReload={onReload} />}
+        {tab === 'assembly' && <AssemblyPanel detail={detail} jobs={jobs} onReload={onReload} />}
+        {tab === 'qc' && <QcPanel detail={detail} jobs={jobs} onReload={onReload} />}
         {tab === 'artifacts' && <ArtifactsPanel artifacts={detail.artifacts} />}
         {tab === 'compare' && <ComparisonPanel artifacts={detail.artifacts} />}
         {tab === 'logs' && <LogPanel events={detail.events} />}
@@ -539,6 +601,436 @@ const RERUN_STAGES = [
   ['assembly', '編集・合成'],
   ['qc', '品質検査'],
 ] as const;
+
+const LOCAL_SAPI_STAGES = new Set(['narration', 'captions', 'assembly', 'qc']);
+
+const artifactFileName = (artifact: Artifact): string =>
+  (artifact.name || artifact.path || '').split(/[\\/]/).pop()?.toLowerCase() ?? '';
+
+const hasArtifactFile = (attempt: StageAttempt, fileName: string): boolean =>
+  attempt.artifacts.some((artifact) => artifactFileName(artifact) === fileName);
+
+const isSucceededNarrationAttempt = (attempt: StageAttempt): boolean =>
+  normalizeRequestedStage(attempt.stage) === 'narration'
+  && attempt.status === 'succeeded'
+  && hasArtifactFile(attempt, 'narration.wav')
+  && hasArtifactFile(attempt, 'captions.srt');
+
+function AssemblyPanel({ detail, jobs, onReload }: { detail: ProductionDetail; jobs: Job[]; onReload: () => Promise<void> }) {
+  const eligibleRuns = useMemo(
+    () => [...detail.runs]
+      .filter((run) => hasNarrationStage(run) && hasAssemblyStage(run) && hasLocalSapiProfile(run))
+      .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')),
+    [detail.runs],
+  );
+  const [selectedRunId, setSelectedRunId] = useState(eligibleRuns[0]?.id ?? '');
+  const [videoArtifactId, setVideoArtifactId] = useState('');
+  const [narrationAttemptId, setNarrationAttemptId] = useState('');
+  const [includeCaptioned, setIncludeCaptioned] = useState(true);
+  const [job, setJob] = useState<Job>();
+  const [busy, setBusy] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+  const [message, setMessage] = useState<{ type: 'error' | 'success' | 'info'; text: string }>();
+  const reloadedTerminalJob = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (!eligibleRuns.some((run) => run.id === selectedRunId)) {
+      setSelectedRunId(eligibleRuns[0]?.id ?? '');
+      setVideoArtifactId('');
+      setNarrationAttemptId('');
+      setJob(undefined);
+    }
+  }, [eligibleRuns, selectedRunId]);
+
+  const selectedRun = eligibleRuns.find((run) => run.id === selectedRunId);
+  const videoArtifacts = useMemo(
+    () => detail.artifacts.filter((artifact) => artifact.kind === 'video'),
+    [detail.artifacts],
+  );
+  const narrationAttempts = useMemo(
+    () => (selectedRun?.stageAttempts ?? []).filter(isSucceededNarrationAttempt),
+    [selectedRun],
+  );
+
+  useEffect(() => {
+    if (!videoArtifacts.some((artifact) => artifact.id === videoArtifactId)) {
+      setVideoArtifactId(videoArtifacts[0]?.id ?? '');
+    }
+  }, [videoArtifactId, videoArtifacts]);
+
+  useEffect(() => {
+    if (!narrationAttempts.some((attempt) => attempt.id === narrationAttemptId)) {
+      setNarrationAttemptId(narrationAttempts[narrationAttempts.length - 1]?.id ?? '');
+    }
+  }, [narrationAttemptId, narrationAttempts]);
+
+  const currentAttempt = [...(selectedRun?.stageAttempts ?? [])]
+    .filter((attempt) => normalizeRequestedStage(attempt.stage) === 'assembly')
+    .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))[0];
+  const visibleJob = job ?? jobs.find((item) =>
+    item.id === currentAttempt?.jobId
+    || (item.runId === selectedRun?.id && (item.stage === 'assembly' || item.type === 'local_assembly')),
+  );
+  const isTerminal = visibleJob?.status === 'succeeded' || visibleJob?.status === 'failed' || visibleJob?.status === 'cancelled';
+  const selectedNarrationAttempt = narrationAttempts.find((attempt) => attempt.id === narrationAttemptId);
+  const normalizedInput = useMemo(
+    () => normalizeLocalAssemblyInput(videoArtifactId, narrationAttemptId, includeCaptioned),
+    [includeCaptioned, narrationAttemptId, videoArtifactId],
+  );
+  const validationErrors = [
+    ...normalizedInput.errors,
+    ...(selectedRun && !hasLocalSapiProfile(selectedRun) ? ['このRunはlocal_sapiではありません。'] : []),
+  ];
+
+  useEffect(() => {
+    if (!job || isTerminal) {
+      if (isTerminal && !submitting) setBusy(false);
+      return;
+    }
+    const timer = window.setInterval(() => {
+      void api.jobs().then((nextJobs) => {
+        const next = nextJobs.find((item) => item.id === job.id);
+        if (next) setJob(next);
+      }).catch(() => undefined);
+    }, 2_000);
+    return () => window.clearInterval(timer);
+  }, [isTerminal, job, submitting]);
+
+  useEffect(() => {
+    if (!visibleJob || !isTerminal || reloadedTerminalJob.current === visibleJob.id) return;
+    reloadedTerminalJob.current = visibleJob.id;
+    void onReload().catch(() => undefined);
+  }, [isTerminal, onReload, visibleJob]);
+
+  const execute = async () => {
+    if (submittingRef.current) return;
+    if (!selectedRun) {
+      setMessage({ type: 'error', text: 'assembly工程を含むlocal_sapi Runを選択してください。' });
+      return;
+    }
+    if (validationErrors.length > 0) {
+      setMessage({ type: 'error', text: validationErrors[0] });
+      return;
+    }
+    submittingRef.current = true;
+    setSubmitting(true);
+    setBusy(true);
+    setJob(undefined);
+    setMessage({ type: 'info', text: '編集・合成workerをキューに登録しています。成功とはまだ判定していません。' });
+    try {
+      const request: LocalAssemblyRequest = normalizedInput.request;
+      const submitted = await api.executeLocalAssembly(selectedRun.id, request);
+      setJob(submitted);
+      setMessage({ type: submitted.status === 'failed' ? 'error' : 'success', text: submitted.status === 'failed' ? localAssemblyError(submitted.message ?? 'workerが失敗しました') : '編集・合成workerをキューに登録しました。' });
+      try {
+        await onReload();
+      } catch {
+        setMessage({ type: 'info', text: 'workerは登録済みです。制作詳細の再読込だけ失敗したため、job監視を継続します。' });
+      }
+      if (submitted.status === 'succeeded' || submitted.status === 'failed' || submitted.status === 'cancelled') setBusy(false);
+    } catch (error) {
+      setBusy(false);
+      setMessage({ type: 'error', text: localAssemblyError(error) });
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
+  };
+
+  if (eligibleRuns.length === 0) {
+    return <section className="panel assembly-panel"><div className="panel-header"><div><span className="section-kicker">LOCAL ASSEMBLY</span><h3>ローカル編集・合成worker</h3></div></div><EmptyState title="narration＋assembly工程を含むlocal_sapi Runがありません" description="概要の再調整で narration を選択し、local_sapi プロファイルのRunを作成してください。依存工程としてassemblyも計画されます。" /></section>;
+  }
+
+  const resultArtifacts = visibleJob?.result?.artifacts ?? currentAttempt?.artifacts ?? [];
+  return (
+    <div className="assembly-grid">
+      <div>
+        <section className="panel assembly-panel">
+          <div className="panel-header"><div><span className="section-kicker">LOCAL ASSEMBLY</span><h3>ローカル編集・合成worker</h3></div><span className="tag">費用 0円</span></div>
+          <p className="panel-lead">登録済みの動画artifactと、成功済みの音声・字幕をこのPC上で合成します。外部APIへの送信・課金はありません。</p>
+          <label className="field"><span>対象Run（narration＋assemblyを要求したlocal_sapiのみ）</span><select value={selectedRunId} disabled={busy || submitting} onChange={(event) => { setSelectedRunId(event.target.value); setVideoArtifactId(''); setNarrationAttemptId(''); setJob(undefined); setMessage(undefined); }} aria-label="編集・合成対象Run">
+            {eligibleRuns.map((run) => <option key={run.id} value={run.id}>{run.label} · {run.id} · local_sapi</option>)}
+          </select></label>
+          <div className="assembly-run-summary"><span>Run ID</span><strong className="mono">{selectedRun?.id}</strong><span>実行profile</span><strong>{selectedRun?.executionProfile}</strong></div>
+          <label className="field"><span>動画artifact</span><select value={videoArtifactId} disabled={busy || submitting || videoArtifacts.length === 0} onChange={(event) => setVideoArtifactId(event.target.value)} aria-describedby="assembly-video-help" aria-label="合成する動画artifact">
+            <option value="">動画artifactを選択</option>
+            {videoArtifacts.map((artifact) => <option key={artifact.id} value={artifact.id}>{artifact.name} · {formatBytes(artifact.sizeBytes)}{artifact.runId ? ` · ${artifact.runId}` : ''}</option>)}
+          </select><small id="assembly-video-help" className="field-help">同じ制作に登録されたvideo kindのみ表示しています。</small></label>
+          {videoArtifacts.length === 0 && <div className="notice notice-warning"><div><strong>動画artifactがありません</strong><p>先に生成映像を登録し、インデックスを更新してください。</p></div></div>}
+          <label className="field"><span>ナレーション試行（成功済み・音声＋字幕あり）</span><select value={narrationAttemptId} disabled={busy || submitting || narrationAttempts.length === 0} onChange={(event) => setNarrationAttemptId(event.target.value)} aria-describedby="assembly-narration-help" aria-label="合成に使うナレーション試行">
+            <option value="">成功済み試行を選択</option>
+            {narrationAttempts.map((attempt) => <option key={attempt.id} value={attempt.id}>#{attempt.attempt ?? '—'} · {attempt.id} · {attempt.artifacts.length} artifacts</option>)}
+          </select><small id="assembly-narration-help" className="field-help">narration.wav と captions.srt の両方を含む成功済みstage attemptのみ表示しています。</small></label>
+          {narrationAttempts.length === 0 && <div className="notice notice-warning"><div><strong>利用できるナレーション試行がありません</strong><p>ローカルナレーションを先に成功させ、音声とcaptions.srtを生成してください。</p></div></div>}
+          {selectedNarrationAttempt && <div className="assembly-source-summary"><span>音声・字幕</span><strong>{selectedNarrationAttempt.artifacts.map((artifact) => artifact.name).join('、')}</strong></div>}
+          <label className="assembly-check"><input type="checkbox" checked={includeCaptioned} disabled={busy || submitting} onChange={(event) => setIncludeCaptioned(event.target.checked)} /><span><strong>字幕付き版も生成</strong><small>オンの場合、通常版に加えてcaptions.srtを焼き込んだcaptioned版を生成します。</small></span></label>
+          <div className="assembly-confirm" role="note"><strong>実行前確認</strong><span>Run <b className="mono">{selectedRun?.id}</b> に選択した動画・音声・字幕を合成</span><span>外部送信なし · ローカルworker · 費用0円</span></div>
+          {validationErrors.length > 0 && <div className="validation-list" role="status">{validationErrors.map((error) => <div key={error}>・{error}</div>)}</div>}
+          <button className="button button-primary full-button" type="button" onClick={() => void execute()} disabled={submitting || busy || validationErrors.length > 0}>{submitting ? '登録中…' : busy ? 'worker監視中…' : 'ローカル編集・合成を実行'}</button>
+          {message && <div className={`inline-message is-${message.type}`} role="status">{message.text}</div>}
+        </section>
+      </div>
+      <aside>
+        <AssemblyJobStatus job={visibleJob} attempt={currentAttempt} artifacts={resultArtifacts} />
+      </aside>
+    </div>
+  );
+}
+
+function AssemblyJobStatus({ job, attempt, artifacts }: { job?: Job; attempt?: StageAttempt; artifacts: Artifact[] }) {
+  const status = job?.status ?? attempt?.status;
+  const cacheHit = job?.cacheHit ?? attempt?.cacheHit;
+  const result = job?.result;
+  const provider = result?.provider ?? attempt?.provider;
+  const providerTaskId = result?.providerTaskId ?? attempt?.providerTaskId;
+  const actualCost = result?.actualCost ?? attempt?.actualCost;
+  const timingSource = result?.timingSource ?? attempt?.timingSource;
+  const active = status === 'pending' || status === 'running';
+  return <section className="panel compact-panel narration-status-panel" aria-live="polite" aria-busy={active}><div className="panel-header"><div><span className="section-kicker">ASSEMBLY STATUS</span><h3>合成実行状況</h3></div>{status ? <StatusBadge status={status} label={jobStatusLabel(status)} /> : <span className="muted">未実行</span>}</div>{!job && !attempt && <p className="muted">実行すると、キュー投入後の状態をここで監視します。</p>}<dl className="narration-metrics"><div><dt>Job</dt><dd className="mono">{job?.id ?? attempt?.jobId ?? '—'}</dd></div><div><dt>Attempt</dt><dd>{job?.attempt ?? attempt?.attempt ?? '—'}</dd></div><div><dt>Cache hit</dt><dd>{cacheHit === undefined ? '—' : cacheHit ? 'はい' : 'いいえ'}</dd></div><div><dt>所要時間</dt><dd>{formatDuration(job?.durationSeconds ?? attempt?.durationSeconds)}</dd></div><div><dt>Provider</dt><dd>{provider ?? '—'}</dd></div><div><dt>Provider task</dt><dd className="mono">{provider ? providerTaskId ?? 'なし' : '—'}</dd></div><div><dt>実費</dt><dd>{actualCost === undefined ? '—' : `${actualCost}（local）`}</dd></div><div><dt>Timing</dt><dd>{timingSource ?? '—'}</dd></div><div><dt>更新</dt><dd>{formatDate(job?.updatedAt ?? attempt?.finishedAt ?? attempt?.startedAt)}</dd></div></dl>{job?.message && <p className={job.status === 'failed' ? 'narration-error-text' : 'muted'}>{job.message}</p>}<div className="narration-artifact-list"><strong>生成artifact</strong>{artifacts.length === 0 ? <span className="muted">まだありません</span> : artifacts.map((artifact) => <a key={artifact.id} href={artifact.url} target="_blank" rel="noreferrer">{artifact.name} ↗</a>)}</div><p className="gate-separation-note">これはworkerの実行履歴です。費用承認・技術/表現/公開ゲートとは別の記録です。</p></section>;
+}
+
+const qcVariantLabel = (variant: LocalQcVariant): string => variant === 'captioned' ? 'captioned（字幕焼き込み）' : 'clean（字幕なし）';
+
+const qcVariantArtifactNames = (attempt: StageAttempt | undefined, variant: LocalQcVariant): string[] => {
+  const videoArtifacts = attempt?.artifacts.filter((artifact) => artifact.kind === 'video') ?? [];
+  const names = videoArtifacts
+    .filter((artifact) => {
+      const name = artifact.name.toLowerCase();
+      if (variant === 'captioned') return /caption/.test(name);
+      return /clean|master(?![-_]?caption)/.test(name);
+    })
+    .map((artifact) => artifact.name);
+  if (names.length > 0) return names;
+  return variant === 'clean' && videoArtifacts.length === 1 ? [videoArtifacts[0].name] : [];
+};
+
+function QcPanel({ detail, jobs, onReload }: { detail: ProductionDetail; jobs: Job[]; onReload: () => Promise<void> }) {
+  const eligibleRuns = useMemo(
+    () => [...detail.runs]
+      .filter(isEligibleLocalQcRun)
+      .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')),
+    [detail.runs],
+  );
+  const [selectedRunId, setSelectedRunId] = useState(eligibleRuns[0]?.id ?? '');
+  const [selectedAttemptId, setSelectedAttemptId] = useState('');
+  const [variant, setVariant] = useState<LocalQcVariant>('clean');
+  const [job, setJob] = useState<Job>();
+  const [busy, setBusy] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+  const [message, setMessage] = useState<{ type: 'error' | 'success' | 'info'; text: string }>();
+  const reloadedTerminalJob = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (!eligibleRuns.some((run) => run.id === selectedRunId)) {
+      setSelectedRunId(eligibleRuns[0]?.id ?? '');
+      setSelectedAttemptId('');
+      setVariant('clean');
+      setJob(undefined);
+      setMessage(undefined);
+    }
+  }, [eligibleRuns, selectedRunId]);
+
+  const selectedRun = eligibleRuns.find((run) => run.id === selectedRunId);
+  const assemblyAttempts = useMemo(
+    () => selectedRun ? getLocalQcAssemblyAttempts(selectedRun) : [],
+    [selectedRun],
+  );
+
+  useEffect(() => {
+    if (!assemblyAttempts.some((attempt) => attempt.id === selectedAttemptId)) {
+      setSelectedAttemptId(assemblyAttempts[0]?.id ?? '');
+      setVariant('clean');
+      setJob(undefined);
+    }
+  }, [assemblyAttempts, selectedAttemptId]);
+
+  const selectedAttempt = assemblyAttempts.find((attempt) => attempt.id === selectedAttemptId);
+  const availableVariants = useMemo(
+    () => selectedAttempt ? getLocalQcAvailableVariants(selectedAttempt) : [],
+    [selectedAttempt],
+  );
+
+  useEffect(() => {
+    if (!availableVariants.includes(variant)) setVariant(availableVariants[0] ?? 'clean');
+  }, [availableVariants, variant]);
+
+  const qcAttempts = useMemo(
+    () => [...(selectedRun?.stageAttempts ?? [])]
+      .filter((attempt) => normalizeRequestedStage(attempt.stage) === 'qc')
+      .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')),
+    [selectedRun],
+  );
+  const currentQcAttempt = qcAttempts.find((attempt) =>
+    attempt.assemblyAttemptId === selectedAttemptId && attempt.variant === variant,
+  );
+  const matchesQcSelection = (item: Job): boolean => isLocalQcJobForSelection(item, {
+    runId: selectedRun?.id,
+    assemblyAttemptId: selectedAttemptId,
+    variant,
+  });
+  const visibleJob = job && matchesQcSelection(job)
+    ? job
+    : jobs.find((item) => item.id === currentQcAttempt?.jobId || matchesQcSelection(item));
+  const isTerminal = visibleJob?.status === 'succeeded' || visibleJob?.status === 'failed' || visibleJob?.status === 'cancelled';
+  const normalizedInput = useMemo(
+    () => normalizeLocalQcInput(selectedAttemptId, variant),
+    [selectedAttemptId, variant],
+  );
+  const validationErrors = [
+    ...normalizedInput.errors,
+    ...(selectedRun && selectedRun.executionProfile !== 'local_sapi' ? ['このRunはlocal_sapiではありません。'] : []),
+    ...(selectedRun && !hasRequestedLocalQcStages(selectedRun) ? ['このRunはassembly＋qcを要求していません。'] : []),
+    ...(selectedAttemptId && !selectedAttempt ? ['選択したassembly試行を確認できません。再読込してください。'] : []),
+    ...(selectedAttempt && !isSucceededLocalFfmpegAssemblyAttempt(selectedAttempt) ? ['成功済みlocal_ffmpeg assembly attemptだけを検査できます。'] : []),
+    ...(selectedAttempt && !availableVariants.includes(variant) ? [`${qcVariantLabel(variant)}のmaster artifactがありません。実在するvariantを選択してください。`] : []),
+  ];
+
+  useEffect(() => {
+    if (!job || isTerminal) {
+      if (isTerminal && !submitting) setBusy(false);
+      return;
+    }
+    const timer = window.setInterval(() => {
+      void api.jobs().then((nextJobs) => {
+        const next = nextJobs.find((item) => item.id === job.id);
+        if (next) setJob(next);
+      }).catch(() => undefined);
+    }, 2_000);
+    return () => window.clearInterval(timer);
+  }, [isTerminal, job, submitting]);
+
+  useEffect(() => {
+    if (!visibleJob || !isTerminal || reloadedTerminalJob.current === visibleJob.id) return;
+    reloadedTerminalJob.current = visibleJob.id;
+    void onReload().catch(() => undefined);
+  }, [isTerminal, onReload, visibleJob]);
+
+  const execute = async () => {
+    if (submittingRef.current) return;
+    if (!selectedRun) {
+      setMessage({ type: 'error', text: 'assembly＋qcを要求したlocal_sapi Runを選択してください。' });
+      return;
+    }
+    if (validationErrors.length > 0) {
+      setMessage({ type: 'error', text: validationErrors[0] });
+      return;
+    }
+    submittingRef.current = true;
+    setSubmitting(true);
+    setBusy(true);
+    setJob(undefined);
+    setMessage({ type: 'info', text: '技術QC jobをキューに登録しています。job成功と技術検査合格は別判定です。' });
+    try {
+      const request: LocalQcRequest = normalizedInput.request;
+      const submitted = await api.executeLocalQc(selectedRun.id, request);
+      setJob(submitted);
+      const resultStatus = getLocalQcResultStatus(submitted);
+      const text = submitted.status === 'failed'
+        ? localQcError(submitted.message ?? 'QC workerが失敗しました')
+        : resultStatus.technicalFailed
+          ? 'QC jobは完了しましたが、技術検査は不合格です。'
+          : '技術QC jobをキューに登録しました。解析結果を監視しています。';
+      setMessage({ type: submitted.status === 'failed' ? 'error' : 'success', text });
+      try {
+        await onReload();
+      } catch {
+        setMessage({ type: 'info', text: 'QC jobは登録済みです。制作詳細の再読込だけ失敗したため、job監視を継続します。' });
+      }
+      if (submitted.status === 'succeeded' || submitted.status === 'failed' || submitted.status === 'cancelled') setBusy(false);
+    } catch (error) {
+      setBusy(false);
+      setMessage({ type: 'error', text: localQcError(error) });
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
+  };
+
+  if (eligibleRuns.length === 0) {
+    const requestedRuns = detail.runs.filter(hasRequestedLocalQcStages);
+    const localRuns = requestedRuns.filter((run) => run.executionProfile === 'local_sapi');
+    const description = requestedRuns.length === 0
+      ? '品質検査には、requested stagesに assembly と qc の両方を含むRunが必要です。概要の再調整で工程を選択してください。'
+      : localRuns.length === 0
+        ? 'assembly＋qcを要求したRunがlocal_sapiではありません。local_sapiプロファイルでRunを作成してください。'
+        : '成功済みlocal_ffmpeg assembly attemptと、cleanまたはcaptionedの実在master artifactがありません。先にローカル編集・合成を成功させてください。';
+    return <section className="panel qc-panel"><div className="panel-header"><div><span className="section-kicker">LOCAL TECHNICAL QC</span><h3>ローカル技術QC</h3></div><span className="tag">費用 0円</span></div><p className="panel-lead">合成済みmasterのcodec、duration、decode、無音などをローカルで検査します。</p><div className="qc-policy-note" role="note"><strong>判定範囲の注意</strong><p>ジョブ成功は解析完了を示しますが、技術検査の合格を意味しません。technical verdictがfailなら技術検査不合格です。creative QC、権利確認、公開可否は自動判定しません。</p></div><EmptyState title="品質検査の対象masterがありません" description={description} /></section>;
+  }
+
+  const resultArtifacts = visibleJob?.result?.artifacts ?? currentQcAttempt?.artifacts ?? [];
+  return (
+    <div className="qc-grid">
+      <div>
+        <section className="panel qc-panel">
+          <div className="panel-header"><div><span className="section-kicker">LOCAL TECHNICAL QC</span><h3>ローカル技術QC</h3></div><span className="tag">費用 0円</span></div>
+          <p className="panel-lead">成功済みlocal_ffmpeg assemblyが生成した実在masterだけを選び、loopback内で技術的な再生可能性を検査します。</p>
+          <div className="qc-policy-note" role="note"><strong>判定範囲の注意</strong><p>ジョブ成功 = 解析完了です。ただしtechnical verdictは別の判定で、fail = 技術検査不合格です。creative QC、権利確認、公開可否をこの画面やjob結果から自動決定することはありません。</p></div>
+          <label className="field"><span>対象Run（assembly＋qcを要求したlocal_sapiのみ）</span><select value={selectedRunId} disabled={busy || submitting} onChange={(event) => { setSelectedRunId(event.target.value); setSelectedAttemptId(''); setVariant('clean'); setJob(undefined); setMessage(undefined); }} aria-label="品質検査対象Run">
+            {eligibleRuns.map((run) => <option key={run.id} value={run.id}>{run.label} · {run.id} · local_sapi</option>)}
+          </select></label>
+          <div className="qc-run-summary"><span>Run ID</span><strong className="mono">{selectedRun?.id}</strong><span>要求工程</span><strong>{selectedRun?.requestedStages.map(stageLabel).join('、')}</strong><span>実行profile</span><strong>{selectedRun?.executionProfile}</strong></div>
+          <label className="field"><span>検査対象assembly attempt（成功済みlocal_ffmpeg）</span><select value={selectedAttemptId} disabled={busy || submitting || assemblyAttempts.length === 0} onChange={(event) => { setSelectedAttemptId(event.target.value); setVariant('clean'); setJob(undefined); setMessage(undefined); }} aria-label="品質検査対象assembly attempt">
+            <option value="">assembly attemptを選択</option>
+            {assemblyAttempts.map((attempt) => <option key={attempt.id} value={attempt.id}>#{attempt.attempt ?? '—'} · {attempt.id} · {attempt.artifacts.filter((artifact) => artifact.kind === 'video').map((artifact) => artifact.name).join('、') || 'video artifactなし'}</option>)}
+          </select><small className="field-help">合成jobの成功ではなく、stage attemptのprovider/statusと実在artifactを検証して候補にしています。</small></label>
+          {selectedAttempt && <div className="qc-source-summary"><span>Provider</span><strong>{selectedAttempt.provider ?? '—'}</strong><span>Master</span><strong>{selectedAttempt.artifacts.filter((artifact) => artifact.kind === 'video').map((artifact) => artifact.name).join('、') || '—'}</strong><span>Attempt</span><strong className="mono">{selectedAttempt.id}</strong></div>}
+          {selectedAttempt && <label className="field"><span>master variant（実在artifactに応じて選択）</span><select value={variant} disabled={busy || submitting || availableVariants.length === 0} onChange={(event) => { const next = event.target.value; if (next === 'clean' || next === 'captioned') setVariant(next); }} aria-label="技術QCのmaster variant">
+            {availableVariants.map((item) => <option key={item} value={item}>{qcVariantLabel(item)} · {qcVariantArtifactNames(selectedAttempt, item).join('、') || 'artifactあり'}</option>)}
+          </select><small className="field-help">captioned artifactが存在しない場合、captionedは選択肢に表示しません。</small></label>}
+          {selectedAttempt && availableVariants.includes('clean') && !availableVariants.includes('captioned') && <div className="notice notice-warning"><div><strong>captioned masterはありません</strong><p>このassembly attemptにはclean masterだけが登録されています。captioned版の検査は実行できません。</p></div></div>}
+          {!selectedAttempt && <div className="notice notice-warning"><div><strong>assembly attemptを選択してください</strong><p>成功済みlocal_ffmpeg attemptに記録されたmasterだけを検査できます。</p></div></div>}
+          {selectedAttempt && availableVariants.length === 0 && <div className="notice notice-warning"><div><strong>検査可能なmasterがありません</strong><p>cleanまたはcaptionedのvideo artifactがattemptに存在しません。再読込して実在artifactを確認してください。</p></div></div>}
+          {validationErrors.length > 0 && <div className="validation-list" role="status">{validationErrors.map((error) => <div key={error}>・{error}</div>)}</div>}
+          <div className="qc-confirm" role="note"><strong>実行前確認</strong><span>Run <b className="mono">{selectedRun?.id}</b> のassembly attempt <b className="mono">{selectedAttempt?.id ?? '—'}</b></span><span>variant: <b>{qcVariantLabel(variant)}</b> · 外部送信なし · 費用0円</span></div>
+          <button className="button button-primary full-button" type="button" onClick={() => void execute()} disabled={submitting || busy || validationErrors.length > 0}>{submitting ? '登録中…' : busy ? 'QC監視中…' : 'ローカル技術QCを実行'}</button>
+          {message && <div className={`inline-message is-${message.type}`} role="status">{message.text}</div>}
+        </section>
+      </div>
+      <aside>
+        <QcJobStatus job={visibleJob} attempt={currentQcAttempt} artifacts={resultArtifacts} />
+      </aside>
+    </div>
+  );
+}
+
+function QcJobStatus({ job, attempt, artifacts }: { job?: Job; attempt?: StageAttempt; artifacts: Artifact[] }) {
+  const result = job?.result;
+  const status = job?.status ?? attempt?.status;
+  const statusSummary = getLocalQcResultStatus(job ?? attempt ?? {});
+  const analysisStatus = result?.analysisStatus ?? attempt?.analysisStatus;
+  const technicalVerdict = result?.technicalVerdict ?? attempt?.technicalVerdict;
+  const provider = result?.provider ?? attempt?.provider;
+  const actualCost = result?.actualCost ?? attempt?.actualCost;
+  const durationMs = result?.durationMs ?? attempt?.durationMs;
+  const checks = result?.checks?.length ? result.checks : attempt?.checks ?? [];
+  const mediaFacts = result?.mediaFacts && Object.keys(result.mediaFacts).length > 0 ? result.mediaFacts : attempt?.mediaFacts ?? {};
+  const active = status === 'pending' || status === 'running';
+  const jobError = statusSummary.phase === 'job_failed' || status === 'failed';
+  const callout = statusSummary.phase === 'job_succeeded_analysis_complete_fail'
+    ? <div className="qc-result-callout is-fail"><strong>技術検査：不合格</strong><span>Job成功（解析完了）とは別に、technical verdict=failとなりました。</span></div>
+    : statusSummary.phase === 'job_succeeded_analysis_complete_pass'
+      ? <div className="qc-result-callout is-pass"><strong>技術検査：合格</strong><span>Job成功により解析完了し、technical verdict=passでした。</span></div>
+      : jobError
+        ? <div className="qc-result-callout is-error"><strong>Job失敗：解析エラー</strong><span>技術検査の判定結果はありません。</span></div>
+        : statusSummary.phase === 'job_succeeded_analysis_incomplete'
+          ? <div className="qc-result-callout is-warning"><strong>Job成功だが解析結果が不完全</strong><span>analysis_statusがsucceededになるまで、合否を表示しません。</span></div>
+          : statusSummary.phase === 'analysis_failed'
+            ? <div className="qc-result-callout is-error"><strong>解析失敗</strong><span>Job状態と技術検査の判定を分けて記録しています。</span></div>
+            : undefined;
+  return <section className="panel compact-panel qc-status-panel" aria-live="polite" aria-busy={active}>
+    <div className="panel-header"><div><span className="section-kicker">QC RESULT</span><h3>技術QC結果</h3></div>{status ? <StatusBadge status={status} label={jobStatusLabel(status)} /> : <span className="muted">未実行</span>}</div>
+    {!job && !attempt && <p className="muted">実行すると、2秒間隔でjobを監視し、解析完了後に結果を表示します。</p>}
+    {callout}
+    <dl className="narration-metrics qc-metrics"><div><dt>Job</dt><dd className="mono">{job?.id ?? attempt?.jobId ?? '—'}</dd></div><div><dt>Provider</dt><dd>{provider ?? '—'}</dd></div><div><dt>実費</dt><dd>{actualCost === undefined ? '—' : `${actualCost}（local）`}</dd></div><div><dt>analysis_status</dt><dd>{analysisStatus ?? '—'}</dd></div><div><dt>technical_verdict</dt><dd>{technicalVerdict ? <span className={`qc-verdict is-${technicalVerdict}`}>{technicalVerdict === 'pass' ? 'pass（合格）' : 'fail（不合格）'}</span> : '—'}</dd></div><div><dt>duration_ms</dt><dd>{durationMs === undefined ? '—' : `${durationMs.toLocaleString()} ms`}</dd></div></dl>
+    {job?.message && <p className={jobError ? 'narration-error-text' : 'muted'}>{job.message}{job.errorCode ? ` · ${job.errorCode}` : ''}</p>}
+    <div className="qc-detail-block"><strong>checks</strong>{checks.length === 0 ? <span className="muted">まだありません</span> : <div className="qc-check-list">{checks.map((check, index) => { const name = displayQcValue(check.name ?? check.id ?? check.key ?? `check-${index + 1}`); const checkStatus = displayQcValue(check.status ?? check.verdict ?? check.result); const checkMessage = check.message ?? check.detail ?? check.reason; return <div className="qc-check-row" key={`${name}-${index}`}><span>{name}</span><b className={String(checkStatus).toLowerCase() === 'fail' ? 'is-fail' : String(checkStatus).toLowerCase() === 'pass' ? 'is-pass' : ''}>{checkStatus}</b>{checkMessage !== undefined && <small>{displayQcValue(checkMessage)}</small>}</div>; })}</div>}</div>
+    <div className="qc-detail-block"><strong>media_facts</strong>{Object.keys(mediaFacts).length === 0 ? <span className="muted">まだありません</span> : <dl className="qc-facts">{Object.entries(mediaFacts).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{displayQcValue(value)}</dd></div>)}</dl>}</div>
+    <div className="narration-artifact-list"><strong>QC artifact</strong>{artifacts.length === 0 ? <span className="muted">まだありません</span> : artifacts.map((artifact) => <a key={artifact.id} href={artifact.url} target="_blank" rel="noreferrer">{artifact.name} ↗</a>)}</div>
+    <p className="gate-separation-note">技術QCはcodec・尺・decode等の技術検査だけを記録します。creative QC、権利確認、公開可否を自動判定・承認する機能ではありません。</p>
+  </section>;
+}
 
 function NarrationPanel({ detail, jobs, onReload }: { detail: ProductionDetail; jobs: Job[]; onReload: () => Promise<void> }) {
   const eligibleRuns = useMemo(
@@ -705,7 +1197,7 @@ function RerunPanel({ productionId, onReload }: { productionId: string; onReload
   const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string }>();
 
   const toggleStage = (stage: string) => {
-    if (changes.executionProfile === 'local_sapi' && stage !== 'narration') return;
+    if (changes.executionProfile === 'local_sapi' && !LOCAL_SAPI_STAGES.has(normalizeRequestedStage(stage))) return;
     setPlan(undefined);
     setChanges((current) => ({
       ...current,
@@ -731,8 +1223,8 @@ function RerunPanel({ productionId, onReload }: { productionId: string; onReload
 
   const startRun = async () => {
     if (!plan) return;
-    if (changes.executionProfile === 'local_sapi' && !changes.stages.includes('narration')) {
-      setMessage({ type: 'error', text: 'local_sapiはナレーション工程を含むRunにのみ指定できます。' });
+    if (changes.executionProfile === 'local_sapi' && !changes.stages.some((stage) => LOCAL_SAPI_STAGES.has(normalizeRequestedStage(stage)))) {
+      setMessage({ type: 'error', text: 'local_sapiはナレーション、字幕、編集・合成、品質検査のいずれかを含むRunに指定してください。' });
       return;
     }
     if (plan.requiresCostEstimate && changes.executionProfile !== 'local_sapi' && (!changes.allowPaidApi || !changes.maxCostJpy || changes.maxCostJpy <= 0)) {
@@ -755,19 +1247,19 @@ function RerunPanel({ productionId, onReload }: { productionId: string; onReload
   return (
     <section className="panel rerun-panel">
       <div className="panel-header"><div><span className="section-kicker">PARTIAL RERUN</span><h3>再調整</h3></div></div>
-      <p className="panel-lead">変更箇所から再実行範囲と再利用候補を計算し、監査可能なRun計画として保存します。local_sapiのナレーションだけは、Run作成後にナレーション画面から明示実行できます。</p>
+      <p className="panel-lead">変更箇所から再実行範囲と再利用候補を計算し、監査可能なRun計画として保存します。local_sapiの音声・字幕・編集/合成は、Run作成後に各タブから明示実行できます。</p>
       <fieldset className="stage-checks">
         <legend>変更する工程</legend>
         {RERUN_STAGES.map(([id, label]) => (
           <label key={id}>
-            <input type="checkbox" checked={changes.stages.includes(id)} onChange={() => toggleStage(id)} disabled={changes.executionProfile === 'local_sapi' && id !== 'narration'} />
+            <input type="checkbox" checked={changes.stages.includes(id)} onChange={() => toggleStage(id)} disabled={changes.executionProfile === 'local_sapi' && !LOCAL_SAPI_STAGES.has(id)} />
             <span>{label}</span>
           </label>
         ))}
       </fieldset>
       <fieldset className="execution-profile-fieldset"><legend>実行プロファイル</legend>
         <label className="profile-option"><input type="radio" name={`execution-profile-${productionId}`} value="default" checked={changes.executionProfile !== 'local_sapi'} onChange={() => { setPlan(undefined); setChanges((current) => ({ ...current, executionProfile: 'default' })); }} /><span><strong>通常</strong><small>既存のRun計画・費用ルールを使用</small></span></label>
-        <label className="profile-option"><input type="radio" name={`execution-profile-${productionId}`} value="local_sapi" checked={changes.executionProfile === 'local_sapi'} onChange={() => { setPlan(undefined); setChanges((current) => ({ ...current, executionProfile: 'local_sapi', stages: ['narration'], allowPaidApi: false, maxCostJpy: undefined })); }} /><span><strong>local_sapi（ローカル音声）</strong><small>narration起点・見積0円・外部送信なし</small></span></label>
+        <label className="profile-option"><input type="radio" name={`execution-profile-${productionId}`} value="local_sapi" checked={changes.executionProfile === 'local_sapi'} onChange={() => { setPlan(undefined); setChanges((current) => ({ ...current, executionProfile: 'local_sapi', stages: ['narration'], allowPaidApi: false, maxCostJpy: undefined })); }} /><span><strong>local_sapi（ローカルworker）</strong><small>narration・字幕・編集/合成・QC、見積0円・外部送信なし</small></span></label>
       </fieldset>
       <label className="field">
         <span>変更内容・理由</span>

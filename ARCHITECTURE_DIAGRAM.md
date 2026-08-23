@@ -27,6 +27,8 @@ flowchart LR
         StudioFrontend["studio/<br/>React / Vite source"]
         StudioBackend["tools/studio/<br/>local API / index / audit"]
         NarrationWorker["tools/studio/narration.py<br/>validated SAPI worker / cache"]
+        AssemblyWorker["tools/studio/assembly.py<br/>validated FFmpeg worker / cache"]
+        QcWorker["tools/studio/qc.py<br/>validated technical QC / cache"]
         SapiHelper["sapi_synthesize.ps1<br/>UTF-8 JSON IPC"]
         StudioCli["tools.studio.cli<br/>secret control"]
     end
@@ -50,9 +52,12 @@ flowchart LR
         StudioDb["outputs/studio/studio.sqlite3<br/>schema v3 / immutable run + job-attempt link"]
         StudioEvents["outputs/studio/events<br/>hash-chained JSONL mirror"]
         NarrationOutputs["outputs/studio/runs/.../narration<br/>WAV / SRT / timing / manifest"]
+        AssemblyOutputs["outputs/studio/runs/.../assembly<br/>clean / captioned MP4 / ffprobe / manifest"]
+        QcOutputs["outputs/studio/runs/.../qc<br/>technical QC / ffprobe / manifest"]
         AuditExports["outputs/studio/audits<br/>ZIP + SHA-256 sidecar"]
         ProductionArtifacts["outputs/productions<br/>media / logs / QC"]
         WindowsSapi["Windows System.Speech<br/>installed local voices"]
+        MediaTools["FFmpeg / ffprobe<br/>resolved binary identity"]
     end
 
     subgraph ExternalSources["External supply-chain boundary"]
@@ -128,7 +133,7 @@ flowchart LR
     StudioUi -->|"GET: loopback Host<br/>POST: cookie/session + Origin"| StudioBackend
     ProductionLedgers -->|"read / refresh index"| StudioBackend
     ProductionArtifacts -->|"registered artifacts only"| StudioBackend
-    StudioBackend --> StudioDb
+    StudioBackend -->|"atomic job + stage terminal transaction"| StudioDb
     StudioDb -->|"append"| StudioEvents
     StudioEvents -->|"verified restore<br/>revision / run / cost approval<br/>stage attempt / historical job link"| StudioDb
     StudioEvents -->|"full-chain health / degraded warning"| StudioBackend
@@ -138,6 +143,19 @@ flowchart LR
     WindowsSapi -->|"segment WAV"| NarrationWorker
     NarrationWorker -->|"atomic output + SHA-256"| NarrationOutputs
     NarrationOutputs -->|"exact path / kind / MIME / hash allowlist"| StudioBackend
+    StudioBackend -->|"same production/run IDs<br/>persist job-attempt link before queue"| AssemblyWorker
+    ProductionArtifacts -->|"registered source video"| AssemblyWorker
+    NarrationOutputs -->|"verified WAV / SRT"| AssemblyWorker
+    AssemblyWorker -->|"shell=false / fixed policy"| MediaTools
+    MediaTools -->|"H.264 + AAC / ffprobe facts"| AssemblyWorker
+    AssemblyWorker -->|"atomic output + SHA-256"| AssemblyOutputs
+    AssemblyOutputs -->|"exact path / kind / MIME / hash allowlist"| StudioBackend
+    StudioBackend -->|"current-run attempt + variant only<br/>verified same-production cache chain"| QcWorker
+    AssemblyOutputs -->|"verified clean / captioned master<br/>content-addressed owner may be a prior run"| QcWorker
+    QcWorker -->|"shell=false / fixed checks"| MediaTools
+    MediaTools -->|"probe / full decode / silence facts"| QcWorker
+    QcWorker -->|"atomic JSON + SHA-256"| QcOutputs
+    QcOutputs -->|"exact path / kind / MIME / hash allowlist"| StudioBackend
     StudioBackend -->|"entry hashes + scope tails<br/>text redaction / media opt-in"| AuditExports
     Operator --> StudioCli
     StudioCli -->|"set / status / delete"| StudioSecrets
@@ -149,10 +167,10 @@ flowchart LR
     classDef external fill:#fff3df,stroke:#9a6300,color:#432b00;
     classDef secret fill:#ffe8ee,stroke:#9c284b,color:#481023;
 
-    class Setup,RuntimeLock,Downloader,ModelManifest,Doctor,Launcher,Metrics,LowWorkflow,TurboWorkflow,Q4TurboWorkflow,OfficialQ4Workflow,OfficialQ4TurboWorkflow,ApiWrapper,ApiCli,ProductionLedgers,StudioSetup,StudioLauncher,StudioFrontend,StudioBackend,NarrationWorker,SapiHelper,StudioCli tracked;
-    class Venv,Comfy,GgufNode,TurboNode,Models,OfficialWorkflow,Outputs,HardwareMetrics,StudioBuild,StudioUi,StudioDb,StudioEvents,NarrationOutputs,AuditExports,ProductionArtifacts,WindowsSapi local;
+    class Setup,RuntimeLock,Downloader,ModelManifest,Doctor,Launcher,Metrics,LowWorkflow,TurboWorkflow,Q4TurboWorkflow,OfficialQ4Workflow,OfficialQ4TurboWorkflow,ApiWrapper,ApiCli,ProductionLedgers,StudioSetup,StudioLauncher,StudioFrontend,StudioBackend,NarrationWorker,AssemblyWorker,QcWorker,SapiHelper,StudioCli tracked;
+    class Venv,Comfy,GgufNode,TurboNode,Models,OfficialWorkflow,Outputs,HardwareMetrics,StudioBuild,StudioUi,StudioDb,StudioEvents,NarrationOutputs,AssemblyOutputs,QcOutputs,AuditExports,ProductionArtifacts,WindowsSapi,MediaTools local;
     class GitHub,PackageIndexes,HuggingFace,MiniMaxApi,OutputCdn external;
     class Env,StudioSecrets secret;
 ```
 
-Local経路のprompt/mediaはloopback ComfyUIへ渡ります。API経路のprompt/mediaはMiniMaxの外部境界を越えます。Bearer key付きrequestはredirectを拒否し、MP4 CDN downloadにはkeyを付けません。Studioはsession保護されたloopback内で台帳とartifactを索引化し、明示実行された`local_sapi`だけをWindows System.Speechへ渡します。外部providerや課金APIは呼びません。
+Local経路のprompt/mediaはloopback ComfyUIへ渡ります。API経路のprompt/mediaはMiniMaxの外部境界を越えます。Bearer key付きrequestはredirectを拒否し、MP4 CDN downloadにはkeyを付けません。Studioはsession保護されたloopback内で台帳とartifactを索引化し、明示実行された`local_sapi`だけをWindows System.Speech、FFmpeg、ffprobeへ渡してナレーション、合成、technical QCを行います。正常完了はjob／stage attemptを同一transactionでsuccessにします。停止時はjob cancel contextから登録済みsubprocess treeを終了し、停止側が先に確定した場合はDB状態を`interrupted`／`failed(process_interrupted)`へ揃えます。外部providerや課金APIは呼びません。

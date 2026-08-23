@@ -2,24 +2,10 @@ import assert from 'node:assert/strict';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 import { readFile } from 'node:fs/promises';
-import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
 const studioRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const testDist = join(studioRoot, '.test-dist');
-const tscPath = join(studioRoot, 'node_modules', '.bin', process.platform === 'win32' ? 'tsc.cmd' : 'tsc');
-const compile = spawnSync(tscPath, [
-  '--ignoreConfig',
-  '--target', 'ES2022',
-  '--module', 'ESNext',
-  '--moduleResolution', 'Bundler',
-  '--skipLibCheck',
-  '--outDir', testDist,
-  'src/api.ts',
-  'src/status.ts',
-  'src/types.ts',
-], { cwd: studioRoot, encoding: 'utf8', shell: process.platform === 'win32' });
-assert.equal(compile.status, 0, `${compile.stdout ?? ''}${compile.stderr ?? ''}`);
 const statusUrl = pathToFileURL(join(testDist, 'status.js')).href;
 const apiSource = await readFile(join(testDist, 'api.js'), 'utf8');
 const apiModule = apiSource.replaceAll("from './status'", `from '${statusUrl}'`);
@@ -100,4 +86,24 @@ test('normalizeNarrationInput removes empty lines and enforces segment and text 
 
   const tooMuch = api.normalizeNarrationInput(Array.from({ length: 26 }, () => 'x'.repeat(2_000)).join('\n'), 0);
   assert.ok(tooMuch.errors.some((error) => error.includes(`${limits.maxTotalLength.toLocaleString()}文字以内`)));
+});
+
+test('normalizeLocalAssemblyInput trims source IDs and rejects missing selections', () => {
+  const valid = api.normalizeLocalAssemblyInput(' video-1 ', ' attempt-1 ', true);
+  assert.deepEqual(valid.errors, []);
+  assert.deepEqual(valid.request, {
+    videoArtifactId: 'video-1',
+    narrationAttemptId: 'attempt-1',
+    includeCaptioned: true,
+  });
+
+  const invalid = api.normalizeLocalAssemblyInput('  ', '', false);
+  assert.deepEqual(invalid.request, {
+    videoArtifactId: '',
+    narrationAttemptId: '',
+    includeCaptioned: false,
+  });
+  assert.equal(invalid.errors.length, 2);
+  assert.ok(invalid.errors[0].includes('動画artifact'));
+  assert.ok(invalid.errors[1].includes('ナレーション'));
 });

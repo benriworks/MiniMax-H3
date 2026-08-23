@@ -1,12 +1,27 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 import mimetypes
 import re
 from pathlib import Path
 from typing import Any
 
-from .database import SCHEMA_VERSION, StudioDatabase, money_to_minor, utc_now
+from .assembly_execution import (
+    LocalAssemblyError,
+    LocalAssemblyValidationError,
+    assembly_audit_payload,
+    assembly_public_result,
+    safe_assembly_error,
+    validate_local_assembly_payload,
+)
+from .database import (
+    SCHEMA_VERSION,
+    AtomicStageCompletion,
+    StudioDatabase,
+    money_to_minor,
+    utc_now,
+)
 from .execution import (
     LocalNarrationError,
     LocalNarrationValidationError,
@@ -17,7 +32,15 @@ from .execution import (
     validate_local_narration_payload,
 )
 from .indexer import ProductionIndexer
-from .jobs import AuditExporter, JobManager
+from .jobs import AuditExporter, JobCancelled, JobExecutionContext, JobManager
+from .qc_execution import (
+    LocalQcError,
+    LocalQcValidationError,
+    qc_audit_payload,
+    qc_public_result,
+    safe_qc_error,
+    validate_local_qc_payload,
+)
 from .secrets import SecretStore, dpapi_available
 from .security import (
     SecurityError,
@@ -85,11 +108,24 @@ _CURRENCY_RE = re.compile(r"^[A-Z]{3}$")
 _EXECUTION_PROFILES = {"external", "local_sapi"}
 _LOCAL_SAPI_ZERO_COST_STAGES = {"narration", "captions", "assembly", "qc"}
 _LOCAL_NARRATION_STAGE = "narration"
+_LOCAL_ASSEMBLY_STAGE = "assembly"
+_LOCAL_QC_STAGE = "qc"
 _LOCAL_ARTIFACT_KINDS = {"audio", "subtitle", "document", "log"}
 _LOCAL_NARRATION_ARTIFACTS = {
     "narration.wav": ("audio", "audio/wav"),
     "captions.srt": ("subtitle", "application/x-subrip"),
     "timings.json": ("document", "application/json"),
+    "manifest.json": ("document", "application/json"),
+}
+_LOCAL_ASSEMBLY_ARTIFACTS = {
+    "master-clean.mp4": ("video", "video/mp4"),
+    "master-captioned.mp4": ("video", "video/mp4"),
+    "ffprobe.json": ("document", "application/json"),
+    "manifest.json": ("document", "application/json"),
+}
+_LOCAL_QC_ARTIFACTS = {
+    "technical-qc.json": ("document", "application/json"),
+    "ffprobe.json": ("document", "application/json"),
     "manifest.json": ("document", "application/json"),
 }
 
@@ -100,6 +136,77 @@ def _sha256_file(path: Path) -> str:
         while chunk := handle.read(1024 * 1024):
             digest.update(chunk)
     return digest.hexdigest().upper()
+
+
+def _raise_if_cancelled(cancel_event: JobExecutionContext | None) -> None:
+    if cancel_event is None:
+        return
+    cancel_event.raise_if_cancelled()
+
+
+def _call_local_worker(
+    worker: Any,
+    *args: Any,
+    cancel_event: JobExecutionContext | None = None,
+    **kwargs: Any,
+) -> Any:
+    """Pass the cooperative token only to workers that implement it.
+
+    This keeps the service compatible with older local worker adapters while
+    allowing assembly/QC/narration implementations to register and stop their
+    own subprocess trees.
+    """
+
+    if cancel_event is not None:
+        try:
+            signature = inspect.signature(worker)
+            # Mocks and legacy adapters often expose ``**kwargs`` even though
+            # their side-effect implementation does not accept a token. Only
+            # an explicit cancellation parameter is an opt-in contract.
+            if "cancel_event" in signature.parameters:
+                kwargs["cancel_event"] = cancel_event
+        except (TypeError, ValueError):
+            pass
+    return worker(*args, **kwargs)
+
+
+def _stage_completion_result(
+    attempt_id: str,
+    result: dict[str, Any],
+    cancel_event: JobExecutionContext | None,
+) -> dict[str, Any] | AtomicStageCompletion:
+    """Return a public result or the internal atomic-completion envelope.
+
+    Existing direct helper callers continue to receive the historical public
+    mapping (including ``stage_attempt_id``).  A JobManager invocation passes
+    a cancellation context and receives the envelope instead; only the
+    manager unwraps it and asks the database to derive the public job result
+    after the atomic job/stage transition succeeds.  The stage result itself
+    never gains the internal attempt-id field.
+    """
+
+    public_result = {"stage_attempt_id": attempt_id, **result}
+    if cancel_event is None:
+        return public_result
+    return AtomicStageCompletion(attempt_id, result)
+
+
+def _has_symlink_component(workspace: Path, candidate: str | Path) -> bool:
+    """Reject lexical workspace paths that traverse a symlink component."""
+
+    root = workspace.resolve(strict=True)
+    supplied = Path(candidate)
+    lexical = supplied if supplied.is_absolute() else root / supplied
+    try:
+        relative = lexical.relative_to(root)
+    except ValueError:
+        return True
+    current = root
+    for part in relative.parts:
+        current = current / part
+        if current.is_symlink():
+            return True
+    return False
 
 
 class RequestValidationError(ValueError):
@@ -548,9 +655,12 @@ class StudioService:
         production_id: str,
         payload: dict[str, Any],
         cache_key: str,
-    ) -> dict[str, Any]:
+        cancel_event: JobExecutionContext | None = None,
+    ) -> dict[str, Any] | AtomicStageCompletion:
+        _raise_if_cancelled(cancel_event)
         self.database.update_stage_attempt(attempt_id, "running")
         try:
+            _raise_if_cancelled(cancel_event)
             cached = self._cached_local_narration_result(cache_key, production_id)
             if cached is not None:
                 result = cached
@@ -563,11 +673,13 @@ class StudioService:
                         code="local_worker_unavailable",
                     ) from exc
                 try:
-                    raw = narration.generate_local_narration(
+                    raw = _call_local_worker(
+                        narration.generate_local_narration,
                         self.workspace,
                         production_id=production_id,
                         run_id=run_id,
                         payload=payload,
+                        cancel_event=cancel_event,
                     )
                 except LocalNarrationError:
                     raise
@@ -576,6 +688,7 @@ class StudioService:
                         "The local narration worker failed.",
                         code="local_narration_failed",
                     ) from exc
+                _raise_if_cancelled(cancel_event)
                 # Validate provider, cost, timing, cache identity, and the
                 # strict cache_hit type before persisting any worker artifact.
                 # A malformed adapter result must not enter production/audit
@@ -595,9 +708,31 @@ class StudioService:
                     raw.get("artifacts") if isinstance(raw, dict) else None,
                 )
                 result["artifacts"] = artifacts
-            self.database.update_stage_attempt(attempt_id, "succeeded", result=result)
-            return {"stage_attempt_id": attempt_id, **result}
+            _raise_if_cancelled(cancel_event)
+            return _stage_completion_result(attempt_id, result, cancel_event)
+        except JobCancelled as exc:
+            try:
+                self.database.update_stage_attempt(
+                    attempt_id,
+                    "failed",
+                    error_code=exc.error_code,
+                    error_message=exc.public_message,
+                )
+            except Exception:
+                pass
+            raise
         except Exception as exc:
+            if cancel_event is not None and cancel_event.is_set():
+                try:
+                    self.database.update_stage_attempt(
+                        attempt_id,
+                        "failed",
+                        error_code=JobCancelled.error_code,
+                        error_message=JobCancelled.public_message,
+                    )
+                except Exception:
+                    pass
+                raise JobCancelled() from exc
             error_code, error_message = safe_error(exc)
             try:
                 self.database.update_stage_attempt(
@@ -652,8 +787,13 @@ class StudioService:
                     "cache_key": cache_key,
                     **audit_payload(payload),
                 },
-                lambda _job_id: self._execute_local_narration(
-                    attempt["id"], run_id, run["production_id"], payload, cache_key
+                lambda _job_id, cancel_event: self._execute_local_narration(
+                    attempt["id"],
+                    run_id,
+                    run["production_id"],
+                    payload,
+                    cache_key,
+                    cancel_event,
                 ),
                 production_id=run["production_id"],
                 before_enqueue=lambda created_job: self.database.link_stage_attempt_job(
@@ -664,6 +804,1393 @@ class StudioService:
             error_code, error_message = safe_error(exc)
             self.database.update_stage_attempt(
                 attempt["id"], "failed", error_code=error_code, error_message=error_message
+            )
+            raise
+        job["stage_attempt_id"] = attempt["id"]
+        job["cache_key"] = cache_key
+        return job
+
+    def _validated_assembly_inputs(
+        self,
+        run: dict[str, Any],
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Resolve registered media without trusting request-supplied paths."""
+
+        production_id = run["production_id"]
+        video = self.database.get_artifact(payload["video_artifact_id"])
+        if (
+            video is None
+            or video.get("production_id") != production_id
+            or not video.get("available")
+            or video.get("kind") != "video"
+            or not isinstance(video.get("rel_path"), str)
+            or not isinstance(video.get("media_type"), str)
+            or not video["media_type"].startswith("video/")
+        ):
+            raise RequestValidationError(
+                "The source video is not an available artifact for this production.",
+                code="assembly_video_not_available",
+            )
+        try:
+            video_path = workspace_path(self.workspace, video["rel_path"], must_exist=True)
+        except (SecurityError, OSError):
+            raise RequestValidationError(
+                "The source video path is not available.",
+                code="assembly_video_not_available",
+            ) from None
+        if (
+            _has_symlink_component(self.workspace, video["rel_path"])
+            or video_path.is_symlink()
+            or not video_path.is_file()
+            or sensitive_artifact_path(video["rel_path"])
+        ):
+            raise RequestValidationError(
+                "The source video path is not safe.",
+                code="assembly_video_not_available",
+            )
+        video_stat = video_path.stat()
+        if video_stat.st_size <= 0 or video_stat.st_size > 2 * 1024 * 1024 * 1024:
+            raise RequestValidationError(
+                "The source video size is outside the local assembly limit.",
+                code="assembly_video_size_invalid",
+            )
+        if video.get("bytes") != video_stat.st_size:
+            raise RequestValidationError(
+                "The source video changed after it was indexed.",
+                code="assembly_video_changed",
+            )
+        source_video_sha256 = _sha256_file(video_path)
+        recorded_video_hash = video.get("sha256")
+        if recorded_video_hash is not None and recorded_video_hash != source_video_sha256:
+            raise RequestValidationError(
+                "The source video hash no longer matches its artifact record.",
+                code="assembly_video_changed",
+            )
+
+        narration_attempt = self.database.get_stage_attempt(
+            payload["narration_attempt_id"]
+        )
+        if (
+            narration_attempt is None
+            or narration_attempt.get("run_id") != run["id"]
+            or narration_attempt.get("production_id") != production_id
+            or narration_attempt.get("stage") != _LOCAL_NARRATION_STAGE
+            or narration_attempt.get("status") != "succeeded"
+            or not isinstance(narration_attempt.get("result"), dict)
+        ):
+            raise RequestValidationError(
+                "The narration attempt is not a succeeded attempt for this run.",
+                code="assembly_narration_not_available",
+            )
+        narration_result = narration_attempt["result"]
+        raw_artifacts = narration_result.get("artifacts")
+        if not isinstance(raw_artifacts, list) or len(raw_artifacts) != len(
+            _LOCAL_NARRATION_ARTIFACTS
+        ):
+            raise RequestValidationError(
+                "The narration attempt has an incomplete artifact set.",
+                code="assembly_narration_not_available",
+            )
+        narration_root = (
+            f"outputs/studio/runs/{run['id']}/narration/"
+            f"{narration_attempt['cache_key']}/"
+        )
+        narration_artifacts: list[dict[str, Any]] = []
+        narration_paths: dict[str, Path] = {}
+        seen_names: set[str] = set()
+        for item in raw_artifacts:
+            if not isinstance(item, dict) or not isinstance(item.get("id"), str):
+                raise RequestValidationError(
+                    "The narration attempt has invalid artifact metadata.",
+                    code="assembly_narration_not_available",
+                )
+            artifact = self.database.get_artifact(item["id"])
+            if artifact is None or artifact["name"] in seen_names:
+                raise RequestValidationError(
+                    "The narration attempt artifact is unavailable.",
+                    code="assembly_narration_not_available",
+                )
+            expected = _LOCAL_NARRATION_ARTIFACTS.get(artifact["name"])
+            if (
+                expected is None
+                or artifact.get("production_id") != production_id
+                or not artifact.get("available")
+                or artifact.get("origin") != "studio"
+                or artifact.get("kind") != expected[0]
+                or artifact.get("media_type") != expected[1]
+                or artifact.get("rel_path") != f"{narration_root}{artifact['name']}"
+                or item.get("bytes") != artifact.get("bytes")
+                or item.get("sha256") != artifact.get("sha256")
+            ):
+                raise RequestValidationError(
+                    "The narration attempt artifact does not match its record.",
+                    code="assembly_narration_not_available",
+                )
+            try:
+                path = workspace_path(
+                    self.workspace, artifact["rel_path"], must_exist=True
+                )
+            except (SecurityError, OSError):
+                raise RequestValidationError(
+                    "The narration attempt artifact is unavailable.",
+                    code="assembly_narration_not_available",
+                ) from None
+            stat = path.stat()
+            if (
+                _has_symlink_component(self.workspace, artifact["rel_path"])
+                or path.is_symlink()
+                or not path.is_file()
+                or sensitive_artifact_path(artifact["rel_path"])
+                or stat.st_size != artifact.get("bytes")
+                or not isinstance(artifact.get("sha256"), str)
+                or _sha256_file(path) != artifact["sha256"]
+            ):
+                raise RequestValidationError(
+                    "The narration attempt artifact changed after generation.",
+                    code="assembly_narration_changed",
+                )
+            seen_names.add(artifact["name"])
+            narration_artifacts.append(artifact)
+            narration_paths[artifact["name"]] = path
+        if seen_names != set(_LOCAL_NARRATION_ARTIFACTS):
+            raise RequestValidationError(
+                "The narration attempt has an incomplete artifact set.",
+                code="assembly_narration_not_available",
+            )
+        try:
+            public_result(
+                narration_result,
+                expected_cache_key=narration_attempt["cache_key"],
+                artifacts=narration_artifacts,
+                cache_hit=narration_result.get("cache_hit")
+                if isinstance(narration_result.get("cache_hit"), bool)
+                else False,
+            )
+        except LocalNarrationError:
+            raise RequestValidationError(
+                "The narration attempt metadata is not valid.",
+                code="assembly_narration_not_available",
+            ) from None
+        return {
+            "video": video,
+            "video_path": video_path,
+            "source_video_sha256": source_video_sha256,
+            "narration_attempt": narration_attempt,
+            "narration_wav": narration_paths["narration.wav"],
+            "narration_wav_sha256": next(
+                item["sha256"]
+                for item in narration_artifacts
+                if item["name"] == "narration.wav"
+            ),
+            "captions_srt": narration_paths["captions.srt"],
+            "captions_sha256": next(
+                item["sha256"]
+                for item in narration_artifacts
+                if item["name"] == "captions.srt"
+            ),
+        }
+
+    def _register_local_assembly_artifacts(
+        self,
+        production_id: str,
+        run_id: str,
+        cache_key: str,
+        include_captioned: bool,
+        raw_artifacts: Any,
+    ) -> list[dict[str, Any]]:
+        expected_artifacts = dict(_LOCAL_ASSEMBLY_ARTIFACTS)
+        if not include_captioned:
+            expected_artifacts.pop("master-captioned.mp4")
+        if not isinstance(raw_artifacts, list) or len(raw_artifacts) != len(
+            expected_artifacts
+        ):
+            raise LocalAssemblyError(
+                "The local assembly worker returned an incomplete artifact set.",
+                code="invalid_worker_result",
+            )
+        expected_root = f"outputs/studio/runs/{run_id}/assembly/{cache_key}/"
+        validated: list[dict[str, Any]] = []
+        seen_names: set[str] = set()
+        for item in raw_artifacts:
+            if not isinstance(item, dict) or not isinstance(item.get("rel_path"), str):
+                raise LocalAssemblyError(
+                    "The local assembly worker returned an invalid artifact.",
+                    code="invalid_worker_result",
+                )
+            try:
+                path = workspace_path(self.workspace, item["rel_path"], must_exist=True)
+                relative = relative_workspace_path(self.workspace, path)
+            except (SecurityError, OSError):
+                raise LocalAssemblyError(
+                    "The local assembly worker returned an unsafe artifact path.",
+                    code="unsafe_worker_artifact",
+                ) from None
+            expected = expected_artifacts.get(path.name)
+            if (
+                expected is None
+                or path.name in seen_names
+                or relative != f"{expected_root}{path.name}"
+                or _has_symlink_component(self.workspace, item["rel_path"])
+                or path.is_symlink()
+                or not path.is_file()
+                or sensitive_artifact_path(relative)
+                or item.get("kind") != expected[0]
+                or item.get("media_type", item.get("mime")) != expected[1]
+            ):
+                raise LocalAssemblyError(
+                    "The local assembly worker returned an unexpected artifact.",
+                    code="invalid_worker_result",
+                )
+            stat = path.stat()
+            digest = _sha256_file(path)
+            if item.get("bytes") != stat.st_size or item.get("sha256") != digest:
+                raise LocalAssemblyError(
+                    "The local assembly worker returned mismatched artifact metadata.",
+                    code="invalid_worker_result",
+                )
+            seen_names.add(path.name)
+            validated.append(
+                {
+                    "id": stable_id("art", relative.casefold()),
+                    "rel_path": relative,
+                    "name": path.name,
+                    "kind": expected[0],
+                    "media_type": expected[1],
+                    "bytes": stat.st_size,
+                    "mtime_ns": stat.st_mtime_ns,
+                    "sha256": digest,
+                    "is_heavy": stat.st_size > 10 * 1024 * 1024,
+                }
+            )
+        if seen_names != set(expected_artifacts):
+            raise LocalAssemblyError(
+                "The local assembly worker returned an incomplete artifact set.",
+                code="invalid_worker_result",
+            )
+        return [
+            self.database.register_studio_artifact(production_id, item)
+            for item in validated
+        ]
+
+    def _cached_local_assembly_result(
+        self,
+        cache_key: str,
+        production_id: str,
+        expected_hashes: dict[str, str],
+        include_captioned: bool,
+        inputs: dict[str, Any],
+        cancel_event: JobExecutionContext | None = None,
+    ) -> dict[str, Any] | None:
+        previous = self.database.find_successful_stage_attempt(
+            production_id, _LOCAL_ASSEMBLY_STAGE, cache_key
+        )
+        if not previous or not isinstance(previous.get("result"), dict):
+            return None
+        try:
+            from . import assembly
+
+            physical_result = _call_local_worker(
+                assembly.validate_local_assembly_outputs,
+                self.workspace,
+                production_id=production_id,
+                run_id=previous["run_id"],
+                cache_key=cache_key,
+                source_video=inputs["video_path"],
+                narration_wav=inputs["narration_wav"],
+                captions_srt=inputs["captions_srt"],
+                include_captioned=include_captioned,
+                cancel_event=cancel_event,
+            )
+        except (ImportError, AttributeError, LocalAssemblyError, OSError):
+            return None
+        physical_artifacts = physical_result.get("artifacts")
+        if not isinstance(physical_artifacts, list):
+            return None
+        physical_by_name = {
+            item.get("name"): item for item in physical_artifacts if isinstance(item, dict)
+        }
+        prior_result = previous["result"]
+        expected_artifacts = dict(_LOCAL_ASSEMBLY_ARTIFACTS)
+        if not include_captioned:
+            expected_artifacts.pop("master-captioned.mp4")
+        prior_artifacts = prior_result.get("artifacts")
+        if not isinstance(prior_artifacts, list) or len(prior_artifacts) != len(
+            expected_artifacts
+        ):
+            return None
+        source_root = (
+            f"outputs/studio/runs/{previous['run_id']}/assembly/{cache_key}/"
+        )
+        verified: list[dict[str, Any]] = []
+        seen_names: set[str] = set()
+        for item in prior_artifacts:
+            if not isinstance(item, dict) or not isinstance(item.get("id"), str):
+                return None
+            artifact = self.database.get_artifact(item["id"])
+            if artifact is None or artifact["name"] in seen_names:
+                return None
+            expected = expected_artifacts.get(artifact["name"])
+            physical = physical_by_name.get(artifact["name"])
+            if (
+                expected is None
+                or not isinstance(physical, dict)
+                or artifact.get("production_id") != production_id
+                or not artifact.get("available")
+                or artifact.get("origin") != "studio"
+                or artifact.get("kind") != expected[0]
+                or artifact.get("media_type") != expected[1]
+                or artifact.get("rel_path") != f"{source_root}{artifact['name']}"
+                or item.get("bytes") != artifact.get("bytes")
+                or item.get("sha256") != artifact.get("sha256")
+                or physical.get("bytes") != artifact.get("bytes")
+                or physical.get("sha256") != artifact.get("sha256")
+            ):
+                return None
+            try:
+                path = workspace_path(
+                    self.workspace, artifact["rel_path"], must_exist=True
+                )
+            except (SecurityError, OSError):
+                return None
+            stat = path.stat()
+            if (
+                _has_symlink_component(self.workspace, artifact["rel_path"])
+                or path.is_symlink()
+                or not path.is_file()
+                or sensitive_artifact_path(artifact["rel_path"])
+                or stat.st_size != artifact.get("bytes")
+                or not isinstance(artifact.get("sha256"), str)
+                or _sha256_file(path) != artifact["sha256"]
+            ):
+                return None
+            seen_names.add(artifact["name"])
+            verified.append(artifact)
+        if seen_names != set(expected_artifacts):
+            return None
+        cached_raw = dict(prior_result)
+        cached_raw["cache_hit"] = True
+        try:
+            prior_public = assembly_public_result(
+                cached_raw,
+                expected_cache_key=cache_key,
+                expected_hashes=expected_hashes,
+                expected_include_captioned=include_captioned,
+                artifacts=verified,
+                cache_hit=True,
+            )
+            physical_for_public = dict(physical_result)
+            physical_for_public["cache_hit"] = True
+            cached = assembly_public_result(
+                physical_for_public,
+                expected_cache_key=cache_key,
+                expected_hashes=expected_hashes,
+                expected_include_captioned=include_captioned,
+                artifacts=verified,
+                cache_hit=True,
+            )
+        except LocalAssemblyError:
+            return None
+        if prior_public.get("duration_ms") != cached.get("duration_ms"):
+            return None
+        cached["cache_source_attempt_id"] = previous["id"]
+        return cached
+
+    def _execute_local_assembly(
+        self,
+        attempt_id: str,
+        run_id: str,
+        production_id: str,
+        payload: dict[str, Any],
+        cache_key: str,
+        inputs: dict[str, Any],
+        cancel_event: JobExecutionContext | None = None,
+    ) -> dict[str, Any] | AtomicStageCompletion:
+        _raise_if_cancelled(cancel_event)
+        self.database.update_stage_attempt(attempt_id, "running")
+        expected_hashes = {
+            "source_video_sha256": inputs["source_video_sha256"],
+            "narration_wav_sha256": inputs["narration_wav_sha256"],
+            "captions_sha256": inputs["captions_sha256"],
+        }
+        try:
+            _raise_if_cancelled(cancel_event)
+            cached = self._cached_local_assembly_result(
+                cache_key,
+                production_id,
+                expected_hashes,
+                payload["include_captioned"],
+                inputs,
+                cancel_event,
+            )
+            if cached is not None:
+                result = cached
+            else:
+                try:
+                    from . import assembly
+                except (ImportError, AttributeError) as exc:
+                    raise LocalAssemblyError(
+                        "The local assembly worker is not installed.",
+                        code="local_worker_unavailable",
+                    ) from exc
+                try:
+                    raw = _call_local_worker(
+                        assembly.generate_local_assembly,
+                        self.workspace,
+                        production_id=production_id,
+                        run_id=run_id,
+                        cache_key=cache_key,
+                        source_video=inputs["video_path"],
+                        narration_wav=inputs["narration_wav"],
+                        captions_srt=inputs["captions_srt"],
+                        include_captioned=payload["include_captioned"],
+                        cancel_event=cancel_event,
+                    )
+                except LocalAssemblyError:
+                    raise
+                except Exception as exc:
+                    raise LocalAssemblyError(
+                        "The local assembly worker failed.",
+                        code="local_assembly_failed",
+                    ) from exc
+                _raise_if_cancelled(cancel_event)
+                raw_cache_hit = (
+                    raw.get("cache_hit", False) if isinstance(raw, dict) else False
+                )
+                result = assembly_public_result(
+                    raw,
+                    expected_cache_key=cache_key,
+                    expected_hashes=expected_hashes,
+                    expected_include_captioned=payload["include_captioned"],
+                    artifacts=[],
+                    cache_hit=raw_cache_hit
+                    if isinstance(raw_cache_hit, bool)
+                    else False,
+                )
+                physical_result = _call_local_worker(
+                    assembly.validate_local_assembly_outputs,
+                    self.workspace,
+                    production_id=production_id,
+                    run_id=run_id,
+                    cache_key=cache_key,
+                    source_video=inputs["video_path"],
+                    narration_wav=inputs["narration_wav"],
+                    captions_srt=inputs["captions_srt"],
+                    include_captioned=payload["include_captioned"],
+                    cancel_event=cancel_event,
+                )
+                physical_for_public = dict(physical_result)
+                physical_for_public["cache_hit"] = raw_cache_hit
+                physical_public = assembly_public_result(
+                    physical_for_public,
+                    expected_cache_key=cache_key,
+                    expected_hashes=expected_hashes,
+                    expected_include_captioned=payload["include_captioned"],
+                    artifacts=[],
+                    cache_hit=raw_cache_hit,
+                )
+                if result.get("duration_ms") != physical_public.get("duration_ms"):
+                    raise LocalAssemblyError(
+                        "The local assembly worker returned mismatched timing.",
+                        code="invalid_worker_result",
+                    )
+                physical_artifacts = physical_result.get("artifacts")
+                raw_artifacts = raw.get("artifacts") if isinstance(raw, dict) else None
+                if not isinstance(physical_artifacts, list) or not isinstance(
+                    raw_artifacts, list
+                ):
+                    raise LocalAssemblyError(
+                        "The local assembly worker returned invalid artifacts.",
+                        code="invalid_worker_result",
+                    )
+                physical_by_name = {
+                    item.get("name"): item
+                    for item in physical_artifacts
+                    if isinstance(item, dict)
+                }
+                for item in raw_artifacts:
+                    if not isinstance(item, dict):
+                        raise LocalAssemblyError(
+                            "The local assembly worker returned invalid artifacts.",
+                            code="invalid_worker_result",
+                        )
+                    name = Path(str(item.get("rel_path") or "")).name
+                    physical = physical_by_name.get(name)
+                    if (
+                        not isinstance(physical, dict)
+                        or item.get("bytes") != physical.get("bytes")
+                        or item.get("sha256") != physical.get("sha256")
+                    ):
+                        raise LocalAssemblyError(
+                            "The local assembly worker returned mismatched artifacts.",
+                            code="invalid_worker_result",
+                        )
+                artifacts = self._register_local_assembly_artifacts(
+                    production_id,
+                    run_id,
+                    cache_key,
+                    payload["include_captioned"],
+                    raw.get("artifacts") if isinstance(raw, dict) else None,
+                )
+                result = physical_public
+                result["artifacts"] = artifacts
+            _raise_if_cancelled(cancel_event)
+            return _stage_completion_result(attempt_id, result, cancel_event)
+        except JobCancelled as exc:
+            try:
+                self.database.update_stage_attempt(
+                    attempt_id,
+                    "failed",
+                    error_code=exc.error_code,
+                    error_message=exc.public_message,
+                )
+            except Exception:
+                pass
+            raise
+        except Exception as exc:
+            if cancel_event is not None and cancel_event.is_set():
+                try:
+                    self.database.update_stage_attempt(
+                        attempt_id,
+                        "failed",
+                        error_code=JobCancelled.error_code,
+                        error_message=JobCancelled.public_message,
+                    )
+                except Exception:
+                    pass
+                raise JobCancelled() from exc
+            error_code, error_message = safe_assembly_error(exc)
+            try:
+                self.database.update_stage_attempt(
+                    attempt_id,
+                    "failed",
+                    error_code=error_code,
+                    error_message=error_message,
+                )
+            except Exception:
+                pass
+            raise
+
+    def execute_local_assembly(self, run_id: str, body: dict[str, Any]) -> dict[str, Any]:
+        """Queue a zero-cost local FFmpeg assembly attempt."""
+
+        validate_identifier(run_id, label="run id")
+        run = self.database.get_run(run_id)
+        if run is None:
+            raise KeyError("run not found")
+        if run.get("execution_profile") != "local_sapi":
+            raise RequestValidationError(
+                "This run is not configured for local assembly.",
+                code="execution_profile_required",
+            )
+        requested_stages = run.get("requested_stages")
+        required_stages = {_LOCAL_NARRATION_STAGE, _LOCAL_ASSEMBLY_STAGE}
+        if not isinstance(requested_stages, list) or not required_stages.issubset(requested_stages):
+            raise RequestValidationError(
+                "The narration and assembly stages were not requested by this run.",
+                code="stage_not_requested",
+            )
+        try:
+            payload = validate_local_assembly_payload(body)
+        except LocalAssemblyValidationError as exc:
+            raise RequestValidationError(str(exc), code=exc.code) from exc
+        inputs = self._validated_assembly_inputs(run, payload)
+        try:
+            from . import assembly
+
+            cache_key = assembly.assembly_cache_key(
+                inputs["source_video_sha256"],
+                inputs["narration_wav_sha256"],
+                inputs["captions_sha256"],
+                payload["include_captioned"],
+            )
+        except (ImportError, AttributeError) as exc:
+            raise RequestValidationError(
+                "The local assembly worker is not installed.",
+                code="local_worker_unavailable",
+            ) from exc
+        except LocalAssemblyError as exc:
+            raise RequestValidationError(
+                str(exc.public_message),
+                code=str(exc.error_code)[:128],
+            ) from exc
+        if not isinstance(cache_key, str) or not re.fullmatch(r"[0-9A-F]{64}", cache_key):
+            raise RequestValidationError(
+                "The local assembly worker returned an invalid cache key.",
+                code="invalid_worker_result",
+            )
+        expected_hashes = {
+            "source_video_sha256": inputs["source_video_sha256"],
+            "narration_wav_sha256": inputs["narration_wav_sha256"],
+            "captions_sha256": inputs["captions_sha256"],
+        }
+        audit = assembly_audit_payload(payload, **expected_hashes)
+        attempt = self.database.create_stage_attempt(
+            run_id,
+            _LOCAL_ASSEMBLY_STAGE,
+            cache_key,
+            {
+                "execution_profile": "local_sapi",
+                "cache_key": cache_key,
+                **audit,
+            },
+        )
+        try:
+            job = self.jobs.submit(
+                "local_assembly",
+                {
+                    "run_id": run_id,
+                    "production_id": run["production_id"],
+                    "stage": _LOCAL_ASSEMBLY_STAGE,
+                    "execution_profile": "local_sapi",
+                    "cache_key": cache_key,
+                    **audit,
+                },
+                lambda _job_id, cancel_event: self._execute_local_assembly(
+                    attempt["id"],
+                    run_id,
+                    run["production_id"],
+                    payload,
+                    cache_key,
+                    inputs,
+                    cancel_event,
+                ),
+                production_id=run["production_id"],
+                before_enqueue=lambda created_job: self.database.link_stage_attempt_job(
+                    attempt["id"], created_job["id"]
+                ),
+            )
+        except Exception as exc:
+            error_code, error_message = safe_assembly_error(exc)
+            self.database.update_stage_attempt(
+                attempt["id"],
+                "failed",
+                error_code=error_code,
+                error_message=error_message,
+            )
+            raise
+        job["stage_attempt_id"] = attempt["id"]
+        job["cache_key"] = cache_key
+        return job
+
+    def _validated_qc_inputs(
+        self,
+        run: dict[str, Any],
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Resolve one succeeded assembly master from immutable Studio records."""
+
+        production_id = run["production_id"]
+        assembly_attempt = self.database.get_stage_attempt(
+            payload["assembly_attempt_id"]
+        )
+        if (
+            assembly_attempt is None
+            or assembly_attempt.get("run_id") != run["id"]
+            or assembly_attempt.get("production_id") != production_id
+            or assembly_attempt.get("stage") != _LOCAL_ASSEMBLY_STAGE
+            or assembly_attempt.get("status") != "succeeded"
+            or not isinstance(assembly_attempt.get("result"), dict)
+        ):
+            raise RequestValidationError(
+                "The assembly attempt is not a succeeded attempt for this run.",
+                code="qc_assembly_not_available",
+            )
+        assembly_result = assembly_attempt["result"]
+        include_captioned = assembly_result.get("include_captioned")
+        cache_hit = assembly_result.get("cache_hit")
+        expected_hashes = {
+            field: assembly_result.get(field)
+            for field in (
+                "source_video_sha256",
+                "narration_wav_sha256",
+                "captions_sha256",
+            )
+        }
+        if not isinstance(include_captioned, bool) or not isinstance(cache_hit, bool):
+            raise RequestValidationError(
+                "The assembly attempt metadata is not valid.",
+                code="qc_assembly_not_available",
+            )
+        try:
+            assembly_public_result(
+                assembly_result,
+                expected_cache_key=assembly_attempt["cache_key"],
+                expected_hashes=expected_hashes,
+                expected_include_captioned=include_captioned,
+                artifacts=[],
+                cache_hit=cache_hit,
+            )
+        except LocalAssemblyError:
+            raise RequestValidationError(
+                "The assembly attempt metadata is not valid.",
+                code="qc_assembly_not_available",
+            ) from None
+
+        expected_name = (
+            "master-clean.mp4"
+            if payload["variant"] == "clean"
+            else "master-captioned.mp4"
+        )
+        if expected_name == "master-captioned.mp4" and not include_captioned:
+            raise RequestValidationError(
+                "The selected assembly attempt has no captioned master.",
+                code="qc_variant_not_available",
+            )
+        raw_artifacts = assembly_result.get("artifacts")
+        if not isinstance(raw_artifacts, list):
+            raise RequestValidationError(
+                "The assembly attempt artifact is not available.",
+                code="qc_assembly_not_available",
+            )
+        selected = [
+            item
+            for item in raw_artifacts
+            if isinstance(item, dict) and item.get("name") == expected_name
+        ]
+        if len(selected) != 1 or not isinstance(selected[0].get("id"), str):
+            raise RequestValidationError(
+                "The selected assembly master is not available.",
+                code="qc_variant_not_available",
+            )
+        result_artifact = selected[0]
+        artifact = self.database.get_artifact(result_artifact["id"])
+        if (
+            artifact is None
+            or artifact.get("production_id") != production_id
+            or not artifact.get("available")
+            or artifact.get("origin") != "studio"
+            or artifact.get("name") != expected_name
+            or artifact.get("kind") != "video"
+            or artifact.get("media_type") != "video/mp4"
+            or result_artifact.get("bytes") != artifact.get("bytes")
+            or result_artifact.get("sha256") != artifact.get("sha256")
+            or not isinstance(artifact.get("rel_path"), str)
+        ):
+            raise RequestValidationError(
+                "The selected assembly master is not available.",
+                code="qc_variant_not_available",
+            )
+
+        # A cache hit may intentionally reuse a content-addressed assembly from
+        # an earlier run in the same production.  Follow the immutable source
+        # chain to its physical owner, rejecting cycles, cross-production
+        # links, changed provenance, or an artifact that is not present in
+        # every linked attempt result.
+        source_attempt = assembly_attempt
+        source_result = assembly_result
+        visited_attempt_ids = {assembly_attempt["id"]}
+        while source_result.get("cache_source_attempt_id") is not None:
+            cache_source_attempt_id = source_result.get("cache_source_attempt_id")
+            if (
+                not isinstance(cache_source_attempt_id, str)
+                or cache_source_attempt_id in visited_attempt_ids
+                or len(visited_attempt_ids) >= 128
+                or source_result.get("cache_hit") is not True
+            ):
+                raise RequestValidationError(
+                    "The assembly cache lineage is not valid.",
+                    code="qc_assembly_not_available",
+                )
+            linked_attempt = self.database.get_stage_attempt(cache_source_attempt_id)
+            if (
+                linked_attempt is None
+                or linked_attempt.get("production_id") != production_id
+                or linked_attempt.get("stage") != _LOCAL_ASSEMBLY_STAGE
+                or linked_attempt.get("status") != "succeeded"
+                or linked_attempt.get("cache_key") != assembly_attempt.get("cache_key")
+                or not isinstance(linked_attempt.get("result"), dict)
+            ):
+                raise RequestValidationError(
+                    "The assembly cache lineage is not valid.",
+                    code="qc_assembly_not_available",
+                )
+            linked_result = linked_attempt["result"]
+            linked_cache_hit = linked_result.get("cache_hit")
+            if not isinstance(linked_cache_hit, bool):
+                raise RequestValidationError(
+                    "The assembly cache lineage is not valid.",
+                    code="qc_assembly_not_available",
+                )
+            try:
+                assembly_public_result(
+                    linked_result,
+                    expected_cache_key=assembly_attempt["cache_key"],
+                    expected_hashes=expected_hashes,
+                    expected_include_captioned=include_captioned,
+                    artifacts=[],
+                    cache_hit=linked_cache_hit,
+                )
+            except LocalAssemblyError:
+                raise RequestValidationError(
+                    "The assembly cache lineage is not valid.",
+                    code="qc_assembly_not_available",
+                ) from None
+            linked_artifacts = linked_result.get("artifacts")
+            linked_selected = [
+                item
+                for item in linked_artifacts
+                if isinstance(item, dict) and item.get("name") == expected_name
+            ] if isinstance(linked_artifacts, list) else []
+            if len(linked_selected) != 1 or any(
+                linked_selected[0].get(field) != result_artifact.get(field)
+                for field in ("id", "rel_path", "bytes", "sha256")
+            ):
+                raise RequestValidationError(
+                    "The assembly cache lineage is not valid.",
+                    code="qc_assembly_not_available",
+                )
+            visited_attempt_ids.add(cache_source_attempt_id)
+            source_attempt = linked_attempt
+            source_result = linked_result
+        expected_relative = (
+            f"outputs/studio/runs/{source_attempt['run_id']}/assembly/"
+            f"{assembly_attempt['cache_key']}/{expected_name}"
+        )
+        if artifact["rel_path"] != expected_relative:
+            raise RequestValidationError(
+                "The selected assembly master has invalid lineage.",
+                code="qc_assembly_not_available",
+            )
+        try:
+            path = workspace_path(
+                self.workspace, artifact["rel_path"], must_exist=True
+            )
+        except (SecurityError, OSError):
+            raise RequestValidationError(
+                "The selected assembly master path is not available.",
+                code="qc_variant_not_available",
+            ) from None
+        if (
+            _has_symlink_component(self.workspace, artifact["rel_path"])
+            or path.is_symlink()
+            or not path.is_file()
+            or sensitive_artifact_path(artifact["rel_path"])
+        ):
+            raise RequestValidationError(
+                "The selected assembly master path is not safe.",
+                code="qc_variant_not_available",
+            )
+        stat = path.stat()
+        if (
+            isinstance(artifact.get("bytes"), bool)
+            or not isinstance(artifact.get("bytes"), int)
+            or artifact["bytes"] <= 0
+            or artifact["bytes"] > 2 * 1024 * 1024 * 1024
+            or stat.st_size != artifact["bytes"]
+            or not isinstance(artifact.get("sha256"), str)
+            or _sha256_file(path) != artifact["sha256"]
+        ):
+            raise RequestValidationError(
+                "The selected assembly master changed after registration.",
+                code="qc_assembly_changed",
+            )
+        expected_duration_ms = assembly_result.get("duration_ms")
+        if (
+            isinstance(expected_duration_ms, bool)
+            or not isinstance(expected_duration_ms, int)
+            or expected_duration_ms <= 0
+            or expected_duration_ms > 30 * 60 * 1000
+        ):
+            raise RequestValidationError(
+                "The assembly duration is not valid.",
+                code="qc_assembly_not_available",
+            )
+        return {
+            "assembly_attempt": assembly_attempt,
+            "assembly_artifact": artifact,
+            "input_path": path,
+            "input_sha256": artifact["sha256"],
+            "input_bytes": artifact["bytes"],
+            "expected_duration_ms": expected_duration_ms,
+        }
+
+    def _register_local_qc_artifacts(
+        self,
+        production_id: str,
+        run_id: str,
+        cache_key: str,
+        raw_artifacts: Any,
+    ) -> list[dict[str, Any]]:
+        if not isinstance(raw_artifacts, list) or len(raw_artifacts) != len(
+            _LOCAL_QC_ARTIFACTS
+        ):
+            raise LocalQcError(
+                "The local QC worker returned an incomplete artifact set.",
+                code="invalid_worker_result",
+            )
+        expected_root = f"outputs/studio/runs/{run_id}/qc/{cache_key}/"
+        validated: list[dict[str, Any]] = []
+        seen_names: set[str] = set()
+        for item in raw_artifacts:
+            if not isinstance(item, dict) or not isinstance(item.get("rel_path"), str):
+                raise LocalQcError(
+                    "The local QC worker returned an invalid artifact.",
+                    code="invalid_worker_result",
+                )
+            try:
+                path = workspace_path(self.workspace, item["rel_path"], must_exist=True)
+                relative = relative_workspace_path(self.workspace, path)
+            except (SecurityError, OSError):
+                raise LocalQcError(
+                    "The local QC worker returned an unsafe artifact path.",
+                    code="unsafe_worker_artifact",
+                ) from None
+            expected = _LOCAL_QC_ARTIFACTS.get(path.name)
+            if (
+                expected is None
+                or path.name in seen_names
+                or relative != f"{expected_root}{path.name}"
+                or _has_symlink_component(self.workspace, item["rel_path"])
+                or path.is_symlink()
+                or not path.is_file()
+                or sensitive_artifact_path(relative)
+                or item.get("kind") != expected[0]
+                or item.get("media_type", item.get("mime")) != expected[1]
+            ):
+                raise LocalQcError(
+                    "The local QC worker returned an unexpected artifact.",
+                    code="invalid_worker_result",
+                )
+            stat = path.stat()
+            digest = _sha256_file(path)
+            if item.get("bytes") != stat.st_size or item.get("sha256") != digest:
+                raise LocalQcError(
+                    "The local QC worker returned mismatched artifact metadata.",
+                    code="invalid_worker_result",
+                )
+            seen_names.add(path.name)
+            validated.append(
+                {
+                    "id": stable_id("art", relative.casefold()),
+                    "rel_path": relative,
+                    "name": path.name,
+                    "kind": expected[0],
+                    "media_type": expected[1],
+                    "bytes": stat.st_size,
+                    "mtime_ns": stat.st_mtime_ns,
+                    "sha256": digest,
+                    "is_heavy": False,
+                }
+            )
+        if seen_names != set(_LOCAL_QC_ARTIFACTS):
+            raise LocalQcError(
+                "The local QC worker returned an incomplete artifact set.",
+                code="invalid_worker_result",
+            )
+        return [
+            self.database.register_studio_artifact(production_id, item)
+            for item in validated
+        ]
+
+    @staticmethod
+    def _qc_public_kwargs(
+        cache_key: str,
+        payload: dict[str, Any],
+        inputs: dict[str, Any],
+    ) -> dict[str, Any]:
+        return {
+            "expected_cache_key": cache_key,
+            "expected_assembly_attempt_id": payload["assembly_attempt_id"],
+            "expected_assembly_artifact_id": inputs["assembly_artifact"]["id"],
+            "expected_variant": payload["variant"],
+            "expected_input_sha256": inputs["input_sha256"],
+            "expected_input_bytes": inputs["input_bytes"],
+            "expected_duration_ms": inputs["expected_duration_ms"],
+        }
+
+    def _cached_local_qc_result(
+        self,
+        run_id: str,
+        production_id: str,
+        cache_key: str,
+        payload: dict[str, Any],
+        inputs: dict[str, Any],
+        cancel_event: JobExecutionContext | None = None,
+    ) -> dict[str, Any] | None:
+        previous = self.database.find_successful_stage_attempt(
+            production_id, _LOCAL_QC_STAGE, cache_key
+        )
+        if (
+            previous is None
+            or previous.get("run_id") != run_id
+            or not isinstance(previous.get("result"), dict)
+        ):
+            return None
+        try:
+            from . import qc
+
+            physical = _call_local_worker(
+                qc.validate_local_qc_outputs,
+                self.workspace,
+                production_id=production_id,
+                run_id=run_id,
+                cache_key=cache_key,
+                assembly_attempt_id=payload["assembly_attempt_id"],
+                assembly_artifact_id=inputs["assembly_artifact"]["id"],
+                variant=payload["variant"],
+                input_path=inputs["input_path"],
+                input_sha256=inputs["input_sha256"],
+                input_bytes=inputs["input_bytes"],
+                expected_duration_ms=inputs["expected_duration_ms"],
+                cancel_event=cancel_event,
+            )
+        except (ImportError, AttributeError, LocalQcError, OSError):
+            return None
+        physical_artifacts = physical.get("artifacts")
+        prior_artifacts = previous["result"].get("artifacts")
+        if not isinstance(physical_artifacts, list) or not isinstance(
+            prior_artifacts, list
+        ):
+            return None
+        physical_by_name = {
+            item.get("name"): item
+            for item in physical_artifacts
+            if isinstance(item, dict)
+        }
+        expected_root = f"outputs/studio/runs/{run_id}/qc/{cache_key}/"
+        verified: list[dict[str, Any]] = []
+        seen_names: set[str] = set()
+        for item in prior_artifacts:
+            if not isinstance(item, dict) or not isinstance(item.get("id"), str):
+                return None
+            artifact = self.database.get_artifact(item["id"])
+            if artifact is None or artifact.get("name") in seen_names:
+                return None
+            expected = _LOCAL_QC_ARTIFACTS.get(artifact["name"])
+            physical_item = physical_by_name.get(artifact["name"])
+            if (
+                expected is None
+                or not isinstance(physical_item, dict)
+                or artifact.get("production_id") != production_id
+                or not artifact.get("available")
+                or artifact.get("origin") != "studio"
+                or artifact.get("kind") != expected[0]
+                or artifact.get("media_type") != expected[1]
+                or artifact.get("rel_path") != f"{expected_root}{artifact['name']}"
+                or item.get("bytes") != artifact.get("bytes")
+                or item.get("sha256") != artifact.get("sha256")
+                or physical_item.get("bytes") != artifact.get("bytes")
+                or physical_item.get("sha256") != artifact.get("sha256")
+            ):
+                return None
+            try:
+                path = workspace_path(
+                    self.workspace, artifact["rel_path"], must_exist=True
+                )
+            except (SecurityError, OSError):
+                return None
+            if (
+                _has_symlink_component(self.workspace, artifact["rel_path"])
+                or path.is_symlink()
+                or not path.is_file()
+                or sensitive_artifact_path(artifact["rel_path"])
+                or path.stat().st_size != artifact.get("bytes")
+                or _sha256_file(path) != artifact.get("sha256")
+            ):
+                return None
+            seen_names.add(artifact["name"])
+            verified.append(artifact)
+        if seen_names != set(_LOCAL_QC_ARTIFACTS):
+            return None
+        public_kwargs = self._qc_public_kwargs(cache_key, payload, inputs)
+        try:
+            prior_cache_hit = previous["result"].get("cache_hit")
+            if not isinstance(prior_cache_hit, bool):
+                return None
+            prior_public = qc_public_result(
+                previous["result"],
+                **public_kwargs,
+                artifacts=verified,
+                cache_hit=prior_cache_hit,
+            )
+            physical_for_public = dict(physical)
+            physical_for_public["cache_hit"] = True
+            cached = qc_public_result(
+                physical_for_public,
+                **public_kwargs,
+                artifacts=verified,
+                cache_hit=True,
+            )
+        except LocalQcError:
+            return None
+        for field in (
+            "technical_verdict",
+            "duration_ms",
+            "checks",
+            "media_facts",
+        ):
+            if prior_public.get(field) != cached.get(field):
+                return None
+        cached["cache_source_attempt_id"] = previous["id"]
+        return cached
+
+    def _execute_local_qc(
+        self,
+        attempt_id: str,
+        run_id: str,
+        production_id: str,
+        payload: dict[str, Any],
+        cache_key: str,
+        inputs: dict[str, Any],
+        cancel_event: JobExecutionContext | None = None,
+    ) -> dict[str, Any] | AtomicStageCompletion:
+        _raise_if_cancelled(cancel_event)
+        self.database.update_stage_attempt(attempt_id, "running")
+        try:
+            _raise_if_cancelled(cancel_event)
+            cached = self._cached_local_qc_result(
+                run_id,
+                production_id,
+                cache_key,
+                payload,
+                inputs,
+                cancel_event,
+            )
+            if cached is not None:
+                result = cached
+            else:
+                try:
+                    from . import qc
+                except (ImportError, AttributeError) as exc:
+                    raise LocalQcError(
+                        "The local QC worker is not installed.",
+                        code="local_qc_unavailable",
+                    ) from exc
+                worker_kwargs = {
+                    "production_id": production_id,
+                    "run_id": run_id,
+                    "cache_key": cache_key,
+                    "assembly_attempt_id": payload["assembly_attempt_id"],
+                    "assembly_artifact_id": inputs["assembly_artifact"]["id"],
+                    "variant": payload["variant"],
+                    "input_path": inputs["input_path"],
+                    "input_sha256": inputs["input_sha256"],
+                    "input_bytes": inputs["input_bytes"],
+                    "expected_duration_ms": inputs["expected_duration_ms"],
+                }
+                try:
+                    raw = _call_local_worker(
+                        qc.generate_local_qc,
+                        self.workspace,
+                        cancel_event=cancel_event,
+                        **worker_kwargs,
+                    )
+                except LocalQcError:
+                    raise
+                except Exception as exc:
+                    raise LocalQcError(
+                        "The local QC worker failed.", code="local_qc_failed"
+                    ) from exc
+                _raise_if_cancelled(cancel_event)
+                raw_cache_hit = (
+                    raw.get("cache_hit", False) if isinstance(raw, dict) else False
+                )
+                if not isinstance(raw_cache_hit, bool):
+                    raw_cache_hit = False
+                public_kwargs = self._qc_public_kwargs(cache_key, payload, inputs)
+                raw_public = qc_public_result(
+                    raw,
+                    **public_kwargs,
+                    artifacts=[],
+                    cache_hit=raw_cache_hit,
+                )
+                physical = _call_local_worker(
+                    qc.validate_local_qc_outputs,
+                    self.workspace,
+                    cancel_event=cancel_event,
+                    **worker_kwargs,
+                )
+                physical_for_public = dict(physical)
+                physical_for_public["cache_hit"] = raw_cache_hit
+                physical_public = qc_public_result(
+                    physical_for_public,
+                    **public_kwargs,
+                    artifacts=[],
+                    cache_hit=raw_cache_hit,
+                )
+                for field in (
+                    "technical_verdict",
+                    "duration_ms",
+                    "checks",
+                    "media_facts",
+                ):
+                    if raw_public.get(field) != physical_public.get(field):
+                        raise LocalQcError(
+                            "The local QC worker returned mismatched analysis.",
+                            code="invalid_worker_result",
+                        )
+                raw_artifacts = raw.get("artifacts") if isinstance(raw, dict) else None
+                physical_artifacts = physical.get("artifacts")
+                if not isinstance(raw_artifacts, list) or not isinstance(
+                    physical_artifacts, list
+                ):
+                    raise LocalQcError(
+                        "The local QC worker returned invalid artifacts.",
+                        code="invalid_worker_result",
+                    )
+                physical_by_name = {
+                    item.get("name"): item
+                    for item in physical_artifacts
+                    if isinstance(item, dict)
+                }
+                for item in raw_artifacts:
+                    if not isinstance(item, dict):
+                        raise LocalQcError(
+                            "The local QC worker returned invalid artifacts.",
+                            code="invalid_worker_result",
+                        )
+                    name = Path(str(item.get("rel_path") or "")).name
+                    physical_item = physical_by_name.get(name)
+                    if (
+                        not isinstance(physical_item, dict)
+                        or item.get("bytes") != physical_item.get("bytes")
+                        or item.get("sha256") != physical_item.get("sha256")
+                    ):
+                        raise LocalQcError(
+                            "The local QC worker returned mismatched artifacts.",
+                            code="invalid_worker_result",
+                        )
+                artifacts = self._register_local_qc_artifacts(
+                    production_id, run_id, cache_key, physical_artifacts
+                )
+                result = dict(physical_public)
+                result["artifacts"] = artifacts
+            _raise_if_cancelled(cancel_event)
+            return _stage_completion_result(attempt_id, result, cancel_event)
+        except JobCancelled as exc:
+            try:
+                self.database.update_stage_attempt(
+                    attempt_id,
+                    "failed",
+                    error_code=exc.error_code,
+                    error_message=exc.public_message,
+                )
+            except Exception:
+                pass
+            raise
+        except Exception as exc:
+            if cancel_event is not None and cancel_event.is_set():
+                try:
+                    self.database.update_stage_attempt(
+                        attempt_id,
+                        "failed",
+                        error_code=JobCancelled.error_code,
+                        error_message=JobCancelled.public_message,
+                    )
+                except Exception:
+                    pass
+                raise JobCancelled() from exc
+            error_code, error_message = safe_qc_error(exc)
+            try:
+                self.database.update_stage_attempt(
+                    attempt_id,
+                    "failed",
+                    error_code=error_code,
+                    error_message=error_message,
+                )
+            except Exception:
+                pass
+            raise
+
+    def execute_local_qc(self, run_id: str, body: dict[str, Any]) -> dict[str, Any]:
+        """Queue a zero-cost local technical QC attempt."""
+
+        validate_identifier(run_id, label="run id")
+        run = self.database.get_run(run_id)
+        if run is None:
+            raise KeyError("run not found")
+        if run.get("execution_profile") != "local_sapi":
+            raise RequestValidationError(
+                "This run is not configured for local technical QC.",
+                code="execution_profile_required",
+            )
+        requested_stages = run.get("requested_stages")
+        required_stages = {_LOCAL_ASSEMBLY_STAGE, _LOCAL_QC_STAGE}
+        if not isinstance(requested_stages, list) or not required_stages.issubset(
+            requested_stages
+        ):
+            raise RequestValidationError(
+                "The assembly and qc stages were not requested by this run.",
+                code="stage_not_requested",
+            )
+        try:
+            payload = validate_local_qc_payload(body)
+        except LocalQcValidationError as exc:
+            raise RequestValidationError(str(exc), code=exc.code) from exc
+        inputs = self._validated_qc_inputs(run, payload)
+        try:
+            from . import qc
+
+            cache_key = qc.qc_cache_key(
+                production_id=run["production_id"],
+                run_id=run_id,
+                assembly_attempt_id=payload["assembly_attempt_id"],
+                assembly_artifact_id=inputs["assembly_artifact"]["id"],
+                variant=payload["variant"],
+                input_sha256=inputs["input_sha256"],
+                input_bytes=inputs["input_bytes"],
+                expected_duration_ms=inputs["expected_duration_ms"],
+            )
+        except (ImportError, AttributeError) as exc:
+            raise RequestValidationError(
+                "The local QC worker is not installed.",
+                code="local_qc_unavailable",
+            ) from exc
+        except LocalQcError as exc:
+            raise RequestValidationError(
+                str(exc.public_message), code=str(exc.error_code)[:128]
+            ) from exc
+        if not isinstance(cache_key, str) or not re.fullmatch(r"[0-9A-F]{64}", cache_key):
+            raise RequestValidationError(
+                "The local QC worker returned an invalid cache key.",
+                code="invalid_worker_result",
+            )
+        audit = qc_audit_payload(
+            payload,
+            assembly_artifact_id=inputs["assembly_artifact"]["id"],
+            input_sha256=inputs["input_sha256"],
+            input_bytes=inputs["input_bytes"],
+            expected_duration_ms=inputs["expected_duration_ms"],
+            cache_key=cache_key,
+        )
+        attempt = self.database.create_stage_attempt(
+            run_id,
+            _LOCAL_QC_STAGE,
+            cache_key,
+            {"execution_profile": "local_sapi", **audit},
+        )
+        try:
+            job = self.jobs.submit(
+                "local_qc",
+                {
+                    "run_id": run_id,
+                    "production_id": run["production_id"],
+                    "stage": _LOCAL_QC_STAGE,
+                    "execution_profile": "local_sapi",
+                    **audit,
+                },
+                lambda _job_id, cancel_event: self._execute_local_qc(
+                    attempt["id"],
+                    run_id,
+                    run["production_id"],
+                    payload,
+                    cache_key,
+                    inputs,
+                    cancel_event,
+                ),
+                production_id=run["production_id"],
+                before_enqueue=lambda created_job: self.database.link_stage_attempt_job(
+                    attempt["id"], created_job["id"]
+                ),
+            )
+        except Exception as exc:
+            error_code, error_message = safe_qc_error(exc)
+            self.database.update_stage_attempt(
+                attempt["id"],
+                "failed",
+                error_code=error_code,
+                error_message=error_message,
             )
             raise
         job["stage_attempt_id"] = attempt["id"]

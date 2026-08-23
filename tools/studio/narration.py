@@ -17,6 +17,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import time
 import wave
 from dataclasses import dataclass
 from pathlib import Path
@@ -36,6 +37,9 @@ MAX_VOICE_CHARS = 128
 MIN_RATE = -10
 MAX_RATE = 10
 SAPI_TIMEOUT_SECONDS = 120
+SAPI_PREFLIGHT_TIMEOUT_SECONDS = 30
+SAPI_PREFLIGHT_POLL_SECONDS = 0.1
+SAPI_PROCESS_REAP_TIMEOUT_SECONDS = 5
 MAX_SEGMENT_WAV_BYTES = 32 * 1024 * 1024
 MAX_NARRATION_WAV_BYTES = 128 * 1024 * 1024
 MAX_NARRATION_DURATION_MS = 30 * 60 * 1000
@@ -619,7 +623,66 @@ def _sapi_script_path() -> Path:
     return Path(__file__).with_name("sapi_synthesize.ps1")
 
 
-def preflight_local_sapi() -> dict[str, Any]:
+def _raise_if_cancelled(cancel_event: Any = None) -> None:
+    if cancel_event is None:
+        return
+    raise_if_cancelled = getattr(cancel_event, "raise_if_cancelled", None)
+    if callable(raise_if_cancelled):
+        raise_if_cancelled()
+    elif callable(getattr(cancel_event, "is_set", None)) and cancel_event.is_set():
+        raise NarrationSynthesisError("Windows SAPI synthesis was interrupted.")
+
+
+def _terminate_sapi_process_tree(process: Any) -> None:
+    """Terminate a SAPI PowerShell process and its descendants.
+
+    ``JobExecutionContext`` owns the process registry, while ``jobs`` owns the
+    platform-specific tree termination.  Keep a direct ``kill`` fallback for
+    lightweight test doubles and installations where the shared helper cannot
+    be imported; the public narration error never includes process details.
+    """
+
+    pid = getattr(process, "pid", None)
+    if isinstance(pid, int) and pid > 0:
+        try:
+            from .jobs import _terminate_process_tree
+
+            _terminate_process_tree(pid)
+            return
+        except (ImportError, OSError, RuntimeError, TypeError, subprocess.SubprocessError):
+            pass
+    kill = getattr(process, "kill", None)
+    if callable(kill):
+        try:
+            kill()
+        except (OSError, ProcessLookupError, subprocess.SubprocessError):
+            pass
+
+
+def _reap_sapi_process(process: Any) -> None:
+    """Reap a terminated preflight process without waiting indefinitely."""
+
+    communicate = getattr(process, "communicate", None)
+    if not callable(communicate):
+        return
+    try:
+        communicate(timeout=SAPI_PROCESS_REAP_TIMEOUT_SECONDS)
+    except subprocess.TimeoutExpired:
+        kill = getattr(process, "kill", None)
+        if callable(kill):
+            try:
+                kill()
+            except (OSError, ProcessLookupError, subprocess.SubprocessError):
+                pass
+        try:
+            communicate(timeout=1)
+        except (OSError, subprocess.SubprocessError):
+            pass
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+
+def preflight_local_sapi(*, cancel_event: Any = None) -> dict[str, Any]:
     """Check that the local Windows PowerShell/System.Speech runtime works.
 
     This intentionally returns only capability metadata.  PowerShell output is
@@ -634,36 +697,95 @@ def preflight_local_sapi() -> dict[str, Any]:
         raise NarrationPreflightError("Windows PowerShell was not found for SAPI.")
     if not script.is_file():
         raise NarrationPreflightError("The local SAPI helper script is missing.")
+    _raise_if_cancelled(cancel_event)
+    arguments = [
+        executable,
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        str(script),
+        "-Preflight",
+    ]
+    process: subprocess.Popen[bytes] | None = None
+    registered = False
+    completed = False
     try:
-        subprocess.run(
-            [
-                executable,
-                "-NoProfile",
-                "-NonInteractive",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-File",
-                str(script),
-                "-Preflight",
-            ],
-            check=True,
-            capture_output=True,
-            timeout=30,
+        # Preflight output is installation-specific and is not part of the
+        # public diagnostic contract.  DEVNULL keeps that contract bounded
+        # even if a broken PowerShell emits an unexpectedly large stream.
+        process = subprocess.Popen(
+            arguments,
+            shell=False,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
         )
+        register_process = getattr(cancel_event, "register_process", None)
+        if callable(register_process):
+            register_process(process)
+            registered = True
+        _raise_if_cancelled(cancel_event)
+        deadline = time.monotonic() + SAPI_PREFLIGHT_TIMEOUT_SECONDS
+        while True:
+            _raise_if_cancelled(cancel_event)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise subprocess.TimeoutExpired(arguments, SAPI_PREFLIGHT_TIMEOUT_SECONDS)
+            try:
+                process.communicate(timeout=min(SAPI_PREFLIGHT_POLL_SECONDS, remaining))
+                break
+            except subprocess.TimeoutExpired:
+                continue
+        _raise_if_cancelled(cancel_event)
+        if process.returncode != 0:
+            raise subprocess.CalledProcessError(process.returncode, arguments)
+        completed = True
+    except subprocess.TimeoutExpired as exc:
+        raise NarrationPreflightError(
+            "Windows SAPI preflight failed; install or enable System.Speech voices."
+        ) from exc
     except (OSError, subprocess.SubprocessError) as exc:
         raise NarrationPreflightError(
             "Windows SAPI preflight failed; install or enable System.Speech voices."
         ) from exc
+    finally:
+        if process is not None:
+            poll = getattr(process, "poll", None)
+            try:
+                running = not callable(poll) or poll() is None
+            except (OSError, subprocess.SubprocessError):
+                running = True
+            if not completed and running:
+                _terminate_sapi_process_tree(process)
+                _reap_sapi_process(process)
+            if registered:
+                unregister_process = getattr(cancel_event, "unregister_process", None)
+                if callable(unregister_process):
+                    try:
+                        unregister_process(process)
+                    except Exception:
+                        # Registry cleanup must not replace the capability
+                        # result or the bounded public failure above.
+                        pass
     return {"provider": "windows_sapi", "available": True}
 
 
-def _synthesize_sapi(text: str, *, voice: str | None, rate: int, workspace: Path) -> bytes:
+def _synthesize_sapi(
+    text: str,
+    *,
+    voice: str | None,
+    rate: int,
+    workspace: Path,
+    cancel_event: Any = None,
+) -> bytes:
     executable = _find_powershell()
     script = _sapi_script_path()
     if os.name != "nt" or executable is None or not script.is_file():
         # Keep the public error identical to preflight without requiring a
         # second PowerShell invocation for every segment.
-        preflight_local_sapi()
+        preflight_local_sapi(cancel_event=cancel_event)
         raise NarrationPreflightError("Windows SAPI is unavailable.")
     temporary_directory = Path(tempfile.mkdtemp(prefix=".sapi-", dir=str(workspace)))
     input_path = temporary_directory / "request.json"
@@ -678,8 +800,9 @@ def _synthesize_sapi(text: str, *, voice: str | None, rate: int, workspace: Path
             encoding="utf-8",
             newline="\n",
         )
+        process: subprocess.Popen[bytes] | None = None
         try:
-            subprocess.run(
+            process = subprocess.Popen(
                 [
                     executable,
                     "-NoProfile",
@@ -693,12 +816,31 @@ def _synthesize_sapi(text: str, *, voice: str | None, rate: int, workspace: Path
                     "-OutputWavPath",
                     str(output_path),
                 ],
-                check=True,
-                capture_output=True,
-                timeout=SAPI_TIMEOUT_SECONDS,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
             )
+            register_process = getattr(cancel_event, "register_process", None)
+            if callable(register_process):
+                register_process(process)
+            _raise_if_cancelled(cancel_event)
+            try:
+                process.communicate(timeout=SAPI_TIMEOUT_SECONDS)
+            except subprocess.TimeoutExpired as exc:
+                try:
+                    process.kill()
+                    process.communicate(timeout=5)
+                except (OSError, subprocess.SubprocessError):
+                    pass
+                raise NarrationSynthesisError("Windows SAPI synthesis failed.") from exc
+            if process.returncode != 0:
+                raise NarrationSynthesisError("Windows SAPI synthesis failed.")
         except (OSError, subprocess.SubprocessError) as exc:
             raise NarrationSynthesisError("Windows SAPI synthesis failed.") from exc
+        finally:
+            unregister_process = getattr(cancel_event, "unregister_process", None)
+            if process is not None and callable(unregister_process):
+                unregister_process(process)
         if not _safe_file(output_path):
             raise NarrationSynthesisError("Windows SAPI produced no WAV output.")
         if output_path.stat().st_size > MAX_SEGMENT_WAV_BYTES:
@@ -800,6 +942,7 @@ def generate_local_narration(
     run_id: str,
     payload: dict[str, Any],
     synthesizer: Any = None,
+    cancel_event: Any = None,
 ) -> dict[str, Any]:
     """Generate local narration WAV, captions, timings, and manifest.
 
@@ -810,6 +953,7 @@ def generate_local_narration(
 
     validate_identifier(production_id, label="production id")
     validate_identifier(run_id, label="run id")
+    _raise_if_cancelled(cancel_event)
     workspace = workspace.resolve(strict=True)
     settings = _validate_narration_payload(payload)
     cache_key = _cache_key(settings)
@@ -831,19 +975,27 @@ def generate_local_narration(
         return _result(workspace, cache_directory, manifest, artifacts, cache_hit=True)
 
     if synthesizer is None:
-        preflight_local_sapi()
+        preflight_local_sapi(cancel_event=cancel_event)
     stage_directory = Path(
         tempfile.mkdtemp(prefix=f".{cache_key}.", dir=str(root))
     )
     try:
         wav_segments: list[_WavSegment] = []
         for index, text in enumerate(settings.synthesis_segments, start=1):
+            _raise_if_cancelled(cancel_event)
             if synthesizer is None:
-                data = _synthesize_sapi(text, voice=settings.voice, rate=settings.rate, workspace=stage_directory)
+                data = _synthesize_sapi(
+                    text,
+                    voice=settings.voice,
+                    rate=settings.rate,
+                    workspace=stage_directory,
+                    cancel_event=cancel_event,
+                )
             else:
                 data = _call_injected_synthesizer(
                     synthesizer, text, voice=settings.voice, rate=settings.rate
                 )
+            _raise_if_cancelled(cancel_event)
             wav_segments.append(_read_wav(data, label=f"segment {index}"))
         narration_wav, timing_rows, duration_ms = _join_wav(wav_segments)
         timing_rows = [

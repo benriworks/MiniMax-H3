@@ -3,7 +3,10 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import subprocess
 import tempfile
+import threading
+import time
 import unittest
 import wave
 from pathlib import Path
@@ -17,6 +20,7 @@ from tools.studio.narration import (
     preflight_local_sapi,
 )
 from tools.studio import narration as narration_module
+from tools.studio.jobs import JobCancelled, JobExecutionContext
 from tools.studio.security import SecurityError
 
 
@@ -38,6 +42,32 @@ class FakeSynthesizer:
     def synthesize(self, text: str, *, voice: str | None, rate: int) -> bytes:
         self.calls.append((text, voice, rate))
         return wav_bytes(frames=self.durations[len(self.calls) - 1])
+
+
+class FakePreflightProcess:
+    _next_pid = 40_000
+
+    def __init__(self, *, stalls: bool = False) -> None:
+        self.pid = self._next_pid
+        type(self)._next_pid += 1
+        self.stalls = stalls
+        self.killed = False
+        self.returncode: int | None = None
+        self.communicate_calls: list[float | None] = []
+
+    def communicate(self, *, timeout: float | None = None) -> tuple[bytes, bytes]:
+        self.communicate_calls.append(timeout)
+        if self.stalls and not self.killed:
+            raise subprocess.TimeoutExpired("fake-powershell", timeout)
+        self.returncode = -9 if self.killed else 0
+        return b"", b""
+
+    def poll(self) -> int | None:
+        return self.returncode
+
+    def kill(self) -> None:
+        self.killed = True
+        self.returncode = -9
 
 
 class NarrationTests(unittest.TestCase):
@@ -189,6 +219,104 @@ class NarrationTests(unittest.TestCase):
         with mock.patch("tools.studio.narration.os.name", "posix"):
             with self.assertRaisesRegex(NarrationPreflightError, "Windows SAPI"):
                 preflight_local_sapi()
+
+    def test_preflight_registers_and_unregisters_process(self) -> None:
+        process = FakePreflightProcess()
+        cancel_event = JobExecutionContext("NARRATION_PREFLIGHT_REGISTRY_TEST")
+        with (
+            mock.patch.object(narration_module.os, "name", "nt"),
+            mock.patch.object(narration_module, "_find_powershell", return_value="powershell.exe"),
+            mock.patch.object(narration_module, "_sapi_script_path", return_value=Path(__file__)),
+            mock.patch.object(narration_module.subprocess, "Popen", return_value=process) as popen,
+        ):
+            result = preflight_local_sapi(cancel_event=cancel_event)
+
+        self.assertEqual(result, {"provider": "windows_sapi", "available": True})
+        popen.assert_called_once()
+        self.assertEqual(cancel_event.process_pids(), set())
+        self.assertEqual(len(process.communicate_calls), 1)
+        self.assertLessEqual(process.communicate_calls[0] or 0, narration_module.SAPI_PREFLIGHT_POLL_SECONDS)
+
+    def test_preflight_timeout_terminates_process_tree_and_cleans_registry(self) -> None:
+        process = FakePreflightProcess(stalls=True)
+        cancel_event = JobExecutionContext("NARRATION_PREFLIGHT_TIMEOUT_TEST")
+        with (
+            mock.patch.object(narration_module.os, "name", "nt"),
+            mock.patch.object(narration_module, "_find_powershell", return_value="powershell.exe"),
+            mock.patch.object(narration_module, "_sapi_script_path", return_value=Path(__file__)),
+            mock.patch.object(narration_module.subprocess, "Popen", return_value=process),
+            mock.patch.object(
+                narration_module,
+                "_terminate_sapi_process_tree",
+                side_effect=lambda _process: process.kill(),
+            ) as terminate,
+            mock.patch.object(narration_module, "SAPI_PREFLIGHT_TIMEOUT_SECONDS", 0.02),
+            mock.patch.object(narration_module, "SAPI_PREFLIGHT_POLL_SECONDS", 0.005),
+        ):
+            with self.assertRaisesRegex(NarrationPreflightError, "preflight failed"):
+                preflight_local_sapi(cancel_event=cancel_event)
+
+        terminate.assert_called_once_with(process)
+        self.assertTrue(process.killed)
+        self.assertEqual(cancel_event.process_pids(), set())
+        self.assertGreaterEqual(len(process.communicate_calls), 2)
+
+    def test_preflight_cancellation_terminates_process_without_waiting_for_timeout(self) -> None:
+        process = FakePreflightProcess(stalls=True)
+        cancel_event = JobExecutionContext("NARRATION_PREFLIGHT_CANCEL_TEST")
+        errors: list[BaseException] = []
+
+        def run() -> None:
+            try:
+                preflight_local_sapi(cancel_event=cancel_event)
+            except BaseException as exc:
+                errors.append(exc)
+
+        with (
+            mock.patch.object(narration_module.os, "name", "nt"),
+            mock.patch.object(narration_module, "_find_powershell", return_value="powershell.exe"),
+            mock.patch.object(narration_module, "_sapi_script_path", return_value=Path(__file__)),
+            mock.patch.object(narration_module.subprocess, "Popen", return_value=process),
+            mock.patch.object(
+                narration_module,
+                "_terminate_sapi_process_tree",
+                side_effect=lambda _process: process.kill(),
+            ),
+        ):
+            worker = threading.Thread(target=run)
+            worker.start()
+            deadline = time.monotonic() + 2
+            while not cancel_event.process_pids() and time.monotonic() < deadline:
+                time.sleep(0.005)
+            self.assertTrue(cancel_event.process_pids(), "preflight child must be registered")
+            cancel_event.set()
+            worker.join(timeout=2)
+
+        self.assertFalse(worker.is_alive(), "cancel must not wait for the preflight timeout")
+        self.assertEqual(cancel_event.process_pids(), set())
+        self.assertEqual(len(errors), 1)
+        self.assertIsInstance(errors[0], JobCancelled)
+
+    def test_generate_passes_cancel_event_to_preflight(self) -> None:
+        cancel_event = JobExecutionContext("NARRATION_PREFLIGHT_FORWARD_TEST")
+        with (
+            mock.patch.object(narration_module, "preflight_local_sapi") as preflight,
+            mock.patch.object(
+                narration_module,
+                "_synthesize_sapi",
+                return_value=wav_bytes(frames=10),
+            ),
+        ):
+            result = generate_local_narration(
+                self.workspace,
+                production_id="PROD_TEST",
+                run_id="RUN_PREFLIGHT_FORWARD",
+                payload={"segments": [{"text": "hello"}]},
+                cancel_event=cancel_event,
+            )
+
+        self.assertFalse(result["cache_hit"])
+        preflight.assert_called_once_with(cancel_event=cancel_event)
 
 
 if __name__ == "__main__":

@@ -13,7 +13,7 @@
 .\run-studio.ps1
 ```
 
-通常は`http://127.0.0.1:8765`を開きます。現在のMVPは既存制作台帳の閲覧、再実行計画、Run記録、有料工程の費用上限承認、監査exportに加え、Windows SAPIによる無課金のローカルナレーション生成、字幕、segment timing、発音置換、工程cacheを扱えます。外部有料TTS、画面収録、動画生成・合成・QCのworkerはまだ接続しません。詳細とセキュリティ境界は[STUDIO_MVP_JA.md](STUDIO_MVP_JA.md)を参照してください。
+通常は`http://127.0.0.1:8765`を開きます。現在のMVPは既存制作台帳の閲覧、再実行計画、Run記録、有料工程の費用上限承認、監査exportに加え、Windows SAPIによる無課金のローカルナレーション生成、FFmpegによるclean／字幕焼き込みmasterのローカル合成、完成masterのローカルtechnical QCを扱えます。字幕、segment timing、発音置換、工程cache、codec／stream／duration／full-decode／全編無音の検査、ffprobe・manifestも記録します。外部有料TTS、画面収録、動画生成のworkerはまだ接続しません。詳細とセキュリティ境界は[STUDIO_MVP_JA.md](STUDIO_MVP_JA.md)を参照してください。
 
 <div align="center">
   <img width="100%" src="assets/minimax-h3-header.gif" alt="MiniMax H3">

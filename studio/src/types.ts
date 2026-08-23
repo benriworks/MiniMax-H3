@@ -83,11 +83,18 @@ export interface StageAttempt {
   startedAt?: string;
   finishedAt?: string;
   durationSeconds?: number;
+  durationMs?: number;
   cacheHit?: boolean;
   provider?: string;
   providerTaskId?: string;
   actualCost?: number;
   timingSource?: string;
+  analysisStatus?: string;
+  technicalVerdict?: LocalQcVerdict;
+  assemblyAttemptId?: string;
+  variant?: LocalQcVariant;
+  checks?: QcCheck[];
+  mediaFacts?: Record<string, unknown>;
   artifacts: Artifact[];
   message?: string;
   errorCode?: string;
@@ -139,10 +146,17 @@ export interface JobResult {
   artifacts: Artifact[];
   cacheHit?: boolean;
   durationSeconds?: number;
+  durationMs?: number;
   provider?: string;
   providerTaskId?: string;
   actualCost?: number;
   timingSource?: string;
+  analysisStatus?: string;
+  technicalVerdict?: LocalQcVerdict;
+  assemblyAttemptId?: string;
+  variant?: LocalQcVariant;
+  checks?: QcCheck[];
+  mediaFacts?: Record<string, unknown>;
   message?: string;
   errorCode?: string;
   raw: Record<string, unknown>;
@@ -164,6 +178,28 @@ export interface LocalNarrationRequest {
   pronunciations?: PronunciationOverride[];
 }
 
+export interface LocalAssemblyRequest {
+  videoArtifactId: string;
+  narrationAttemptId: string;
+  includeCaptioned: boolean;
+}
+
+export type LocalQcVariant = 'clean' | 'captioned';
+
+export type LocalQcVerdict = 'pass' | 'fail';
+
+export interface LocalQcRequest {
+  assemblyAttemptId: string;
+  variant: LocalQcVariant;
+}
+
+export interface QcCheck {
+  name?: string;
+  status?: string;
+  message?: string;
+  [key: string]: unknown;
+}
+
 export interface Job {
   id: string;
   productionId?: string;
@@ -176,6 +212,8 @@ export interface Job {
   startedAt?: string;
   updatedAt?: string;
   attempt?: number;
+  assemblyAttemptId?: string;
+  variant?: LocalQcVariant;
   cacheHit?: boolean;
   durationSeconds?: number;
   result?: JobResult;
