@@ -5,8 +5,10 @@ import http.client
 import json
 import os
 import sqlite3
+import sys
 import tempfile
 import threading
+import types
 import unittest
 import zipfile
 from contextlib import closing
@@ -206,6 +208,114 @@ def fake_validate_local_assembly_outputs(
         "source_video_sha256": hashlib.sha256(source_video.read_bytes()).hexdigest().upper(),
         "narration_wav_sha256": hashlib.sha256(narration_wav.read_bytes()).hexdigest().upper(),
         "captions_sha256": hashlib.sha256(captions_srt.read_bytes()).hexdigest().upper(),
+    }
+
+
+def _fake_timeline_artifacts(
+    workspace: Path,
+    *,
+    run_id: str,
+    cache_key: str,
+) -> list[dict[str, object]]:
+    output_directory = (
+        workspace
+        / "outputs"
+        / "studio"
+        / "runs"
+        / run_id
+        / "timeline"
+        / cache_key
+    )
+    output_directory.mkdir(parents=True, exist_ok=True)
+    files = {
+        "timeline-preview.mp4": ("video", "video/mp4", b"local-timeline-video"),
+        "timeline.json": ("document", "application/json", b"{}\n"),
+        "ffprobe.json": ("document", "application/json", b"{}\n"),
+        "manifest.json": ("document", "application/json", b"{}\n"),
+    }
+    artifacts: list[dict[str, object]] = []
+    for name, (kind, media_type, content) in files.items():
+        path = output_directory / name
+        path.write_bytes(content)
+        artifacts.append(
+            {
+                "name": name,
+                "rel_path": path.relative_to(workspace).as_posix(),
+                "kind": kind,
+                "media_type": media_type,
+                "bytes": len(content),
+                "sha256": hashlib.sha256(content).hexdigest().upper(),
+            }
+        )
+    return artifacts
+
+
+def fake_local_timeline_result(
+    workspace: Path,
+    *,
+    production_id: str,
+    run_id: str,
+    cache_key: str,
+    clips: list[dict[str, object]],
+    **_kwargs: object,
+) -> dict[str, object]:
+    del production_id
+    return {
+        "artifacts": _fake_timeline_artifacts(
+            workspace, run_id=run_id, cache_key=cache_key
+        ),
+        "duration_ms": sum(
+            int(item["end_ms"]) - int(item["start_ms"]) for item in clips
+        ),
+        "cache_key": cache_key,
+        "cache_hit": False,
+        "provider": "local_ffmpeg_timeline",
+        "provider_task_id": None,
+        "actual_cost": 0,
+        "timing_source": "ffprobe",
+    }
+
+
+def fake_validate_local_timeline_outputs(
+    workspace: Path,
+    *,
+    production_id: str,
+    run_id: str,
+    cache_key: str,
+    clips: list[dict[str, object]],
+    **_kwargs: object,
+) -> dict[str, object]:
+    del production_id
+    artifacts = []
+    output_directory = (
+        workspace
+        / "outputs"
+        / "studio"
+        / "runs"
+        / run_id
+        / "timeline"
+        / cache_key
+    )
+    for name in ("timeline-preview.mp4", "timeline.json", "ffprobe.json", "manifest.json"):
+        path = output_directory / name
+        artifacts.append(
+            {
+                "name": path.name,
+                "bytes": path.stat().st_size,
+                "sha256": hashlib.sha256(path.read_bytes()).hexdigest().upper(),
+            }
+        )
+    return {
+        "artifacts": artifacts,
+        "duration_ms": sum(
+            int(item["end_ms"]) - int(item["start_ms"]) for item in clips
+        ),
+        "cache_key": cache_key,
+        "cache_hit": True,
+        "provider": "local_ffmpeg_timeline",
+        "provider_task_id": None,
+        "actual_cost": 0,
+        "timing_source": "ffprobe",
     }
 
 
@@ -896,6 +1006,259 @@ class ServiceTests(unittest.TestCase):
                 },
             )
         self.assertEqual(raised.exception.code, "cost_approval_not_required")
+
+    def test_local_timeline_records_linked_attempt_reuses_cache_and_detects_tamper(self) -> None:
+        created = self.service.create_run(
+            PRODUCTION_ID,
+            {
+                "changes": [{"type": "timeline"}],
+                "execution_profile": "local_sapi",
+            },
+        )
+        run_id = created["run"]["id"]
+        self.assertIn("timeline", created["run"]["requested_stages"])
+        self.assertIn("assembly", created["run"]["requested_stages"])
+        detail = self.service.production_detail(PRODUCTION_ID)
+        assert detail is not None
+        video = next(item for item in detail["artifacts"] if item["kind"] == "video")
+        request = {
+            "clips": [
+                {
+                    "video_artifact_id": video["id"],
+                    "start_ms": 0,
+                    "end_ms": 125,
+                }
+            ]
+        }
+        module = types.ModuleType("tools.studio.timeline")
+        module.timeline_cache_key = lambda _clips: "F" * 64
+        module.generate_local_timeline = fake_local_timeline_result
+        module.validate_local_timeline_outputs = fake_validate_local_timeline_outputs
+        with (
+            mock.patch.dict(sys.modules, {"tools.studio.timeline": module}),
+            mock.patch("tools.studio.timeline", module, create=True),
+        ):
+            first_job = self.service.execute_local_timeline(run_id, request)
+            self.assertEqual(first_job["kind"], "local_timeline")
+            self.assertIsNotNone(first_job["stage_attempt_id"])
+            queued_run = self.service.run(run_id)
+            assert queued_run is not None
+            queued_attempt = next(
+                item
+                for item in queued_run["stage_attempts"]
+                if item["stage"] == "timeline"
+            )
+            self.assertEqual(queued_attempt["job_id"], first_job["id"])
+            first = self.service.jobs.wait(first_job["id"], timeout=10)
+            assert first is not None
+            self.assertEqual(first["status"], "succeeded", first)
+            self.assertFalse(first["result"]["cache_hit"])
+            self.assertEqual(
+                {item["name"] for item in first["result"]["artifacts"]},
+                {"timeline-preview.mp4", "timeline.json", "ffprobe.json", "manifest.json"},
+            )
+
+            second_job = self.service.execute_local_timeline(run_id, request)
+            second = self.service.jobs.wait(second_job["id"], timeout=10)
+            assert second is not None
+            self.assertEqual(second["status"], "succeeded", second)
+            self.assertTrue(second["result"]["cache_hit"])
+            self.assertEqual(
+                second["result"]["cache_source_attempt_id"],
+                first["result"]["stage_attempt_id"],
+            )
+
+            timeline_artifact = next(
+                item
+                for item in first["result"]["artifacts"]
+                if item["name"] == "timeline-preview.mp4"
+            )
+            (self.fixture.root / timeline_artifact["rel_path"]).write_bytes(b"tampered")
+            third_job = self.service.execute_local_timeline(run_id, request)
+            third = self.service.jobs.wait(third_job["id"], timeout=10)
+            assert third is not None
+            self.assertEqual(third["status"], "succeeded", third)
+            self.assertFalse(third["result"]["cache_hit"])
+
+        detail = self.service.production_detail(PRODUCTION_ID)
+        assert detail is not None
+        self.assertTrue(
+            any(
+                item["kind"] == "video" and item["name"] == "timeline-preview.mp4"
+                for item in detail["artifacts"]
+            )
+        )
+
+    def test_local_timeline_rejects_foreign_artifact_and_unknown_fields(self) -> None:
+        other_id = "OTHER_20260824_timeline"
+        other_path = self.fixture.root / "outputs" / "productions" / other_id / "clip.mp4"
+        other_path.parent.mkdir(parents=True, exist_ok=True)
+        other_path.write_bytes(VIDEO_BYTES)
+        other_artifact = self.service.indexer._artifact(other_id, other_path, "output", {})
+        assert other_artifact is not None
+        self.service.database.index_production(
+            {
+                "id": other_id,
+                "title": other_id,
+                "status": "discovered",
+                "technical_status": None,
+                "creative_status": None,
+                "public_release_status": None,
+                "source_rel": None,
+                "output_rel": f"outputs/productions/{other_id}",
+            },
+            [other_artifact],
+        )
+        other_detail = self.service.production_detail(other_id)
+        assert other_detail is not None
+        foreign_video = next(item for item in other_detail["artifacts"] if item["kind"] == "video")
+        created = self.service.create_run(
+            PRODUCTION_ID,
+            {"changes": [{"type": "timeline"}], "execution_profile": "local_sapi"},
+        )
+        with self.assertRaises(RequestValidationError) as foreign:
+            self.service.execute_local_timeline(
+                created["run"]["id"],
+                {
+                    "clips": [
+                        {
+                            "video_artifact_id": foreign_video["id"],
+                            "start_ms": 0,
+                            "end_ms": 125,
+                        }
+                    ]
+                },
+            )
+        self.assertEqual(foreign.exception.code, "timeline_video_not_available")
+        with self.assertRaises(RequestValidationError) as unknown:
+            self.service.execute_local_timeline(
+                created["run"]["id"],
+                {
+                    "clips": [],
+                    "unexpected": True,
+                },
+            )
+        self.assertEqual(unknown.exception.code, "invalid_local_timeline_request")
+
+    def test_local_timeline_cache_chain_reuses_physical_owner_across_three_runs(self) -> None:
+        detail = self.service.production_detail(PRODUCTION_ID)
+        assert detail is not None
+        video = next(item for item in detail["artifacts"] if item["kind"] == "video")
+        request = {
+            "clips": [
+                {
+                    "video_artifact_id": video["id"],
+                    "start_ms": 0,
+                    "end_ms": 125,
+                }
+            ]
+        }
+        generated_runs: list[str] = []
+
+        def generate(*args: object, **kwargs: object) -> dict[str, object]:
+            generated_runs.append(str(kwargs["run_id"]))
+            return fake_local_timeline_result(*args, **kwargs)
+
+        module = types.ModuleType("tools.studio.timeline")
+        module.timeline_cache_key = lambda _clips: "D" * 64
+        module.generate_local_timeline = generate
+        module.validate_local_timeline_outputs = fake_validate_local_timeline_outputs
+        completed: list[dict[str, object]] = []
+        with (
+            mock.patch.dict(sys.modules, {"tools.studio.timeline": module}),
+            mock.patch("tools.studio.timeline", module, create=True),
+        ):
+            for _ in range(3):
+                created = self.service.create_run(
+                    PRODUCTION_ID,
+                    {
+                        "changes": [{"type": "timeline"}],
+                        "execution_profile": "local_sapi",
+                    },
+                )
+                job = self.service.execute_local_timeline(created["run"]["id"], request)
+                terminal = self.service.jobs.wait(job["id"], timeout=10)
+                assert terminal is not None
+                self.assertEqual(terminal["status"], "succeeded", terminal)
+                completed.append(terminal)
+
+        self.assertEqual([item["result"]["cache_hit"] for item in completed], [False, True, True])
+        self.assertEqual(len(generated_runs), 1)
+        self.assertEqual(
+            completed[2]["result"]["cache_source_attempt_id"],
+            completed[1]["result"]["stage_attempt_id"],
+        )
+
+    def test_timeline_artifact_is_accepted_as_existing_assembly_source(self) -> None:
+        created = self.service.create_run(
+            PRODUCTION_ID,
+            {
+                "changes": [{"type": "timeline"}, {"type": "script"}],
+                "execution_profile": "local_sapi",
+            },
+        )
+        run_id = created["run"]["id"]
+        detail = self.service.production_detail(PRODUCTION_ID)
+        assert detail is not None
+        source_video = next(item for item in detail["artifacts"] if item["kind"] == "video")
+        timeline_module = types.ModuleType("tools.studio.timeline")
+        timeline_module.timeline_cache_key = lambda _clips: "B" * 64
+        timeline_module.generate_local_timeline = fake_local_timeline_result
+        timeline_module.validate_local_timeline_outputs = fake_validate_local_timeline_outputs
+        with (
+            mock.patch.dict(sys.modules, {"tools.studio.timeline": timeline_module}),
+            mock.patch("tools.studio.timeline", timeline_module, create=True),
+            mock.patch(
+                "tools.studio.narration.generate_local_narration",
+                side_effect=fake_local_narration_result,
+            ),
+        ):
+            timeline_job = self.service.execute_local_timeline(
+                run_id,
+                {
+                    "clips": [
+                        {
+                            "video_artifact_id": source_video["id"],
+                            "start_ms": 0,
+                            "end_ms": 125,
+                        }
+                    ]
+                },
+            )
+            timeline = self.service.jobs.wait(timeline_job["id"], timeout=10)
+            assert timeline is not None
+            self.assertEqual(timeline["status"], "succeeded", timeline)
+            timeline_video = next(
+                item
+                for item in timeline["result"]["artifacts"]
+                if item["name"] == "timeline-preview.mp4"
+            )
+            narration_job = self.service.execute_local_narration(
+                run_id, {"segments": [{"text": "timeline assembly"}]}
+            )
+            narration = self.service.jobs.wait(narration_job["id"], timeout=10)
+            assert narration is not None
+            self.assertEqual(narration["status"], "succeeded", narration)
+            assembly_request = {
+                "video_artifact_id": timeline_video["id"],
+                "narration_attempt_id": narration["result"]["stage_attempt_id"],
+                "include_captioned": False,
+            }
+            with (
+                mock.patch("tools.studio.assembly.assembly_cache_key", return_value="A" * 64),
+                mock.patch(
+                    "tools.studio.assembly.generate_local_assembly",
+                    side_effect=fake_local_assembly_result,
+                ),
+                mock.patch(
+                    "tools.studio.assembly.validate_local_assembly_outputs",
+                    side_effect=fake_validate_local_assembly_outputs,
+                ),
+            ):
+                assembly_job = self.service.execute_local_assembly(run_id, assembly_request)
+                assembly = self.service.jobs.wait(assembly_job["id"], timeout=10)
+        assert assembly is not None
+        self.assertEqual(assembly["status"], "succeeded", assembly)
 
     def test_local_sapi_run_records_stage_attempt_and_reuses_success(self) -> None:
         calls: list[tuple[str, dict[str, object]]] = []
@@ -1912,6 +2275,13 @@ class ServiceTests(unittest.TestCase):
                 "execution_profile": "local_sapi",
             },
         )
+        local_timeline = self.service.create_run(
+            PRODUCTION_ID,
+            {
+                "changes": [{"type": "timeline", "note": "timeline restore proof"}],
+                "execution_profile": "local_sapi",
+            },
+        )
         with mock.patch(
             "tools.studio.narration.generate_local_narration",
             side_effect=fake_local_narration_result,
@@ -1922,6 +2292,10 @@ class ServiceTests(unittest.TestCase):
             completed_local = self.service.jobs.wait(local_job["id"], timeout=10)
         assert completed_local is not None
         self.assertEqual(completed_local["status"], "succeeded")
+        restored_artifact_ids = {
+            item["id"] for item in completed_local["result"]["artifacts"]
+        }
+        self.assertEqual(len(restored_artifact_ids), 4)
         database_path = self.service.database.path
         self.service.close()
         self.service = None
@@ -1932,9 +2306,10 @@ class ServiceTests(unittest.TestCase):
         rebuilt = StudioService(self.fixture.root)
         self.service = rebuilt
         result = rebuilt.indexer.refresh()
-        self.assertEqual(result["domain_records_restored"]["revisions"], 2)
-        self.assertEqual(result["domain_records_restored"]["runs"], 2)
+        self.assertEqual(result["domain_records_restored"]["revisions"], 3)
+        self.assertEqual(result["domain_records_restored"]["runs"], 3)
         self.assertEqual(result["domain_records_restored"]["stage_attempts"], 1)
+        self.assertEqual(result["domain_records_restored"]["artifacts"], 4)
         self.assertEqual(result["domain_records_restored"]["approvals"], 1)
         detail = rebuilt.production_detail(PRODUCTION_ID)
         assert detail is not None
@@ -1946,6 +2321,14 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(restored_local["execution_profile"], "local_sapi")
         self.assertEqual(restored_local["stage_attempts"][0]["status"], "succeeded")
         self.assertEqual(restored_local["stage_attempts"][0]["job_id"], local_job["id"])
+        self.assertTrue(
+            restored_artifact_ids.issubset({artifact["id"] for artifact in detail["artifacts"]})
+        )
+        restored_timeline = next(
+            run for run in detail["runs"] if run["id"] == local_timeline["run"]["id"]
+        )
+        self.assertEqual(restored_timeline["execution_profile"], "local_sapi")
+        self.assertIn("timeline", restored_timeline["requested_stages"])
         audit = rebuilt.audit_export(PRODUCTION_ID, {"include_media": False})
         completed = rebuilt.jobs.wait(audit["id"], timeout=10)
         assert completed is not None
@@ -1953,12 +2336,88 @@ class ServiceTests(unittest.TestCase):
         archive_path = self.fixture.root / completed["result"]["artifact"]["rel_path"]
         with zipfile.ZipFile(archive_path) as archive:
             names = set(archive.namelist())
+            narration_root = (
+                f"workspace/outputs/studio/runs/{local['run']['id']}/narration/"
+                f"{completed_local['result']['cache_key']}/"
+            )
+            self.assertIn(f"{narration_root}captions.srt", names)
+            self.assertIn(f"{narration_root}timings.json", names)
+            self.assertIn(f"{narration_root}manifest.json", names)
+            self.assertNotIn(f"{narration_root}narration.wav", names)
             self.assertIn(
                 f"studio-events/production/{PRODUCTION_ID}.jsonl", names
             )
             self.assertIn(
                 f"studio-events/run/{created['run']['id']}.jsonl", names
             )
+
+    def test_sqlite_rebuild_skips_hash_mismatched_studio_artifact(self) -> None:
+        assert self.service is not None
+        created = self.service.create_run(
+            PRODUCTION_ID,
+            {
+                "changes": [{"type": "script", "note": "tamper restore proof"}],
+                "execution_profile": "local_sapi",
+            },
+        )
+        with mock.patch(
+            "tools.studio.narration.generate_local_narration",
+            side_effect=fake_local_narration_result,
+        ):
+            job = self.service.execute_local_narration(
+                created["run"]["id"], {"segments": [{"text": "restore tamper"}]}
+            )
+            completed = self.service.jobs.wait(job["id"], timeout=10)
+        assert completed is not None
+        self.assertEqual(completed["status"], "succeeded")
+        artifacts = completed["result"]["artifacts"]
+        tampered = next(item for item in artifacts if item["name"] == "narration.wav")
+        tampered_path = self.fixture.root / tampered["rel_path"]
+        original_size = tampered_path.stat().st_size
+        tampered_path.write_bytes(b"X" * original_size)
+
+        database_path = self.service.database.path
+        self.service.close()
+        self.service = None
+        database_path.unlink()
+        database_path.with_name(database_path.name + "-wal").unlink(missing_ok=True)
+        database_path.with_name(database_path.name + "-shm").unlink(missing_ok=True)
+
+        rebuilt = StudioService(self.fixture.root)
+        self.service = rebuilt
+        result = rebuilt.indexer.refresh()
+        self.assertEqual(result["domain_records_restored"]["artifacts"], 3)
+        detail = rebuilt.production_detail(PRODUCTION_ID)
+        assert detail is not None
+        self.assertNotIn(tampered["id"], {item["id"] for item in detail["artifacts"]})
+
+    def test_sqlite_rebuild_safely_skips_legacy_incomplete_artifact_event(self) -> None:
+        assert self.service is not None
+        legacy_id = "art_" + "1" * 32
+        legacy_path = self.fixture.root / "outputs" / "studio" / "legacy" / "orphan.txt"
+        legacy_path.parent.mkdir(parents=True, exist_ok=True)
+        legacy_path.write_text("legacy artifact without restorable metadata\n", encoding="utf-8")
+        with self.service.database.transaction() as connection:
+            self.service.database._append_event(
+                connection,
+                "production",
+                PRODUCTION_ID,
+                "artifact.created",
+                {"artifact_id": legacy_id, "kind": "document"},
+            )
+
+        database_path = self.service.database.path
+        self.service.close()
+        self.service = None
+        database_path.unlink()
+        database_path.with_name(database_path.name + "-wal").unlink(missing_ok=True)
+        database_path.with_name(database_path.name + "-shm").unlink(missing_ok=True)
+
+        rebuilt = StudioService(self.fixture.root)
+        self.service = rebuilt
+        result = rebuilt.indexer.refresh()
+        self.assertEqual(result["domain_records_restored"]["artifacts"], 0)
+        self.assertIsNone(rebuilt.database.get_artifact(legacy_id))
 
 
 class HTTPTests(unittest.TestCase):
@@ -2097,6 +2556,75 @@ class HTTPTests(unittest.TestCase):
         )
         self.assertEqual(status, 422)
         self.assertEqual(json.loads(body)["error"]["code"], "execution_profile_required")
+
+    def test_local_timeline_http_endpoint_records_attempt_and_artifacts(self) -> None:
+        created = self.server.service.create_run(
+            PRODUCTION_ID,
+            {
+                "changes": [{"type": "timeline"}],
+                "execution_profile": "local_sapi",
+            },
+        )
+        run_id = created["run"]["id"]
+        detail = self.server.service.production_detail(PRODUCTION_ID)
+        assert detail is not None
+        video = next(item for item in detail["artifacts"] if item["kind"] == "video")
+        module = types.ModuleType("tools.studio.timeline")
+        module.timeline_cache_key = lambda _clips: "C" * 64
+        module.generate_local_timeline = fake_local_timeline_result
+        module.validate_local_timeline_outputs = fake_validate_local_timeline_outputs
+        with (
+            mock.patch.dict(sys.modules, {"tools.studio.timeline": module}),
+            mock.patch("tools.studio.timeline", module, create=True),
+        ):
+            status, _headers, body = self.request(
+                "POST",
+                f"/api/runs/{run_id}/execute-local-timeline",
+                body={
+                    "clips": [
+                        {
+                            "video_artifact_id": video["id"],
+                            "start_ms": 0,
+                            "end_ms": 125,
+                        }
+                    ]
+                },
+                headers={"X-Studio-Token": self.token},
+            )
+            self.assertEqual(status, 202)
+            job_id = json.loads(body)["id"]
+            completed = self.server.service.jobs.wait(job_id, timeout=10)
+        assert completed is not None
+        self.assertEqual(completed["status"], "succeeded", completed)
+        self.assertEqual(len(completed["result"]["artifacts"]), 4)
+        status, _headers, response = self.request("GET", f"/api/runs/{run_id}")
+        self.assertEqual(status, 200)
+        run = json.loads(response)
+        timeline_attempt = next(
+            attempt for attempt in run["stage_attempts"] if attempt["stage"] == "timeline"
+        )
+        self.assertEqual(timeline_attempt["status"], "succeeded")
+        self.assertEqual(timeline_attempt["job_id"], job_id)
+        status, _headers, response = self.request(
+            "POST",
+            f"/api/runs/{run_id}/execute-local-timeline",
+            body={
+                "clips": [
+                    {
+                        "video_artifact_id": video["id"],
+                        "start_ms": 0,
+                        "end_ms": 125,
+                    }
+                ],
+                "unexpected": True,
+            },
+            headers={"X-Studio-Token": self.token},
+        )
+        self.assertEqual(status, 422)
+        self.assertEqual(
+            json.loads(response)["error"]["code"],
+            "invalid_local_timeline_request",
+        )
 
     def test_local_assembly_http_endpoint_records_attempt_and_artifacts(self) -> None:
         created = self.server.service.create_run(

@@ -4,7 +4,7 @@
 
 MiniMaxH3 Studioは、制作案件、ログ、中間成果物、費用、承認履歴を1か所で確認するためのローカルWebアプリです。チャットは企画と監督の窓口、Studioは実行状態と証跡を保持する制御盤として分離します。
 
-このMVPはPowerDirectorのような汎用ノンリニア編集ソフトではありません。既存の`productions/`と`outputs/productions/`を読み込み、制作記録の閲覧、再実行計画、承認、監査exportを扱う土台です。Windows SAPIによるローカルナレーションworker、FFmpegによる1本の映像への音声・字幕合成worker、完成masterのローカルtechnical QC workerまでを実装済みで、画面収録、複数cutのタイムライン編集、H3、外部有料APIの実行workerは後続段階です。
+このMVPはPowerDirectorのような汎用ノンリニア編集ソフトではありません。既存の`productions/`と`outputs/productions/`を読み込み、制作記録の閲覧、再実行計画、承認、監査exportを扱う土台です。Windows SAPIによるローカルナレーションworker、登録済み動画をトリムして順序付きハードカットへ連結するFFmpeg timeline worker、音声・字幕合成worker、完成masterのローカルtechnical QC workerまでを実装済みです。画面収録、transition／overlayを含む詳細編集、H3、外部有料APIの実行workerは後続段階です。
 
 ## MVPでできること
 
@@ -22,6 +22,8 @@ MiniMaxH3 Studioは、制作案件、ログ、中間成果物、費用、承認�
 - `local_sapi`の0円runを作り、1行1segmentの日本語ナレーションを明示実行する。
 - voice、読み上げ速度、原文を保持した発音置換を指定する。
 - 実WAV frameに基づく`narration.wav`、`captions.srt`、`timings.json`、`manifest.json`を生成する。
+- 同じproductionの登録済み動画を1〜32カット選び、順序変更、複製、開始／終了ミリ秒の指定からハードカットpreviewを明示実行する。
+- timeline previewを1080×1920、24fps、H.264／yuv420p、video-only MP4へ固定し、`timeline-preview.mp4`、`timeline.json`、`ffprobe.json`、`manifest.json`を生成する。
 - 同じproductionの登録済み動画と、同じRunの成功済みナレーションattemptを選び、source audioを置換した`master-clean.mp4`をローカル生成する。
 - 任意で、SRTを制御タグ不能な固定style ASSへ変換し、`master-captioned.mp4`を追加生成する。
 - `ffprobe.json`と自己hash付き`manifest.json`へ入力hash、FFmpeg/ffprobeの実体・version・binary hash、音声方針、出力方針を記録する。
@@ -33,12 +35,22 @@ MiniMaxH3 Studioは、制作案件、ログ、中間成果物、費用、承認�
 MVPが行わないこと:
 
 - 外部有料処理または外部TTSの自動実行
-- 画面収録、動画生成、複数cutのタイムライン編集
+- 画面収録、動画生成、transition／overlay／音量調整を含む汎用タイムライン編集
 - ブラウザから任意ローカルpathを読むこと
 - creativeまたは公開権利を自動承認すること
 
-「run作成」は監査可能な実行計画を保存する操作で、それだけではworkerや課金APIを開始しません。`local_sapi` runでは、作成後にナレーション、編集・合成、品質検査の各画面または対応する専用APIで明示したときだけローカルworkerを開始します。合成は同じRunの成功済みナレーションを、QCは同じRunの成功済みassembly attemptを必須とします。
-通常の課金対象requested stageを含むrunには正の見積額が必須です。0以下または未指定の見積はfail closedで拒否し、runを残しません。`local_sapi`はnarration、captions、assembly、qcだけを対象にする0円profileで、映像生成などへ転用できません。
+「run作成」は監査可能な実行計画を保存する操作で、それだけではworkerや課金APIを開始しません。`local_sapi` runでは、作成後にナレーション、カット編集、編集・合成、品質検査の各画面または対応する専用APIで明示したときだけローカルworkerを開始します。カット編集は同じproductionの登録済み動画artifactだけを受け付けます。合成は同じRunの成功済みナレーションを、QCは同じRunの成功済みassembly attemptを必須とします。timeline previewは通常の登録済み動画と同じ入力候補としてassemblyへ渡せます。
+通常の課金対象requested stageを含むrunには正の見積額が必須です。0以下または未指定の見積はfail closedで拒否し、runを残しません。`local_sapi`はnarration、captions、timeline、assembly、qcだけを対象にする0円profileで、映像生成などへ転用できません。
+
+カット編集のHTTP境界は`POST /api/runs/{run_id}/execute-local-timeline`です。bodyは次の形だけを受け付け、pathやFFmpeg設定は受け付けません。
+
+```json
+{
+  "clips": [
+    {"video_artifact_id": "art_<32hex>", "start_ms": 0, "end_ms": 1500}
+  ]
+}
+```
 
 ## セットアップと起動
 
@@ -100,6 +112,7 @@ outputs/studio/
   events/<scope>/<id>.jsonl     hash chain付きevent mirror
   secrets/<provider>.dpapi      Windowsユーザーに紐づく暗号化secret
   runs/<run>/narration/<cache>/ narration.wav / captions.srt / timings.json / manifest.json
+  runs/<run>/timeline/<cache>/  timeline-preview.mp4 / timeline.json / ffprobe.json / manifest.json
   runs/<run>/assembly/<cache>/  master-clean.mp4 / master-captioned.mp4 / ffprobe.json / manifest.json
   runs/<run>/qc/<cache>/        technical-qc.json / ffprobe.json / manifest.json
   audits/<production>/<job>.zip 監査export
@@ -130,8 +143,9 @@ Production
 - hash chainの途中改変や不正な追記は検出しますが、正しいevent境界で末尾だけを削る操作は、外部固定済みtailがなければ単独では検出できません。重要時点の監査ZIPと`.zip.sha256`を別媒体にも保管してください。
 - SQLiteはUI検索とMVP操作用です。既存のtracked台帳を置き換えません。
 - Studio外で既存台帳が更新された場合は「索引を更新」で再読込します。
+- SQLite再構築時、Studio生成artifactは完全metadataを持つ`artifact.created`または成功済みstage/job resultから候補を得て、`outputs/studio/`内の非symlink通常file、stable ID、bytes、SHA-256、既存ID/path衝突を再検証できたものだけ復元します。1件2 GiB、合計16 GiB、10,000件が上限です。旧イベントがIDとkindしか持たず完全metadataが他にもない場合、欠落・改変・symlink・path逸脱がある場合は推測で復元しません。
 
-MVPは変更種別から`requested_stages`と再利用工程を計画します。ローカルnarrationのcache keyは正規化segment、voice、rate、発音置換、Windows SAPIに固定した実装versionから作り、成功attemptと4成果物のpath、bytes、SHA-256がすべて一致するときだけ再利用します。ローカルassemblyはsource動画、WAV、SRT、字幕有無、音声・出力方針、FFmpeg/ffprobeの実体versionとbinary SHA-256からcache keyを作り、manifest自己hash、登録済みartifact、実fileを再検証します。ローカルQCはassembly attempt、選択variant、masterのhash／bytes、期待尺、QC policy、FFmpeg/ffprobeの実体identityからcache keyを作ります。cache再利用時もmasterを再解析し、登録済み3成果物と自己hash付きmanifestの整合を確認します。字幕だけを変更した場合は映像とナレーションを再利用し、合成とQCだけを新runで実行できる土台です。
+MVPは変更種別から`requested_stages`と再利用工程を計画します。ローカルnarrationのcache keyは正規化segment、voice、rate、発音置換、Windows SAPIに固定した実装versionから作り、成功attemptと4成果物のpath、bytes、SHA-256がすべて一致するときだけ再利用します。ローカルtimelineは順序付きartifact ID、trim、入力bytes／SHA-256、固定出力policy、解決済みFFmpeg／ffprobeの実体versionとbinary SHA-256からcache keyを作り、同じproduction内の成功attempt chainと4成果物を再検証します。ローカルassemblyはsource動画、WAV、SRT、字幕有無、音声・出力方針、FFmpeg/ffprobeの実体versionとbinary SHA-256からcache keyを作り、manifest自己hash、登録済みartifact、実fileを再検証します。ローカルQCはassembly attempt、選択variant、masterのhash／bytes、期待尺、QC policy、FFmpeg/ffprobeの実体identityからcache keyを作ります。cache再利用時も対象mediaと成果物を再検証します。字幕だけを変更した場合は映像、timeline、ナレーションを再利用し、合成とQCだけを新runで実行できる土台です。
 
 ## ログ、成果物、監査
 
@@ -145,7 +159,7 @@ Studioでは次を別々に扱います。
 | stage attempt | stage、attempt番号、cache key、状態、所要時間、provider、task ID、実費、timing source |
 | status / approval | 台帳由来のtechnical・creative・public status、run費用上限の承認／却下と理由 |
 
-ローカルSAPI attemptは`provider=windows_sapi`、`provider_task_id=null`、`actual_cost=0`、`timing_source=wav_frames`として記録します。ローカルassembly attemptは`provider=local_ffmpeg`、ローカルQC attemptは`provider=local_ffmpeg_qc`として、ともに`provider_task_id=null`、`actual_cost=0`、`timing_source=ffprobe`を記録します。QCは解析不能なtool/process failureだけをjob失敗とし、解析が完了して検査に不合格ならjob／attempt成功と`technical_verdict=fail`を併記します。外部providerのtask ID、redaction済みrequest/response、実費は各adapterを接続した段階で同じevent/artifactモデルへ追加し、存在しない外部実行ログを作ったようには表示しません。
+ローカルSAPI attemptは`provider=windows_sapi`、`provider_task_id=null`、`actual_cost=0`、`timing_source=wav_frames`として記録します。ローカルtimeline attemptは`provider=local_ffmpeg_timeline`、ローカルassembly attemptは`provider=local_ffmpeg`、ローカルQC attemptは`provider=local_ffmpeg_qc`として、いずれも`provider_task_id=null`、`actual_cost=0`、`timing_source=ffprobe`を記録します。QCは解析不能なtool/process failureだけをjob失敗とし、解析が完了して検査に不合格ならjob／attempt成功と`technical_verdict=fail`を併記します。外部providerのtask ID、redaction済みrequest/response、実費は各adapterを接続した段階で同じevent/artifactモデルへ追加し、存在しない外部実行ログを作ったようには表示しません。
 
 監査exportは、SQLiteを1つのread transactionで固定した時点の記録をZIPへまとめる派生成果物です。event mirrorもそのsnapshotと一致する検証済みprefixをmemoryへ固定してから格納します。一般テキスト副生成物はZIP格納前に既知の秘密情報patternをredactし、変更対象をpackage manifestの`redacted_text_files`へ記録します。安全な構造化処理を保証できないYAML/YML、INI/CFG/CONF、TOML、CSV/TSV、XML、HTML/XHTML、SVGは`structured_text_requires_local_review`として除外します。未知形式と外部archiveも`unsupported_artifact_kind`として除外します。Studio生成のSRT、timings、manifestは既定で含め、WAVは他のaudio/video/imageと同様に`include_media=true`のときだけ含めます。監査ZIP自身は再帰的に含めません。package manifest自身を除く格納entryごとの実bytes/SHA-256、scope別event chain末尾、検証できず除外したmirrorを記録し、ZIP閉鎖後に全entryを再検証します。ZIP全体のSHA-256は隣接sidecarへ保存します。DB snapshot後に元artifactが更新された場合、artifact metadataの時点とcopy時点は異なり得るため、ZIP内実体については`archive_entries`のbytes/hashを正本とします。監査ZIPが存在するだけで公開権利や人の通し試聴が確認済みになったとは扱いません。
 
@@ -158,6 +172,8 @@ Studioでは次を別々に扱います。
 - `.env`拡張子、`.env.*`、credential/secret key file、DPAPI secretは索引対象外です。JSON/JSONLは構造化redactionし、一般テキストはAuthorization、Basic/Bearer、Cookie、API key、署名値など既知patternをbest-effortでredactします。
 - artifact配信は登録済みかつ許可されたroot内のfileだけを対象にします。
 - narration workerは文字列をPowerShell commandへ展開せず、run配下の専用一時directoryにUTF-8 JSONとして渡します。一時fileは同じWindowsユーザー／workspace ACLを信頼境界とし、処理後に削除します。SAPI preflightと合成PowerShellはどちらもjobのprocess registryへ登録し、preflightは100ms周期でcancelを確認します。tracked helperだけを起動し、戻り値はprovider、task ID、実費、cache key、exact artifact path/name/kind/MIME/bytes/SHA-256のallowlistで検証してから登録します。
+- timeline requestは`clips`だけ、その各要素は`video_artifact_id`、integerの`start_ms`、`end_ms`だけを受け付けます。1〜32カット、各50ms以上、合計30分以内、各source 2 GiB以下、入力合計4 GiB以下に制限し、同じproductionの登録済み・available・video artifactだけをhash再検証します。任意path、transition、filter、codec、FFmpeg optionは受け付けません。
+- timeline workerは入力を専用一時directoryの`clip-00.mp4`形式へ固定名copyして整合性を再検証し、`shell=False`、bounded stdout/stderr、cancel可能なFFmpeg／ffprobeだけを実行します。出力は1080×1920、24fps、H.264／yuv420p、video-only、ハードカットへ固定します。累積時間から各カットのframe予算を決め、その枚数だけを連結するframe-budget v2により、短いカットでも境界frameの重複と最後のカット欠落を防ぎます。4成果物をatomic publishし、cache hitでもexact artifact集合、manifest自己hash、実file hash、fresh ffprobeを再検証します。
 - assembly workerは登録済みartifact IDからbackendが解決したworkspace内の通常fileだけを受け取り、`subprocess`を`shell=False`で起動します。SRTは厳密にparseし、ASCII brace/backslashを全角化した固定style ASSへ変換してoverride tagを無効化します。source audioはナレーションへ置換し、短い音声だけを無音paddingします。映像より250msを超えて長い音声は暗黙にtrimせず拒否します。
 - assembly入力は2 GiBの動画、128 MiBのWAV、8 MiBのSRT、30分、最大16,384px／64メガpixelを上限とします。出力はH.264 / yuv420p / AAC / MP4へ固定し、source timingを再encode時に保持します。`master-clean.mp4`、任意の`master-captioned.mp4`、`ffprobe.json`、`manifest.json`を一時directoryからatomic publishします。
 - QC request bodyは`assembly_attempt_id`と`variant`だけを許可します。指定attempt自身は選択中Runの成功済みassemblyに限定します。content-addressed assembly cacheの実fileが同じproduction内の先行Runにある場合は、その`cache_source_attempt_id` chainを循環なしで終端まで辿り、全attemptのcache key、入力hash、artifact ID/path/bytes/SHA-256が一致したときだけ意図的なcross-run再利用として許可します。backendが対象artifactと期待尺を導出し、workspace内通常file、symlink不使用、bytes／SHA-256一致を検証してから、固定argv・`shell=False`のFFmpeg/ffprobeへ渡します。
@@ -179,21 +195,21 @@ Studioは個人用loopbackツールです。LANからの攻撃面を作らない
 
 1. ユーザーがチャットで制作や修正を依頼する。
 2. CodexがStudioのローカルAPIまたはCLIを通して新しいrevision/runを作る。
-3. Studioが索引・監査job、ローカルnarration attempt、成果物、費用計画、ログを保持する。後続workerも同じ台帳へ保持する。
+3. Studioが索引・監査job、ローカルnarration／timeline／assembly／QC attempt、成果物、費用計画、ログを保持する。後続workerも同じ台帳へ保持する。
 4. ユーザーはStudioで候補や中間成果物を確認する。
 5. Codexは完了、失敗、承認待ちなど節目だけを確認する。
-6. ローカルnarrationを明示実行し、成功後に登録済み動画を選んでローカルassemblyを明示実行する。assembly成功後はcleanまたはcaptioned masterを選んでローカルtechnical QCを明示実行する。各工程でcache可否と成果物hashを記録する。未接続工程は修正影響と再利用候補だけを新runへ記録する。
+6. ローカルnarrationを明示実行する。複数素材を使う場合は登録済み動画からtimeline previewを明示実行し、そのpreviewと成功済みnarrationを選んでローカルassemblyを実行する。assembly成功後はcleanまたはcaptioned masterを選んでローカルtechnical QCを明示実行する。各工程でcache可否と成果物hashを記録する。未接続工程は修正影響と再利用候補だけを新runへ記録する。
 
-現MVPは索引・監査jobに加えてローカルnarration、assembly、technical QCもバックグラウンド実行します。dashboard全体のhealth/job一覧は15秒間隔、実行中のnarration／assembly／QC jobは2秒間隔で取得し、terminal状態を検出した時点でproduction detailを再読込します。チャットは節目だけを確認することで監視トークンを抑えられます。Studioへ記録済みの状態はチャットを閉じてもローカルに残ります。
+現MVPは索引・監査jobに加えてローカルnarration、timeline、assembly、technical QCもバックグラウンド実行します。dashboard全体のhealth/job一覧は15秒間隔、実行中のnarration／timeline／assembly／QC jobは2秒間隔で取得し、terminal状態を検出した時点でproduction detailを再読込します。チャットは節目だけを確認することで監視トークンを抑えられます。Studioへ記録済みの状態はチャットを閉じてもローカルに残ります。
 
 ナレーション画面は操作性のため1行2,000文字・合計50,000文字を先に警告します。backendの正本上限は1 segment 4,000文字・合計100,000文字・100 segmentで、UIを迂回したrequestにも必ず適用します。
 
 ## 次段階
 
-実装済み: Windows SAPI adapter、segment字幕timing、発音置換、FFmpeg clean／captioned master、codec／stream／duration／full-decode／全編無音のローカルtechnical QC、ffprobe／manifest、stage attempt/cache、provider/task/実費欄の記録。
+実装済み: Windows SAPI adapter、segment字幕timing、発音置換、登録済み動画1〜32カットのtrim／並べ替え／ハードカットpreview、FFmpeg clean／captioned master、codec／stream／duration／full-decode／全編無音のローカルtechnical QC、ffprobe／manifest、stage attempt/cache、provider/task/実費欄の記録。
 
 1. 外部有料TTS provider adapter、単語単位alignment、provider別の実費・task記録と課金承認gate
-2. Remotionによる複数cutのpreview／timeline編集
+2. Remotionによるtransition、overlay、テロップ、音量、対話的previewを備えた詳細timeline編集
 3. PlaywrightとWindows画面収録
 4. ComfyUIとMiniMax APIのtask永続化、再開、二重課金防止
 5. 音量、黒画面、長時間静止、字幕safe areaなどtechnical QC policyの追加

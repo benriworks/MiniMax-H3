@@ -6,7 +6,7 @@
 
 1. Windows上のComfyUIによるローカル **H3-Base-FL2VA** 実行
 2. Python標準ライブラリだけを使うMiniMax Video Generation V2 API操作
-3. 制作案件、run、artifact、ログ、承認、監査export、ローカルSAPIナレーション、ローカルFFmpeg合成、完成masterのローカルtechnical QCを扱うloopback専用 **MiniMaxH3 Studio MVP**
+3. 制作案件、run、artifact、ログ、承認、監査export、ローカルSAPIナレーション、登録済み動画のローカルFFmpeg timeline、音声・字幕合成、完成masterのローカルtechnical QCを扱うloopback専用 **MiniMaxH3 Studio MVP**
 
 ローカル経路はH3-Baseの768px短辺キャンバスを対象にします。H3-Context-IRとH3-Regenerate-2Kはオープンソースreleaseに含まれないため、2K/Context-IR/Regenerateはローカル実行境界の外側で、公式API側の責務です。
 [MiniMax H3公式の構成説明](https://github.com/MiniMax-AI/MiniMax-H3#model-architecture)と
@@ -36,10 +36,10 @@
 | `run-api.ps1` / `tools/h3_api.py` | `.env`読込、V2 submit/status/wait/download、preflight/security gate | tracked |
 | `setup-studio.ps1` | frontend依存を導入してbuildし、Python backend moduleを検査 | tracked |
 | `run-studio.ps1` | `127.0.0.1`限定でbackendとbuild済みUI、または開発用Viteを起動 | tracked |
-| `studio/` | React / Viteによる制作一覧、案件詳細、artifact preview / A-B比較、event、cost、approval、ローカルナレーション／合成／technical QC UI | tracked source。`node_modules/`と`dist/`はignored |
-| `tools/studio/` | production索引、SQLite、artifact配信、run/approval、stage attempt、Windows SAPI narration/cache、FFmpeg assembly/cache、FFmpeg/ffprobe technical QC/cache、DPAPI secret、audit export API | tracked |
+| `studio/` | React / Viteによる制作一覧、案件詳細、artifact preview / A-B比較、event、cost、approval、ローカルナレーション／カット編集／合成／technical QC UI | tracked source。`node_modules/`と`dist/`はignored |
+| `tools/studio/` | production索引、SQLite、artifact配信、run/approval、stage attempt、Windows SAPI narration/cache、FFmpeg timeline/cache、FFmpeg assembly/cache、FFmpeg/ffprobe technical QC/cache、DPAPI secret、audit export API | tracked |
 | `tools/studio/sapi_synthesize.ps1` | UTF-8 JSON fileからSystem.Speechへ安全に入力し、segment WAVを出力するローカルhelper | tracked |
-| `outputs/studio/` | SQLite、hash chain付きevent JSONL mirror、暗号化secret、監査ZIP、run別ナレーション／合成／technical QC成果物 | untracked/ignored |
+| `outputs/studio/` | SQLite、hash chain付きevent JSONL mirror、暗号化secret、監査ZIP、run別ナレーション／timeline／合成／technical QC成果物 | untracked/ignored |
 | `.env` | MiniMax API keyと任意base | untracked/ignored secret |
 | `outputs/` | `run-local.ps1`およびCLIの生成物 | untracked/ignored |
 
@@ -130,13 +130,14 @@ API contractは[MiniMax V2 Create](https://platform.minimax.io/docs/api-referenc
 1. `setup-studio.ps1`がfrontend依存を導入し、`studio/dist/`をbuildします。
 2. `run-studio.ps1`が`python -m tools.studio.server`を`127.0.0.1:8765`で起動します。通常時は同じoriginからbuild済みUIを配信し、`-Dev`時だけViteを別loopback portで起動します。
 3. backendがtracked `productions/`の台帳とignored `outputs/productions/`のartifactを読み、`outputs/studio/studio.sqlite3`へ検索用索引を構築します。eventはscope別hash chainとして`outputs/studio/events/`のJSONLにも追記します。
-4. UIは制作一覧、run計画/stage、artifact、event、cost、費用approvalをHTTP APIで取得し、登録済みmediaのpreviewとA/B比較を提供します。artifact内容は登録済みpathと許可rootの検査を通った場合だけ返します。safe redaction未対応の設定/markup、未知形式、外部archiveは415で拒否し、Studio自身が生成・検証した監査ZIPだけをdownload対象にします。
-5. 再実行計画は、変更工程、再利用候補、追加費用、`execution_profile`を記録します。課金対象のrequested stageを含む通常runは正の見積額を必須とし、0以下または未指定ならfail closedにします。`local_sapi`はnarration/captions/assembly/qcだけを対象にした0円profileです。明示的な実行操作でnarration、assembly、またはQC attemptとjobを作成し、schema v3の`job_id`とhash-chain eventを永続化してからworker queueへ入れます。同じリンクの再適用は冪等です。event mirrorからはattempt側の履歴Job IDを復元しますが、一時的なjobs検索表そのものは再構築せず、完了状態と成果物はattempt記録を正本にします。
+4. UIは制作一覧、run計画/stage、artifact、event、cost、費用approvalをHTTP APIで取得し、登録済みmediaのpreviewとA/B比較、順序付きカット編集を提供します。artifact内容は登録済みpathと許可rootの検査を通った場合だけ返します。safe redaction未対応の設定/markup、未知形式、外部archiveは415で拒否し、Studio自身が生成・検証した監査ZIPだけをdownload対象にします。
+5. 再実行計画は、変更工程、再利用候補、追加費用、`execution_profile`を記録します。課金対象のrequested stageを含む通常runは正の見積額を必須とし、0以下または未指定ならfail closedにします。`local_sapi`はnarration/captions/timeline/assembly/qcだけを対象にした0円profileです。明示的な実行操作でnarration、timeline、assembly、またはQC attemptとjobを作成し、schema v3の`job_id`とhash-chain eventを永続化してからworker queueへ入れます。同じリンクの再適用は冪等です。event mirrorからはattempt側の履歴Job IDを復元しますが、一時的なjobs検索表そのものは再構築せず、完了状態はattempt記録を正本にします。Studio生成artifactは完全metadataを持つ`artifact.created`または成功済みstage/job resultから候補を得て、`outputs/studio/`内の非symlink通常file、stable ID、bytes、SHA-256、既存ID/path衝突を再検証できたものだけ検索行を復元します。
 6. local narration workerは検証済みJSONをPowerShell helperへfile渡しし、Windows System.SpeechでsegmentごとのWAVを生成します。SAPI preflightと合成processはいずれもjobのcancel contextへ登録し、停止時はprocess treeを終了します。実WAV frame数から字幕時刻を求め、`narration.wav`、`captions.srt`、`timings.json`、`manifest.json`をrun/cache key配下へatomicに確定します。成功artifactのpath、bytes、SHA-256とworker metadataを再検証してから登録し、同一入力はhash検証済みcacheだけを再利用します。1 segment 32 MiB、結合WAV 128 MiB、総尺30分を上限とします。
-7. local assembly workerは、同じproductionの登録済み動画と同じRunの成功済みnarration artifactをhash再検証し、source audioを置換します。短い音声だけを`apad`し、250msを超える尺超過を拒否します。SRTは厳密parse後にoverride不能な固定style ASSへ変換します。clean版と任意のcaptioned版をH.264 / yuv420p / AAC / MP4へencodeし、`ffprobe.json`と自己hash付きmanifestとともにatomic publishします。cache keyには入力hash、字幕有無、音声・出力方針、解決済みFFmpeg/ffprobeのversion・binary hashを含めます。
-8. local technical QC workerは、選択中Runの成功済みassembly attemptからbackendが導出したcleanまたはcaptioned masterだけを受け取ります。assemblyがcontent-addressed cacheを再利用した場合に限り、同じproduction内の先行Runが実fileの所有元になり得ます。その場合もsource attempt chainを循環なしで終端まで辿り、各attemptのcache key、入力hash、artifact ID/path/bytes/SHA-256が同一であることを検証します。MP4 container、video/audio各1 stream、H.264/yuv420p、AAC 48 kHz stereo、container/video/audio各尺、期待尺、full decode、全編無音を検査し、`technical-qc.json`、`ffprobe.json`、自己hash付き`manifest.json`をatomic publishします。解析完了とpass/fail verdictを分け、fail verdictでもjobは成功として証跡を残します。tool/process failureだけをattempt失敗にし、creative、rights、public release statusは変更しません。cache hit時もmasterを再解析してreport改変を検出します。
-9. runの費用上限approvalとstage attempt/eventは追記記録で、以前の判断や試行を上書きしません。technical、creative、rights、public releaseは既存台帳の独立statusとして表示します。
-10. audit exportはSQLiteの単一read transactionとsnapshot一致済みevent mirror prefixを固定し、対象production/runの記録を`outputs/studio/audits/`へZIP化します。JSON/JSONLと一般textは秘密情報をredactし、安全な構造化処理を保証できない設定・markup形式は理由付きで除外します。Studio生成のSRT/timing/manifest/ffprobe/technical QC JSONは含め、WAVとMP4は`include_media=true`のときだけ含めます。package manifest自身を除く格納entryごとの実bytes/SHA-256、scope別event chain tail、除外mirrorを記録し、ZIP閉鎖後にも全entryを検証します。ZIP全体のSHA-256は外部sidecarへ保存します。DB snapshotとartifact copyの間に元fileが変わった場合、ZIP実体には`archive_entries`のbytes/hashを使用します。SQLiteは既存tracked台帳を置き換えません。
+7. local timeline workerは、同じproductionの登録済み・availableな動画artifactだけをbackendでpath／bytes／SHA-256再検証し、1〜32カット、各50ms以上、合計30分以内のtrimを順序どおり連結します。入力は専用一時directoryの固定名へcopyし、任意pathやfree-form FFmpeg optionを受け付けません。出力は1080×1920、24fps、H.264／yuv420p、video-only MP4、ハードカットへ固定します。24fpsへの変換では累積時間から各カットのframe予算を割り当て、カットごとにその枚数だけをconcatして境界重複や終端カット欠落を防ぎます。`timeline-preview.mp4`、`timeline.json`、`ffprobe.json`、自己hash付き`manifest.json`をatomic publishし、cache keyには順序、artifact ID、trim、入力hash／bytes、frame-budget v2を含む固定出力policy、解決済みFFmpeg／ffprobeのversion・binary hashを含めます。
+8. local assembly workerは、同じproductionの登録済み動画と同じRunの成功済みnarration artifactをhash再検証し、source audioを置換します。timeline previewも登録済み動画として使用できます。短い音声だけを`apad`し、250msを超える尺超過を拒否します。SRTは厳密parse後にoverride不能な固定style ASSへ変換します。clean版と任意のcaptioned版をH.264 / yuv420p / AAC / MP4へencodeし、`ffprobe.json`と自己hash付きmanifestとともにatomic publishします。cache keyには入力hash、字幕有無、音声・出力方針、解決済みFFmpeg/ffprobeのversion・binary hashを含めます。
+9. local technical QC workerは、選択中Runの成功済みassembly attemptからbackendが導出したcleanまたはcaptioned masterだけを受け取ります。assemblyがcontent-addressed cacheを再利用した場合に限り、同じproduction内の先行Runが実fileの所有元になり得ます。その場合もsource attempt chainを循環なしで終端まで辿り、各attemptのcache key、入力hash、artifact ID/path/bytes/SHA-256が同一であることを検証します。MP4 container、video/audio各1 stream、H.264/yuv420p、AAC 48 kHz stereo、container/video/audio各尺、期待尺、full decode、全編無音を検査し、`technical-qc.json`、`ffprobe.json`、自己hash付き`manifest.json`をatomic publishします。解析完了とpass/fail verdictを分け、fail verdictでもjobは成功として証跡を残します。tool/process failureだけをattempt失敗にし、creative、rights、public release statusは変更しません。cache hit時もmasterを再解析してreport改変を検出します。
+10. runの費用上限approvalとstage attempt/eventは追記記録で、以前の判断や試行を上書きしません。technical、creative、rights、public releaseは既存台帳の独立statusとして表示します。
+11. audit exportはSQLiteの単一read transactionとsnapshot一致済みevent mirror prefixを固定し、対象production/runの記録を`outputs/studio/audits/`へZIP化します。JSON/JSONLと一般textは秘密情報をredactし、安全な構造化処理を保証できない設定・markup形式は理由付きで除外します。Studio生成のSRT/timing/manifest/ffprobe/technical QC JSONは含め、WAVとMP4は`include_media=true`のときだけ含めます。package manifest自身を除く格納entryごとの実bytes/SHA-256、scope別event chain tail、除外mirrorを記録し、ZIP閉鎖後にも全entryを検証します。ZIP全体のSHA-256は外部sidecarへ保存します。DB snapshotとartifact copyの間に元fileが変わった場合、ZIP実体には`archive_entries`のbytes/hashを使用します。SQLiteは既存tracked台帳を置き換えません。
 
 Studioの階層は次です。
 
@@ -152,7 +153,9 @@ Production
         -> Provider/result metadata / Artifact set
 ```
 
-revisionとrunはimmutableに扱い、修正時は新しい識別子を作ります。ローカルnarrationは工程種別、正規化入力、voice、rate、発音置換、Windows SAPIに固定した実装versionからcache keyを作り、成功試行と4成果物のhashが一致するときだけ再利用します。ローカルassemblyも入力・tool・policy identityと3または4成果物を再検証した場合だけ再利用します。ローカルQCはassembly lineage、variant、master hash／bytes、期待尺、policy、tool identityと3成果物を再検証し、cache再利用時にもmasterを再解析します。その他のrequested stageは計画のみです。MVPの詳しい操作と未実装境界は[STUDIO_MVP_JA.md](STUDIO_MVP_JA.md)に分離しています。
+revisionとrunはimmutableに扱い、修正時は新しい識別子を作ります。ローカルnarrationは工程種別、正規化入力、voice、rate、発音置換、Windows SAPIに固定した実装versionからcache keyを作り、成功試行と4成果物のhashが一致するときだけ再利用します。ローカルtimelineは順序付きartifact ID、trim、入力hash／bytes、固定出力policy、tool identityと4成果物を再検証し、同じproduction内のcache source attempt chainを循環なしで物理ownerまで辿ります。ローカルassemblyも入力・tool・policy identityと3または4成果物を再検証した場合だけ再利用します。ローカルQCはassembly lineage、variant、master hash／bytes、期待尺、policy、tool identityと3成果物を再検証し、cache再利用時にもmasterを再解析します。その他のrequested stageは計画のみです。MVPの詳しい操作と未実装境界は[STUDIO_MVP_JA.md](STUDIO_MVP_JA.md)に分離しています。
+
+artifact復元は1件2 GiB、合計16 GiB、10,000件を上限とします。旧`artifact.created`がIDとkindしか持たず、成功済みstage/job resultにも完全metadataがない成果物は推測で復元しません。物理fileの欠落・改変・symlink・path逸脱・ID/path衝突も復元対象外です。これは検索索引の安全な復元であり、失われたfile自体を再生成する機能ではありません。
 
 worker-backed stageの正常完了は、リンク済みjobとstage attemptの両rowおよび`stage.attempt.succeeded`／`job.succeeded` eventをSQLiteの同一transactionで確定します。停止との境界では、完了transactionが先なら両方success、停止transactionが先ならjobは`interrupted`、stage attemptは`failed(process_interrupted)`となり、片側だけ成功する状態を許しません。Studio停止時はjobごとのcancel eventをprocess登録と同じlockで先に通知し、登録済みFFmpeg／ffprobe／PowerShell subprocessを子process treeごと停止します。DBがbusyでもprocess停止を先行・並行し、workerはbounded joinします。異常終了後の次回起動や、event mirrorからactive attemptだけを復元した場合も同じ終端状態と失敗eventを補い、永続的なrunning状態を残しません。
 
@@ -185,7 +188,7 @@ setup/downloaderはGitHub、PyTorch index、PyPI、npm、Hugging Faceからcode/
 
 - local workflow: prompt/mediaはloopback process内。依存取得時のnetwork accessは別途発生。
 - API workflow: promptとmediaはMiniMaxへ送信。callbackを使えば指定serverにもtask情報が送信される。
-- Studio MVP: production recordとartifact metadataはloopback内。外部providerを呼ばず、local narrationだけWindows System.Speech processへJSON file経由で渡す。assemblyとtechnical QCは登録済みmediaをローカルFFmpeg/ffprobeへ渡す。SQLite、DPAPI暗号文、監査ZIP、WAV/SRT/timing/manifest、clean/captioned MP4、ffprobe、technical QC JSONはignored `outputs/studio/`へ保存する。
+- Studio MVP: production recordとartifact metadataはloopback内。外部providerを呼ばず、local narrationだけWindows System.Speech processへJSON file経由で渡す。timeline、assembly、technical QCは登録済みmediaをローカルFFmpeg/ffprobeへ渡す。SQLite、DPAPI暗号文、監査ZIP、WAV/SRT/timing/manifest、timeline preview、clean/captioned MP4、ffprobe、technical QC JSONはignored `outputs/studio/`へ保存する。
 - output: 著作権、肖像、privacy、適法性はoperatorが判断する。
 
 ライセンス境界は[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)に分離しています。
@@ -238,6 +241,14 @@ APIの入力制約は、request body 64MB以下、画像/動画/音声ごとのs
 - shutdown境界: process登録とcancelの競合、DB busy中のkill先行、Windows `taskkill`非0 fallback、psutil process消滅競合、callback開始境界、job/stageのatomic terminal transactionを回帰確認
 - Studio frontend契約テスト: 12/12合格、production build成功、npm audit 0件
 - 実サービスE2E: 一時workspaceの5秒MP4を索引し、実Windows SAPI 2.377秒→clean/captioned local assembly→technical QC 10項目pass→2回目QC cache hit→mediaなし監査ZIPまで成功。masterはH.264 / yuv420p + AAC 48 kHz stereo、5.000秒で、narration／assembly／QC 2試行のstageとjobはすべてsucceeded
+
+2026-08-24のStudio local timeline／artifact復元確定結果:
+
+- repository Python自動テスト: 163/163合格（既存runtime/API 43件、assembly 19件、Studio backend 47件、job/shutdown 9件、narration 9件、technical QC 23件、timeline 13件）
+- Studio frontend契約テスト: 18/18合格、production build成功、npm audit 0件。空欄／非数値時刻、終了時刻の絶対上限、exact snake_case payload、clip操作、job選択を含む
+- timeline実FFmpegテスト: 13/13合格。3素材のhard cut、video-only固定出力、cache改変・余分file・tool identity・unsafe cache key・cancel・fixed argv・bounded diagnosticsに加え、50ms×32カットの24fps累積丸め、赤・緑・青の50ms境界での順序と終端保持、1秒×2カットの各24frame保持を検証する回帰を含む
+- 実サービスE2E: 3本の2秒sourceから各1.5秒を切り出した4.500秒timeline→実Windows SAPI 1.644秒→clean/captioned assembly→technical QC 10/10 pass→2回目timeline cache hit→mediaなし監査ZIPまで成功。timeline 2試行、narration、assembly、QCの全job／attemptがsucceeded
+- SQLite再構築: 成功済みnarrationの4 artifactをevent mirrorと物理fileのbytes／SHA-256一致から復元。byte数を維持したhash改変artifactは復元せず、完全metadataのない旧`artifact.created`も安全にskipすることを確認
 
 未確定:
 

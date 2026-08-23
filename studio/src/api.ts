@@ -7,6 +7,8 @@ import type {
   Job,
   JobResult,
   LocalAssemblyRequest,
+  LocalTimelineClip,
+  LocalTimelineRequest,
   LocalQcRequest,
   LocalQcVariant,
   LocalQcVerdict,
@@ -107,6 +109,107 @@ export const normalizeLocalAssemblyInput = (
   return { request, errors };
 };
 
+export const LOCAL_TIMELINE_LIMITS = {
+  minClips: 1,
+  maxClips: 32,
+  minClipDurationMs: 50,
+  maxTotalDurationMs: 30 * 60 * 1000,
+} as const;
+
+export interface LocalTimelinePayload {
+  clips: Array<{
+    video_artifact_id: string;
+    start_ms: number;
+    end_ms: number;
+  }>;
+}
+
+export interface NormalizedLocalTimelineInput {
+  request: LocalTimelineRequest;
+  payload: LocalTimelinePayload;
+  totalDurationMs: number;
+  errors: string[];
+}
+
+const timelineClipValue = (value: unknown): UnknownRecord => asRecord(value);
+
+const timelineClipNumber = (record: UnknownRecord, keys: string[]): number | undefined =>
+  number(pick(record, keys));
+
+/** Normalize a cut draft while keeping the wire contract limited to clip ids and integer ranges. */
+export const normalizeLocalTimelineInput = (value: unknown): NormalizedLocalTimelineInput => {
+  const recordValue = asRecord(value);
+  const values = Array.isArray(value)
+    ? value
+    : items(pick(recordValue, ['clips']), ['items', 'clips']);
+  const requestClips: LocalTimelineClip[] = values.map((value) => {
+    const record = timelineClipValue(value);
+    return {
+      videoArtifactId: text(pick(record, ['videoArtifactId', 'video_artifact_id']), '').trim(),
+      startMs: timelineClipNumber(record, ['startMs', 'start_ms']) ?? Number.NaN,
+      endMs: timelineClipNumber(record, ['endMs', 'end_ms']) ?? Number.NaN,
+    };
+  });
+  const errors: string[] = [];
+  if (!Array.isArray(value) && !Array.isArray(recordValue.clips)) errors.push('カット一覧を指定してください。');
+  if (requestClips.length < LOCAL_TIMELINE_LIMITS.minClips) errors.push('カットを1件以上追加してください。');
+  if (requestClips.length > LOCAL_TIMELINE_LIMITS.maxClips) errors.push(`カットは${LOCAL_TIMELINE_LIMITS.maxClips}件以内にしてください。`);
+
+  let totalDurationMs = 0;
+  requestClips.forEach((clip, index) => {
+    const label = `カット${index + 1}`;
+    if (!clip.videoArtifactId) errors.push(`${label}の動画artifactを選択してください。`);
+    if (!Number.isInteger(clip.startMs) || clip.startMs < 0) errors.push(`${label}の開始時刻は0以上の整数ミリ秒で指定してください。`);
+    if (!Number.isInteger(clip.endMs) || clip.endMs < 0) errors.push(`${label}の終了時刻は0以上の整数ミリ秒で指定してください。`);
+    if (Number.isInteger(clip.endMs) && clip.endMs > LOCAL_TIMELINE_LIMITS.maxTotalDurationMs) {
+      errors.push(`${label}の終了時刻は${(LOCAL_TIMELINE_LIMITS.maxTotalDurationMs / 60_000).toLocaleString('ja-JP')}分以内にしてください。`);
+    }
+    const duration = clip.endMs - clip.startMs;
+    if (Number.isInteger(clip.startMs) && Number.isInteger(clip.endMs) && duration < LOCAL_TIMELINE_LIMITS.minClipDurationMs) {
+      errors.push(`${label}の尺は${LOCAL_TIMELINE_LIMITS.minClipDurationMs}ms以上にしてください。`);
+    }
+    if (Number.isInteger(clip.startMs) && Number.isInteger(clip.endMs) && duration > 0) totalDurationMs += duration;
+  });
+  if (totalDurationMs > LOCAL_TIMELINE_LIMITS.maxTotalDurationMs) {
+    errors.push(`合計尺は${(LOCAL_TIMELINE_LIMITS.maxTotalDurationMs / 60_000).toLocaleString('ja-JP')}分以内にしてください。`);
+  }
+
+  const payload: LocalTimelinePayload = {
+    clips: requestClips.map((clip) => ({
+      video_artifact_id: clip.videoArtifactId,
+      start_ms: clip.startMs,
+      end_ms: clip.endMs,
+    })),
+  };
+  return { request: { clips: requestClips }, payload, totalDurationMs, errors };
+};
+
+/** Build the exact timeline wire body; invalid drafts never cross the API boundary. */
+export const buildLocalTimelinePayload = (value: unknown): LocalTimelinePayload => {
+  const normalized = normalizeLocalTimelineInput(value);
+  if (normalized.errors.length > 0) throw new TypeError(normalized.errors[0]);
+  return normalized.payload;
+};
+
+export const toLocalTimelinePayload = buildLocalTimelinePayload;
+
+export const reorderTimelineClips = <T>(clips: readonly T[], fromIndex: number, toIndex: number): T[] => {
+  const output = [...clips];
+  if (!Number.isInteger(fromIndex) || !Number.isInteger(toIndex) || fromIndex < 0 || fromIndex >= output.length || toIndex < 0 || toIndex >= output.length || fromIndex === toIndex) return output;
+  const [moved] = output.splice(fromIndex, 1);
+  output.splice(toIndex, 0, moved);
+  return output;
+};
+
+export const moveTimelineClip = reorderTimelineClips;
+
+export const duplicateTimelineClip = <T>(clips: readonly T[], index: number): T[] => {
+  const output = [...clips];
+  if (!Number.isInteger(index) || index < 0 || index >= output.length) return output;
+  output.splice(index + 1, 0, output[index]);
+  return output;
+};
+
 export const LOCAL_QC_VARIANTS = ['clean', 'captioned'] as const;
 
 export interface LocalQcPayload {
@@ -166,6 +269,30 @@ export const normalizeLocalQcInput = (
 
 export const normalizeStudioStageName = (value: unknown): string =>
   text(value, '').toLowerCase().trim().replaceAll('-', '_').replaceAll(' ', '_');
+
+export const isLocalTimelineJobForSelection = (
+  value: unknown,
+  selection: { runId?: string; stageAttemptId?: string },
+): boolean => {
+  const record = asRecord(value);
+  const result = asRecord(pick(record, ['result', 'job_result', 'output']));
+  const payload = asRecord(pick(record, ['payload', 'request', 'meta']));
+  const field = (keys: string[]): unknown => pick(record, keys) ?? pick(payload, keys);
+  const runId = text(field(['run_id', 'runId']) ?? pick(result, ['run_id', 'runId']), '');
+  const stage = normalizeStudioStageName(field(['stage', 'step', 'type', 'kind']));
+  const jobType = normalizeStudioStageName(text(field(['type', 'kind']), ''));
+  const stageAttemptId = text(
+    field(['stage_attempt_id', 'stageAttemptId'])
+      ?? pick(result, ['stage_attempt_id', 'stageAttemptId']),
+    '',
+  );
+  const stageMatches = stage === 'timeline' || jobType === 'local_timeline';
+  return Boolean(
+    stageMatches
+      && (!selection.runId || runId === selection.runId)
+      && (!selection.stageAttemptId || stageAttemptId === selection.stageAttemptId),
+  );
+};
 
 const rawAttemptArtifacts = (value: unknown): unknown[] => {
   const record = asRecord(value);
@@ -491,6 +618,8 @@ const normalizeArtifact = (value: unknown, index: number): Artifact => {
     createdAt: text(pick(record, ['created_at', 'createdAt', 'modified_at']), '') || undefined,
     sizeBytes: number(pick(record, ['size_bytes', 'size', 'file_size', 'bytes'])),
     sha256: text(pick(record, ['sha256', 'hash', 'checksum']), '') || undefined,
+    durationSeconds: number(pick(record, ['duration_seconds', 'duration', 'duration_sec']))
+      ?? number(pick(metadata, ['duration_seconds', 'duration', 'duration_sec'])),
     description: text(pick(record, ['description', 'summary']), '') || undefined,
     metadata,
     raw: record,
@@ -537,6 +666,7 @@ const normalizeJobResult = (value: unknown): JobResult | undefined => {
   const error = normalizeError(record);
   return {
     attempt: number(pick(record, ['attempt', 'attempt_number', 'try'])),
+    stageAttemptId: text(pick(record, ['stage_attempt_id', 'stageAttemptId']), '') || undefined,
     artifacts: items(pick(record, ['artifacts', 'outputs']), ['items', 'artifacts', 'outputs']).map(normalizeArtifact),
     cacheHit: pick(record, ['cache_hit', 'cacheHit', 'cached']) === undefined ? undefined : boolean(pick(record, ['cache_hit', 'cacheHit', 'cached'])),
     durationSeconds: durationSeconds(record),
@@ -567,6 +697,11 @@ export const normalizeJob = (value: unknown, index = 0): Job => {
   ) || undefined;
   const variantValue = field(['variant']) ?? pick(asRecord(resultValue), ['variant']);
   const variant = localQcVariant(variantValue);
+  const stageAttemptId = text(
+    field(['stage_attempt_id', 'stageAttemptId'])
+      ?? pick(asRecord(resultValue), ['stage_attempt_id', 'stageAttemptId']),
+    '',
+  ) || undefined;
   return {
     id: text(field(['id', 'job_id']), `job-${index}`),
     productionId: text(field(['production_id', 'productionId']), '') || undefined,
@@ -579,6 +714,7 @@ export const normalizeJob = (value: unknown, index = 0): Job => {
     startedAt: text(field(['started_at', 'startedAt']), '') || undefined,
     updatedAt: text(field(['updated_at', 'updatedAt', 'finished_at', 'finishedAt', 'completed_at']), '') || undefined,
     attempt: number(field(['attempt', 'attempt_number', 'try'])) ?? result?.attempt,
+    stageAttemptId,
     assemblyAttemptId,
     variant,
     cacheHit: field(['cache_hit', 'cacheHit', 'cached']) === undefined ? result?.cacheHit : boolean(field(['cache_hit', 'cacheHit', 'cached'])),
@@ -842,6 +978,14 @@ export const api = {
       narration_attempt_id: body.narrationAttemptId,
       include_captioned: body.includeCaptioned,
     });
+    return normalizeJob(value);
+  },
+
+  async executeLocalTimeline(runId: string, body: LocalTimelineRequest): Promise<Job> {
+    const value = await post<unknown>(
+      `/api/runs/${encodeURIComponent(runId)}/execute-local-timeline`,
+      buildLocalTimelinePayload(body.clips),
+    );
     return normalizeJob(value);
   },
 

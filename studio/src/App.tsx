@@ -7,9 +7,13 @@ import {
   getLocalQcAssemblyAttempts,
   getLocalQcResultStatus,
   hasRequestedLocalQcStages,
+  isLocalTimelineJobForSelection,
   isEligibleLocalQcRun,
   isLocalQcJobForSelection,
   isSucceededLocalFfmpegAssemblyAttempt,
+  duplicateTimelineClip,
+  moveTimelineClip,
+  normalizeLocalTimelineInput,
   normalizeLocalAssemblyInput,
   normalizeLocalQcInput,
   normalizeNarrationInput,
@@ -21,6 +25,8 @@ import type {
   HealthStatus,
   Job,
   LocalAssemblyRequest,
+  LocalTimelineClip,
+  LocalTimelineRequest,
   LocalQcRequest,
   LocalQcVariant,
   LocalNarrationRequest,
@@ -35,7 +41,7 @@ import type {
   StudioStatus,
 } from './types';
 
-type DetailTab = 'overview' | 'narration' | 'assembly' | 'qc' | 'artifacts' | 'compare' | 'logs' | 'audit';
+type DetailTab = 'overview' | 'narration' | 'timeline' | 'assembly' | 'qc' | 'artifacts' | 'compare' | 'logs' | 'audit';
 
 const STATUS_LABEL: Record<StudioStatus, string> = {
   pending: '待機',
@@ -66,6 +72,7 @@ const STAGE_LABELS: Record<string, string> = {
   composition: '編集・合成',
   compose: '編集・合成',
   assembly: '編集・合成',
+  timeline: 'カット編集',
   qc: '品質検査',
   release: '公開判定',
 };
@@ -192,6 +199,18 @@ const localQcError = (error: unknown): string => {
     return '選択したassembly attemptにcaptioned masterがありません。実在するmasterだけを選択してください。';
   }
   return `ローカル技術QCに失敗しました：${message}`;
+};
+
+const localTimelineError = (error: unknown): string => {
+  if (error instanceof StudioApiError && error.unsupported) {
+    return 'このStudio backendはローカルカット編集に対応していません。backendを更新してから再試行してください。';
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  const normalized = message.toLowerCase();
+  if (normalized.includes('profile') && normalized.includes('local')) {
+    return 'このRunはlocal_sapi実行用ではありません。timeline工程を含むlocal_sapi Runを選択してください。';
+  }
+  return `ローカルカット編集に失敗しました：${message}`;
 };
 
 const displayQcValue = (value: unknown): string => {
@@ -462,6 +481,7 @@ function ProductionWorkspace({ detail, jobs, onReload }: { detail: ProductionDet
   const tabs: { id: DetailTab; label: string; count?: number }[] = [
     { id: 'overview', label: '概要' },
     { id: 'narration', label: 'ナレーション' },
+    { id: 'timeline', label: 'カット編集' },
     { id: 'assembly', label: '編集・合成' },
     { id: 'qc', label: '品質検査' },
     { id: 'artifacts', label: '成果物', count: detail.artifacts.length },
@@ -510,6 +530,7 @@ function ProductionWorkspace({ detail, jobs, onReload }: { detail: ProductionDet
       <div className="tab-content" id="production-tabpanel" role="tabpanel" aria-labelledby={`production-tab-${tab}`}>
         {tab === 'overview' && <Overview detail={detail} latestRun={latestRun} onReload={onReload} />}
         {tab === 'narration' && <NarrationPanel detail={detail} jobs={jobs} onReload={onReload} />}
+        {tab === 'timeline' && <TimelinePanel detail={detail} jobs={jobs} onReload={onReload} />}
         {tab === 'assembly' && <AssemblyPanel detail={detail} jobs={jobs} onReload={onReload} />}
         {tab === 'qc' && <QcPanel detail={detail} jobs={jobs} onReload={onReload} />}
         {tab === 'artifacts' && <ArtifactsPanel artifacts={detail.artifacts} />}
@@ -598,11 +619,12 @@ const RERUN_STAGES = [
   ['screen_capture', '画面収録'],
   ['keyframe', 'キーフレーム画像'],
   ['video', '生成映像'],
+  ['timeline', 'カット編集'],
   ['assembly', '編集・合成'],
   ['qc', '品質検査'],
 ] as const;
 
-const LOCAL_SAPI_STAGES = new Set(['narration', 'captions', 'assembly', 'qc']);
+const LOCAL_SAPI_STAGES = new Set(['narration', 'captions', 'timeline', 'assembly', 'qc']);
 
 const artifactFileName = (artifact: Artifact): string =>
   (artifact.name || artifact.path || '').split(/[\\/]/).pop()?.toLowerCase() ?? '';
@@ -615,6 +637,263 @@ const isSucceededNarrationAttempt = (attempt: StageAttempt): boolean =>
   && attempt.status === 'succeeded'
   && hasArtifactFile(attempt, 'narration.wav')
   && hasArtifactFile(attempt, 'captions.srt');
+
+const hasTimelineStage = (run: ProductionRun): boolean =>
+  run.requestedStages.some((stage) => normalizeRequestedStage(stage) === 'timeline')
+  || run.stages.some((stage) => normalizeRequestedStage(stage.name) === 'timeline');
+
+const isAvailableVideoArtifact = (artifact: Artifact): boolean =>
+  artifact.kind === 'video'
+  && artifact.raw.available !== false
+  && artifact.metadata.available !== false;
+
+type TimelineDraftClip = {
+  videoArtifactId: string;
+  startMs: string;
+  endMs: string;
+};
+
+const timelineDraftForArtifact = (artifact?: Artifact): TimelineDraftClip => ({
+  videoArtifactId: artifact?.id ?? '',
+  startMs: '0',
+  endMs: artifact?.durationSeconds === undefined
+    ? ''
+    : String(Math.max(50, Math.round(artifact.durationSeconds * 1_000))),
+});
+
+const timelineArtifactHash = (artifact?: Artifact): string => artifact?.sha256 ? `${artifact.sha256.slice(0, 16)}…` : 'hash未記録';
+
+const formatMilliseconds = (milliseconds?: number): string =>
+  milliseconds === undefined ? '—' : formatDuration(milliseconds / 1_000);
+
+function TimelinePanel({ detail, jobs, onReload }: { detail: ProductionDetail; jobs: Job[]; onReload: () => Promise<void> }) {
+  const eligibleRuns = useMemo(
+    () => [...detail.runs]
+      .filter((run) => hasTimelineStage(run) && hasLocalSapiProfile(run))
+      .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')),
+    [detail.runs],
+  );
+  const [selectedRunId, setSelectedRunId] = useState(eligibleRuns[0]?.id ?? '');
+  const [clips, setClips] = useState<TimelineDraftClip[]>([]);
+  const [selectedClipIndex, setSelectedClipIndex] = useState(0);
+  const [job, setJob] = useState<Job>();
+  const [busy, setBusy] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+  const [message, setMessage] = useState<{ type: 'error' | 'success' | 'info'; text: string }>();
+  const reloadedTerminalJob = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (!eligibleRuns.some((run) => run.id === selectedRunId)) {
+      setSelectedRunId(eligibleRuns[0]?.id ?? '');
+      setClips([]);
+      setSelectedClipIndex(0);
+      setJob(undefined);
+      setMessage(undefined);
+    }
+  }, [eligibleRuns, selectedRunId]);
+
+  const selectedRun = eligibleRuns.find((run) => run.id === selectedRunId);
+  const videoArtifacts = useMemo(
+    () => detail.artifacts.filter(isAvailableVideoArtifact),
+    [detail.artifacts],
+  );
+
+  useEffect(() => {
+    if (!selectedRunId) return;
+    const first = videoArtifacts[0];
+    setClips(first ? [timelineDraftForArtifact(first)] : []);
+    setSelectedClipIndex(0);
+    setJob(undefined);
+    setMessage(undefined);
+    reloadedTerminalJob.current = undefined;
+  }, [selectedRunId]);
+
+  useEffect(() => {
+    if (clips.length === 0) setSelectedClipIndex(0);
+    else if (selectedClipIndex >= clips.length) setSelectedClipIndex(clips.length - 1);
+  }, [clips.length, selectedClipIndex]);
+
+  const currentAttempt = [...(selectedRun?.stageAttempts ?? [])]
+    .filter((attempt) => normalizeRequestedStage(attempt.stage) === 'timeline')
+    .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))[0];
+  const visibleJob = job ?? jobs.find((item) =>
+    item.id === currentAttempt?.jobId
+    || isLocalTimelineJobForSelection(item, {
+      runId: selectedRun?.id,
+      stageAttemptId: currentAttempt?.id,
+    }),
+  );
+  const isTerminal = visibleJob?.status === 'succeeded' || visibleJob?.status === 'failed' || visibleJob?.status === 'cancelled';
+  const normalizedInput = useMemo(() => normalizeLocalTimelineInput(clips), [clips]);
+  const missingArtifactErrors = clips.flatMap((clip, index) => clip.videoArtifactId && !videoArtifacts.some((artifact) => artifact.id === clip.videoArtifactId)
+    ? [`カット${index + 1}の動画artifactはこの制作で利用できません。`]
+    : []);
+  const validationErrors = [...normalizedInput.errors, ...missingArtifactErrors];
+  const selectedArtifact = videoArtifacts.find((artifact) => artifact.id === clips[selectedClipIndex]?.videoArtifactId);
+
+  useEffect(() => {
+    if (!job || isTerminal) {
+      if (isTerminal && !submitting) setBusy(false);
+      return;
+    }
+    const timer = window.setInterval(() => {
+      void api.jobs().then((nextJobs) => {
+        const next = nextJobs.find((item) => item.id === job.id);
+        if (next) setJob(next);
+      }).catch(() => undefined);
+    }, 2_000);
+    return () => window.clearInterval(timer);
+  }, [isTerminal, job, submitting]);
+
+  useEffect(() => {
+    if (!visibleJob || !isTerminal || reloadedTerminalJob.current === visibleJob.id) return;
+    reloadedTerminalJob.current = visibleJob.id;
+    void onReload().catch(() => undefined);
+  }, [isTerminal, onReload, visibleJob]);
+
+  const updateClip = (index: number, key: keyof TimelineDraftClip, value: string) => {
+    setClips((current) => current.map((clip, clipIndex) => clipIndex === index ? { ...clip, [key]: value } : clip));
+  };
+
+  const addClip = () => {
+    if (clips.length >= 32) {
+      setMessage({ type: 'error', text: 'カットは32件以内にしてください。' });
+      return;
+    }
+    const next = timelineDraftForArtifact(videoArtifacts[0]);
+    setClips((current) => [...current, next]);
+    setSelectedClipIndex(clips.length);
+    setMessage(undefined);
+  };
+
+  const removeClip = (index: number) => {
+    setClips((current) => current.filter((_, clipIndex) => clipIndex !== index));
+    setSelectedClipIndex((current) => Math.max(0, Math.min(current, clips.length - 2)));
+    setMessage(undefined);
+  };
+
+  const duplicateClip = (index: number) => {
+    setClips((current) => duplicateTimelineClip(current, index));
+    setSelectedClipIndex(index + 1);
+    setMessage(undefined);
+  };
+
+  const moveClip = (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (target < 0 || target >= clips.length) return;
+    setClips((current) => moveTimelineClip(current, index, target));
+    setSelectedClipIndex(target);
+    setMessage(undefined);
+  };
+
+  const execute = async () => {
+    if (submittingRef.current) return;
+    if (!selectedRun) {
+      setMessage({ type: 'error', text: 'カット編集工程を含むRunを選択してください。' });
+      return;
+    }
+    if (validationErrors.length > 0) {
+      setMessage({ type: 'error', text: validationErrors[0] });
+      return;
+    }
+    submittingRef.current = true;
+    setSubmitting(true);
+    setBusy(true);
+    setJob(undefined);
+    reloadedTerminalJob.current = undefined;
+    setMessage({ type: 'info', text: 'カット編集workerをキューに登録しています。成功とはまだ判定していません。' });
+    try {
+      const request: LocalTimelineRequest = normalizedInput.request;
+      const submitted = await api.executeLocalTimeline(selectedRun.id, request);
+      setJob(submitted);
+      setMessage({
+        type: submitted.status === 'failed' ? 'error' : 'success',
+        text: submitted.status === 'failed'
+          ? localTimelineError(submitted.message ?? 'workerが失敗しました')
+          : 'カット編集workerをキューに登録しました。',
+      });
+      try {
+        await onReload();
+      } catch {
+        setMessage({ type: 'info', text: 'workerは登録済みです。制作詳細の再読込だけ失敗したため、job監視を継続します。' });
+      }
+      if (submitted.status === 'succeeded' || submitted.status === 'failed' || submitted.status === 'cancelled') setBusy(false);
+    } catch (error) {
+      setBusy(false);
+      setMessage({ type: 'error', text: localTimelineError(error) });
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
+  };
+
+  if (eligibleRuns.length === 0) {
+    return <section className="panel timeline-panel"><div className="panel-header"><div><span className="section-kicker">LOCAL TIMELINE</span><h3>カット編集</h3></div></div><EmptyState title="カット編集工程を含むRunがありません" description="概要の再調整で timeline を選択し、カット編集用のRunを作成してください。" /></section>;
+  }
+
+  const resultArtifacts = visibleJob?.result?.artifacts ?? currentAttempt?.artifacts ?? [];
+  return (
+    <div className="timeline-grid">
+      <div>
+        <section className="panel timeline-panel">
+          <div className="panel-header"><div><span className="section-kicker">LOCAL TIMELINE</span><h3>カット編集</h3></div><span className="tag">費用 0円</span></div>
+          <p className="panel-lead">同じ制作に登録された動画artifactを順番に並べ、指定範囲だけのローカルpreviewを作成します。音声・字幕の合成は既存の編集・合成工程で行います。</p>
+          <label className="field"><span>対象Run（timeline工程を要求したRun）</span><select value={selectedRunId} disabled={busy || submitting} onChange={(event) => { setSelectedRunId(event.target.value); setClips([]); setSelectedClipIndex(0); setJob(undefined); setMessage(undefined); }} aria-label="カット編集対象Run">
+            {eligibleRuns.map((run) => <option key={run.id} value={run.id}>{run.label} · {run.id} · {run.executionProfile ?? 'profile未指定'}</option>)}
+          </select></label>
+          <div className="timeline-run-summary"><span>Run ID</span><strong className="mono">{selectedRun?.id}</strong><span>工程</span><strong>{selectedRun?.requestedStages.map(stageLabel).join('、') || '—'}</strong></div>
+          {videoArtifacts.length === 0 && <div className="notice notice-warning"><div><strong>動画artifactがありません</strong><p>先に生成映像を登録し、インデックスを更新してください。</p></div></div>}
+          <div className="timeline-toolbar"><div><strong>カット一覧</strong><small>{clips.length} / 32件 · 合計 {formatMilliseconds(normalizedInput.totalDurationMs)}</small></div><button className="button button-secondary" type="button" onClick={addClip} disabled={busy || submitting || clips.length >= 32}>＋カットを追加</button></div>
+          <div className="timeline-clip-list">
+            {clips.map((clip, index) => {
+              const artifact = videoArtifacts.find((item) => item.id === clip.videoArtifactId);
+              return (
+                <article className={`timeline-clip-row ${selectedClipIndex === index ? 'is-selected' : ''}`} key={`${index}-${clip.videoArtifactId}`} onClick={() => setSelectedClipIndex(index)}>
+                  <div className="timeline-clip-heading"><button className="timeline-clip-select" type="button" onClick={() => setSelectedClipIndex(index)} aria-label={`カット${index + 1}を選択`}><strong>{String(index + 1).padStart(2, '0')}</strong><span>{artifact?.name ?? '動画artifact未選択'}</span></button><span className="timeline-clip-duration">{formatMilliseconds((Number(clip.endMs) || 0) - (Number(clip.startMs) || 0))}</span></div>
+                  <label className="field"><span>動画artifact</span><select value={clip.videoArtifactId} disabled={busy || submitting || videoArtifacts.length === 0} onChange={(event) => updateClip(index, 'videoArtifactId', event.target.value)} aria-label={`カット${index + 1}の動画artifact`}>
+                    <option value="">動画artifactを選択</option>
+                    {videoArtifacts.map((item) => <option key={item.id} value={item.id}>{item.name} · {formatBytes(item.sizeBytes)}</option>)}
+                  </select></label>
+                  <div className="timeline-time-grid"><label className="field"><span>開始（ms）</span><input type="number" min="0" step="1" value={clip.startMs} disabled={busy || submitting} onChange={(event) => updateClip(index, 'startMs', event.target.value)} aria-label={`カット${index + 1}の開始ミリ秒`} /></label><label className="field"><span>終了（ms）</span><input type="number" min="0" step="1" value={clip.endMs} disabled={busy || submitting} onChange={(event) => updateClip(index, 'endMs', event.target.value)} aria-label={`カット${index + 1}の終了ミリ秒`} /></label></div>
+                  <div className="timeline-artifact-meta"><span>bytes {formatBytes(artifact?.sizeBytes)}</span><span className="mono">SHA {timelineArtifactHash(artifact)}</span><span>source尺 {formatDuration(artifact?.durationSeconds)}</span></div>
+                  <div className="timeline-row-actions"><button className="button button-ghost" type="button" onClick={(event) => { event.stopPropagation(); moveClip(index, -1); }} disabled={busy || submitting || index === 0} aria-label={`カット${index + 1}を上へ移動`}>↑</button><button className="button button-ghost" type="button" onClick={(event) => { event.stopPropagation(); moveClip(index, 1); }} disabled={busy || submitting || index === clips.length - 1} aria-label={`カット${index + 1}を下へ移動`}>↓</button><button className="button button-ghost" type="button" onClick={(event) => { event.stopPropagation(); duplicateClip(index); }} disabled={busy || submitting || clips.length >= 32}>複製</button><button className="button button-ghost" type="button" onClick={(event) => { event.stopPropagation(); removeClip(index); }} disabled={busy || submitting}>削除</button></div>
+                </article>
+              );
+            })}
+            {clips.length === 0 && <EmptyState title="カットがありません" description="動画artifactを選び、カットを追加してください。" />}
+          </div>
+          {validationErrors.length > 0 && <div className="validation-list" role="status">{validationErrors.map((error) => <div key={error}>・{error}</div>)}</div>}
+          <button className="button button-primary full-button" type="button" onClick={() => void execute()} disabled={submitting || busy || validationErrors.length > 0}>{submitting ? '登録中…' : busy ? 'worker監視中…' : 'カット編集previewを実行'}</button>
+          {message && <div className={`inline-message is-${message.type}`} role="status">{message.text}</div>}
+        </section>
+      </div>
+      <aside>
+        <TimelineJobStatus job={visibleJob} attempt={currentAttempt} artifacts={resultArtifacts} />
+        <section className="panel compact-panel">
+          <div className="panel-header"><div><span className="section-kicker">SELECTED SOURCE</span><h3>選択中artifact</h3></div></div>
+          {selectedArtifact ? <dl className="timeline-selected-source"><div><dt>名前</dt><dd>{selectedArtifact.name}</dd></div><div><dt>bytes</dt><dd>{formatBytes(selectedArtifact.sizeBytes)}</dd></div><div><dt>SHA-256</dt><dd className="mono">{selectedArtifact.sha256 ?? '未記録'}</dd></div><div><dt>URL</dt><dd><a href={selectedArtifact.url} target="_blank" rel="noreferrer">artifactを開く ↗</a></dd></div></dl> : <p className="muted">カットを選択すると入力artifactのhashとbytesを表示します。</p>}
+        </section>
+        <TimelineAttemptHistory attempts={selectedRun?.stageAttempts.filter((attempt) => normalizeRequestedStage(attempt.stage) === 'timeline') ?? []} />
+      </aside>
+    </div>
+  );
+}
+
+function TimelineJobStatus({ job, attempt, artifacts }: { job?: Job; attempt?: StageAttempt; artifacts: Artifact[] }) {
+  const status = job?.status ?? attempt?.status;
+  const active = status === 'pending' || status === 'running';
+  const cacheHit = job?.cacheHit ?? attempt?.cacheHit;
+  const provider = job?.result?.provider ?? attempt?.provider;
+  const durationSeconds = job?.durationSeconds ?? attempt?.durationSeconds;
+  const cacheKey = typeof job?.raw.cache_key === 'string' ? job.raw.cache_key : typeof attempt?.raw.cache_key === 'string' ? attempt.raw.cache_key : undefined;
+  return <section className="panel compact-panel timeline-status-panel" aria-live="polite" aria-busy={active}><div className="panel-header"><div><span className="section-kicker">TIMELINE STATUS</span><h3>カット編集実行状況</h3></div>{status ? <StatusBadge status={status} label={jobStatusLabel(status)} /> : <span className="muted">未実行</span>}</div>{!job && !attempt && <p className="muted">実行すると、キュー投入後の状態をここで監視します。</p>}<dl className="narration-metrics"><div><dt>Job</dt><dd className="mono">{job?.id ?? attempt?.jobId ?? '—'}</dd></div><div><dt>Stage attempt</dt><dd className="mono">{job?.stageAttemptId ?? attempt?.id ?? '—'}</dd></div><div><dt>Cache hit</dt><dd>{cacheHit === undefined ? '—' : cacheHit ? 'はい' : 'いいえ'}</dd></div><div><dt>Cache key</dt><dd className="mono">{cacheKey ? `${cacheKey.slice(0, 16)}…` : '—'}</dd></div><div><dt>所要時間</dt><dd>{formatDuration(durationSeconds)}</dd></div><div><dt>Provider</dt><dd>{provider ?? '—'}</dd></div><div><dt>実費</dt><dd>{(job?.result?.actualCost ?? attempt?.actualCost) === undefined ? '—' : `${job?.result?.actualCost ?? attempt?.actualCost}（local）`}</dd></div><div><dt>更新</dt><dd>{formatDate(job?.updatedAt ?? attempt?.finishedAt ?? attempt?.startedAt)}</dd></div></dl>{job?.message && <p className={job.status === 'failed' ? 'narration-error-text' : 'muted'}>{job.message}</p>}<div className="narration-artifact-list"><strong>出力artifact</strong>{artifacts.length === 0 ? <span className="muted">まだありません</span> : artifacts.map((artifact) => <a key={artifact.id} href={artifact.url} target="_blank" rel="noreferrer">{artifact.name} · {formatBytes(artifact.sizeBytes)} ↗</a>)}</div><p className="gate-separation-note">カット編集のworker記録です。音声／字幕assembly、technical QC、公開判定とは別の工程です。</p></section>;
+}
+
+function TimelineAttemptHistory({ attempts }: { attempts: StageAttempt[] }) {
+  const ordered = [...attempts].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
+  return <section className="panel compact-panel"><div className="panel-header"><div><span className="section-kicker">STAGE ATTEMPTS</span><h3>カット編集試行履歴</h3></div><span className="count-chip">{ordered.length}</span></div>{ordered.length === 0 ? <p className="muted">stage attempt記録はまだありません。</p> : <div className="attempt-list">{ordered.map((attempt) => <article className="attempt-row" key={attempt.id}><div><strong>#{attempt.attempt ?? '—'} · {attempt.id}</strong><small>{formatDate(attempt.startedAt ?? attempt.createdAt)}{attempt.finishedAt ? ` → ${formatDate(attempt.finishedAt)}` : ''}</small></div><StatusBadge status={attempt.status} label={jobStatusLabel(attempt.status)} /><div><span>{attempt.cacheHit === undefined ? 'cache —' : attempt.cacheHit ? 'cache hit' : 'cache miss'}</span><span>{formatDuration(attempt.durationSeconds)}</span><span>{attempt.artifacts.length} artifact</span></div>{attempt.message && <p>{attempt.message}</p>}</article>)}</div>}</section>;
+}
 
 function AssemblyPanel({ detail, jobs, onReload }: { detail: ProductionDetail; jobs: Job[]; onReload: () => Promise<void> }) {
   const eligibleRuns = useMemo(
@@ -1224,7 +1503,7 @@ function RerunPanel({ productionId, onReload }: { productionId: string; onReload
   const startRun = async () => {
     if (!plan) return;
     if (changes.executionProfile === 'local_sapi' && !changes.stages.some((stage) => LOCAL_SAPI_STAGES.has(normalizeRequestedStage(stage)))) {
-      setMessage({ type: 'error', text: 'local_sapiはナレーション、字幕、編集・合成、品質検査のいずれかを含むRunに指定してください。' });
+      setMessage({ type: 'error', text: 'local_sapiはナレーション、字幕、カット編集、編集・合成、品質検査のいずれかを含むRunに指定してください。' });
       return;
     }
     if (plan.requiresCostEstimate && changes.executionProfile !== 'local_sapi' && (!changes.allowPaidApi || !changes.maxCostJpy || changes.maxCostJpy <= 0)) {
@@ -1247,7 +1526,7 @@ function RerunPanel({ productionId, onReload }: { productionId: string; onReload
   return (
     <section className="panel rerun-panel">
       <div className="panel-header"><div><span className="section-kicker">PARTIAL RERUN</span><h3>再調整</h3></div></div>
-      <p className="panel-lead">変更箇所から再実行範囲と再利用候補を計算し、監査可能なRun計画として保存します。local_sapiの音声・字幕・編集/合成は、Run作成後に各タブから明示実行できます。</p>
+      <p className="panel-lead">変更箇所から再実行範囲と再利用候補を計算し、監査可能なRun計画として保存します。local_sapiの音声・字幕・カット編集・編集/合成は、Run作成後に各タブから明示実行できます。</p>
       <fieldset className="stage-checks">
         <legend>変更する工程</legend>
         {RERUN_STAGES.map(([id, label]) => (
@@ -1259,7 +1538,7 @@ function RerunPanel({ productionId, onReload }: { productionId: string; onReload
       </fieldset>
       <fieldset className="execution-profile-fieldset"><legend>実行プロファイル</legend>
         <label className="profile-option"><input type="radio" name={`execution-profile-${productionId}`} value="default" checked={changes.executionProfile !== 'local_sapi'} onChange={() => { setPlan(undefined); setChanges((current) => ({ ...current, executionProfile: 'default' })); }} /><span><strong>通常</strong><small>既存のRun計画・費用ルールを使用</small></span></label>
-        <label className="profile-option"><input type="radio" name={`execution-profile-${productionId}`} value="local_sapi" checked={changes.executionProfile === 'local_sapi'} onChange={() => { setPlan(undefined); setChanges((current) => ({ ...current, executionProfile: 'local_sapi', stages: ['narration'], allowPaidApi: false, maxCostJpy: undefined })); }} /><span><strong>local_sapi（ローカルworker）</strong><small>narration・字幕・編集/合成・QC、見積0円・外部送信なし</small></span></label>
+        <label className="profile-option"><input type="radio" name={`execution-profile-${productionId}`} value="local_sapi" checked={changes.executionProfile === 'local_sapi'} onChange={() => { setPlan(undefined); setChanges((current) => ({ ...current, executionProfile: 'local_sapi', stages: ['narration'], allowPaidApi: false, maxCostJpy: undefined })); }} /><span><strong>local_sapi（ローカルworker）</strong><small>narration・字幕・カット編集・編集/合成・QC、見積0円・外部送信なし</small></span></label>
       </fieldset>
       <label className="field">
         <span>変更内容・理由</span>

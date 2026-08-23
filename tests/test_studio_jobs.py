@@ -198,6 +198,25 @@ class JobManagerShutdownTests(unittest.TestCase):
         self.assertNotIn("private-token", completed["error"]["code"])
         self.assertNotIn("private-token", completed["error"]["message"])
 
+    def test_known_timeline_error_code_is_preserved_for_public_job_status(self) -> None:
+        class TimelineTrimError(RuntimeError):
+            error_code = "trim_out_of_range"
+            public_message = "The selected cut exceeds the registered source duration."
+
+        def callback(_job_id: str) -> dict[str, object]:
+            raise TimelineTrimError()
+
+        job = self.manager.submit("local_timeline", {}, callback)
+        completed = self.manager.wait(job["id"], timeout=2)
+        self.assertIsNotNone(completed)
+        assert completed is not None
+        self.assertEqual(completed["status"], "failed")
+        self.assertEqual(completed["error"]["code"], "trim_out_of_range")
+        self.assertEqual(
+            completed["error"]["message"],
+            "The selected cut exceeds the registered source duration.",
+        )
+
     def test_busy_db_interrupt_does_not_delay_first_process_sweep(self) -> None:
         started = threading.Event()
         db_started = threading.Event()
