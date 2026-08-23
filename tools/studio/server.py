@@ -40,6 +40,7 @@ _RERUN_PLAN_RE = re.compile(r"^/api/productions/([^/]+)/rerun-plan$")
 _RUN_CREATE_RE = re.compile(r"^/api/productions/([^/]+)/runs$")
 _RUN_APPROVE_RE = re.compile(r"^/api/runs/([^/]+)/approve$")
 _RUN_LOCAL_NARRATION_RE = re.compile(r"^/api/runs/([^/]+)/execute-local-narration$")
+_RUN_LOCAL_TIMELINE_RE = re.compile(r"^/api/runs/([^/]+)/execute-local-timeline$")
 _RUN_LOCAL_ASSEMBLY_RE = re.compile(r"^/api/runs/([^/]+)/execute-local-assembly$")
 _RUN_LOCAL_QC_RE = re.compile(r"^/api/runs/([^/]+)/execute-local-qc$")
 _AUDIT_EXPORT_RE = re.compile(r"^/api/productions/([^/]+)/audit-export$")
@@ -421,6 +422,10 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
         match = _RUN_LOCAL_NARRATION_RE.fullmatch(path)
         if match:
             self._send_json(202, service.execute_local_narration(match.group(1), body))
+            return
+        match = _RUN_LOCAL_TIMELINE_RE.fullmatch(path)
+        if match:
+            self._send_json(202, service.execute_local_timeline(match.group(1), body))
             return
         match = _RUN_LOCAL_ASSEMBLY_RE.fullmatch(path)
         if match:

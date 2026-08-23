@@ -14,15 +14,53 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
 from typing import Any, Iterator, Sequence
 
-from .security import canonical_json, sanitize_for_storage, workspace_path
+from .security import (
+    canonical_json,
+    sanitize_for_storage,
+    sensitive_artifact_path,
+    stable_id,
+    workspace_path,
+)
 
 
 SCHEMA_VERSION = 3
 MAX_EVENT_LINE_BYTES = 2 * 1024 * 1024
 _RUN_EXECUTION_PROFILES = {"external", "local_sapi"}
-_LOCAL_SAPI_ZERO_COST_STAGES = {"narration", "captions", "assembly", "qc"}
+_LOCAL_SAPI_ZERO_COST_STAGES = {
+    "narration",
+    "captions",
+    "timeline",
+    "assembly",
+    "qc",
+}
 _DEFAULT_INTERRUPTED_ERROR_CODE = "process_interrupted"
 _DEFAULT_INTERRUPTED_ERROR_MESSAGE = "The Studio process stopped."
+_MAX_RESTORED_STUDIO_ARTIFACT_BYTES = 2 * 1024 * 1024 * 1024
+_MAX_RESTORED_STUDIO_ARTIFACT_TOTAL_BYTES = 16 * 1024 * 1024 * 1024
+_MAX_RESTORED_STUDIO_ARTIFACT_COUNT = 10_000
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        while chunk := handle.read(1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest().upper()
+
+
+def _has_symlink_component(workspace: Path, relative_path: str) -> bool:
+    root = workspace.resolve(strict=True)
+    lexical = root / Path(relative_path)
+    try:
+        relative = lexical.relative_to(root)
+    except ValueError:
+        return True
+    current = root
+    for part in relative.parts:
+        current = current / part
+        if current.is_symlink():
+            return True
+    return False
 
 
 def utc_now() -> str:
@@ -1001,7 +1039,25 @@ class StudioDatabase:
                 "production",
                 production_id,
                 "artifact.created",
-                {"artifact_id": artifact["id"], "kind": artifact["kind"]},
+                {
+                    "artifact_id": artifact["id"],
+                    "kind": artifact["kind"],
+                    "artifact": {
+                        "id": artifact["id"],
+                        "production_id": production_id,
+                        "rel_path": artifact["rel_path"],
+                        "origin": "studio",
+                        "name": artifact["name"],
+                        "kind": artifact["kind"],
+                        "media_type": artifact["media_type"],
+                        "bytes": artifact["bytes"],
+                        "mtime_ns": artifact["mtime_ns"],
+                        "sha256": artifact.get("sha256"),
+                        "is_heavy": bool(artifact["is_heavy"]),
+                        "available": True,
+                        "indexed_at": timestamp,
+                    },
+                },
                 created_at=timestamp,
             )
         result = self.get_artifact(artifact["id"])
@@ -1720,9 +1776,141 @@ class StudioDatabase:
             detail["schema_version"] = SCHEMA_VERSION
             return detail
 
+    def _restore_studio_artifact_record(
+        self,
+        connection: sqlite3.Connection,
+        production_id: str,
+        value: Any,
+        *,
+        observed_at: str,
+    ) -> int:
+        """Restore one hash-verified Studio artifact without trusting event paths."""
+
+        if not isinstance(value, dict) or value.get("production_id", production_id) != production_id:
+            return 0
+        artifact_id = value.get("id")
+        rel_path = value.get("rel_path", value.get("path"))
+        name = value.get("name")
+        kind = value.get("kind")
+        media_type = value.get("media_type", value.get("mime"))
+        byte_count = value.get("bytes")
+        digest = value.get("sha256")
+        if (
+            not isinstance(artifact_id, str)
+            or not re.fullmatch(r"art_[0-9a-f]{32}", artifact_id)
+            or not isinstance(rel_path, str)
+            or not rel_path
+            or len(rel_path) > 2048
+            or Path(rel_path).is_absolute()
+            or not isinstance(name, str)
+            or not name
+            or len(name) > 512
+            or not isinstance(kind, str)
+            or not re.fullmatch(r"[a-z][a-z0-9_-]{0,63}", kind)
+            or not isinstance(media_type, str)
+            or not media_type
+            or len(media_type) > 255
+            or any(character in media_type for character in "\x00\r\n")
+            or isinstance(byte_count, bool)
+            or not isinstance(byte_count, int)
+            or byte_count <= 0
+            or byte_count > _MAX_RESTORED_STUDIO_ARTIFACT_BYTES
+            or not isinstance(digest, str)
+            or not re.fullmatch(r"[0-9A-Fa-f]{64}", digest)
+            or value.get("origin", "studio") != "studio"
+            or value.get("available", True) is not True
+        ):
+            return 0
+        normalized_relative = rel_path.replace("\\", "/")
+        if (
+            not normalized_relative.startswith("outputs/studio/")
+            or sensitive_artifact_path(normalized_relative)
+            or _has_symlink_component(self.workspace, normalized_relative)
+            or artifact_id != stable_id("art", normalized_relative.casefold())
+        ):
+            return 0
+        try:
+            path = workspace_path(self.workspace, normalized_relative, must_exist=True)
+            canonical_relative = path.relative_to(self.workspace).as_posix()
+            stat = path.stat()
+        except (OSError, RuntimeError, ValueError):
+            return 0
+        if (
+            canonical_relative != normalized_relative
+            or path.is_symlink()
+            or not path.is_file()
+            or path.name != name
+            or stat.st_size != byte_count
+        ):
+            return 0
+        try:
+            actual_digest = _sha256_file(path)
+        except OSError:
+            return 0
+        if actual_digest != digest.upper():
+            return 0
+        if not connection.execute(
+            "SELECT 1 FROM productions WHERE id=?", (production_id,)
+        ).fetchone():
+            return 0
+        collisions = connection.execute(
+            "SELECT * FROM artifacts WHERE id=? OR rel_path=? ORDER BY id",
+            (artifact_id, normalized_relative),
+        ).fetchall()
+        if collisions:
+            if len(collisions) != 1:
+                return 0
+            existing = collisions[0]
+            if any(
+                (
+                    existing["id"] != artifact_id,
+                    existing["production_id"] != production_id,
+                    existing["rel_path"] != normalized_relative,
+                    existing["origin"] != "studio",
+                    existing["name"] != name,
+                    existing["kind"] != kind,
+                    existing["media_type"] != media_type,
+                    existing["bytes"] != byte_count,
+                    (existing["sha256"] or "").upper() != actual_digest,
+                )
+            ):
+                return 0
+            return 0
+        timestamp = observed_at if isinstance(observed_at, str) and 1 <= len(observed_at) <= 64 else utc_now()
+        cursor = connection.execute(
+            "INSERT OR IGNORE INTO artifacts(id, production_id, rel_path, origin, name, kind, media_type, bytes, mtime_ns, sha256, is_heavy, available, indexed_at) "
+            "VALUES(?, ?, ?, 'studio', ?, ?, ?, ?, ?, ?, ?, 1, ?)",
+            (
+                artifact_id,
+                production_id,
+                normalized_relative,
+                name,
+                kind,
+                media_type,
+                byte_count,
+                stat.st_mtime_ns,
+                actual_digest,
+                int(byte_count > 10 * 1024 * 1024),
+                timestamp,
+            ),
+        )
+        inserted = int(cursor.rowcount == 1)
+        connection.execute(
+            "INSERT OR IGNORE INTO artifact_versions(artifact_id, observed_at, bytes, mtime_ns, sha256) "
+            "VALUES(?, ?, ?, ?, ?)",
+            (artifact_id, timestamp, byte_count, stat.st_mtime_ns, actual_digest),
+        )
+        return inserted
+
     def restore_domain_records_from_events(self) -> dict[str, int]:
-        """Rebuild revisions, runs, stage attempts, and approvals from verified mirrors."""
-        restored = {"revisions": 0, "runs": 0, "stage_attempts": 0, "approvals": 0}
+        """Rebuild domain rows and hash-verified Studio artifacts from event mirrors."""
+        restored = {
+            "revisions": 0,
+            "runs": 0,
+            "stage_attempts": 0,
+            "artifacts": 0,
+            "approvals": 0,
+        }
         with self.transaction() as connection:
             revision_events = connection.execute(
                 "SELECT payload_json FROM events WHERE event_type='revision.created' ORDER BY id"
@@ -1982,6 +2170,99 @@ class StudioDatabase:
                             created_at=completed_at,
                         )
                 except (KeyError, TypeError, ValueError, sqlite3.IntegrityError):
+                    continue
+
+            artifact_candidates: dict[str, tuple[str, dict[str, Any], str]] = {}
+
+            def remember_artifacts(
+                result: Any,
+                *,
+                production_id: str | None,
+                observed_at: str,
+            ) -> None:
+                if not isinstance(result, dict):
+                    return
+                values: list[Any] = []
+                singular = result.get("artifact")
+                if isinstance(singular, dict):
+                    values.append(singular)
+                plural = result.get("artifacts")
+                if isinstance(plural, list):
+                    values.extend(plural)
+                for item in values:
+                    if not isinstance(item, dict):
+                        continue
+                    artifact_id = item.get("id")
+                    candidate_production = production_id or item.get("production_id")
+                    if (
+                        isinstance(artifact_id, str)
+                        and isinstance(candidate_production, str)
+                        and artifact_id not in artifact_candidates
+                    ):
+                        artifact_candidates[artifact_id] = (
+                            candidate_production,
+                            item,
+                            observed_at,
+                        )
+
+            artifact_events = connection.execute(
+                "SELECT scope_id, created_at, payload_json FROM events "
+                "WHERE scope_type='production' AND event_type='artifact.created' ORDER BY id"
+            ).fetchall()
+            for event in artifact_events:
+                payload = _loads(event["payload_json"], {})
+                artifact = payload.get("artifact") if isinstance(payload, dict) else None
+                if isinstance(artifact, dict):
+                    remember_artifacts(
+                        {"artifact": artifact},
+                        production_id=event["scope_id"],
+                        observed_at=event["created_at"],
+                    )
+
+            for attempt in attempts.values():
+                if attempt["status"] == "succeeded":
+                    remember_artifacts(
+                        attempt["result"],
+                        production_id=attempt["production_id"],
+                        observed_at=attempt["completed_at"] or attempt["created_at"],
+                    )
+
+            job_events = connection.execute(
+                "SELECT created_at, payload_json FROM events "
+                "WHERE event_type='job.succeeded' ORDER BY id"
+            ).fetchall()
+            for event in job_events:
+                payload = _loads(event["payload_json"], {})
+                result = payload.get("result") if isinstance(payload, dict) else None
+                remember_artifacts(
+                    result,
+                    production_id=None,
+                    observed_at=event["created_at"],
+                )
+
+            restored_candidate_count = 0
+            restored_candidate_bytes = 0
+            for production_id, artifact, observed_at in artifact_candidates.values():
+                byte_count = artifact.get("bytes") if isinstance(artifact, dict) else None
+                if (
+                    isinstance(byte_count, bool)
+                    or not isinstance(byte_count, int)
+                    or byte_count <= 0
+                    or restored_candidate_count >= _MAX_RESTORED_STUDIO_ARTIFACT_COUNT
+                    or restored_candidate_bytes + byte_count
+                    > _MAX_RESTORED_STUDIO_ARTIFACT_TOTAL_BYTES
+                ):
+                    continue
+                restored_candidate_count += 1
+                restored_candidate_bytes += byte_count
+                try:
+                    restored["artifacts"] += self._restore_studio_artifact_record(
+                        connection,
+                        production_id,
+                        artifact,
+                        observed_at=observed_at,
+                    )
+                except (OSError, TypeError, ValueError, sqlite3.IntegrityError):
                     continue
 
             approval_events = connection.execute(

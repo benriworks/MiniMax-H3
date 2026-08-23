@@ -68,6 +68,7 @@ export interface Artifact {
   createdAt?: string;
   sizeBytes?: number;
   sha256?: string;
+  durationSeconds?: number;
   description?: string;
   metadata: Record<string, unknown>;
   raw: Record<string, unknown>;
@@ -143,6 +144,7 @@ export interface ProductionDetail extends ProductionSummary {
 
 export interface JobResult {
   attempt?: number;
+  stageAttemptId?: string;
   artifacts: Artifact[];
   cacheHit?: boolean;
   durationSeconds?: number;
@@ -184,6 +186,16 @@ export interface LocalAssemblyRequest {
   includeCaptioned: boolean;
 }
 
+export interface LocalTimelineClip {
+  videoArtifactId: string;
+  startMs: number;
+  endMs: number;
+}
+
+export interface LocalTimelineRequest {
+  clips: LocalTimelineClip[];
+}
+
 export type LocalQcVariant = 'clean' | 'captioned';
 
 export type LocalQcVerdict = 'pass' | 'fail';
@@ -212,6 +224,7 @@ export interface Job {
   startedAt?: string;
   updatedAt?: string;
   attempt?: number;
+  stageAttemptId?: string;
   assemblyAttemptId?: string;
   variant?: LocalQcVariant;
   cacheHit?: boolean;

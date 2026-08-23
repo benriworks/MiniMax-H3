@@ -41,6 +41,14 @@ from .qc_execution import (
     safe_qc_error,
     validate_local_qc_payload,
 )
+from .timeline_execution import (
+    TimelineError as LocalTimelineError,
+    TimelineValidationError as LocalTimelineValidationError,
+    safe_timeline_error,
+    timeline_audit_payload,
+    timeline_public_result,
+    validate_local_timeline_payload,
+)
 from .secrets import SecretStore, dpapi_available
 from .security import (
     SecurityError,
@@ -59,6 +67,7 @@ STAGE_ORDER = (
     "narration",
     "captions",
     "video_generation",
+    "timeline",
     "assembly",
     "qc",
 )
@@ -87,6 +96,10 @@ _DIRECT_STAGES: dict[str, set[str]] = {
     "video": {"video_generation"},
     "clip": {"video_generation"},
     "generation": {"video_generation"},
+    "timeline": {"timeline"},
+    "sequence": {"timeline"},
+    "cut": {"timeline"},
+    "cut_plan": {"timeline"},
     "screen": {"screen_capture"},
     "capture": {"screen_capture"},
     "browser_capture": {"screen_capture"},
@@ -96,18 +109,20 @@ _DIRECT_STAGES: dict[str, set[str]] = {
 
 _DEPENDENTS: dict[str, set[str]] = {
     "keyframes": {"video_generation"},
-    "screen_capture": {"assembly"},
+    "screen_capture": {"timeline"},
     "narration": {"captions", "assembly"},
     "captions": {"assembly"},
-    "video_generation": {"assembly"},
+    "video_generation": {"timeline"},
+    "timeline": {"assembly"},
     "assembly": {"qc"},
     "qc": set(),
 }
 
 _CURRENCY_RE = re.compile(r"^[A-Z]{3}$")
 _EXECUTION_PROFILES = {"external", "local_sapi"}
-_LOCAL_SAPI_ZERO_COST_STAGES = {"narration", "captions", "assembly", "qc"}
+_LOCAL_SAPI_ZERO_COST_STAGES = {"narration", "captions", "timeline", "assembly", "qc"}
 _LOCAL_NARRATION_STAGE = "narration"
+_LOCAL_TIMELINE_STAGE = "timeline"
 _LOCAL_ASSEMBLY_STAGE = "assembly"
 _LOCAL_QC_STAGE = "qc"
 _LOCAL_ARTIFACT_KINDS = {"audio", "subtitle", "document", "log"}
@@ -128,6 +143,15 @@ _LOCAL_QC_ARTIFACTS = {
     "ffprobe.json": ("document", "application/json"),
     "manifest.json": ("document", "application/json"),
 }
+_LOCAL_TIMELINE_ARTIFACTS = {
+    "timeline-preview.mp4": ("video", "video/mp4"),
+    "timeline.json": ("document", "application/json"),
+    "ffprobe.json": ("document", "application/json"),
+    "manifest.json": ("document", "application/json"),
+}
+_MAX_LOCAL_TIMELINE_CLIPS = 32
+_MAX_LOCAL_TIMELINE_INPUT_BYTES = 4 * 1024 * 1024 * 1024
+_MAX_LOCAL_TIMELINE_VIDEO_BYTES = 2 * 1024 * 1024 * 1024
 
 
 def _sha256_file(path: Path) -> str:
@@ -388,7 +412,7 @@ class StudioService:
             and (not affected_stages or not affected_stages.issubset(_LOCAL_SAPI_ZERO_COST_STAGES))
         ):
             raise RequestValidationError(
-                "local_sapi zero-cost runs may only affect narration, captions, assembly, or qc.",
+                "local_sapi zero-cost runs may only affect narration, captions, timeline, assembly, or qc.",
                 code="local_profile_stage_not_allowed",
             )
         if plan["billable_stages"] and amount_minor <= 0 and not local_zero_cost_plan:
@@ -404,7 +428,7 @@ class StudioService:
                 )
             if not affected_stages or not affected_stages.issubset(_LOCAL_SAPI_ZERO_COST_STAGES):
                 raise RequestValidationError(
-                    "local_sapi zero-cost runs may only affect narration, captions, assembly, or qc.",
+                    "local_sapi zero-cost runs may only affect narration, captions, timeline, assembly, or qc.",
                     code="local_profile_stage_not_allowed",
                 )
         parent_revision_id = body.get("parent_revision_id")
@@ -804,6 +828,680 @@ class StudioService:
             error_code, error_message = safe_error(exc)
             self.database.update_stage_attempt(
                 attempt["id"], "failed", error_code=error_code, error_message=error_message
+            )
+            raise
+        job["stage_attempt_id"] = attempt["id"]
+        job["cache_key"] = cache_key
+        return job
+
+    def _validated_timeline_inputs(
+        self,
+        run: dict[str, Any],
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Resolve timeline clip IDs to immutable, workspace-local inputs.
+
+        The browser is never allowed to provide paths, hashes, or media facts.
+        Those values are derived from the registered artifact row and checked
+        again immediately before the worker is queued.  The worker receives
+        only these verified records, not the original request body.
+        """
+
+        production_id = run["production_id"]
+        raw_clips = payload.get("clips")
+        if not isinstance(raw_clips, list) or not raw_clips:
+            raise RequestValidationError(
+                "The timeline must contain at least one clip.",
+                code="timeline_clips_invalid",
+            )
+        if len(raw_clips) > _MAX_LOCAL_TIMELINE_CLIPS:
+            raise RequestValidationError(
+                "The timeline contains too many clips.",
+                code="timeline_clips_limit",
+            )
+
+        clips: list[dict[str, Any]] = []
+        cache_clips: list[dict[str, Any]] = []
+        aggregate_bytes = 0
+        for index, item in enumerate(raw_clips):
+            if not isinstance(item, dict):
+                raise RequestValidationError(
+                    f"clips[{index}] is invalid.", code="timeline_clip_invalid"
+                )
+            artifact_id = item.get("video_artifact_id")
+            start_ms = item.get("start_ms")
+            end_ms = item.get("end_ms")
+            if (
+                not isinstance(start_ms, int)
+                or isinstance(start_ms, bool)
+                or not isinstance(end_ms, int)
+                or isinstance(end_ms, bool)
+                or start_ms < 0
+                or end_ms <= start_ms
+            ):
+                raise RequestValidationError(
+                    f"clips[{index}] timing is invalid.",
+                    code="timeline_clip_timing_invalid",
+                )
+            artifact = self.database.get_artifact(artifact_id) if isinstance(artifact_id, str) else None
+            if (
+                artifact is None
+                or artifact.get("production_id") != production_id
+                or not artifact.get("available")
+                or artifact.get("kind") != "video"
+                or not isinstance(artifact.get("rel_path"), str)
+                or not isinstance(artifact.get("media_type"), str)
+                or not artifact["media_type"].startswith("video/")
+            ):
+                raise RequestValidationError(
+                    "The timeline clip is not an available video artifact for this production.",
+                    code="timeline_video_not_available",
+                )
+            relative = artifact["rel_path"]
+            try:
+                path = workspace_path(self.workspace, relative, must_exist=True)
+            except (SecurityError, OSError):
+                raise RequestValidationError(
+                    "The timeline clip path is not available.",
+                    code="timeline_video_not_available",
+                ) from None
+            if (
+                _has_symlink_component(self.workspace, relative)
+                or path.is_symlink()
+                or not path.is_file()
+                or sensitive_artifact_path(relative)
+            ):
+                raise RequestValidationError(
+                    "The timeline clip path is not safe.",
+                    code="timeline_video_not_available",
+                )
+            try:
+                stat = path.stat()
+            except OSError:
+                raise RequestValidationError(
+                    "The timeline clip path is not available.",
+                    code="timeline_video_not_available",
+                ) from None
+            if (
+                stat.st_size <= 0
+                or stat.st_size > _MAX_LOCAL_TIMELINE_VIDEO_BYTES
+            ):
+                raise RequestValidationError(
+                    "The timeline clip size is outside the local limit.",
+                    code="timeline_video_size_invalid",
+                )
+            aggregate_bytes += stat.st_size
+            if aggregate_bytes > _MAX_LOCAL_TIMELINE_INPUT_BYTES:
+                raise RequestValidationError(
+                    "The timeline input size exceeds the local aggregate limit.",
+                    code="timeline_input_size_invalid",
+                )
+            digest = _sha256_file(path)
+            recorded_digest = artifact.get("sha256")
+            if artifact.get("bytes") != stat.st_size:
+                raise RequestValidationError(
+                    "The timeline clip changed after it was indexed.",
+                    code="timeline_video_changed",
+                )
+            if recorded_digest is not None and recorded_digest != digest:
+                raise RequestValidationError(
+                    "The timeline clip hash no longer matches its artifact record.",
+                    code="timeline_video_changed",
+                )
+            normalized = {
+                "video_artifact_id": artifact["id"],
+                "start_ms": start_ms,
+                "end_ms": end_ms,
+                "source_path": path,
+                "source_bytes": stat.st_size,
+                "source_sha256": digest,
+            }
+            clips.append(normalized)
+            cache_clips.append(
+                {
+                    "video_artifact_id": artifact["id"],
+                    "start_ms": start_ms,
+                    "end_ms": end_ms,
+                    # Keep audit/cache-validation records workspace-relative.
+                    # The worker resolves this path against the trusted
+                    # workspace while the generation call receives the
+                    # already-verified absolute Path above.
+                    "source_path": relative_workspace_path(self.workspace, path),
+                    "source_bytes": stat.st_size,
+                    "source_sha256": digest,
+                }
+            )
+        return {
+            "clips": clips,
+            "cache_clips": cache_clips,
+            "aggregate_bytes": aggregate_bytes,
+        }
+
+    def _register_local_timeline_artifacts(
+        self,
+        production_id: str,
+        run_id: str,
+        cache_key: str,
+        raw_artifacts: Any,
+    ) -> list[dict[str, Any]]:
+        if not isinstance(raw_artifacts, list) or len(raw_artifacts) != len(
+            _LOCAL_TIMELINE_ARTIFACTS
+        ):
+            raise LocalTimelineError(
+                "The local timeline worker returned an incomplete artifact set.",
+                code="invalid_worker_result",
+            )
+        expected_root = f"outputs/studio/runs/{run_id}/timeline/{cache_key}/"
+        validated: list[dict[str, Any]] = []
+        seen_names: set[str] = set()
+        for item in raw_artifacts:
+            if not isinstance(item, dict) or not isinstance(item.get("rel_path"), str):
+                raise LocalTimelineError(
+                    "The local timeline worker returned an invalid artifact.",
+                    code="invalid_worker_result",
+                )
+            try:
+                path = workspace_path(self.workspace, item["rel_path"], must_exist=True)
+                relative = relative_workspace_path(self.workspace, path)
+            except (SecurityError, OSError):
+                raise LocalTimelineError(
+                    "The local timeline worker returned an unsafe artifact path.",
+                    code="unsafe_worker_artifact",
+                ) from None
+            expected = _LOCAL_TIMELINE_ARTIFACTS.get(path.name)
+            if (
+                expected is None
+                or path.name in seen_names
+                or relative != f"{expected_root}{path.name}"
+                or _has_symlink_component(self.workspace, item["rel_path"])
+                or path.is_symlink()
+                or not path.is_file()
+                or sensitive_artifact_path(relative)
+                or item.get("kind") != expected[0]
+                or item.get("media_type", item.get("mime")) != expected[1]
+                or item.get("name") != path.name
+            ):
+                raise LocalTimelineError(
+                    "The local timeline worker returned an unexpected artifact.",
+                    code="invalid_worker_result",
+                )
+            stat = path.stat()
+            digest = _sha256_file(path)
+            if item.get("bytes") != stat.st_size or item.get("sha256") != digest:
+                raise LocalTimelineError(
+                    "The local timeline worker returned mismatched artifact metadata.",
+                    code="invalid_worker_result",
+                )
+            seen_names.add(path.name)
+            validated.append(
+                {
+                    "id": stable_id("art", relative.casefold()),
+                    "rel_path": relative,
+                    "name": path.name,
+                    "kind": expected[0],
+                    "media_type": expected[1],
+                    "bytes": stat.st_size,
+                    "mtime_ns": stat.st_mtime_ns,
+                    "sha256": digest,
+                    "is_heavy": stat.st_size > 10 * 1024 * 1024,
+                }
+            )
+        if seen_names != set(_LOCAL_TIMELINE_ARTIFACTS):
+            raise LocalTimelineError(
+                "The local timeline worker returned an incomplete artifact set.",
+                code="invalid_worker_result",
+            )
+        return [
+            self.database.register_studio_artifact(production_id, item)
+            for item in validated
+        ]
+
+    def _cached_local_timeline_result(
+        self,
+        cache_key: str,
+        production_id: str,
+        expected_clips: list[dict[str, Any]],
+        cancel_event: JobExecutionContext | None = None,
+    ) -> dict[str, Any] | None:
+        previous = self.database.find_successful_stage_attempt(
+            production_id, _LOCAL_TIMELINE_STAGE, cache_key
+        )
+        if not previous or not isinstance(previous.get("result"), dict):
+            return None
+        prior_result = previous["result"]
+        expected_duration_ms = sum(
+            item["end_ms"] - item["start_ms"] for item in expected_clips
+        )
+
+        # A cache hit may point to the physical files owned by an older run.
+        # Resolve that immutable chain before asking the worker to validate a
+        # run-local output directory.  Without this, a third run would inspect
+        # the second run's empty directory and needlessly re-render the same
+        # content.
+        source_attempt = previous
+        source_result = prior_result
+        visited_attempt_ids = {previous["id"]}
+
+        def artifact_signature(result: dict[str, Any]) -> tuple[tuple[Any, ...], ...] | None:
+            raw = result.get("artifacts")
+            if not isinstance(raw, list):
+                return None
+            entries: list[tuple[Any, ...]] = []
+            for item in raw:
+                if not isinstance(item, dict):
+                    return None
+                entries.append(
+                    tuple(
+                        item.get(field)
+                        for field in ("name", "id", "rel_path", "bytes", "sha256")
+                    )
+                )
+            return tuple(sorted(entries, key=lambda item: str(item[0])))
+
+        while source_result.get("cache_source_attempt_id") is not None:
+            source_id = source_result.get("cache_source_attempt_id")
+            if (
+                not isinstance(source_id, str)
+                or source_id in visited_attempt_ids
+                or len(visited_attempt_ids) >= 128
+                or source_result.get("cache_hit") is not True
+            ):
+                return None
+            linked = self.database.get_stage_attempt(source_id)
+            if (
+                linked is None
+                or linked.get("production_id") != production_id
+                or linked.get("stage") != _LOCAL_TIMELINE_STAGE
+                or linked.get("status") != "succeeded"
+                or linked.get("cache_key") != cache_key
+                or not isinstance(linked.get("result"), dict)
+            ):
+                return None
+            linked_result = linked["result"]
+            linked_cache_hit = linked_result.get("cache_hit")
+            if not isinstance(linked_cache_hit, bool):
+                return None
+            try:
+                timeline_public_result(
+                    source_result,
+                    expected_cache_key=cache_key,
+                    expected_duration_ms=expected_duration_ms,
+                    artifacts=[],
+                    cache_hit=True,
+                )
+                timeline_public_result(
+                    linked_result,
+                    expected_cache_key=cache_key,
+                    expected_duration_ms=expected_duration_ms,
+                    artifacts=[],
+                    cache_hit=linked_cache_hit,
+                )
+            except LocalTimelineError:
+                return None
+            if artifact_signature(source_result) != artifact_signature(linked_result):
+                return None
+            visited_attempt_ids.add(source_id)
+            source_attempt = linked
+            source_result = linked_result
+        try:
+            from . import timeline
+
+            physical_result = _call_local_worker(
+                timeline.validate_local_timeline_outputs,
+                self.workspace,
+                production_id=production_id,
+                run_id=source_attempt["run_id"],
+                cache_key=cache_key,
+                clips=expected_clips,
+                cancel_event=cancel_event,
+            )
+        except (ImportError, AttributeError, LocalTimelineError, OSError):
+            return None
+        physical_artifacts = physical_result.get("artifacts")
+        if (
+            not isinstance(physical_artifacts, list)
+            or len(physical_artifacts) != len(_LOCAL_TIMELINE_ARTIFACTS)
+            or {
+                item.get("name")
+                for item in physical_artifacts
+                if isinstance(item, dict)
+            }
+            != set(_LOCAL_TIMELINE_ARTIFACTS)
+        ):
+            return None
+        physical_by_name = {
+            item.get("name"): item
+            for item in physical_artifacts
+            if isinstance(item, dict)
+        }
+        prior_artifacts = prior_result.get("artifacts")
+        if not isinstance(prior_artifacts, list) or len(prior_artifacts) != len(
+            _LOCAL_TIMELINE_ARTIFACTS
+        ):
+            return None
+        source_root = (
+            f"outputs/studio/runs/{source_attempt['run_id']}/timeline/{cache_key}/"
+        )
+        verified: list[dict[str, Any]] = []
+        seen_names: set[str] = set()
+        for item in prior_artifacts:
+            if not isinstance(item, dict) or not isinstance(item.get("id"), str):
+                return None
+            artifact = self.database.get_artifact(item["id"])
+            if artifact is None or artifact["name"] in seen_names:
+                return None
+            expected = _LOCAL_TIMELINE_ARTIFACTS.get(artifact["name"])
+            physical = physical_by_name.get(artifact["name"])
+            if (
+                expected is None
+                or not isinstance(physical, dict)
+                or artifact.get("production_id") != production_id
+                or not artifact.get("available")
+                or artifact.get("origin") != "studio"
+                or artifact.get("kind") != expected[0]
+                or artifact.get("media_type") != expected[1]
+                or artifact.get("rel_path") != f"{source_root}{artifact['name']}"
+                or item.get("bytes") != artifact.get("bytes")
+                or item.get("sha256") != artifact.get("sha256")
+                or physical.get("bytes") != artifact.get("bytes")
+                or physical.get("sha256") != artifact.get("sha256")
+            ):
+                return None
+            try:
+                path = workspace_path(self.workspace, artifact["rel_path"], must_exist=True)
+            except (SecurityError, OSError):
+                return None
+            try:
+                stat = path.stat()
+            except OSError:
+                return None
+            if (
+                _has_symlink_component(self.workspace, artifact["rel_path"])
+                or path.is_symlink()
+                or not path.is_file()
+                or sensitive_artifact_path(artifact["rel_path"])
+                or stat.st_size != artifact.get("bytes")
+                or not isinstance(artifact.get("sha256"), str)
+                or _sha256_file(path) != artifact["sha256"]
+            ):
+                return None
+            seen_names.add(artifact["name"])
+            verified.append(artifact)
+        if seen_names != set(_LOCAL_TIMELINE_ARTIFACTS):
+            return None
+        try:
+            prior_cache_hit = prior_result.get("cache_hit")
+            if not isinstance(prior_cache_hit, bool):
+                return None
+            prior_public = timeline_public_result(
+                prior_result,
+                expected_cache_key=cache_key,
+                expected_duration_ms=expected_duration_ms,
+                artifacts=verified,
+                cache_hit=prior_cache_hit,
+            )
+            physical_for_public = dict(physical_result)
+            physical_for_public["cache_hit"] = True
+            cached = timeline_public_result(
+                physical_for_public,
+                expected_cache_key=cache_key,
+                expected_duration_ms=expected_duration_ms,
+                artifacts=verified,
+                cache_hit=True,
+            )
+        except LocalTimelineError:
+            return None
+        if prior_public.get("duration_ms") != cached.get("duration_ms"):
+            return None
+        cached["cache_source_attempt_id"] = previous["id"]
+        return cached
+
+    def _execute_local_timeline(
+        self,
+        attempt_id: str,
+        run_id: str,
+        production_id: str,
+        payload: dict[str, Any],
+        cache_key: str,
+        inputs: dict[str, Any],
+        cancel_event: JobExecutionContext | None = None,
+    ) -> dict[str, Any] | AtomicStageCompletion:
+        _raise_if_cancelled(cancel_event)
+        self.database.update_stage_attempt(attempt_id, "running")
+        expected_clips = inputs["cache_clips"]
+        expected_duration_ms = sum(
+            item["end_ms"] - item["start_ms"] for item in expected_clips
+        )
+        try:
+            _raise_if_cancelled(cancel_event)
+            cached = self._cached_local_timeline_result(
+                cache_key, production_id, expected_clips, cancel_event
+            )
+            if cached is not None:
+                result = cached
+            else:
+                try:
+                    from . import timeline
+                except (ImportError, AttributeError) as exc:
+                    raise LocalTimelineError(
+                        "The local timeline worker is not installed.",
+                        code="local_worker_unavailable",
+                    ) from exc
+                try:
+                    raw = _call_local_worker(
+                        timeline.generate_local_timeline,
+                        self.workspace,
+                        production_id=production_id,
+                        run_id=run_id,
+                        cache_key=cache_key,
+                        clips=inputs["clips"],
+                        cancel_event=cancel_event,
+                    )
+                except LocalTimelineError:
+                    raise
+                except Exception as exc:
+                    raise LocalTimelineError(
+                        "The local timeline worker failed.",
+                        code="local_timeline_failed",
+                    ) from exc
+                _raise_if_cancelled(cancel_event)
+                raw_cache_hit = raw.get("cache_hit", False) if isinstance(raw, dict) else False
+                result = timeline_public_result(
+                    raw,
+                    expected_cache_key=cache_key,
+                    expected_duration_ms=expected_duration_ms,
+                    artifacts=[],
+                    cache_hit=raw_cache_hit if isinstance(raw_cache_hit, bool) else False,
+                )
+                physical_result = _call_local_worker(
+                    timeline.validate_local_timeline_outputs,
+                    self.workspace,
+                    production_id=production_id,
+                    run_id=run_id,
+                    cache_key=cache_key,
+                    clips=inputs["clips"],
+                    cancel_event=cancel_event,
+                )
+                physical_for_public = dict(physical_result)
+                physical_for_public["cache_hit"] = raw_cache_hit
+                physical_public = timeline_public_result(
+                    physical_for_public,
+                    expected_cache_key=cache_key,
+                    expected_duration_ms=expected_duration_ms,
+                    artifacts=[],
+                    cache_hit=raw_cache_hit,
+                )
+                if result.get("duration_ms") != physical_public.get("duration_ms"):
+                    raise LocalTimelineError(
+                        "The local timeline worker returned mismatched timing.",
+                        code="invalid_worker_result",
+                    )
+                physical_artifacts = physical_result.get("artifacts")
+                raw_artifacts = raw.get("artifacts") if isinstance(raw, dict) else None
+                if (
+                    not isinstance(physical_artifacts, list)
+                    or not isinstance(raw_artifacts, list)
+                    or len(physical_artifacts) != len(_LOCAL_TIMELINE_ARTIFACTS)
+                    or {
+                        item.get("name")
+                        for item in physical_artifacts
+                        if isinstance(item, dict)
+                    }
+                    != set(_LOCAL_TIMELINE_ARTIFACTS)
+                ):
+                    raise LocalTimelineError(
+                        "The local timeline worker returned invalid artifacts.",
+                        code="invalid_worker_result",
+                    )
+                physical_by_name = {
+                    item.get("name"): item
+                    for item in physical_artifacts
+                    if isinstance(item, dict)
+                }
+                for item in raw_artifacts:
+                    if not isinstance(item, dict):
+                        raise LocalTimelineError(
+                            "The local timeline worker returned invalid artifacts.",
+                            code="invalid_worker_result",
+                        )
+                    name = Path(str(item.get("rel_path") or "")).name
+                    physical = physical_by_name.get(name)
+                    if (
+                        not isinstance(physical, dict)
+                        or item.get("bytes") != physical.get("bytes")
+                        or item.get("sha256") != physical.get("sha256")
+                    ):
+                        raise LocalTimelineError(
+                            "The local timeline worker returned mismatched artifacts.",
+                            code="invalid_worker_result",
+                        )
+                artifacts = self._register_local_timeline_artifacts(
+                    production_id,
+                    run_id,
+                    cache_key,
+                    raw_artifacts,
+                )
+                result = physical_public
+                result["artifacts"] = artifacts
+            _raise_if_cancelled(cancel_event)
+            return _stage_completion_result(attempt_id, result, cancel_event)
+        except JobCancelled as exc:
+            try:
+                self.database.update_stage_attempt(
+                    attempt_id,
+                    "failed",
+                    error_code=exc.error_code,
+                    error_message=exc.public_message,
+                )
+            except Exception:
+                pass
+            raise
+        except Exception as exc:
+            if cancel_event is not None and cancel_event.is_set():
+                try:
+                    self.database.update_stage_attempt(
+                        attempt_id,
+                        "failed",
+                        error_code=JobCancelled.error_code,
+                        error_message=JobCancelled.public_message,
+                    )
+                except Exception:
+                    pass
+                raise JobCancelled() from exc
+            error_code, error_message = safe_timeline_error(exc)
+            try:
+                self.database.update_stage_attempt(
+                    attempt_id,
+                    "failed",
+                    error_code=error_code,
+                    error_message=error_message,
+                )
+            except Exception:
+                pass
+            raise
+
+    def execute_local_timeline(self, run_id: str, body: dict[str, Any]) -> dict[str, Any]:
+        """Queue a zero-cost local hard-cut timeline composition attempt."""
+
+        validate_identifier(run_id, label="run id")
+        run = self.database.get_run(run_id)
+        if run is None:
+            raise KeyError("run not found")
+        if run.get("execution_profile") != "local_sapi":
+            raise RequestValidationError(
+                "This run is not configured for local timeline composition.",
+                code="execution_profile_required",
+            )
+        requested_stages = run.get("requested_stages")
+        if not isinstance(requested_stages, list) or _LOCAL_TIMELINE_STAGE not in requested_stages:
+            raise RequestValidationError(
+                "The timeline stage was not requested by this run.",
+                code="stage_not_requested",
+            )
+        try:
+            payload = validate_local_timeline_payload(body)
+        except LocalTimelineValidationError as exc:
+            code = getattr(exc, "code", None) or getattr(
+                exc, "error_code", "invalid_local_timeline_request"
+            )
+            raise RequestValidationError(str(exc), code=str(code)) from exc
+        inputs = self._validated_timeline_inputs(run, payload)
+        try:
+            from . import timeline
+
+            cache_key = timeline.timeline_cache_key(inputs["cache_clips"])
+        except (ImportError, AttributeError) as exc:
+            raise RequestValidationError(
+                "The local timeline worker is not installed.",
+                code="local_worker_unavailable",
+            ) from exc
+        except LocalTimelineError as exc:
+            raise RequestValidationError(
+                str(exc.public_message), code=str(exc.error_code)[:128]
+            ) from exc
+        if not isinstance(cache_key, str) or not re.fullmatch(r"[0-9A-F]{64}", cache_key):
+            raise RequestValidationError(
+                "The local timeline worker returned an invalid cache key.",
+                code="invalid_worker_result",
+            )
+        audit = timeline_audit_payload(inputs["cache_clips"], cache_key=cache_key)
+        attempt = self.database.create_stage_attempt(
+            run_id,
+            _LOCAL_TIMELINE_STAGE,
+            cache_key,
+            {"execution_profile": "local_sapi", **audit},
+        )
+        try:
+            job = self.jobs.submit(
+                "local_timeline",
+                {
+                    "run_id": run_id,
+                    "production_id": run["production_id"],
+                    "stage": _LOCAL_TIMELINE_STAGE,
+                    "execution_profile": "local_sapi",
+                    **audit,
+                },
+                lambda _job_id, cancel_event: self._execute_local_timeline(
+                    attempt["id"],
+                    run_id,
+                    run["production_id"],
+                    payload,
+                    cache_key,
+                    inputs,
+                    cancel_event,
+                ),
+                production_id=run["production_id"],
+                before_enqueue=lambda created_job: self.database.link_stage_attempt_job(
+                    attempt["id"], created_job["id"]
+                ),
+            )
+        except Exception as exc:
+            error_code, error_message = safe_timeline_error(exc)
+            self.database.update_stage_attempt(
+                attempt["id"],
+                "failed",
+                error_code=error_code,
+                error_message=error_message,
             )
             raise
         job["stage_attempt_id"] = attempt["id"]

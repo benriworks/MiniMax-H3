@@ -6,7 +6,9 @@
 > [ARCHITECTURE_DIAGRAM.md](ARCHITECTURE_DIAGRAM.md)、モデル利用条件の要約は
 > [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)、短尺制作の実践知は
 > [PRODUCTION_PLAYBOOK_JA.md](PRODUCTION_PLAYBOOK_JA.md)、案件台帳は
-> [productions/README.md](productions/README.md) に分離しています。
+> [productions/README.md](productions/README.md)、ローカル制作Studioの操作・実装境界は
+> [STUDIO_MVP_JA.md](STUDIO_MVP_JA.md) に分離しています。StudioはWindows SAPIナレーション、
+> 登録済み動画のハードカット編集preview、FFmpeg音声・字幕合成、完成masterのtechnical QCをローカル実行できます。
 > 通常low-VRAM workflowの20-step品質実行は自動受入では未検証です。Q2 TurboはQ3 GGUFの4-stepスモークと0.4MP・5秒・8-step jobまで完走確認済みです。
 > ComfyUIはMiniMax H3 VAEのchunked I/O最適化を含むcommitへ固定済みです。任意の
 > `lowvram_turbo` は作者がQ3 GGUF対応を明記していない実験経路なので、通常の `lowvram` をfallbackとして残してください。
