@@ -9,7 +9,7 @@ export const normalizeStatus = (value: unknown): StudioStatus => {
   if (status.includes('needs_') || status.includes('not_clear') || status.includes('unverified')) return 'blocked';
   if (status.includes('fail') || status.includes('error')) return 'failed';
   if (status.includes('reject') || status.includes('declin')) return 'rejected';
-  if (status.includes('cancel')) return 'cancelled';
+  if (status.includes('cancel') || status.includes('interrupt') || status === 'aborted' || status === 'stopped') return 'cancelled';
   if (status.includes('running') || status.includes('processing') || status.includes('in_progress')) return 'running';
   if (status.includes('approved')) return 'approved';
   if (/(^|_)(?:not|no)_pass(?:ed)?($|_)/.test(status) || status.includes('did_not_pass')) return 'failed';

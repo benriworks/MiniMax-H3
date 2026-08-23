@@ -8,6 +8,7 @@ import sqlite3
 import threading
 import uuid
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
@@ -20,6 +21,8 @@ SCHEMA_VERSION = 3
 MAX_EVENT_LINE_BYTES = 2 * 1024 * 1024
 _RUN_EXECUTION_PROFILES = {"external", "local_sapi"}
 _LOCAL_SAPI_ZERO_COST_STAGES = {"narration", "captions", "assembly", "qc"}
+_DEFAULT_INTERRUPTED_ERROR_CODE = "process_interrupted"
+_DEFAULT_INTERRUPTED_ERROR_MESSAGE = "The Studio process stopped."
 
 
 def utc_now() -> str:
@@ -53,6 +56,38 @@ def money_to_minor(value: Any) -> int:
 
 def money_from_minor(minor: int, currency: str) -> dict[str, object]:
     return {"amount": f"{Decimal(minor) / Decimal(100):.2f}", "currency": currency}
+
+
+@dataclass(frozen=True)
+class AtomicStageCompletion:
+    """Internal worker-to-job-manager completion envelope.
+
+    ``public_result`` is the stage result that must be persisted on the
+    attempt.  The database derives the historical job result by adding
+    ``stage_attempt_id`` to that mapping; the envelope itself is never
+    persisted as a public job result.
+    """
+
+    stage_attempt_id: str
+    public_result: dict[str, Any]
+
+
+class AtomicCompletionError(ValueError):
+    """A strict job/stage completion was rejected without committing it."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: str = "atomic_completion_rejected",
+        job_status: str | None = None,
+        stage_status: str | None = None,
+    ):
+        super().__init__(message)
+        self.code = code
+        self.committed = False
+        self.job_status = job_status
+        self.stage_status = stage_status
 
 
 class StudioDatabase:
@@ -613,15 +648,30 @@ class StudioDatabase:
         timestamp = utc_now()
         counts = {"jobs": 0, "stage_attempts": 0}
         with self.transaction() as connection:
+            active_jobs = connection.execute(
+                "SELECT id, kind, production_id FROM jobs "
+                "WHERE status IN ('queued', 'running') ORDER BY created_at, rowid"
+            ).fetchall()
             connection.execute(
                 "UPDATE jobs SET status='interrupted', completed_at=?, "
                 "error_code='process_interrupted', error_message='The previous Studio process stopped.' "
                 "WHERE status IN ('queued', 'running')",
                 (timestamp,),
             )
-            counts["jobs"] = int(
-                connection.execute("SELECT changes() AS count").fetchone()["count"]
-            )
+            counts["jobs"] = int(connection.execute("SELECT changes() AS count").fetchone()["count"])
+            for job in active_jobs:
+                self._append_event(
+                    connection,
+                    "job",
+                    job["id"],
+                    "job.interrupted",
+                    {
+                        "kind": job["kind"],
+                        "production_id": job["production_id"],
+                        "error_code": "process_interrupted",
+                    },
+                    created_at=timestamp,
+                )
             rows = connection.execute(
                 "SELECT * FROM stage_attempts WHERE status IN ('queued', 'running') "
                 "ORDER BY created_at, rowid"
@@ -657,6 +707,70 @@ class StudioDatabase:
                     created_at=timestamp,
                 )
         return counts
+
+    def interrupt_job(self, job_id: str) -> bool:
+        """Atomically interrupt one active job and append its audit event."""
+
+        timestamp = utc_now()
+        with self.transaction() as connection:
+            row = connection.execute(
+                "SELECT id, kind, production_id FROM jobs "
+                "WHERE id=? AND status IN ('queued', 'running')",
+                (job_id,),
+            ).fetchone()
+            if row is None:
+                return False
+            connection.execute(
+                "UPDATE jobs SET status='interrupted', completed_at=?, "
+                "error_code='process_interrupted', error_message='The Studio process stopped.' "
+                "WHERE id=? AND status IN ('queued', 'running')",
+                (timestamp, job_id),
+            )
+            if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                return False
+            self._append_event(
+                connection,
+                "job",
+                job_id,
+                "job.interrupted",
+                {
+                    "kind": row["kind"],
+                    "production_id": row["production_id"],
+                    "error_code": "process_interrupted",
+                },
+                created_at=timestamp,
+            )
+            attempts = connection.execute(
+                "SELECT * FROM stage_attempts WHERE job_id=? AND status IN ('queued', 'running') "
+                "ORDER BY created_at, rowid",
+                (job_id,),
+            ).fetchall()
+            for attempt in attempts:
+                connection.execute(
+                    "UPDATE stage_attempts SET status='failed', completed_at=?, result_json=NULL, "
+                    "error_code='process_interrupted', error_message='The Studio process stopped.' "
+                    "WHERE id=? AND status IN ('queued', 'running')",
+                    (timestamp, attempt["id"]),
+                )
+                if connection.execute("SELECT changes() AS count").fetchone()["count"] == 1:
+                    self._append_event(
+                        connection,
+                        "run",
+                        attempt["run_id"],
+                        "stage.attempt.failed",
+                        {
+                            "attempt_id": attempt["id"],
+                            "production_id": attempt["production_id"],
+                            "stage": attempt["stage"],
+                            "attempt": attempt["attempt"],
+                            "cache_key": attempt["cache_key"],
+                            "result": None,
+                            "error_code": "process_interrupted",
+                            "error_message": "The Studio process stopped.",
+                        },
+                        created_at=timestamp,
+                    )
+            return True
 
     @staticmethod
     def _append_event(
@@ -1922,6 +2036,136 @@ class StudioDatabase:
         assert result is not None
         return result
 
+    def complete_job_with_stage_attempt(
+        self,
+        job_id: str,
+        stage_attempt_id: str,
+        public_result: Any,
+    ) -> dict[str, Any]:
+        """Commit a job and its linked active stage attempt together.
+
+        This is the only success transition for a worker-backed stage.  The
+        job and stage rows are validated, updated, and audited inside one
+        transaction.  A shutdown that wins the race leaves both rows
+        terminal and raises :class:`AtomicCompletionError`; it can never
+        produce a job-success/stage-failed (or the reverse) combination.
+        """
+
+        timestamp = utc_now()
+        safe_stage_result = sanitize_for_storage(public_result)
+        if not isinstance(safe_stage_result, dict):
+            raise ValueError("stage completion result must be an object")
+        # The linked database row is authoritative.  A worker result must not
+        # be able to replace its attempt identity with an untrusted field.
+        safe_stage_result.pop("stage_attempt_id", None)
+        safe_job_result = {**safe_stage_result, "stage_attempt_id": stage_attempt_id}
+        with self.transaction() as connection:
+            job = connection.execute(
+                "SELECT * FROM jobs WHERE id=?", (job_id,)
+            ).fetchone()
+            attempt = connection.execute(
+                "SELECT * FROM stage_attempts WHERE id=?", (stage_attempt_id,)
+            ).fetchone()
+            if job is None:
+                raise KeyError("job not found")
+            if attempt is None:
+                raise KeyError("stage attempt not found")
+            if attempt["job_id"] != job_id:
+                raise ValueError("stage attempt is linked to another job")
+
+            run = connection.execute(
+                "SELECT production_id FROM runs WHERE id=?", (attempt["run_id"],)
+            ).fetchone()
+            if (
+                run is None
+                or job["production_id"] != attempt["production_id"]
+                or attempt["production_id"] != run["production_id"]
+            ):
+                raise ValueError("job and stage attempt production do not match")
+
+            if job["status"] != "running" or attempt["status"] != "running":
+                raise AtomicCompletionError(
+                    "atomic completion requires a running job and stage attempt",
+                    code="atomic_completion_not_active",
+                    job_status=job["status"],
+                    stage_status=attempt["status"],
+                )
+
+            connection.execute(
+                "UPDATE jobs SET status='succeeded', completed_at=?, result_json=?, "
+                "error_code=NULL, error_message=NULL "
+                "WHERE id=? AND status='running'",
+                (
+                    timestamp,
+                    _json(safe_job_result),
+                    job_id,
+                ),
+            )
+            if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                raise AtomicCompletionError(
+                    "job stopped before atomic completion could commit",
+                    code="atomic_completion_not_active",
+                    job_status="unknown",
+                    stage_status=attempt["status"],
+                )
+            connection.execute(
+                "UPDATE stage_attempts SET status='succeeded', completed_at=?, "
+                "result_json=?, error_code=NULL, error_message=NULL "
+                "WHERE id=? AND status='running'",
+                (timestamp, _json(safe_stage_result), stage_attempt_id),
+            )
+            if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                raise AtomicCompletionError(
+                    "stage attempt stopped before atomic completion could commit",
+                    code="atomic_completion_not_active",
+                    job_status="succeeded",
+                    stage_status="unknown",
+                )
+
+            self._append_event(
+                connection,
+                "run",
+                attempt["run_id"],
+                "stage.attempt.succeeded",
+                {
+                    "attempt_id": attempt["id"],
+                    "production_id": attempt["production_id"],
+                    "stage": attempt["stage"],
+                    "attempt": attempt["attempt"],
+                    "cache_key": attempt["cache_key"],
+                    "job_id": job_id,
+                    "result": safe_stage_result,
+                    "error_code": None,
+                    "error_message": None,
+                },
+                created_at=timestamp,
+            )
+            self._append_event(
+                connection,
+                "job",
+                job_id,
+                "job.succeeded",
+                {
+                    "result": safe_job_result,
+                    "error_code": None,
+                    "error_message": None,
+                },
+                created_at=timestamp,
+            )
+            updated_job = connection.execute(
+                "SELECT * FROM jobs WHERE id=?", (job_id,)
+            ).fetchone()
+            updated_attempt = connection.execute(
+                "SELECT * FROM stage_attempts WHERE id=?", (stage_attempt_id,)
+            ).fetchone()
+            assert updated_job is not None and updated_attempt is not None
+            committed = {
+                "committed": True,
+                "job": self._job_dict(updated_job),
+                "stage_attempt": self._stage_attempt_dict(updated_attempt),
+            }
+        return committed
+
     def update_job(
         self,
         job_id: str,
@@ -1934,6 +2178,13 @@ class StudioDatabase:
         timestamp = utc_now()
         safe_result = sanitize_for_storage(result)
         safe_error = str(sanitize_for_storage(error_message or ""))[:1000] or None
+        effective_error_code = error_code
+        effective_error_message = safe_error
+        if status == "interrupted":
+            effective_error_code = error_code or _DEFAULT_INTERRUPTED_ERROR_CODE
+            effective_error_message = (
+                safe_error or _DEFAULT_INTERRUPTED_ERROR_MESSAGE
+            )
         with self.transaction() as connection:
             if status == "running":
                 connection.execute(
@@ -1948,8 +2199,8 @@ class StudioDatabase:
                         status,
                         timestamp,
                         _json(safe_result) if result is not None else None,
-                        error_code,
-                        safe_error,
+                        effective_error_code,
+                        effective_error_message,
                         job_id,
                     ),
                 )
@@ -1962,13 +2213,26 @@ class StudioDatabase:
                     (
                         timestamp,
                         _json(safe_result) if result is not None else None,
-                        error_code,
-                        safe_error,
+                        effective_error_code,
+                        effective_error_message,
+                        job_id,
+                    ),
+                )
+            elif status == "interrupted":
+                connection.execute(
+                    "UPDATE jobs SET status='interrupted', completed_at=?, result_json=NULL, "
+                    "error_code=?, error_message=? WHERE id=? AND status IN ('queued', 'running')",
+                    (
+                        timestamp,
+                        effective_error_code,
+                        effective_error_message,
                         job_id,
                     ),
                 )
             else:
                 raise ValueError("unsupported job state")
+            if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                return
             self._append_event(
                 connection,
                 "job",
@@ -1976,7 +2240,16 @@ class StudioDatabase:
                 f"job.{status}",
                 {
                     "result": safe_result if status == "succeeded" else None,
-                    "error_code": error_code if status == "failed" else None,
+                    "error_code": (
+                        effective_error_code
+                        if status in {"failed", "interrupted"}
+                        else None
+                    ),
+                    "error_message": (
+                        effective_error_message
+                        if status in {"failed", "interrupted"}
+                        else None
+                    ),
                 },
                 created_at=timestamp,
             )

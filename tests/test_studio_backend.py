@@ -14,7 +14,14 @@ from pathlib import Path
 from unittest import mock
 
 from tools.studio.instance_lock import StudioInstanceLockError
-from tools.studio.database import SCHEMA_VERSION, StudioDatabase
+from tools.studio.assembly_execution import LocalAssemblyError
+from tools.studio.qc_execution import LocalQcError
+from tools.studio.database import (
+    SCHEMA_VERSION,
+    AtomicCompletionError,
+    AtomicStageCompletion,
+    StudioDatabase,
+)
 from tools.studio.secrets import SecretStore, dpapi_available
 from tools.studio.security import (
     SecurityError,
@@ -87,6 +94,325 @@ def fake_local_narration_result(
         "actual_cost": 0,
         "timing_source": "wav_frames",
     }
+
+
+def fake_local_assembly_result(
+    workspace: Path,
+    *,
+    production_id: str,
+    run_id: str,
+    cache_key: str,
+    source_video: Path,
+    narration_wav: Path,
+    captions_srt: Path,
+    include_captioned: bool,
+) -> dict[str, object]:
+    del production_id
+    output_directory = (
+        workspace
+        / "outputs"
+        / "studio"
+        / "runs"
+        / run_id
+        / "assembly"
+        / cache_key
+    )
+    output_directory.mkdir(parents=True, exist_ok=True)
+    files: dict[str, tuple[str, str, bytes]] = {
+        "master-clean.mp4": ("video", "video/mp4", b"local-clean-master"),
+        "ffprobe.json": ("document", "application/json", b"{}\n"),
+        "manifest.json": ("document", "application/json", b"{}\n"),
+    }
+    if include_captioned:
+        files["master-captioned.mp4"] = (
+            "video",
+            "video/mp4",
+            b"local-captioned-master",
+        )
+    artifacts = []
+    for name, (kind, media_type, content) in files.items():
+        output = output_directory / name
+        output.write_bytes(content)
+        artifacts.append(
+            {
+                "rel_path": output.relative_to(workspace).as_posix(),
+                "kind": kind,
+                "media_type": media_type,
+                "bytes": len(content),
+                "sha256": hashlib.sha256(content).hexdigest().upper(),
+            }
+        )
+    return {
+        "artifacts": artifacts,
+        "duration_ms": 125,
+        "cache_key": cache_key,
+        "cache_hit": False,
+        "provider": "local_ffmpeg",
+        "provider_task_id": None,
+        "actual_cost": 0,
+        "timing_source": "ffprobe",
+        "include_captioned": include_captioned,
+        "source_video_sha256": hashlib.sha256(source_video.read_bytes()).hexdigest().upper(),
+        "narration_wav_sha256": hashlib.sha256(narration_wav.read_bytes()).hexdigest().upper(),
+        "captions_sha256": hashlib.sha256(captions_srt.read_bytes()).hexdigest().upper(),
+    }
+
+
+def fake_validate_local_assembly_outputs(
+    workspace: Path,
+    *,
+    production_id: str,
+    run_id: str,
+    cache_key: str,
+    source_video: Path,
+    narration_wav: Path,
+    captions_srt: Path,
+    include_captioned: bool,
+) -> dict[str, object]:
+    del production_id
+    output_directory = (
+        workspace
+        / "outputs"
+        / "studio"
+        / "runs"
+        / run_id
+        / "assembly"
+        / cache_key
+    )
+    names = ["master-clean.mp4", "ffprobe.json", "manifest.json"]
+    if include_captioned:
+        names.insert(1, "master-captioned.mp4")
+    artifacts = []
+    for name in names:
+        path = output_directory / name
+        content = path.read_bytes()
+        artifacts.append(
+            {
+                "name": name,
+                "bytes": len(content),
+                "sha256": hashlib.sha256(content).hexdigest().upper(),
+            }
+        )
+    return {
+        "artifacts": artifacts,
+        "duration_ms": 125,
+        "cache_key": cache_key,
+        "cache_hit": True,
+        "provider": "local_ffmpeg",
+        "provider_task_id": None,
+        "actual_cost": 0,
+        "timing_source": "ffprobe",
+        "include_captioned": include_captioned,
+        "source_video_sha256": hashlib.sha256(source_video.read_bytes()).hexdigest().upper(),
+        "narration_wav_sha256": hashlib.sha256(narration_wav.read_bytes()).hexdigest().upper(),
+        "captions_sha256": hashlib.sha256(captions_srt.read_bytes()).hexdigest().upper(),
+    }
+
+
+def _fake_local_qc_metadata(
+    workspace: Path,
+    *,
+    run_id: str,
+    cache_key: str,
+    assembly_attempt_id: str,
+    assembly_artifact_id: str,
+    variant: str,
+    input_sha256: str,
+    input_bytes: int,
+    expected_duration_ms: int,
+    cache_hit: bool,
+    technical_verdict: str = "pass",
+) -> dict[str, object]:
+    output_directory = (
+        workspace / "outputs" / "studio" / "runs" / run_id / "qc" / cache_key
+    )
+    artifacts = []
+    for name in ("technical-qc.json", "ffprobe.json", "manifest.json"):
+        path = output_directory / name
+        content = path.read_bytes()
+        relative = path.relative_to(workspace).as_posix()
+        artifacts.append(
+            {
+                "rel_path": relative,
+                "path": relative,
+                "name": name,
+                "kind": "document",
+                "media_type": "application/json",
+                "mime": "application/json",
+                "bytes": len(content),
+                "sha256": hashlib.sha256(content).hexdigest().upper(),
+            }
+        )
+    return {
+        "analysis_status": "succeeded",
+        "technical_verdict": technical_verdict,
+        "cache_hit": cache_hit,
+        "duration_ms": expected_duration_ms,
+        "assembly_attempt_id": assembly_attempt_id,
+        "assembly_artifact_id": assembly_artifact_id,
+        "variant": variant,
+        "input_sha256": input_sha256,
+        "input_bytes": input_bytes,
+        "expected_duration_ms": expected_duration_ms,
+        "checks": {
+            "container_mp4": {"status": "pass"},
+            "full_decode": {"status": "pass"},
+            "audio_not_silent": {"status": technical_verdict},
+        },
+        "media_facts": {
+            "duration_ms": expected_duration_ms,
+            "video_codec": "h264",
+            "audio_codec": "aac",
+        },
+        "artifacts": artifacts,
+        "cache_key": cache_key,
+        "provider": "local_ffmpeg_qc",
+        "provider_task_id": None,
+        "actual_cost": 0,
+        "timing_source": "ffprobe",
+    }
+
+
+def fake_local_qc_result(
+    workspace: Path,
+    *,
+    production_id: str,
+    run_id: str,
+    cache_key: str,
+    assembly_attempt_id: str,
+    assembly_artifact_id: str,
+    variant: str,
+    input_path: Path,
+    input_sha256: str,
+    input_bytes: int,
+    expected_duration_ms: int,
+) -> dict[str, object]:
+    del production_id, input_path
+    output_directory = (
+        workspace / "outputs" / "studio" / "runs" / run_id / "qc" / cache_key
+    )
+    output_directory.mkdir(parents=True, exist_ok=True)
+    for name in ("technical-qc.json", "ffprobe.json", "manifest.json"):
+        (output_directory / name).write_text(
+            json.dumps({"name": name, "cache_key": cache_key}) + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+    return _fake_local_qc_metadata(
+        workspace,
+        run_id=run_id,
+        cache_key=cache_key,
+        assembly_attempt_id=assembly_attempt_id,
+        assembly_artifact_id=assembly_artifact_id,
+        variant=variant,
+        input_sha256=input_sha256,
+        input_bytes=input_bytes,
+        expected_duration_ms=expected_duration_ms,
+        cache_hit=False,
+    )
+
+
+def fake_validate_local_qc_outputs(
+    workspace: Path,
+    *,
+    production_id: str,
+    run_id: str,
+    cache_key: str,
+    assembly_attempt_id: str,
+    assembly_artifact_id: str,
+    variant: str,
+    input_path: Path,
+    input_sha256: str,
+    input_bytes: int,
+    expected_duration_ms: int,
+) -> dict[str, object]:
+    del production_id, input_path
+    return _fake_local_qc_metadata(
+        workspace,
+        run_id=run_id,
+        cache_key=cache_key,
+        assembly_attempt_id=assembly_attempt_id,
+        assembly_artifact_id=assembly_artifact_id,
+        variant=variant,
+        input_sha256=input_sha256,
+        input_bytes=input_bytes,
+        expected_duration_ms=expected_duration_ms,
+        cache_hit=True,
+    )
+
+
+def create_succeeded_assembly_attempt(
+    service: StudioService,
+    run_id: str,
+    *,
+    include_captioned: bool = False,
+) -> tuple[dict[str, object], dict[str, object]]:
+    cache_key = "D" * 64
+    root = (
+        service.workspace
+        / "outputs"
+        / "studio"
+        / "runs"
+        / run_id
+        / "assembly"
+        / cache_key
+    )
+    root.mkdir(parents=True, exist_ok=True)
+    files: dict[str, tuple[str, str, bytes]] = {
+        "master-clean.mp4": ("video", "video/mp4", VIDEO_BYTES),
+        "ffprobe.json": ("document", "application/json", b"{}\n"),
+        "manifest.json": ("document", "application/json", b"{}\n"),
+    }
+    if include_captioned:
+        files["master-captioned.mp4"] = (
+            "video",
+            "video/mp4",
+            VIDEO_BYTES + b"captioned",
+        )
+    raw_artifacts = []
+    for name, (kind, media_type, content) in files.items():
+        path = root / name
+        path.write_bytes(content)
+        raw_artifacts.append(
+            {
+                "rel_path": path.relative_to(service.workspace).as_posix(),
+                "kind": kind,
+                "media_type": media_type,
+                "bytes": len(content),
+                "sha256": hashlib.sha256(content).hexdigest().upper(),
+            }
+        )
+    registered = service._register_local_assembly_artifacts(
+        PRODUCTION_ID, run_id, cache_key, include_captioned, raw_artifacts
+    )
+    attempt = service.database.create_stage_attempt(
+        run_id, "assembly", cache_key, {"test_fixture": True}
+    )
+    service.database.update_stage_attempt(attempt["id"], "running")
+    result = {
+        "artifacts": registered,
+        "duration_ms": 1_000,
+        "cache_key": cache_key,
+        "request_cache_key": cache_key,
+        "cache_hit": False,
+        "provider": "local_ffmpeg",
+        "provider_task_id": None,
+        "actual_cost": 0,
+        "timing_source": "ffprobe",
+        "include_captioned": include_captioned,
+        "source_video_sha256": "A" * 64,
+        "narration_wav_sha256": "B" * 64,
+        "captions_sha256": "C" * 64,
+        "cost": {"amount": "0.00", "currency": "USD", "source": "local"},
+    }
+    succeeded = service.database.update_stage_attempt(
+        attempt["id"], "succeeded", result=result
+    )
+    selected_name = (
+        "master-captioned.mp4" if include_captioned else "master-clean.mp4"
+    )
+    selected = next(item for item in registered if item["name"] == selected_name)
+    return succeeded, selected
 
 
 class WorkspaceFixture:
@@ -203,6 +529,236 @@ class DatabaseMigrationTests(unittest.TestCase):
             self.assertEqual(schema_version, str(SCHEMA_VERSION))
             self.assertIsNotNone(stage_attempts)
             self.assertIn("job_id", stage_attempt_columns)
+
+
+class AtomicCompletionTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.fixture = WorkspaceFixture()
+        self.service = StudioService(self.fixture.root)
+        self.service.indexer.refresh()
+
+    def tearDown(self) -> None:
+        self.service.close()
+        self.fixture.close()
+
+    def _active_pair(self) -> tuple[dict[str, object], dict[str, object]]:
+        created = self.service.create_run(
+            PRODUCTION_ID,
+            {"changes": [{"type": "script"}], "execution_profile": "local_sapi"},
+        )
+        run_id = str(created["run"]["id"])
+        attempt = self.service.database.create_stage_attempt(
+            run_id, "narration", "A" * 64, {"test": True}
+        )
+        job = self.service.database.create_job(
+            "local_narration",
+            {"run_id": run_id, "stage": "narration"},
+            production_id=PRODUCTION_ID,
+        )
+        self.service.database.link_stage_attempt_job(str(attempt["id"]), str(job["id"]))
+        self.service.database.update_job(str(job["id"]), "running")
+        self.service.database.update_stage_attempt(str(attempt["id"]), "running")
+        return job, attempt
+
+    def test_atomic_completion_commits_job_and_stage_with_split_results(self) -> None:
+        job, attempt = self._active_pair()
+        job_id = str(job["id"])
+        attempt_id = str(attempt["id"])
+        stage_result = {
+            "cache_hit": False,
+            "artifacts": [],
+            "duration_ms": 7,
+            "stage_attempt_id": "attempt_untrusted",
+        }
+
+        committed = self.service.database.complete_job_with_stage_attempt(
+            job_id, attempt_id, stage_result
+        )
+
+        self.assertTrue(committed["committed"])
+        self.assertEqual(committed["job"]["status"], "succeeded")
+        self.assertEqual(committed["stage_attempt"]["status"], "succeeded")
+        self.assertEqual(committed["job"]["result"]["stage_attempt_id"], attempt_id)
+        self.assertEqual(committed["job"]["result"]["cache_hit"], False)
+        expected_stage_result = {
+            "cache_hit": False,
+            "artifacts": [],
+            "duration_ms": 7,
+        }
+        self.assertEqual(committed["stage_attempt"]["result"], expected_stage_result)
+        self.assertNotIn("stage_attempt_id", committed["stage_attempt"]["result"])
+
+        with closing(self.service.database.connect()) as connection:
+            events = connection.execute(
+                "SELECT event_type, scope_type, scope_id, payload_json "
+                "FROM events WHERE scope_id IN (?, ?) ORDER BY id",
+                (job_id, str(attempt["run_id"])),
+            ).fetchall()
+        completion_events = [
+            row for row in events if row["event_type"] in {
+                "stage.attempt.succeeded", "job.succeeded"
+            }
+        ]
+        self.assertEqual(
+            [row["event_type"] for row in completion_events],
+            ["stage.attempt.succeeded", "job.succeeded"],
+        )
+        stage_event = json.loads(completion_events[0]["payload_json"])
+        job_event = json.loads(completion_events[1]["payload_json"])
+        self.assertEqual(stage_event["result"], expected_stage_result)
+        self.assertEqual(job_event["result"]["stage_attempt_id"], attempt_id)
+
+    def test_interrupt_first_rejects_atomic_completion_without_forbidden_pair(self) -> None:
+        job, attempt = self._active_pair()
+        job_id = str(job["id"])
+        attempt_id = str(attempt["id"])
+
+        self.assertTrue(self.service.database.interrupt_job(job_id))
+        with self.assertRaises(AtomicCompletionError) as raised:
+            self.service.database.complete_job_with_stage_attempt(
+                job_id, attempt_id, {"cache_hit": False}
+            )
+        self.assertEqual(raised.exception.code, "atomic_completion_not_active")
+        self.assertFalse(raised.exception.committed)
+        self.assertEqual(self.service.database.get_job(job_id)["status"], "interrupted")
+        self.assertEqual(self.service.database.get_stage_attempt(attempt_id)["status"], "failed")
+
+        with closing(self.service.database.connect()) as connection:
+            event_types = [
+                row["event_type"]
+                for row in connection.execute(
+                    "SELECT event_type FROM events WHERE scope_id IN (?, ?) ORDER BY id",
+                    (job_id, str(attempt["run_id"])),
+                ).fetchall()
+            ]
+        self.assertNotIn("job.succeeded", event_types)
+        self.assertNotIn("stage.attempt.succeeded", event_types)
+
+    def test_job_manager_shutdown_wins_completion_boundary_without_split_truth(self) -> None:
+        created = self.service.create_run(
+            PRODUCTION_ID,
+            {"changes": [{"type": "script"}], "execution_profile": "local_sapi"},
+        )
+        run_id = str(created["run"]["id"])
+        attempt = self.service.database.create_stage_attempt(
+            run_id, "narration", "C" * 64, {"test": True}
+        )
+        attempt_id = str(attempt["id"])
+        completion_entered = threading.Event()
+        release_completion = threading.Event()
+        interruption_committed = threading.Event()
+        original_complete = self.service.database.complete_job_with_stage_attempt
+        original_interrupt = self.service.database.interrupt_active_work
+
+        def callback(_job_id: str, _context: threading.Event) -> AtomicStageCompletion:
+            self.service.database.update_stage_attempt(attempt_id, "running")
+            return AtomicStageCompletion(attempt_id, {"cache_hit": False, "artifacts": []})
+
+        def blocked_complete(*args: object, **kwargs: object) -> dict[str, object]:
+            completion_entered.set()
+            self.assertTrue(release_completion.wait(2))
+            return original_complete(*args, **kwargs)
+
+        def tracked_interrupt() -> dict[str, int]:
+            result = original_interrupt()
+            interruption_committed.set()
+            return result
+
+        with (
+            mock.patch.object(
+                self.service.database,
+                "complete_job_with_stage_attempt",
+                side_effect=blocked_complete,
+            ),
+            mock.patch.object(
+                self.service.database,
+                "interrupt_active_work",
+                side_effect=tracked_interrupt,
+            ),
+        ):
+            job = self.service.jobs.submit(
+                "local_narration",
+                {"run_id": run_id, "stage": "narration"},
+                callback,
+                production_id=PRODUCTION_ID,
+                before_enqueue=lambda created_job: self.service.database.link_stage_attempt_job(
+                    attempt_id, str(created_job["id"])
+                ),
+            )
+            self.assertTrue(completion_entered.wait(2))
+            shutdown = threading.Thread(
+                target=self.service.jobs.shutdown,
+                kwargs={"timeout": 1.0},
+                daemon=True,
+            )
+            shutdown.start()
+            self.assertTrue(interruption_committed.wait(2))
+            release_completion.set()
+            shutdown.join(timeout=2)
+            self.assertFalse(shutdown.is_alive())
+            completed = self.service.jobs.wait(str(job["id"]), timeout=2)
+
+        self.assertIsNotNone(completed)
+        assert completed is not None
+        final_attempt = self.service.database.get_stage_attempt(attempt_id)
+        assert final_attempt is not None
+        self.assertEqual(completed["status"], "interrupted")
+        self.assertEqual(final_attempt["status"], "failed")
+        self.assertNotEqual(
+            (completed["status"], final_attempt["status"]),
+            ("interrupted", "succeeded"),
+        )
+
+    def test_atomic_completion_rejects_wrong_link_and_non_running_state(self) -> None:
+        job, attempt = self._active_pair()
+        wrong_job = self.service.database.create_job(
+            "local_narration",
+            {"run_id": str(attempt["run_id"]), "stage": "narration"},
+            production_id=PRODUCTION_ID,
+        )
+        with self.assertRaises(ValueError):
+            self.service.database.complete_job_with_stage_attempt(
+                str(wrong_job["id"]), str(attempt["id"]), {"ok": True}
+            )
+
+        queued = self.service.database.create_stage_attempt(
+            str(attempt["run_id"]), "narration", "B" * 64, {"test": True}
+        )
+        queued_job = self.service.database.create_job(
+            "local_narration",
+            {"run_id": str(attempt["run_id"]), "stage": "narration"},
+            production_id=PRODUCTION_ID,
+        )
+        self.service.database.link_stage_attempt_job(
+            str(queued["id"]), str(queued_job["id"])
+        )
+        with self.assertRaises(AtomicCompletionError):
+            self.service.database.complete_job_with_stage_attempt(
+                str(queued_job["id"]), str(queued["id"]), {"ok": True}
+            )
+
+    def test_default_interrupted_event_uses_effective_error_metadata(self) -> None:
+        job, _attempt = self._active_pair()
+        job_id = str(job["id"])
+        # Return the stage to a fresh queued-only job so update_job owns the
+        # interruption transition and its event payload.
+        self.service.database.update_stage_attempt(
+            str(_attempt["id"]), "failed", error_code="test", error_message="test"
+        )
+        self.service.database.update_job(job_id, "interrupted")
+        interrupted = self.service.database.get_job(job_id)
+        self.assertEqual(interrupted["error"]["code"], "process_interrupted")
+        self.assertEqual(interrupted["error"]["message"], "The Studio process stopped.")
+        with closing(self.service.database.connect()) as connection:
+            row = connection.execute(
+                "SELECT payload_json FROM events "
+                "WHERE scope_type='job' AND scope_id=? AND event_type='job.interrupted' "
+                "ORDER BY id DESC LIMIT 1",
+                (job_id,),
+            ).fetchone()
+        payload = json.loads(row["payload_json"])
+        self.assertEqual(payload["error_code"], interrupted["error"]["code"])
+        self.assertEqual(payload["error_message"], interrupted["error"]["message"])
 
 
 class ServiceTests(unittest.TestCase):
@@ -453,6 +1009,537 @@ class ServiceTests(unittest.TestCase):
             self.assertIn(f"{narration_root}timings.json", names)
             self.assertIn(f"{narration_root}manifest.json", names)
             self.assertNotIn(f"{narration_root}narration.wav", names)
+
+    def test_local_assembly_records_lineage_reuses_cache_and_detects_tampering(self) -> None:
+        created = self.service.create_run(
+            PRODUCTION_ID,
+            {"changes": [{"type": "script"}], "execution_profile": "local_sapi"},
+        )
+        run_id = created["run"]["id"]
+        self.assertIn("narration", created["run"]["requested_stages"])
+        self.assertIn("assembly", created["run"]["requested_stages"])
+        with mock.patch(
+            "tools.studio.narration.generate_local_narration",
+            side_effect=fake_local_narration_result,
+        ):
+            narration_job = self.service.execute_local_narration(
+                run_id, {"segments": [{"text": "hello local assembly"}], "rate": 0}
+            )
+            narration = self.service.jobs.wait(narration_job["id"], timeout=10)
+        assert narration is not None
+        self.assertEqual(narration["status"], "succeeded")
+        narration_attempt_id = narration["result"]["stage_attempt_id"]
+        detail = self.service.production_detail(PRODUCTION_ID)
+        assert detail is not None
+        video = next(item for item in detail["artifacts"] if item["kind"] == "video")
+        request = {
+            "video_artifact_id": video["id"],
+            "narration_attempt_id": narration_attempt_id,
+            "include_captioned": True,
+        }
+        calls: list[str] = []
+        generation_errors: list[str] = []
+
+        def fake_generate(*args: object, **kwargs: object) -> dict[str, object]:
+            try:
+                calls.append(str(kwargs["run_id"]))
+                running = self.service.run(run_id)
+                assert running is not None
+                current = [
+                    attempt
+                    for attempt in running["stage_attempts"]
+                    if attempt["stage"] == "assembly"
+                ][-1]
+                self.assertIsNotNone(current["job_id"])
+                return fake_local_assembly_result(*args, **kwargs)
+            except Exception as exc:
+                generation_errors.append(repr(exc))
+                raise
+
+        cache_key = "A" * 64
+        with (
+            mock.patch("tools.studio.assembly.assembly_cache_key", return_value=cache_key),
+            mock.patch(
+                "tools.studio.assembly.generate_local_assembly",
+                side_effect=fake_generate,
+            ),
+            mock.patch(
+                "tools.studio.assembly.validate_local_assembly_outputs",
+                side_effect=fake_validate_local_assembly_outputs,
+            ),
+        ):
+            first_job = self.service.execute_local_assembly(run_id, request)
+            first = self.service.jobs.wait(first_job["id"], timeout=10)
+            assert first is not None
+            self.assertEqual(first["status"], "succeeded", (first, generation_errors))
+            self.assertFalse(first["result"]["cache_hit"])
+            self.assertEqual(first["result"]["provider"], "local_ffmpeg")
+            self.assertEqual(first["result"]["actual_cost"], 0)
+            self.assertEqual(len(first["result"]["artifacts"]), 4)
+
+            second_job = self.service.execute_local_assembly(run_id, request)
+            second = self.service.jobs.wait(second_job["id"], timeout=10)
+            assert second is not None
+            self.assertEqual(second["status"], "succeeded")
+            self.assertTrue(second["result"]["cache_hit"])
+            self.assertEqual(
+                second["result"]["cache_source_attempt_id"],
+                first["result"]["stage_attempt_id"],
+            )
+
+            clean = next(
+                item
+                for item in first["result"]["artifacts"]
+                if item["name"] == "master-clean.mp4"
+            )
+            (self.fixture.root / clean["rel_path"]).write_bytes(b"tampered-master")
+            third_job = self.service.execute_local_assembly(run_id, request)
+            third = self.service.jobs.wait(third_job["id"], timeout=10)
+            assert third is not None
+            self.assertEqual(third["status"], "succeeded")
+            self.assertFalse(third["result"]["cache_hit"])
+
+        self.assertEqual(calls, [run_id, run_id])
+        run = self.service.run(run_id)
+        assert run is not None
+        assembly_attempts = [
+            attempt for attempt in run["stage_attempts"] if attempt["stage"] == "assembly"
+        ]
+        self.assertEqual([attempt["attempt"] for attempt in assembly_attempts], [1, 2, 3])
+        self.assertEqual(
+            [attempt["job_id"] for attempt in assembly_attempts],
+            [first_job["id"], second_job["id"], third_job["id"]],
+        )
+
+        audit_job = self.service.audit_export(PRODUCTION_ID, {"include_media": False})
+        audit = self.service.jobs.wait(audit_job["id"], timeout=10)
+        assert audit is not None
+        archive_path = self.fixture.root / audit["result"]["artifact"]["rel_path"]
+        with zipfile.ZipFile(archive_path) as archive:
+            names = set(archive.namelist())
+            assembly_root = f"workspace/outputs/studio/runs/{run_id}/assembly/{cache_key}/"
+            self.assertIn(f"{assembly_root}ffprobe.json", names)
+            self.assertIn(f"{assembly_root}manifest.json", names)
+            self.assertNotIn(f"{assembly_root}master-clean.mp4", names)
+
+    def test_local_assembly_physical_validation_failure_registers_no_artifacts(self) -> None:
+        created = self.service.create_run(
+            PRODUCTION_ID,
+            {"changes": [{"type": "script"}], "execution_profile": "local_sapi"},
+        )
+        run_id = created["run"]["id"]
+        with mock.patch(
+            "tools.studio.narration.generate_local_narration",
+            side_effect=fake_local_narration_result,
+        ):
+            narration_job = self.service.execute_local_narration(
+                run_id, {"segments": [{"text": "physical validation"}]}
+            )
+            narration = self.service.jobs.wait(narration_job["id"], timeout=10)
+        assert narration is not None
+        detail = self.service.production_detail(PRODUCTION_ID)
+        assert detail is not None
+        video = next(item for item in detail["artifacts"] if item["kind"] == "video")
+        request = {
+            "video_artifact_id": video["id"],
+            "narration_attempt_id": narration["result"]["stage_attempt_id"],
+            "include_captioned": False,
+        }
+        with (
+            mock.patch("tools.studio.assembly.assembly_cache_key", return_value="C" * 64),
+            mock.patch(
+                "tools.studio.assembly.generate_local_assembly",
+                side_effect=fake_local_assembly_result,
+            ),
+            mock.patch(
+                "tools.studio.assembly.validate_local_assembly_outputs",
+                side_effect=LocalAssemblyError(
+                    "The generated master is not a valid MP4.",
+                    code="invalid_cache",
+                ),
+            ),
+        ):
+            job = self.service.execute_local_assembly(run_id, request)
+            completed = self.service.jobs.wait(job["id"], timeout=10)
+        assert completed is not None
+        self.assertEqual(completed["status"], "failed")
+        self.assertEqual(completed["error"]["code"], "invalid_cache")
+        after = self.service.production_detail(PRODUCTION_ID)
+        assert after is not None
+        self.assertFalse(
+            any(
+                item["origin"] == "studio" and item["name"] == "master-clean.mp4"
+                for item in after["artifacts"]
+            )
+        )
+
+        def mismatched_duration(*args: object, **kwargs: object) -> dict[str, object]:
+            result = fake_validate_local_assembly_outputs(*args, **kwargs)
+            result["duration_ms"] = 126
+            return result
+
+        with (
+            mock.patch("tools.studio.assembly.assembly_cache_key", return_value="C" * 64),
+            mock.patch(
+                "tools.studio.assembly.generate_local_assembly",
+                side_effect=fake_local_assembly_result,
+            ),
+            mock.patch(
+                "tools.studio.assembly.validate_local_assembly_outputs",
+                side_effect=mismatched_duration,
+            ),
+        ):
+            mismatch_job = self.service.execute_local_assembly(run_id, request)
+            mismatch = self.service.jobs.wait(mismatch_job["id"], timeout=10)
+        assert mismatch is not None
+        self.assertEqual(mismatch["status"], "failed")
+        self.assertEqual(mismatch["error"]["code"], "invalid_worker_result")
+
+    def test_local_assembly_request_and_run_contract_fail_closed(self) -> None:
+        local = self.service.create_run(
+            PRODUCTION_ID,
+            {"changes": [{"type": "script"}], "execution_profile": "local_sapi"},
+        )
+        with self.assertRaises(RequestValidationError):
+            self.service.execute_local_assembly(
+                local["run"]["id"],
+                {
+                    "video_artifact_id": "art_" + "0" * 32,
+                    "narration_attempt_id": "attempt_" + "0" * 32,
+                    "include_captioned": True,
+                    "unexpected": True,
+                },
+            )
+
+        assembly_only = self.service.create_run(
+            PRODUCTION_ID,
+            {"changes": [{"type": "assembly"}], "execution_profile": "local_sapi"},
+        )
+        with self.assertRaises(RequestValidationError) as raised:
+            self.service.execute_local_assembly(
+                assembly_only["run"]["id"],
+                {
+                    "video_artifact_id": "art_" + "0" * 32,
+                    "narration_attempt_id": "attempt_" + "0" * 32,
+                    "include_captioned": False,
+                },
+            )
+        self.assertEqual(raised.exception.code, "stage_not_requested")
+
+        external = self.service.create_run(
+            PRODUCTION_ID,
+            {
+                "changes": [{"type": "script"}],
+                "estimated_cost": {"amount": 1, "currency": "USD"},
+            },
+        )
+        with self.assertRaises(RequestValidationError) as raised:
+            self.service.execute_local_assembly(
+                external["run"]["id"],
+                {
+                    "video_artifact_id": "art_" + "0" * 32,
+                    "narration_attempt_id": "attempt_" + "0" * 32,
+                    "include_captioned": False,
+                },
+            )
+        self.assertEqual(raised.exception.code, "execution_profile_required")
+
+    def test_local_qc_records_lineage_reuses_cache_and_detects_tampering(self) -> None:
+        created = self.service.create_run(
+            PRODUCTION_ID,
+            {"changes": [{"type": "assembly"}], "execution_profile": "local_sapi"},
+        )
+        run_id = created["run"]["id"]
+        assembly_attempt, _master = create_succeeded_assembly_attempt(
+            self.service, run_id
+        )
+        request = {
+            "assembly_attempt_id": assembly_attempt["id"],
+            "variant": "clean",
+        }
+        cache_key = "E" * 64
+        calls: list[str] = []
+
+        def fake_generate(*args: object, **kwargs: object) -> dict[str, object]:
+            calls.append(str(kwargs["run_id"]))
+            return fake_local_qc_result(*args, **kwargs)
+
+        with (
+            mock.patch("tools.studio.qc.qc_cache_key", return_value=cache_key),
+            mock.patch("tools.studio.qc.generate_local_qc", side_effect=fake_generate),
+            mock.patch(
+                "tools.studio.qc.validate_local_qc_outputs",
+                side_effect=fake_validate_local_qc_outputs,
+            ),
+        ):
+            first_job = self.service.execute_local_qc(run_id, request)
+            first = self.service.jobs.wait(first_job["id"], timeout=10)
+            assert first is not None
+            self.assertEqual(first["status"], "succeeded", first)
+            self.assertEqual(first["result"]["analysis_status"], "succeeded")
+            self.assertEqual(first["result"]["technical_verdict"], "pass")
+            self.assertFalse(first["result"]["cache_hit"])
+            self.assertEqual(first["result"]["provider"], "local_ffmpeg_qc")
+            self.assertEqual(first["result"]["actual_cost"], 0)
+            self.assertEqual(len(first["result"]["artifacts"]), 3)
+
+            second_job = self.service.execute_local_qc(run_id, request)
+            second = self.service.jobs.wait(second_job["id"], timeout=10)
+            assert second is not None
+            self.assertEqual(second["status"], "succeeded", second)
+            self.assertTrue(second["result"]["cache_hit"])
+            self.assertEqual(
+                second["result"]["cache_source_attempt_id"],
+                first["result"]["stage_attempt_id"],
+            )
+
+            report = next(
+                item
+                for item in first["result"]["artifacts"]
+                if item["name"] == "technical-qc.json"
+            )
+            (self.fixture.root / report["rel_path"]).write_text(
+                "{\"tampered\":true}\n", encoding="utf-8"
+            )
+            third_job = self.service.execute_local_qc(run_id, request)
+            third = self.service.jobs.wait(third_job["id"], timeout=10)
+            assert third is not None
+            self.assertEqual(third["status"], "succeeded", third)
+            self.assertFalse(third["result"]["cache_hit"])
+
+        self.assertEqual(calls, [run_id, run_id])
+        run = self.service.run(run_id)
+        assert run is not None
+        attempts = [
+            item for item in run["stage_attempts"] if item["stage"] == "qc"
+        ]
+        self.assertEqual([item["attempt"] for item in attempts], [1, 2, 3])
+        audit_job = self.service.audit_export(PRODUCTION_ID, {"include_media": False})
+        audit = self.service.jobs.wait(audit_job["id"], timeout=10)
+        assert audit is not None
+        with zipfile.ZipFile(self.fixture.root / audit["result"]["artifact"]["rel_path"]) as archive:
+            names = set(archive.namelist())
+            qc_root = f"workspace/outputs/studio/runs/{run_id}/qc/{cache_key}/"
+            self.assertIn(f"{qc_root}technical-qc.json", names)
+            self.assertIn(f"{qc_root}ffprobe.json", names)
+            self.assertIn(f"{qc_root}manifest.json", names)
+
+    def test_local_qc_fail_verdict_succeeds_without_changing_production_gates(self) -> None:
+        created = self.service.create_run(
+            PRODUCTION_ID,
+            {"changes": [{"type": "assembly"}], "execution_profile": "local_sapi"},
+        )
+        run_id = created["run"]["id"]
+        assembly_attempt, _master = create_succeeded_assembly_attempt(
+            self.service, run_id
+        )
+        request = {
+            "assembly_attempt_id": assembly_attempt["id"],
+            "variant": "clean",
+        }
+
+        def failing_generate(*args: object, **kwargs: object) -> dict[str, object]:
+            result = fake_local_qc_result(*args, **kwargs)
+            result["technical_verdict"] = "fail"
+            result["checks"] = {
+                **result["checks"],
+                "audio_not_silent": {"status": "fail"},
+            }
+            return result
+
+        def failing_validate(*args: object, **kwargs: object) -> dict[str, object]:
+            result = fake_validate_local_qc_outputs(*args, **kwargs)
+            result["technical_verdict"] = "fail"
+            result["checks"] = {
+                **result["checks"],
+                "audio_not_silent": {"status": "fail"},
+            }
+            return result
+
+        with (
+            mock.patch("tools.studio.qc.qc_cache_key", return_value="F" * 64),
+            mock.patch("tools.studio.qc.generate_local_qc", side_effect=failing_generate),
+            mock.patch(
+                "tools.studio.qc.validate_local_qc_outputs",
+                side_effect=failing_validate,
+            ),
+        ):
+            job = self.service.execute_local_qc(run_id, request)
+            completed = self.service.jobs.wait(job["id"], timeout=10)
+        assert completed is not None
+        self.assertEqual(completed["status"], "succeeded", completed)
+        self.assertEqual(completed["result"]["analysis_status"], "succeeded")
+        self.assertEqual(completed["result"]["technical_verdict"], "fail")
+        detail = self.service.production_detail(PRODUCTION_ID)
+        assert detail is not None
+        self.assertEqual(detail["production"]["technical_status"], "master_pass")
+        self.assertEqual(detail["production"]["creative_status"], "review_pass")
+        self.assertEqual(
+            detail["production"]["public_release_status"],
+            "blocked_pending_rights_review",
+        )
+
+    def test_local_qc_physical_validation_failure_registers_no_artifacts(self) -> None:
+        created = self.service.create_run(
+            PRODUCTION_ID,
+            {"changes": [{"type": "assembly"}], "execution_profile": "local_sapi"},
+        )
+        run_id = created["run"]["id"]
+        assembly_attempt, _master = create_succeeded_assembly_attempt(
+            self.service, run_id
+        )
+        with (
+            mock.patch("tools.studio.qc.qc_cache_key", return_value="8" * 64),
+            mock.patch(
+                "tools.studio.qc.generate_local_qc", side_effect=fake_local_qc_result
+            ),
+            mock.patch(
+                "tools.studio.qc.validate_local_qc_outputs",
+                side_effect=LocalQcError(
+                    "The generated QC cache is invalid.", code="invalid_cache"
+                ),
+            ),
+        ):
+            job = self.service.execute_local_qc(
+                run_id,
+                {
+                    "assembly_attempt_id": assembly_attempt["id"],
+                    "variant": "clean",
+                },
+            )
+            completed = self.service.jobs.wait(job["id"], timeout=10)
+        assert completed is not None
+        self.assertEqual(completed["status"], "failed")
+        self.assertEqual(completed["error"]["code"], "invalid_cache")
+        detail = self.service.production_detail(PRODUCTION_ID)
+        assert detail is not None
+        self.assertFalse(
+            any(
+                item["origin"] == "studio" and item["name"] == "technical-qc.json"
+                for item in detail["artifacts"]
+            )
+        )
+
+    def test_local_qc_request_run_and_lineage_contract_fail_closed(self) -> None:
+        created = self.service.create_run(
+            PRODUCTION_ID,
+            {"changes": [{"type": "assembly"}], "execution_profile": "local_sapi"},
+        )
+        run_id = created["run"]["id"]
+        assembly_attempt, _master = create_succeeded_assembly_attempt(
+            self.service, run_id
+        )
+        with self.assertRaises(RequestValidationError) as raised:
+            self.service.execute_local_qc(
+                run_id,
+                {
+                    "assembly_attempt_id": assembly_attempt["id"],
+                    "variant": "clean",
+                    "assembly_artifact_id": "art_" + "0" * 32,
+                },
+            )
+        self.assertEqual(raised.exception.code, "invalid_local_qc_request")
+
+        qc_only = self.service.create_run(
+            PRODUCTION_ID,
+            {"changes": [{"type": "qc"}], "execution_profile": "local_sapi"},
+        )
+        with self.assertRaises(RequestValidationError) as raised:
+            self.service.execute_local_qc(
+                qc_only["run"]["id"],
+                {"assembly_attempt_id": assembly_attempt["id"], "variant": "clean"},
+            )
+        self.assertEqual(raised.exception.code, "stage_not_requested")
+
+        external = self.service.create_run(
+            PRODUCTION_ID,
+            {"changes": [{"type": "assembly"}], "estimated_cost": {"amount": 1, "currency": "USD"}},
+        )
+        with self.assertRaises(RequestValidationError) as raised:
+            self.service.execute_local_qc(
+                external["run"]["id"],
+                {"assembly_attempt_id": assembly_attempt["id"], "variant": "clean"},
+            )
+        self.assertEqual(raised.exception.code, "execution_profile_required")
+
+        another = self.service.create_run(
+            PRODUCTION_ID,
+            {"changes": [{"type": "assembly"}], "execution_profile": "local_sapi"},
+        )
+        with self.assertRaises(RequestValidationError) as raised:
+            self.service.execute_local_qc(
+                another["run"]["id"],
+                {"assembly_attempt_id": assembly_attempt["id"], "variant": "clean"},
+            )
+        self.assertEqual(raised.exception.code, "qc_assembly_not_available")
+
+    def test_local_qc_accepts_only_verified_cross_run_assembly_cache_lineage(self) -> None:
+        source_created = self.service.create_run(
+            PRODUCTION_ID,
+            {"changes": [{"type": "assembly"}], "execution_profile": "local_sapi"},
+        )
+        source_attempt, source_master = create_succeeded_assembly_attempt(
+            self.service, source_created["run"]["id"]
+        )
+        cached_created = self.service.create_run(
+            PRODUCTION_ID,
+            {"changes": [{"type": "assembly"}], "execution_profile": "local_sapi"},
+        )
+        cached_run_id = cached_created["run"]["id"]
+        cached_attempt = self.service.database.create_stage_attempt(
+            cached_run_id, "assembly", source_attempt["cache_key"], {"test_fixture": True}
+        )
+        self.service.database.update_stage_attempt(cached_attempt["id"], "running")
+        cached_result = dict(source_attempt["result"])
+        cached_result["cache_hit"] = True
+        cached_result["cache_source_attempt_id"] = source_attempt["id"]
+        cached_attempt = self.service.database.update_stage_attempt(
+            cached_attempt["id"], "succeeded", result=cached_result
+        )
+        cached_run = self.service.run(cached_run_id)
+        assert cached_run is not None
+        resolved = self.service._validated_qc_inputs(
+            cached_run,
+            {"assembly_attempt_id": cached_attempt["id"], "variant": "clean"},
+        )
+        self.assertEqual(resolved["assembly_artifact"]["id"], source_master["id"])
+        self.assertIn(
+            f"outputs/studio/runs/{source_created['run']['id']}/assembly/",
+            resolved["assembly_artifact"]["rel_path"],
+        )
+
+        bad_source = self.service.database.create_stage_attempt(
+            source_created["run"]["id"],
+            "assembly",
+            source_attempt["cache_key"],
+            {"test_fixture": True},
+        )
+        self.service.database.update_stage_attempt(bad_source["id"], "running")
+        bad_source_result = dict(source_attempt["result"])
+        bad_source_result["artifacts"] = [
+            item
+            for item in bad_source_result["artifacts"]
+            if item["name"] != "master-clean.mp4"
+        ]
+        bad_source = self.service.database.update_stage_attempt(
+            bad_source["id"], "succeeded", result=bad_source_result
+        )
+        forged_attempt = self.service.database.create_stage_attempt(
+            cached_run_id, "assembly", source_attempt["cache_key"], {"test_fixture": True}
+        )
+        self.service.database.update_stage_attempt(forged_attempt["id"], "running")
+        forged_result = dict(source_attempt["result"])
+        forged_result["cache_hit"] = True
+        forged_result["cache_source_attempt_id"] = bad_source["id"]
+        forged_attempt = self.service.database.update_stage_attempt(
+            forged_attempt["id"], "succeeded", result=forged_result
+        )
+        with self.assertRaises(RequestValidationError) as raised:
+            self.service._validated_qc_inputs(
+                cached_run,
+                {"assembly_attempt_id": forged_attempt["id"], "variant": "clean"},
+            )
+        self.assertEqual(raised.exception.code, "qc_assembly_not_available")
 
     def test_invalid_worker_metadata_fails_before_artifact_registration(self) -> None:
         created = self.service.create_run(
@@ -1010,6 +2097,141 @@ class HTTPTests(unittest.TestCase):
         )
         self.assertEqual(status, 422)
         self.assertEqual(json.loads(body)["error"]["code"], "execution_profile_required")
+
+    def test_local_assembly_http_endpoint_records_attempt_and_artifacts(self) -> None:
+        created = self.server.service.create_run(
+            PRODUCTION_ID,
+            {
+                "changes": [{"type": "script"}],
+                "execution_profile": "local_sapi",
+            },
+        )
+        run_id = created["run"]["id"]
+        with mock.patch(
+            "tools.studio.narration.generate_local_narration",
+            side_effect=fake_local_narration_result,
+        ):
+            narration_job = self.server.service.execute_local_narration(
+                run_id, {"segments": [{"text": "assembly endpoint"}]}
+            )
+            narration = self.server.service.jobs.wait(narration_job["id"], timeout=10)
+        assert narration is not None
+        detail = self.server.service.production_detail(PRODUCTION_ID)
+        assert detail is not None
+        video = next(item for item in detail["artifacts"] if item["kind"] == "video")
+        request_body = {
+            "video_artifact_id": video["id"],
+            "narration_attempt_id": narration["result"]["stage_attempt_id"],
+            "include_captioned": False,
+        }
+        cache_key = "B" * 64
+        with (
+            mock.patch("tools.studio.assembly.assembly_cache_key", return_value=cache_key),
+            mock.patch(
+                "tools.studio.assembly.generate_local_assembly",
+                side_effect=fake_local_assembly_result,
+            ),
+            mock.patch(
+                "tools.studio.assembly.validate_local_assembly_outputs",
+                side_effect=fake_validate_local_assembly_outputs,
+            ),
+        ):
+            status, _headers, body = self.request(
+                "POST",
+                f"/api/runs/{run_id}/execute-local-assembly",
+                body=request_body,
+                headers={"X-Studio-Token": self.token},
+            )
+            self.assertEqual(status, 202)
+            job_id = json.loads(body)["id"]
+            completed = self.server.service.jobs.wait(job_id, timeout=10)
+        assert completed is not None
+        self.assertEqual(completed["status"], "succeeded", completed)
+        self.assertEqual(len(completed["result"]["artifacts"]), 3)
+        self.assertFalse(
+            any(
+                artifact["name"] == "master-captioned.mp4"
+                for artifact in completed["result"]["artifacts"]
+            )
+        )
+
+        status, _headers, body = self.request("GET", f"/api/runs/{run_id}")
+        self.assertEqual(status, 200)
+        run = json.loads(body)
+        assembly_attempt = next(
+            attempt for attempt in run["stage_attempts"] if attempt["stage"] == "assembly"
+        )
+        self.assertEqual(assembly_attempt["status"], "succeeded")
+        self.assertEqual(assembly_attempt["job_id"], job_id)
+
+        invalid_body = dict(request_body)
+        invalid_body["unexpected"] = True
+        status, _headers, body = self.request(
+            "POST",
+            f"/api/runs/{run_id}/execute-local-assembly",
+            body=invalid_body,
+            headers={"X-Studio-Token": self.token},
+        )
+        self.assertEqual(status, 422)
+        self.assertEqual(
+            json.loads(body)["error"]["code"], "invalid_local_assembly_request"
+        )
+
+    def test_local_qc_http_endpoint_records_analysis_and_verdict(self) -> None:
+        created = self.server.service.create_run(
+            PRODUCTION_ID,
+            {"changes": [{"type": "assembly"}], "execution_profile": "local_sapi"},
+        )
+        run_id = created["run"]["id"]
+        assembly_attempt, _master = create_succeeded_assembly_attempt(
+            self.server.service, run_id
+        )
+        body = {
+            "assembly_attempt_id": assembly_attempt["id"],
+            "variant": "clean",
+        }
+        with (
+            mock.patch("tools.studio.qc.qc_cache_key", return_value="9" * 64),
+            mock.patch(
+                "tools.studio.qc.generate_local_qc", side_effect=fake_local_qc_result
+            ),
+            mock.patch(
+                "tools.studio.qc.validate_local_qc_outputs",
+                side_effect=fake_validate_local_qc_outputs,
+            ),
+        ):
+            status, _headers, response = self.request(
+                "POST",
+                f"/api/runs/{run_id}/execute-local-qc",
+                body=body,
+                headers={"X-Studio-Token": self.token},
+            )
+            self.assertEqual(status, 202)
+            job_id = json.loads(response)["id"]
+            completed = self.server.service.jobs.wait(job_id, timeout=10)
+        assert completed is not None
+        self.assertEqual(completed["status"], "succeeded", completed)
+        self.assertEqual(completed["result"]["analysis_status"], "succeeded")
+        self.assertEqual(completed["result"]["technical_verdict"], "pass")
+        self.assertEqual(len(completed["result"]["artifacts"]), 3)
+
+        status, _headers, response = self.request("GET", f"/api/runs/{run_id}")
+        self.assertEqual(status, 200)
+        run = json.loads(response)
+        qc_attempt = next(
+            attempt for attempt in run["stage_attempts"] if attempt["stage"] == "qc"
+        )
+        self.assertEqual(qc_attempt["status"], "succeeded")
+        self.assertEqual(qc_attempt["job_id"], job_id)
+
+        status, _headers, response = self.request(
+            "POST",
+            f"/api/runs/{run_id}/execute-local-qc",
+            body={**body, "expected_duration_ms": 1_000},
+            headers={"X-Studio-Token": self.token},
+        )
+        self.assertEqual(status, 422)
+        self.assertEqual(json.loads(response)["error"]["code"], "invalid_local_qc_request")
 
     def test_workspace_allows_only_one_studio_server(self) -> None:
         with self.assertRaises(StudioInstanceLockError):
