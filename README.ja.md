@@ -2,7 +2,18 @@
 > **このチェックアウトのWindows向けローカル補助資料:**
 > [セットアップ](LOCAL_SETUP_JA.md)、[制作プレイブック](PRODUCTION_PLAYBOOK_JA.md)、
 > [案件台帳](productions/README.md)、[アーキテクチャ](ARCHITECTURE.md)、
-> [Mermaid図](ARCHITECTURE_DIAGRAM.md)を参照してください。
+> [Mermaid図](ARCHITECTURE_DIAGRAM.md)、[Studio MVP](STUDIO_MVP_JA.md)を参照してください。
+
+## ローカル制作Studio MVP
+
+制作案件、Run計画、Studioイベント、中間成果物、費用見積、費用承認履歴を確認するloopback専用Webアプリを同梱しています。初回はfrontendをbuildし、その後1コマンドで起動します。
+
+```powershell
+.\setup-studio.ps1
+.\run-studio.ps1
+```
+
+通常は`http://127.0.0.1:8765`を開きます。現在のMVPは既存制作台帳の閲覧、再実行計画、Run計画記録、有料工程の費用上限承認、監査exportの土台です。有料API、TTS、画面収録、動画合成を実行するworkerはまだ接続しません。詳細とセキュリティ境界は[STUDIO_MVP_JA.md](STUDIO_MVP_JA.md)を参照してください。
 
 <div align="center">
   <img width="100%" src="assets/minimax-h3-header.gif" alt="MiniMax H3">

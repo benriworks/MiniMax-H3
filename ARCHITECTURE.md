@@ -2,10 +2,11 @@
 
 ## 目的と境界
 
-このチェックアウトは、上流MiniMax H3のソース/モデル資料に、次の2経路を加えています。
+このチェックアウトは、上流MiniMax H3のソース/モデル資料に、次の3経路を加えています。
 
 1. Windows上のComfyUIによるローカル **H3-Base-FL2VA** 実行
 2. Python標準ライブラリだけを使うMiniMax Video Generation V2 API操作
+3. 制作案件、run、artifact、ログ、承認、監査exportを扱うloopback専用 **MiniMaxH3 Studio MVP**
 
 ローカル経路はH3-Baseの768px短辺キャンバスを対象にします。H3-Context-IRとH3-Regenerate-2Kはオープンソースreleaseに含まれないため、2K/Context-IR/Regenerateはローカル実行境界の外側で、公式API側の責務です。
 [MiniMax H3公式の構成説明](https://github.com/MiniMax-AI/MiniMax-H3#model-architecture)と
@@ -33,6 +34,11 @@
 | ComfyUI Template Library | `official` profile用の公式T2V JSON | installed Python package/runtime |
 | `tools/local_doctor.py` | hardware/resource、core lock、model、profile別workflowを非破壊検査 | tracked |
 | `run-api.ps1` / `tools/h3_api.py` | `.env`読込、V2 submit/status/wait/download、preflight/security gate | tracked |
+| `setup-studio.ps1` | frontend依存を導入してbuildし、Python backend moduleを検査 | tracked |
+| `run-studio.ps1` | `127.0.0.1`限定でbackendとbuild済みUI、または開発用Viteを起動 | tracked |
+| `studio/` | React / Viteによる制作一覧、案件詳細、artifact preview / A-B比較、event、cost、approval UI | tracked source。`node_modules/`と`dist/`はignored |
+| `tools/studio/` | production索引、SQLite、artifact配信、run/approval、DPAPI secret、audit export API | tracked |
+| `outputs/studio/` | SQLite、hash chain付きevent JSONL mirror、暗号化secret、監査ZIP | untracked/ignored |
 | `.env` | MiniMax API keyと任意base | untracked/ignored secret |
 | `outputs/` | `run-local.ps1`およびCLIの生成物 | untracked/ignored |
 
@@ -118,11 +124,38 @@ CPU package温度はWindowsが常に公開する情報ではありません。Li
 API contractは[MiniMax V2 Create](https://platform.minimax.io/docs/api-reference/video-generation-v2-create)と
 [V2 Query](https://platform.minimax.io/docs/api-reference/video-generation-v2-query)です。CLIが新規課金taskを作るのは明示的な `submit --confirm-billable` だけです。
 
+## Studio MVPデータフロー
+
+1. `setup-studio.ps1`がfrontend依存を導入し、`studio/dist/`をbuildします。
+2. `run-studio.ps1`が`python -m tools.studio.server`を`127.0.0.1:8765`で起動します。通常時は同じoriginからbuild済みUIを配信し、`-Dev`時だけViteを別loopback portで起動します。
+3. backendがtracked `productions/`の台帳とignored `outputs/productions/`のartifactを読み、`outputs/studio/studio.sqlite3`へ検索用索引を構築します。eventはscope別hash chainとして`outputs/studio/events/`のJSONLにも追記します。
+4. UIは制作一覧、run計画/stage、artifact、event、cost、費用approvalをHTTP APIで取得し、登録済みmediaのpreviewとA/B比較を提供します。artifact内容は登録済みpathと許可rootの検査を通った場合だけ返します。safe redaction未対応の設定/markup、未知形式、外部archiveは415で拒否し、Studio自身が生成・検証した監査ZIPだけをdownload対象にします。
+5. 再実行計画は、変更工程、再利用候補、追加費用の入力を記録します。課金対象のrequested stageを含む場合は正の見積額を必須とし、0以下または未指定ならrun作成をfail closedにします。新しいrunを作っても、MVPではproviderや課金APIを自動実行しません。
+6. runの費用上限approvalは追記記録で、以前の承認／却下を上書きしません。technical、creative、rights、public releaseは既存台帳の独立statusとして表示します。
+7. audit exportはSQLiteの単一read transactionとsnapshot一致済みevent mirror prefixを固定し、対象production/runの記録を`outputs/studio/audits/`へZIP化します。JSON/JSONLと一般textは秘密情報をredactし、安全な構造化処理を保証できない設定・markup形式は理由付きで除外します。package manifest自身を除く格納entryごとの実bytes/SHA-256、scope別event chain tail、除外mirrorを記録し、ZIP閉鎖後にも全entryを検証します。ZIP全体のSHA-256は外部sidecarへ保存します。DB snapshotとartifact copyの間に元fileが変わった場合、ZIP実体には`archive_entries`のbytes/hashを使用します。既定の`include_media=false`ではrecord由来を含むmediaを除外します。SQLiteは既存tracked台帳を置き換えません。
+
+Studioの階層は次です。
+
+```text
+Production
+  -> Artifact / Artifact version
+  -> Event hash chain
+  -> Revision
+    -> Run
+      -> Requested stages / Cost approval history
+```
+
+revisionとrunはimmutableに扱い、修正時は新しい識別子を作ります。MVPは影響するrequested stageを計画するだけで実行しません。将来のworkerは工程種別、入力hash、prompt hash、provider/model、設定、実装versionからcache keyを作り、影響工程だけを再実行します。MVPの詳しい操作と未実装境界は[STUDIO_MVP_JA.md](STUDIO_MVP_JA.md)に分離しています。
+
 ## セキュリティと信頼境界
 
 ### Local secret boundary
 
 - `.env` とAPI keyはGit管理外です。
+- Studio CLIで登録するprovider secretは現在のWindowsユーザーへ紐づけたDPAPI暗号文として`outputs/studio/secrets/`へ保存し、平文をSQLite、ログ、Git、監査ZIPへ書きません。
+- `.env`拡張子、`.env.*`、credential/secret directory、private key形式はartifact索引から除外します。JSON/JSONLと一般text/logはbrowser配信時にも既知patternをredactします。設定・markup形式はfail closed、その他のactive documentはattachment + CSP sandboxで同一origin実行を防ぎます。redaction後も外部共有前の人による確認を信頼境界に含めます。
+- Studio serverはworkspace hashから作るprocess-lifetime lockを保持し、同じworkspaceへの二重起動を拒否します。event mirrorへの追記はこのsingle-instance境界内で直列化します。
+- event JSONL mirrorは全hash chainを検査し、破損時はhealth/UIをdegradedにして監査ZIPから除外します。他scopeのmirror追記は継続します。
 - doctorはnetwork requestを行わず、key値を表示しません。
 - error textにkeyが含まれてもredactします。
 - `MINIMAX_API_BASE` はHTTPS必須です。例外は `localhost`、`127.0.0.1`、`[::1]` のHTTPだけです。
@@ -133,16 +166,17 @@ Bearer付きAPI JSON requestは専用urllib openerで全HTTP redirectを拒否�
 
 ### Local service boundary
 
-ComfyUIは `127.0.0.1` のみにlistenします。LAN公開、認証、reverse proxyはこのarchitectureの範囲外です。`runtime/ComfyUI/custom_nodes/` のPython codeはローカルprocess内で実行されるため、固定commitとsourceを信頼する境界です。
+ComfyUIとStudioは `127.0.0.1` のみにlistenします。LAN公開、reverse proxyはこのarchitectureの範囲外です。Studioの読取GETはloopback bindとHost検査、変更系POSTはさらに起動ごとのsession tokenとOrigin検査を使い、`0.0.0.0`へ変更しません。`runtime/ComfyUI/custom_nodes/` のPython codeはローカルprocess内で実行されるため、固定commitとsourceを信頼する境界です。
 
 ### Supply-chain boundary
 
-setup/downloaderはGitHub、PyTorch index、PyPI、Hugging Faceからcode/binary/modelを取得します。Git SHA、exact package version、HF revision、file size/hashでdriftを抑えます。Turbo nodeの同梱time-conditioning gridはdoctorが固定SHA-256も検査しますが、外部artifact自体の安全性を証明するものではありません。
+setup/downloaderはGitHub、PyTorch index、PyPI、npm、Hugging Faceからcode/binary/modelを取得します。Git SHA、Pythonのexact package version、frontend lock file、HF revision、file size/hashでdriftを抑えます。Turbo nodeの同梱time-conditioning gridはdoctorが固定SHA-256も検査しますが、外部artifact自体の安全性を証明するものではありません。
 
 ### Data boundary
 
 - local workflow: prompt/mediaはloopback process内。依存取得時のnetwork accessは別途発生。
 - API workflow: promptとmediaはMiniMaxへ送信。callbackを使えば指定serverにもtask情報が送信される。
+- Studio MVP: production recordとartifact metadataはloopback内。MVPは外部providerを呼ばない。SQLite、DPAPI暗号文、監査ZIPはignored `outputs/studio/`へ保存する。
 - output: 著作権、肖像、privacy、適法性はoperatorが判断する。
 
 ライセンス境界は[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)に分離しています。
@@ -177,6 +211,15 @@ APIの入力制約は、request body 64MB以下、画像/動画/音声ごとのs
 - official_q4 INT8 + Q4、Turboなし、Emergency `--novram --cpu-vae`の416x256 / 5 frames / 1-step / audioなしsmokeが324.814秒で成功。H.264 High / yuv420p MP4の全decode成功、OOM/illegal accessなし。詳細は[検証記録](verification/int8-smoke-2026-08-13.json)
 - official_q4 INT8 + Q4、Turboなし、同じEmergency条件で1056x608（0.6MP）/ 5秒 / `res_multistep`・`simple` 20 stepsが3時間31分14.964秒で成功。H.264 High / yuv420p + AAC LC 32kHz stereoの全decode成功。同prompt/seedの1例ではINT8は低ノイズ・安定した窓グリッド、Q3はより細かなtextureという観察であり、一般的な品質優越は示さない。詳細は[検証記録](verification/int8-quality-2026-08-14.json)
 
+2026-08-23のStudio MVP確定結果:
+
+- `setup-studio.ps1`: backend import、Vite 8に合うNode.js 20.19+の20系または22.12+ gate、`npm ci`、TypeScript / Vite production buildが成功
+- `run-studio.ps1`: 通常modeの静的UI / healthと停止、Dev modeのVite proxy経由GET / session-protected POSTと停止を確認
+- 実制作データ: 3 production / 3,513 available artifactを索引し、safe-format/media除外監査ZIPの10 entryを閉鎖後再読込してbytes/SHA-256一致、ZIP sidecar一致、mirror除外0件を確認
+- Studio backend自動テスト: 18/18合格（artifact range/HEAD、safe text redaction、unsafe設定/markup/unknown形式の415、Studio生成audit download、session cookie / Origin / token非露出、provider flagのみ、DPAPI平文非保存、workspace escape / 非loopback bind / workspace二重server拒否、課金工程の正の見積必須と0円runの費用承認拒否、単一DB audit snapshot、監査entry実体hash / media・unknown形式除外、破損event mirrorのdegraded表示と監査除外、production/artifact索引、全費用承認履歴、immutable revision/run/approval、event mirrorからのSQLite再構築後の監査prefixを含む）
+- Studio frontend status契約テスト: 1/1合格（compound passと否定pass、blocked rights / improvementの分類）
+- repository Python自動テスト: 61/61合格（既存43件 + Studio backend 18件）
+
 未確定:
 
 - tracked 20-step low-VRAM workflowの完走、品質、所要時間
@@ -186,3 +229,4 @@ APIの入力制約は、request body 64MB以下、画像/動画/音声ごとのs
 - official_q4 tracked 0.4MP / 5秒 / 20-step既定、official_q4_turbo、複数promptでの品質・prompt追従・時間的一貫性の比較
 - 768p/2Kのこのマシンでの性能
 - community量子化と公式ウェイトの品質比較
+- TTS、画面収録、Remotion、H3/API provider worker、stage cache、実費記録を接続したStudio制作E2E
