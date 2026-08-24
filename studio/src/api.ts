@@ -3,6 +3,9 @@ import type {
   Artifact,
   ArtifactKind,
   CostEntry,
+  ExternalNarrationPayload,
+  ExternalNarrationRequest,
+  ExternalVoiceSettings,
   HealthStatus,
   Job,
   JobResult,
@@ -50,6 +53,15 @@ const number = (value: unknown): number | undefined => {
   return undefined;
 };
 
+const pickIncludingNull = (record: UnknownRecord, keys: string[]): unknown => {
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(record, key)) return record[key];
+  }
+  return undefined;
+};
+
+const numberOrNull = (value: unknown): number | null | undefined => value === null ? null : number(value);
+
 const durationSeconds = (record: UnknownRecord): number | undefined => {
   const seconds = number(pick(record, ['duration_seconds', 'duration', 'elapsed_seconds']));
   if (seconds !== undefined) return seconds;
@@ -87,6 +99,263 @@ export const normalizeNarrationInput = (script: string, rate: number): Normalize
   if (!Number.isInteger(rate) || rate < LOCAL_NARRATION_LIMITS.minRate || rate > LOCAL_NARRATION_LIMITS.maxRate) errors.push(`読み上げ速度は整数 ${LOCAL_NARRATION_LIMITS.minRate}〜${LOCAL_NARRATION_LIMITS.maxRate} の範囲で指定してください。`);
   return { segments, errors };
 };
+
+export const EXTERNAL_NARRATION_PROVIDER = 'elevenlabs' as const;
+export const EXTERNAL_NARRATION_MODEL = 'eleven_multilingual_v2' as const;
+export const EXTERNAL_TTS_PROVIDER = EXTERNAL_NARRATION_PROVIDER;
+export const EXTERNAL_TTS_MODEL = EXTERNAL_NARRATION_MODEL;
+
+/** Public limits mirror the external narration adapter contract. */
+export const EXTERNAL_NARRATION_LIMITS = {
+  maxSegments: 100,
+  maxSegmentLength: 4_000,
+  maxTotalLength: 100_000,
+  maxVoiceIdLength: 128,
+  minStability: 0,
+  maxStability: 1,
+  minSimilarity: 0,
+  maxSimilarity: 1,
+  minStyle: 0,
+  maxStyle: 1,
+  minSpeed: 0.7,
+  maxSpeed: 1.2,
+  minSeed: 0,
+  maxSeed: 4_294_967_295,
+} as const;
+
+export const DEFAULT_EXTERNAL_VOICE_SETTINGS: ExternalVoiceSettings = {
+  stability: 0.5,
+  similarityBoost: 0.75,
+  style: 0,
+  useSpeakerBoost: true,
+  speed: 1,
+};
+
+export interface NormalizedExternalNarrationInput {
+  request: ExternalNarrationRequest;
+  payload: ExternalNarrationPayload;
+  totalCharacters: number;
+  errors: string[];
+}
+
+const externalSettingNumber = (
+  record: UnknownRecord,
+  keys: string[],
+  fallback: number,
+  min: number,
+  max: number,
+  label: string,
+  errors: string[],
+): number => {
+  const raw = pickIncludingNull(record, keys);
+  if (raw === undefined || raw === '') return fallback;
+  const value = number(raw);
+  if (value === undefined || !Number.isFinite(value)) {
+    errors.push(`${label}は数値で指定してください。`);
+    return fallback;
+  }
+  if (value < min || value > max) {
+    errors.push(`${label}は${min}〜${max}の範囲で指定してください。`);
+    return Math.min(max, Math.max(min, value));
+  }
+  return value;
+};
+
+const externalSettingBoolean = (
+  record: UnknownRecord,
+  keys: string[],
+  fallback: boolean,
+  label: string,
+  errors: string[],
+): boolean => {
+  const raw = pickIncludingNull(record, keys);
+  if (raw === undefined || raw === '') return fallback;
+  if (typeof raw !== 'boolean') {
+    errors.push(`${label}はbooleanで指定してください。`);
+    return fallback;
+  }
+  return raw;
+};
+
+const externalTextSegments = (source: UnknownRecord): string[] => {
+  const rawSegments = pick(source, ['segments']);
+  if (Array.isArray(rawSegments)) {
+    return rawSegments.map((segment) => {
+      if (typeof segment === 'string') return segment;
+      const record = asRecord(segment);
+      return text(pick(record, ['text']), '');
+    });
+  }
+  const script = text(pick(source, ['script', 'text', 'narration']), '');
+  return script.split(/\r?\n/);
+};
+
+/**
+ * Normalize the external ElevenLabs draft and build the complete audit-safe
+ * request. Unknown fields are intentionally ignored; the wire payload is
+ * built from this allowlist only.
+ *
+ * The overload-like positional form is retained for small contract tests and
+ * callers that already have a script string:
+ * normalizeExternalNarrationInput(script, voiceId, settings, seed, confirm).
+ */
+export const normalizeExternalNarrationInput = (
+  value: unknown,
+  voiceIdValue?: unknown,
+  settingsValue?: unknown,
+  seedValue?: unknown,
+  confirmBillableValue?: unknown,
+): NormalizedExternalNarrationInput => {
+  const source = typeof value === 'string'
+    ? {
+        script: value,
+        voiceId: voiceIdValue,
+        voiceSettings: settingsValue,
+        seed: seedValue,
+        confirmBillable: confirmBillableValue,
+      }
+    : asRecord(value);
+  const errors: string[] = [];
+
+  const providedProvider = text(pick(source, ['provider']), '').trim().toLowerCase();
+  if (providedProvider && providedProvider !== EXTERNAL_NARRATION_PROVIDER) {
+    errors.push(`providerは${EXTERNAL_NARRATION_PROVIDER}に固定されています。`);
+  }
+  const providedModel = text(pick(source, ['model_id', 'model']), '').trim();
+  if (providedModel && providedModel !== EXTERNAL_NARRATION_MODEL) {
+    errors.push(`modelは${EXTERNAL_NARRATION_MODEL}に固定されています。`);
+  }
+
+  const rawVoiceIdValue = pick(source, ['voiceId', 'voice_id']);
+  if (rawVoiceIdValue !== undefined && typeof rawVoiceIdValue !== 'string') {
+    errors.push('voice_idは文字列で指定してください。');
+  }
+  const rawVoiceId = typeof rawVoiceIdValue === 'string' ? rawVoiceIdValue.trim() : '';
+  if (!rawVoiceId) errors.push('voice_idを指定してください。');
+  if (rawVoiceId.length > EXTERNAL_NARRATION_LIMITS.maxVoiceIdLength) {
+    errors.push(`voice_idは${EXTERNAL_NARRATION_LIMITS.maxVoiceIdLength}文字以内にしてください。`);
+  }
+  if (rawVoiceId && !/^[A-Za-z0-9_-]+$/.test(rawVoiceId)) {
+    errors.push('voice_idは英数字、ハイフン、アンダースコアで指定してください。');
+  }
+
+  const rawSegments = externalTextSegments(source);
+  const segments = rawSegments.map((segment) => segment.trim()).filter(Boolean);
+  if (segments.length === 0) errors.push('セグメントを1行以上入力してください。');
+  if (segments.length > EXTERNAL_NARRATION_LIMITS.maxSegments) {
+    errors.push(`セグメントは${EXTERNAL_NARRATION_LIMITS.maxSegments}行以内にしてください。`);
+  }
+  if (segments.some((segment) => segment.length > EXTERNAL_NARRATION_LIMITS.maxSegmentLength)) {
+    errors.push(`1行あたり${EXTERNAL_NARRATION_LIMITS.maxSegmentLength.toLocaleString()}文字以内にしてください。`);
+  }
+  if (segments.some((segment) => /[\u0000-\u001f\u007f]/.test(segment))) {
+    errors.push('セグメントに制御文字は使用できません。');
+  }
+  const totalCharacters = segments.join('').length;
+  if (totalCharacters > EXTERNAL_NARRATION_LIMITS.maxTotalLength) {
+    errors.push(`合計${EXTERNAL_NARRATION_LIMITS.maxTotalLength.toLocaleString()}文字以内にしてください。`);
+  }
+
+  const voiceSettings = asRecord(pick(source, ['voiceSettings', 'voice_settings']));
+  const stability = externalSettingNumber(
+    voiceSettings,
+    ['stability'],
+    DEFAULT_EXTERNAL_VOICE_SETTINGS.stability,
+    EXTERNAL_NARRATION_LIMITS.minStability,
+    EXTERNAL_NARRATION_LIMITS.maxStability,
+    'stability',
+    errors,
+  );
+  const similarityBoost = externalSettingNumber(
+    voiceSettings,
+    ['similarityBoost', 'similarity_boost', 'similarity'],
+    DEFAULT_EXTERNAL_VOICE_SETTINGS.similarityBoost,
+    EXTERNAL_NARRATION_LIMITS.minSimilarity,
+    EXTERNAL_NARRATION_LIMITS.maxSimilarity,
+    'similarity',
+    errors,
+  );
+  const style = externalSettingNumber(
+    voiceSettings,
+    ['style'],
+    DEFAULT_EXTERNAL_VOICE_SETTINGS.style,
+    EXTERNAL_NARRATION_LIMITS.minStyle,
+    EXTERNAL_NARRATION_LIMITS.maxStyle,
+    'style',
+    errors,
+  );
+  const useSpeakerBoost = externalSettingBoolean(
+    voiceSettings,
+    ['useSpeakerBoost', 'use_speaker_boost', 'speakerBoost', 'speaker_boost'],
+    DEFAULT_EXTERNAL_VOICE_SETTINGS.useSpeakerBoost,
+    'speaker boost',
+    errors,
+  );
+  const speed = externalSettingNumber(
+    voiceSettings,
+    ['speed'],
+    DEFAULT_EXTERNAL_VOICE_SETTINGS.speed,
+    EXTERNAL_NARRATION_LIMITS.minSpeed,
+    EXTERNAL_NARRATION_LIMITS.maxSpeed,
+    'speed',
+    errors,
+  );
+
+  const rawSeed = pick(source, ['seed']);
+  let seed: number | null = 0;
+  if (rawSeed === null || rawSeed === '') {
+    seed = null;
+  } else if (rawSeed !== undefined) {
+    const parsedSeed = number(rawSeed);
+    if (parsedSeed === undefined || !Number.isInteger(parsedSeed)) {
+      errors.push('seedは整数で指定してください。');
+    } else if (parsedSeed < EXTERNAL_NARRATION_LIMITS.minSeed || parsedSeed > EXTERNAL_NARRATION_LIMITS.maxSeed) {
+      errors.push(`seedは${EXTERNAL_NARRATION_LIMITS.minSeed}〜${EXTERNAL_NARRATION_LIMITS.maxSeed.toLocaleString()}の範囲で指定してください。`);
+    } else {
+      seed = parsedSeed;
+    }
+  }
+
+  const confirmBillable = pick(source, ['confirmBillable', 'confirm_billable']) === true;
+  if (!confirmBillable) errors.push('課金対象のpayloadを確認してから実行を確定してください。');
+
+  const request: ExternalNarrationRequest = {
+    provider: EXTERNAL_NARRATION_PROVIDER,
+    model_id: EXTERNAL_NARRATION_MODEL,
+    voiceId: rawVoiceId,
+    segments: segments.map((textValue) => ({ text: textValue })),
+    voiceSettings: { stability, similarityBoost, style, useSpeakerBoost, speed },
+    seed,
+    confirmBillable,
+  };
+  const payload: ExternalNarrationPayload = {
+    provider: EXTERNAL_NARRATION_PROVIDER,
+    model_id: EXTERNAL_NARRATION_MODEL,
+    voice_id: rawVoiceId,
+    segments: request.segments,
+    voice_settings: {
+      stability,
+      similarity_boost: similarityBoost,
+      style,
+      use_speaker_boost: useSpeakerBoost,
+      speed,
+    },
+    seed,
+    confirm_billable: confirmBillable,
+  };
+  return { request, payload, totalCharacters, errors };
+};
+
+/** Return the exact external TTS wire body, rejecting every non-runnable draft. */
+export const buildExternalNarrationPayload = (value: unknown): ExternalNarrationPayload => {
+  const normalized = normalizeExternalNarrationInput(value);
+  if (normalized.errors.length > 0) throw new TypeError(normalized.errors[0]);
+  return normalized.payload;
+};
+
+export const toExternalNarrationPayload = buildExternalNarrationPayload;
+export const normalizeExternalTtsInput = normalizeExternalNarrationInput;
+export const buildExternalTtsPayload = buildExternalNarrationPayload;
 
 export interface NormalizedAssemblyInput {
   request: LocalAssemblyRequest;
@@ -270,6 +539,102 @@ export const normalizeLocalQcInput = (
 export const normalizeStudioStageName = (value: unknown): string =>
   text(value, '').toLowerCase().trim().replaceAll('-', '_').replaceAll(' ', '_');
 
+const externalRunStages = (value: unknown): string[] => {
+  const record = asRecord(value);
+  const raw = pick(record, ['requestedStages', 'requested_stages', 'stages', 'steps', 'pipeline']);
+  return items(raw, ['items', 'requestedStages', 'requested_stages', 'stages', 'steps'])
+    .map((stage) => normalizeStudioStageName(typeof stage === 'string' ? stage : pick(asRecord(stage), ['name', 'stage', 'key'])))
+    .filter(Boolean);
+};
+
+const externalRunApproval = (value: unknown): UnknownRecord => {
+  const record = asRecord(value);
+  const rawApproval = pick(record, ['latestApproval', 'latest_approval', 'approval']);
+  return asRecord(rawApproval);
+};
+
+const externalRunEstimate = (value: unknown): { amount?: number; currency: string } => {
+  const record = asRecord(value);
+  const rawEstimate = pick(record, ['estimatedCost', 'estimated_cost', 'cost']);
+  const estimate = asRecord(rawEstimate);
+  return {
+    amount: number(rawEstimate)
+      ?? number(pick(estimate, ['amount', 'value']))
+      ?? number(pick(record, ['estimated_cost_amount'])),
+    currency: text(pick(estimate, ['currency']) ?? pick(record, ['currency']), 'USD').toUpperCase(),
+  };
+};
+
+export interface ExternalNarrationGate {
+  eligible: boolean;
+  profileOk: boolean;
+  narrationStageOk: boolean;
+  positiveEstimate: boolean;
+  costApproved: boolean;
+  providerConfigured: boolean;
+  estimate?: number;
+  estimateCurrency: string;
+  approvedMax?: number;
+  approvedCurrency?: string;
+  reasons: string[];
+}
+
+/**
+ * External execution is fail-closed at the browser boundary as well as in
+ * the service: only the dedicated profile, narration stage, positive
+ * estimate, matching approval cap, and configured provider may pass.
+ */
+export const getExternalNarrationGate = (
+  value: unknown,
+  providerConfigured = true,
+): ExternalNarrationGate => {
+  const record = asRecord(value);
+  const profile = text(pick(record, ['executionProfile', 'execution_profile', 'profile']), '').toLowerCase();
+  const estimate = externalRunEstimate(record);
+  const approval = externalRunApproval(record);
+  const approvalStatus = text(pick(approval, ['status', 'decision', 'state']), '').toLowerCase();
+  const rawApprovedMax = pick(approval, ['approvedMax', 'approved_max', 'max_cost', 'maxCost']);
+  const approvedMaxRecord = asRecord(rawApprovedMax);
+  const approvedMax = number(rawApprovedMax)
+    ?? number(pick(approvedMaxRecord, ['amount', 'value']))
+    ?? number(pick(approval, ['approved_max_amount', 'max_cost_amount']));
+  const approvedCurrency = text(pick(approvedMaxRecord, ['currency']) ?? pick(approval, ['currency']), '').toUpperCase() || undefined;
+  const profileOk = profile === 'elevenlabs_tts';
+  const narrationStageOk = externalRunStages(record).includes('narration');
+  const positiveEstimate = estimate.amount !== undefined && estimate.amount > 0;
+  const costApproved = approvalStatus === 'approved'
+    && approvedMax !== undefined
+    && approvedCurrency !== undefined
+    && positiveEstimate
+    && approvedMax >= (estimate.amount ?? Number.POSITIVE_INFINITY)
+    && approvedCurrency === estimate.currency;
+  const reasons: string[] = [];
+  if (!profileOk) reasons.push('execution_profile=elevenlabs_tts のRunを選択してください。');
+  if (!narrationStageOk) reasons.push('narration工程を要求したRunだけ実行できます。');
+  if (!positiveEstimate) reasons.push('正の見積額があるRunだけ実行できます。');
+  if (!costApproved) reasons.push('見積額以上の費用承認が必要です。');
+  if (!providerConfigured) reasons.push('ElevenLabs providerが未設定です。');
+  return {
+    eligible: profileOk && narrationStageOk && positiveEstimate && costApproved && providerConfigured,
+    profileOk,
+    narrationStageOk,
+    positiveEstimate,
+    costApproved,
+    providerConfigured,
+    estimate: estimate.amount,
+    estimateCurrency: estimate.currency,
+    approvedMax,
+    approvedCurrency,
+    reasons,
+  };
+};
+
+export const externalNarrationGate = getExternalNarrationGate;
+export const isExternalNarrationRun = (value: unknown): boolean => getExternalNarrationGate(value).profileOk;
+export const isEligibleExternalNarrationRun = (value: unknown, providerConfigured = true): boolean =>
+  getExternalNarrationGate(value, providerConfigured).eligible;
+export const isEligibleExternalTtsRun = isEligibleExternalNarrationRun;
+
 export const isLocalTimelineJobForSelection = (
   value: unknown,
   selection: { runId?: string; stageAttemptId?: string },
@@ -380,7 +745,8 @@ export const getLocalQcVariantAvailability = (value: unknown): Record<LocalQcVar
 
 export const isEligibleLocalQcRun = (value: unknown): boolean => {
   const record = asRecord(value);
-  return text(pick(record, ['executionProfile', 'execution_profile', 'profile']), '').toLowerCase() === 'local_sapi'
+  const profile = text(pick(record, ['executionProfile', 'execution_profile', 'profile']), '').toLowerCase();
+  return ['local_sapi', 'elevenlabs_tts'].includes(profile)
     && hasRequestedLocalQcStages(record)
     && getLocalQcAssemblyAttempts(record).some((attempt) => getLocalQcAvailableVariants(attempt).length > 0);
 };
@@ -626,6 +992,18 @@ const normalizeArtifact = (value: unknown, index: number): Artifact => {
   };
 };
 
+const externalActualCostValue = (record: UnknownRecord, result: UnknownRecord): unknown => {
+  const directUsd = pickIncludingNull(record, ['actual_cost_usd', 'actualCostUsd', 'usd_cost']);
+  if (directUsd !== undefined) return directUsd;
+  const resultUsd = pickIncludingNull(result, ['actual_cost_usd', 'actualCostUsd', 'usd_cost']);
+  if (resultUsd !== undefined) return resultUsd;
+  const provider = text(pick(record, ['provider']) ?? pick(result, ['provider']), '').toLowerCase();
+  if (provider !== EXTERNAL_NARRATION_PROVIDER) return undefined;
+  const directActual = pickIncludingNull(record, ['actual_cost', 'actualCost']);
+  if (directActual !== undefined) return directActual;
+  return pickIncludingNull(result, ['actual_cost', 'actualCost']);
+};
+
 const normalizeStageAttempt = (value: unknown, index: number): StageAttempt => {
   const record = asRecord(value);
   const stage = text(pick(record, ['stage', 'stage_name', 'name', 'type']), 'narration');
@@ -651,6 +1029,8 @@ const normalizeStageAttempt = (value: unknown, index: number): StageAttempt => {
       : boolean(pick(record, ['cache_hit', 'cacheHit', 'cached'])),
     provider: text(pick(record, ['provider']) ?? pick(result, ['provider']), '') || undefined,
     providerTaskId: text(pick(record, ['provider_task_id', 'providerTaskId']) ?? pick(result, ['provider_task_id', 'providerTaskId']), '') || undefined,
+    characterCost: number(pick(record, ['character_cost', 'characterCost', 'billable_characters']) ?? pick(result, ['character_cost', 'characterCost', 'billable_characters'])),
+    actualCostUsd: numberOrNull(externalActualCostValue(record, result)),
     actualCost: number(pick(record, ['actual_cost', 'actualCost']) ?? pick(result, ['actual_cost', 'actualCost'])),
     timingSource: text(pick(record, ['timing_source', 'timingSource']) ?? pick(result, ['timing_source', 'timingSource']), '') || undefined,
     artifacts,
@@ -673,6 +1053,8 @@ const normalizeJobResult = (value: unknown): JobResult | undefined => {
     ...normalizeQcFields(record, {}),
     provider: text(pick(record, ['provider']), '') || undefined,
     providerTaskId: text(pick(record, ['provider_task_id', 'providerTaskId']), '') || undefined,
+    characterCost: number(pick(record, ['character_cost', 'characterCost', 'billable_characters'])),
+    actualCostUsd: numberOrNull(externalActualCostValue(record, {})),
     actualCost: number(pick(record, ['actual_cost', 'actualCost'])),
     timingSource: text(pick(record, ['timing_source', 'timingSource']), '') || undefined,
     message: error.message,
@@ -963,12 +1345,22 @@ export const api = {
     if (changes.executionProfile === 'local_sapi') {
       body.execution_profile = 'local_sapi';
       body.estimated_cost = { amount: 0, currency: 'JPY' };
+    } else if (changes.executionProfile === 'elevenlabs_tts') {
+      body.execution_profile = 'elevenlabs_tts';
     }
     return post(`/api/productions/${encodeURIComponent(productionId)}/runs`, body);
   },
 
   async executeLocalNarration(runId: string, body: LocalNarrationRequest): Promise<Job> {
     const value = await post<unknown>(`/api/runs/${encodeURIComponent(runId)}/execute-local-narration`, body);
+    return normalizeJob(value);
+  },
+
+  async executeExternalNarration(runId: string, body: ExternalNarrationRequest): Promise<Job> {
+    const value = await post<unknown>(
+      `/api/runs/${encodeURIComponent(runId)}/execute-external-narration`,
+      buildExternalNarrationPayload(body),
+    );
     return normalizeJob(value);
   },
 

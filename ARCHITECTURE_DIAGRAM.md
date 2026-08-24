@@ -1,6 +1,6 @@
 # Architecture diagram
 
-この図は、tracked workspace、untracked local runtime、Studio、外部配布元、MiniMax APIの信頼境界と主要データフローを示します。責務と制約の詳細は[ARCHITECTURE.md](ARCHITECTURE.md)を参照してください。
+この図は、tracked workspace、untracked local runtime、Studio、外部配布元、MiniMax API、ElevenLabs APIの信頼境界と主要データフローを示します。責務と制約の詳細は[ARCHITECTURE.md](ARCHITECTURE.md)を参照してください。
 
 ```mermaid
 flowchart LR
@@ -27,15 +27,18 @@ flowchart LR
         StudioFrontend["studio/<br/>React / Vite source"]
         StudioBackend["tools/studio/<br/>local API / index / audit"]
         NarrationWorker["tools/studio/narration.py<br/>validated SAPI worker / cache"]
+        ExternalTtsContract["external_tts_execution.py<br/>strict payload / cache / result contract"]
+        ElevenLabsWorker["elevenlabs.py<br/>bounded with-timestamps adapter / cache"]
         TimelineWorker["tools/studio/timeline.py<br/>validated hard-cut worker / cache<br/>24fps frame-budget v2"]
         AssemblyWorker["tools/studio/assembly.py<br/>validated FFmpeg worker / cache"]
         QcWorker["tools/studio/qc.py<br/>validated technical QC / cache"]
         SapiHelper["sapi_synthesize.ps1<br/>UTF-8 JSON IPC"]
-        StudioCli["tools.studio.cli<br/>secret control"]
+        StudioCli["tools.studio.cli<br/>secret + local test-video control"]
+        TestVideoOrchestrator["test_video.py<br/>ordered local orchestration<br/>bounded result"]
     end
 
     subgraph LocalSecrets["Local secret / untracked boundary"]
-        Env[".env<br/>MiniMax API key"]
+        Env["process env / .env<br/>MiniMax + ElevenLabs API key"]
         StudioSecrets["outputs/studio/secrets<br/>Windows DPAPI ciphertext"]
     end
 
@@ -52,6 +55,7 @@ flowchart LR
         StudioUi["Studio UI<br/>127.0.0.1 only"]
         StudioDb["outputs/studio/studio.sqlite3<br/>schema v3 / immutable run + job-attempt link"]
         StudioEvents["outputs/studio/events<br/>hash-chained JSONL mirror"]
+        ExternalSubmissionState["outputs/studio/external-submissions<br/>production/cache ambiguity marker"]
         NarrationOutputs["outputs/studio/runs/.../narration<br/>WAV / SRT / timing / manifest"]
         TimelineOutputs["outputs/studio/runs/.../timeline<br/>preview MP4 / timeline / ffprobe / manifest"]
         AssemblyOutputs["outputs/studio/runs/.../assembly<br/>clean / captioned MP4 / ffprobe / manifest"]
@@ -71,6 +75,10 @@ flowchart LR
     subgraph MiniMaxBoundary["MiniMax service boundary"]
         MiniMaxApi["MiniMax V2 API<br/>billable submit / query"]
         OutputCdn["Output CDN<br/>MP4 URL"]
+    end
+
+    subgraph ElevenLabsBoundary["ElevenLabs service boundary"]
+        ElevenLabsApi["ElevenLabs with-timestamps API<br/>billable single POST"]
     end
 
     Operator --> Setup
@@ -145,6 +153,15 @@ flowchart LR
     WindowsSapi -->|"segment WAV"| NarrationWorker
     NarrationWorker -->|"atomic output + SHA-256"| NarrationOutputs
     NarrationOutputs -->|"exact path / kind / MIME / hash allowlist"| StudioBackend
+    StudioBackend -->|"elevenlabs_tts + narration<br/>positive estimate + approval + confirm_billable<br/>cache checked before secret"| ExternalTtsContract
+    ExternalTtsContract -->|"allowlisted fixed-model payload"| ElevenLabsWorker
+    StudioSecrets -->|"resolve after all gates<br/>value never returned"| ElevenLabsWorker
+    Env -->|"env, then .env, then DPAPI<br/>resolve after all gates"| ElevenLabsWorker
+    ElevenLabsWorker -->|"exclusive marker before POST<br/>remove only after verified publish"| ExternalSubmissionState
+    ElevenLabsWorker -->|"fixed HTTPS / xi-api-key<br/>redirects rejected / bounded deadline"| ElevenLabsApi
+    ElevenLabsApi -->|"audio_base64 + character alignment<br/>request-id + character-cost"| ElevenLabsWorker
+    ElevenLabsWorker -->|"MP3 decode / shell=false"| MediaTools
+    ElevenLabsWorker -->|"atomic WAV / SRT / timing / manifest<br/>actual_cost remains null"| NarrationOutputs
     StudioBackend -->|"local_sapi timeline / explicit execute<br/>persist job-attempt link before queue"| TimelineWorker
     ProductionArtifacts -->|"same-production registered videos<br/>bytes + SHA-256 verified"| TimelineWorker
     TimelineWorker -->|"fixed clip names / shell=false<br/>1080x1920 / 24fps / hard cuts"| MediaTools
@@ -168,6 +185,9 @@ flowchart LR
     StudioBackend -->|"entry hashes + scope tails<br/>text redaction / media opt-in"| AuditExports
     Operator --> StudioCli
     StudioCli -->|"set / status / delete"| StudioSecrets
+    StudioCli -->|"test-video / workspace lock"| TestVideoOrchestrator
+    TestVideoOrchestrator -->|"refresh + immutable local_sapi run<br/>narration -> timeline -> assembly -> QC"| StudioBackend
+    StudioBackend -->|"terminal IDs / cache / hashes<br/>technical verdict"| TestVideoOrchestrator
     StudioSecrets -->|"configured status only"| StudioBackend
     Env -->|"configured status only"| StudioBackend
 
@@ -176,10 +196,10 @@ flowchart LR
     classDef external fill:#fff3df,stroke:#9a6300,color:#432b00;
     classDef secret fill:#ffe8ee,stroke:#9c284b,color:#481023;
 
-    class Setup,RuntimeLock,Downloader,ModelManifest,Doctor,Launcher,Metrics,LowWorkflow,TurboWorkflow,Q4TurboWorkflow,OfficialQ4Workflow,OfficialQ4TurboWorkflow,ApiWrapper,ApiCli,ProductionLedgers,StudioSetup,StudioLauncher,StudioFrontend,StudioBackend,NarrationWorker,TimelineWorker,AssemblyWorker,QcWorker,SapiHelper,StudioCli tracked;
-    class Venv,Comfy,GgufNode,TurboNode,Models,OfficialWorkflow,Outputs,HardwareMetrics,StudioBuild,StudioUi,StudioDb,StudioEvents,NarrationOutputs,TimelineOutputs,AssemblyOutputs,QcOutputs,AuditExports,ProductionArtifacts,WindowsSapi,MediaTools local;
-    class GitHub,PackageIndexes,HuggingFace,MiniMaxApi,OutputCdn external;
+    class Setup,RuntimeLock,Downloader,ModelManifest,Doctor,Launcher,Metrics,LowWorkflow,TurboWorkflow,Q4TurboWorkflow,OfficialQ4Workflow,OfficialQ4TurboWorkflow,ApiWrapper,ApiCli,ProductionLedgers,StudioSetup,StudioLauncher,StudioFrontend,StudioBackend,NarrationWorker,ExternalTtsContract,ElevenLabsWorker,TimelineWorker,AssemblyWorker,QcWorker,SapiHelper,StudioCli,TestVideoOrchestrator tracked;
+    class Venv,Comfy,GgufNode,TurboNode,Models,OfficialWorkflow,Outputs,HardwareMetrics,StudioBuild,StudioUi,StudioDb,StudioEvents,ExternalSubmissionState,NarrationOutputs,TimelineOutputs,AssemblyOutputs,QcOutputs,AuditExports,ProductionArtifacts,WindowsSapi,MediaTools local;
+    class GitHub,PackageIndexes,HuggingFace,MiniMaxApi,OutputCdn,ElevenLabsApi external;
     class Env,StudioSecrets secret;
 ```
 
-Local経路のprompt/mediaはloopback ComfyUIへ渡ります。API経路のprompt/mediaはMiniMaxの外部境界を越えます。Bearer key付きrequestはredirectを拒否し、MP4 CDN downloadにはkeyを付けません。Studioはsession保護されたloopback内で台帳とartifactを索引化し、明示実行された`local_sapi`だけをWindows System.Speech、FFmpeg、ffprobeへ渡してナレーション、ハードカットtimeline、合成、technical QCを行います。正常完了はjob／stage attemptを同一transactionでsuccessにします。停止時はjob cancel contextから登録済みsubprocess treeを終了し、停止側が先に確定した場合はDB状態を`interrupted`／`failed(process_interrupted)`へ揃えます。外部providerや課金APIは呼びません。
+Local経路のprompt/mediaはloopback ComfyUIへ渡ります。API経路のprompt/mediaはMiniMaxの外部境界を越えます。Bearer key付きrequestはredirectを拒否し、MP4 CDN downloadにはkeyを付けません。Studioはsession保護されたloopback内で台帳とartifactを索引化します。`test-video` CLIは同じworkspaceをlockし、既存serviceをmain threadから順番に呼んでローカルMP4と監査IDをまとめます。`local_sapi`はWindows System.Speechへ渡し、費用gateとpayload確認を通った`elevenlabs_tts`だけはナレーション本文と固定設定をElevenLabsへ1回送信します。課金POST前の永続markerは曖昧失敗後の自動再送を止めます。返却audio/alignmentを同じWAV/SRT/timing/manifest契約へ変換した後、ハードカットtimeline、合成、technical QCはFFmpeg／ffprobeでローカル実行します。正常完了はjob／stage attemptを同一transactionでsuccessにします。停止時はjob cancel contextから登録済みsubprocess treeを終了し、停止側が先に確定した場合はDB状態を`interrupted`／`failed(process_interrupted)`へ揃えます。

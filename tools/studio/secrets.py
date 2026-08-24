@@ -112,9 +112,10 @@ def _unprotect(data: bytes) -> bytes:
 class SecretStore:
     """Stores provider credentials with Windows user-scoped DPAPI.
 
-    There is deliberately no plaintext file fallback. Environment variables and
-    a workspace ``.env`` file are detected for compatibility, but their values
-    are never returned by status APIs or copied into SQLite.
+    There is deliberately no plaintext file written by Studio. Environment
+    variables and a workspace ``.env`` file are accepted as compatibility
+    inputs, but their values are only resolved inside a provider worker and are
+    never returned by status APIs or copied into SQLite.
     """
 
     def __init__(self, workspace: Path):
@@ -163,13 +164,13 @@ class SecretStore:
         path.unlink()
         return True
 
-    def _dotenv_has_value(self, variable_names: tuple[str, ...]) -> bool:
+    def _dotenv_value(self, variable_names: tuple[str, ...]) -> str | None:
         try:
             dotenv = workspace_path(self.workspace, ".env")
         except SecurityError:
-            return False
+            return None
         if not dotenv.is_file() or dotenv.stat().st_size > 1024 * 1024:
-            return False
+            return None
         wanted = set(variable_names)
         try:
             with dotenv.open("r", encoding="utf-8-sig", errors="replace") as handle:
@@ -178,23 +179,41 @@ class SecretStore:
                     if not stripped or stripped.startswith("#") or "=" not in stripped:
                         continue
                     name, raw_value = stripped.split("=", 1)
-                    if name.strip() in wanted and raw_value.strip().strip("\"'"):
-                        return True
+                    if name.strip() not in wanted:
+                        continue
+                    value = raw_value.strip()
+                    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+                        value = value[1:-1]
+                    if value and "\x00" not in value and "\r" not in value and "\n" not in value:
+                        return value
         except OSError:
-            return False
-        return False
+            return None
+        return None
+
+    def resolve(self, provider: str) -> str | None:
+        """Resolve a credential for an in-process provider adapter only.
+
+        The lookup order is process environment, workspace ``.env``, then the
+        user-scoped DPAPI store. Callers must not persist or include the return
+        value in exceptions, job payloads, events, or audit artifacts.
+        """
+
+        provider = self._provider(provider)
+        for variable in PROVIDERS[provider]:
+            value = os.environ.get(variable, "").strip()
+            if value and "\x00" not in value and "\r" not in value and "\n" not in value:
+                return value
+        dotenv_value = self._dotenv_value(PROVIDERS[provider])
+        if dotenv_value is not None:
+            return dotenv_value
+        try:
+            return self.get(provider)
+        except (OSError, ValueError, UnicodeError, SecretStorageUnavailable):
+            return None
 
     def configured(self, provider: str) -> bool:
         provider = self._provider(provider)
-        variables = PROVIDERS[provider]
-        if any(os.environ.get(name, "").strip() for name in variables):
-            return True
-        if self._dotenv_has_value(variables):
-            return True
-        try:
-            return bool(self.get(provider))
-        except (OSError, ValueError, UnicodeError, SecretStorageUnavailable):
-            return False
+        return bool(self.resolve(provider))
 
     def statuses(self) -> list[dict[str, object]]:
         return [

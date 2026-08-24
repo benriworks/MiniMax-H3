@@ -7,8 +7,10 @@
 > [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)、短尺制作の実践知は
 > [PRODUCTION_PLAYBOOK_JA.md](PRODUCTION_PLAYBOOK_JA.md)、案件台帳は
 > [productions/README.md](productions/README.md)、ローカル制作Studioの操作・実装境界は
-> [STUDIO_MVP_JA.md](STUDIO_MVP_JA.md) に分離しています。StudioはWindows SAPIナレーション、
-> 登録済み動画のハードカット編集preview、FFmpeg音声・字幕合成、完成masterのtechnical QCをローカル実行できます。
+> [STUDIO_MVP_JA.md](STUDIO_MVP_JA.md) に分離しています。StudioはWindows SAPIナレーションに加え、
+> 費用承認済みRunからElevenLabs Multilingual v2の文字時刻付き外部TTSを明示実行できます。成功cacheと曖昧送信markerで再課金を抑止し、
+> 登録済み動画のハードカット編集preview、FFmpeg音声・字幕合成、完成masterのtechnical QCはローカル実行します。
+> `tools.studio.cli test-video`は、このローカル4工程を1コマンドで直列実行し、MP4、工程ID、cache利用、成果物hash、QC判定をまとめて返します。
 > 通常low-VRAM workflowの20-step品質実行は自動受入では未検証です。Q2 TurboはQ3 GGUFの4-stepスモークと0.4MP・5秒・8-step jobまで完走確認済みです。
 > ComfyUIはMiniMax H3 VAEのchunked I/O最適化を含むcommitへ固定済みです。任意の
 > `lowvram_turbo` は作者がQ3 GGUF対応を明記していない実験経路なので、通常の `lowvram` をfallbackとして残してください。

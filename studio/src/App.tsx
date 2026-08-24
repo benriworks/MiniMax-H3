@@ -11,17 +11,25 @@ import {
   isEligibleLocalQcRun,
   isLocalQcJobForSelection,
   isSucceededLocalFfmpegAssemblyAttempt,
+  EXTERNAL_NARRATION_LIMITS,
+  EXTERNAL_NARRATION_MODEL,
+  EXTERNAL_NARRATION_PROVIDER,
+  DEFAULT_EXTERNAL_VOICE_SETTINGS,
   duplicateTimelineClip,
   moveTimelineClip,
   normalizeLocalTimelineInput,
   normalizeLocalAssemblyInput,
   normalizeLocalQcInput,
   normalizeNarrationInput,
+  normalizeExternalNarrationInput,
+  getExternalNarrationGate,
 } from './api';
 import type {
   Approval,
   Artifact,
   CostEntry,
+  ExternalNarrationRequest,
+  ExternalVoiceSettings,
   HealthStatus,
   Job,
   LocalAssemblyRequest,
@@ -162,6 +170,21 @@ const localNarrationError = (error: unknown): string => {
   return `ローカルナレーション実行に失敗しました：${message}`;
 };
 
+const externalNarrationError = (error: unknown): string => {
+  if (error instanceof StudioApiError && error.unsupported) {
+    return 'このStudio backendはElevenLabs外部ナレーションに対応していません。backendを更新してから再試行してください。';
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  const normalized = message.toLowerCase();
+  if (normalized.includes('approval') || normalized.includes('approved') || normalized.includes('billable')) {
+    return `外部TTSの課金承認ゲートで停止しました：${message}`;
+  }
+  if (normalized.includes('provider') || normalized.includes('eleven')) {
+    return `ElevenLabs外部ナレーションに失敗しました：${message}`;
+  }
+  return `外部ナレーション実行に失敗しました：${message}`;
+};
+
 const normalizeRequestedStage = (value: string): string => value.toLowerCase().replaceAll('-', '_').replaceAll(' ', '_');
 
 const hasNarrationStage = (run: ProductionRun): boolean =>
@@ -173,6 +196,11 @@ const hasAssemblyStage = (run: ProductionRun): boolean =>
   || run.stages.some((stage) => normalizeRequestedStage(stage.name) === 'assembly');
 
 const hasLocalSapiProfile = (run?: ProductionRun): boolean => run?.executionProfile === 'local_sapi';
+
+const hasElevenLabsProfile = (run?: ProductionRun): boolean => run?.executionProfile === 'elevenlabs_tts';
+
+/** Assembly and technical QC remain local for both local SAPI and ElevenLabs runs. */
+const hasLocalMediaProfile = (run?: ProductionRun): boolean => hasLocalSapiProfile(run) || hasElevenLabsProfile(run);
 
 const localAssemblyError = (error: unknown): string => {
   if (error instanceof StudioApiError && error.unsupported) {
@@ -432,6 +460,7 @@ function App() {
             <ProductionWorkspace
               detail={detail}
               jobs={jobs.filter((job) => job.productionId === detail.id)}
+              providers={providers}
               onReload={() => loadDetail(detail.id)}
             />
           )}
@@ -466,7 +495,7 @@ function JobsStrip({ jobs, productions }: { jobs: Job[]; productions: Production
   );
 }
 
-function ProductionWorkspace({ detail, jobs, onReload }: { detail: ProductionDetail; jobs: Job[]; onReload: () => Promise<void> }) {
+function ProductionWorkspace({ detail, jobs, providers, onReload }: { detail: ProductionDetail; jobs: Job[]; providers: ProviderStatus[]; onReload: () => Promise<void> }) {
   const [tab, setTab] = useState<DetailTab>('overview');
   const latestRun = [...detail.runs].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))[0];
   const completedArtifacts = detail.artifacts.length;
@@ -529,7 +558,7 @@ function ProductionWorkspace({ detail, jobs, onReload }: { detail: ProductionDet
 
       <div className="tab-content" id="production-tabpanel" role="tabpanel" aria-labelledby={`production-tab-${tab}`}>
         {tab === 'overview' && <Overview detail={detail} latestRun={latestRun} onReload={onReload} />}
-        {tab === 'narration' && <NarrationPanel detail={detail} jobs={jobs} onReload={onReload} />}
+        {tab === 'narration' && <NarrationPanel detail={detail} jobs={jobs} providers={providers} onReload={onReload} />}
         {tab === 'timeline' && <TimelinePanel detail={detail} jobs={jobs} onReload={onReload} />}
         {tab === 'assembly' && <AssemblyPanel detail={detail} jobs={jobs} onReload={onReload} />}
         {tab === 'qc' && <QcPanel detail={detail} jobs={jobs} onReload={onReload} />}
@@ -625,6 +654,7 @@ const RERUN_STAGES = [
 ] as const;
 
 const LOCAL_SAPI_STAGES = new Set(['narration', 'captions', 'timeline', 'assembly', 'qc']);
+const ELEVENLABS_TTS_STAGES = new Set(['narration', 'captions', 'assembly', 'qc']);
 
 const artifactFileName = (artifact: Artifact): string =>
   (artifact.name || artifact.path || '').split(/[\\/]/).pop()?.toLowerCase() ?? '';
@@ -898,7 +928,7 @@ function TimelineAttemptHistory({ attempts }: { attempts: StageAttempt[] }) {
 function AssemblyPanel({ detail, jobs, onReload }: { detail: ProductionDetail; jobs: Job[]; onReload: () => Promise<void> }) {
   const eligibleRuns = useMemo(
     () => [...detail.runs]
-      .filter((run) => hasNarrationStage(run) && hasAssemblyStage(run) && hasLocalSapiProfile(run))
+      .filter((run) => hasNarrationStage(run) && hasAssemblyStage(run) && hasLocalMediaProfile(run))
       .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')),
     [detail.runs],
   );
@@ -959,7 +989,7 @@ function AssemblyPanel({ detail, jobs, onReload }: { detail: ProductionDetail; j
   );
   const validationErrors = [
     ...normalizedInput.errors,
-    ...(selectedRun && !hasLocalSapiProfile(selectedRun) ? ['このRunはlocal_sapiではありません。'] : []),
+    ...(selectedRun && !hasLocalMediaProfile(selectedRun) ? ['このRunはlocal_sapiまたはelevenlabs_ttsではありません。'] : []),
   ];
 
   useEffect(() => {
@@ -985,7 +1015,7 @@ function AssemblyPanel({ detail, jobs, onReload }: { detail: ProductionDetail; j
   const execute = async () => {
     if (submittingRef.current) return;
     if (!selectedRun) {
-      setMessage({ type: 'error', text: 'assembly工程を含むlocal_sapi Runを選択してください。' });
+      setMessage({ type: 'error', text: 'assembly工程を含むlocal_sapiまたはelevenlabs_tts Runを選択してください。' });
       return;
     }
     if (validationErrors.length > 0) {
@@ -1018,7 +1048,7 @@ function AssemblyPanel({ detail, jobs, onReload }: { detail: ProductionDetail; j
   };
 
   if (eligibleRuns.length === 0) {
-    return <section className="panel assembly-panel"><div className="panel-header"><div><span className="section-kicker">LOCAL ASSEMBLY</span><h3>ローカル編集・合成worker</h3></div></div><EmptyState title="narration＋assembly工程を含むlocal_sapi Runがありません" description="概要の再調整で narration を選択し、local_sapi プロファイルのRunを作成してください。依存工程としてassemblyも計画されます。" /></section>;
+    return <section className="panel assembly-panel"><div className="panel-header"><div><span className="section-kicker">LOCAL ASSEMBLY</span><h3>ローカル編集・合成worker</h3></div></div><EmptyState title="narration＋assembly工程を含むRunがありません" description="概要の再調整で narration と assembly を選択し、local_sapi または elevenlabs_tts プロファイルのRunを作成してください。外部profileでも合成はローカルで実行します。" /></section>;
   }
 
   const resultArtifacts = visibleJob?.result?.artifacts ?? currentAttempt?.artifacts ?? [];
@@ -1027,9 +1057,9 @@ function AssemblyPanel({ detail, jobs, onReload }: { detail: ProductionDetail; j
       <div>
         <section className="panel assembly-panel">
           <div className="panel-header"><div><span className="section-kicker">LOCAL ASSEMBLY</span><h3>ローカル編集・合成worker</h3></div><span className="tag">費用 0円</span></div>
-          <p className="panel-lead">登録済みの動画artifactと、成功済みの音声・字幕をこのPC上で合成します。外部APIへの送信・課金はありません。</p>
-          <label className="field"><span>対象Run（narration＋assemblyを要求したlocal_sapiのみ）</span><select value={selectedRunId} disabled={busy || submitting} onChange={(event) => { setSelectedRunId(event.target.value); setVideoArtifactId(''); setNarrationAttemptId(''); setJob(undefined); setMessage(undefined); }} aria-label="編集・合成対象Run">
-            {eligibleRuns.map((run) => <option key={run.id} value={run.id}>{run.label} · {run.id} · local_sapi</option>)}
+          <p className="panel-lead">登録済みの動画artifactと、成功済みの音声・字幕をこのPC上で合成します。elevenlabs_tts Runでも外部送信は音声工程だけで、合成はローカルworkerです。</p>
+          <label className="field"><span>対象Run（narration＋assemblyを要求したlocal_sapi / elevenlabs_tts）</span><select value={selectedRunId} disabled={busy || submitting} onChange={(event) => { setSelectedRunId(event.target.value); setVideoArtifactId(''); setNarrationAttemptId(''); setJob(undefined); setMessage(undefined); }} aria-label="編集・合成対象Run">
+            {eligibleRuns.map((run) => <option key={run.id} value={run.id}>{run.label} · {run.id} · {run.executionProfile}</option>)}
           </select></label>
           <div className="assembly-run-summary"><span>Run ID</span><strong className="mono">{selectedRun?.id}</strong><span>実行profile</span><strong>{selectedRun?.executionProfile}</strong></div>
           <label className="field"><span>動画artifact</span><select value={videoArtifactId} disabled={busy || submitting || videoArtifacts.length === 0} onChange={(event) => setVideoArtifactId(event.target.value)} aria-describedby="assembly-video-help" aria-label="合成する動画artifact">
@@ -1044,7 +1074,7 @@ function AssemblyPanel({ detail, jobs, onReload }: { detail: ProductionDetail; j
           {narrationAttempts.length === 0 && <div className="notice notice-warning"><div><strong>利用できるナレーション試行がありません</strong><p>ローカルナレーションを先に成功させ、音声とcaptions.srtを生成してください。</p></div></div>}
           {selectedNarrationAttempt && <div className="assembly-source-summary"><span>音声・字幕</span><strong>{selectedNarrationAttempt.artifacts.map((artifact) => artifact.name).join('、')}</strong></div>}
           <label className="assembly-check"><input type="checkbox" checked={includeCaptioned} disabled={busy || submitting} onChange={(event) => setIncludeCaptioned(event.target.checked)} /><span><strong>字幕付き版も生成</strong><small>オンの場合、通常版に加えてcaptions.srtを焼き込んだcaptioned版を生成します。</small></span></label>
-          <div className="assembly-confirm" role="note"><strong>実行前確認</strong><span>Run <b className="mono">{selectedRun?.id}</b> に選択した動画・音声・字幕を合成</span><span>外部送信なし · ローカルworker · 費用0円</span></div>
+          <div className="assembly-confirm" role="note"><strong>実行前確認</strong><span>Run <b className="mono">{selectedRun?.id}</b> に選択した動画・音声・字幕を合成</span><span>{hasElevenLabsProfile(selectedRun) ? '音声のみ外部送信 · 合成はローカルworker' : '外部送信なし · ローカルworker'} · 費用0円</span></div>
           {validationErrors.length > 0 && <div className="validation-list" role="status">{validationErrors.map((error) => <div key={error}>・{error}</div>)}</div>}
           <button className="button button-primary full-button" type="button" onClick={() => void execute()} disabled={submitting || busy || validationErrors.length > 0}>{submitting ? '登録中…' : busy ? 'worker監視中…' : 'ローカル編集・合成を実行'}</button>
           {message && <div className={`inline-message is-${message.type}`} role="status">{message.text}</div>}
@@ -1159,7 +1189,7 @@ function QcPanel({ detail, jobs, onReload }: { detail: ProductionDetail; jobs: J
   );
   const validationErrors = [
     ...normalizedInput.errors,
-    ...(selectedRun && selectedRun.executionProfile !== 'local_sapi' ? ['このRunはlocal_sapiではありません。'] : []),
+    ...(selectedRun && !hasLocalMediaProfile(selectedRun) ? ['このRunはlocal_sapiまたはelevenlabs_ttsではありません。'] : []),
     ...(selectedRun && !hasRequestedLocalQcStages(selectedRun) ? ['このRunはassembly＋qcを要求していません。'] : []),
     ...(selectedAttemptId && !selectedAttempt ? ['選択したassembly試行を確認できません。再読込してください。'] : []),
     ...(selectedAttempt && !isSucceededLocalFfmpegAssemblyAttempt(selectedAttempt) ? ['成功済みlocal_ffmpeg assembly attemptだけを検査できます。'] : []),
@@ -1189,7 +1219,7 @@ function QcPanel({ detail, jobs, onReload }: { detail: ProductionDetail; jobs: J
   const execute = async () => {
     if (submittingRef.current) return;
     if (!selectedRun) {
-      setMessage({ type: 'error', text: 'assembly＋qcを要求したlocal_sapi Runを選択してください。' });
+      setMessage({ type: 'error', text: 'assembly＋qcを要求したlocal_sapiまたはelevenlabs_tts Runを選択してください。' });
       return;
     }
     if (validationErrors.length > 0) {
@@ -1229,11 +1259,11 @@ function QcPanel({ detail, jobs, onReload }: { detail: ProductionDetail; jobs: J
 
   if (eligibleRuns.length === 0) {
     const requestedRuns = detail.runs.filter(hasRequestedLocalQcStages);
-    const localRuns = requestedRuns.filter((run) => run.executionProfile === 'local_sapi');
+    const localRuns = requestedRuns.filter((run) => hasLocalMediaProfile(run));
     const description = requestedRuns.length === 0
       ? '品質検査には、requested stagesに assembly と qc の両方を含むRunが必要です。概要の再調整で工程を選択してください。'
       : localRuns.length === 0
-        ? 'assembly＋qcを要求したRunがlocal_sapiではありません。local_sapiプロファイルでRunを作成してください。'
+        ? 'assembly＋qcを要求したRunがlocal_sapi / elevenlabs_ttsではありません。対応するプロファイルでRunを作成してください。'
         : '成功済みlocal_ffmpeg assembly attemptと、cleanまたはcaptionedの実在master artifactがありません。先にローカル編集・合成を成功させてください。';
     return <section className="panel qc-panel"><div className="panel-header"><div><span className="section-kicker">LOCAL TECHNICAL QC</span><h3>ローカル技術QC</h3></div><span className="tag">費用 0円</span></div><p className="panel-lead">合成済みmasterのcodec、duration、decode、無音などをローカルで検査します。</p><div className="qc-policy-note" role="note"><strong>判定範囲の注意</strong><p>ジョブ成功は解析完了を示しますが、技術検査の合格を意味しません。technical verdictがfailなら技術検査不合格です。creative QC、権利確認、公開可否は自動判定しません。</p></div><EmptyState title="品質検査の対象masterがありません" description={description} /></section>;
   }
@@ -1244,10 +1274,10 @@ function QcPanel({ detail, jobs, onReload }: { detail: ProductionDetail; jobs: J
       <div>
         <section className="panel qc-panel">
           <div className="panel-header"><div><span className="section-kicker">LOCAL TECHNICAL QC</span><h3>ローカル技術QC</h3></div><span className="tag">費用 0円</span></div>
-          <p className="panel-lead">成功済みlocal_ffmpeg assemblyが生成した実在masterだけを選び、loopback内で技術的な再生可能性を検査します。</p>
+          <p className="panel-lead">成功済みlocal_ffmpeg assemblyが生成した実在masterだけを選び、loopback内で技術的な再生可能性を検査します。elevenlabs_tts Runでも合成とQCはローカルです。</p>
           <div className="qc-policy-note" role="note"><strong>判定範囲の注意</strong><p>ジョブ成功 = 解析完了です。ただしtechnical verdictは別の判定で、fail = 技術検査不合格です。creative QC、権利確認、公開可否をこの画面やjob結果から自動決定することはありません。</p></div>
-          <label className="field"><span>対象Run（assembly＋qcを要求したlocal_sapiのみ）</span><select value={selectedRunId} disabled={busy || submitting} onChange={(event) => { setSelectedRunId(event.target.value); setSelectedAttemptId(''); setVariant('clean'); setJob(undefined); setMessage(undefined); }} aria-label="品質検査対象Run">
-            {eligibleRuns.map((run) => <option key={run.id} value={run.id}>{run.label} · {run.id} · local_sapi</option>)}
+          <label className="field"><span>対象Run（assembly＋qcを要求したlocal_sapi / elevenlabs_tts）</span><select value={selectedRunId} disabled={busy || submitting} onChange={(event) => { setSelectedRunId(event.target.value); setSelectedAttemptId(''); setVariant('clean'); setJob(undefined); setMessage(undefined); }} aria-label="品質検査対象Run">
+            {eligibleRuns.map((run) => <option key={run.id} value={run.id}>{run.label} · {run.id} · {run.executionProfile}</option>)}
           </select></label>
           <div className="qc-run-summary"><span>Run ID</span><strong className="mono">{selectedRun?.id}</strong><span>要求工程</span><strong>{selectedRun?.requestedStages.map(stageLabel).join('、')}</strong><span>実行profile</span><strong>{selectedRun?.executionProfile}</strong></div>
           <label className="field"><span>検査対象assembly attempt（成功済みlocal_ffmpeg）</span><select value={selectedAttemptId} disabled={busy || submitting || assemblyAttempts.length === 0} onChange={(event) => { setSelectedAttemptId(event.target.value); setVariant('clean'); setJob(undefined); setMessage(undefined); }} aria-label="品質検査対象assembly attempt">
@@ -1262,7 +1292,7 @@ function QcPanel({ detail, jobs, onReload }: { detail: ProductionDetail; jobs: J
           {!selectedAttempt && <div className="notice notice-warning"><div><strong>assembly attemptを選択してください</strong><p>成功済みlocal_ffmpeg attemptに記録されたmasterだけを検査できます。</p></div></div>}
           {selectedAttempt && availableVariants.length === 0 && <div className="notice notice-warning"><div><strong>検査可能なmasterがありません</strong><p>cleanまたはcaptionedのvideo artifactがattemptに存在しません。再読込して実在artifactを確認してください。</p></div></div>}
           {validationErrors.length > 0 && <div className="validation-list" role="status">{validationErrors.map((error) => <div key={error}>・{error}</div>)}</div>}
-          <div className="qc-confirm" role="note"><strong>実行前確認</strong><span>Run <b className="mono">{selectedRun?.id}</b> のassembly attempt <b className="mono">{selectedAttempt?.id ?? '—'}</b></span><span>variant: <b>{qcVariantLabel(variant)}</b> · 外部送信なし · 費用0円</span></div>
+          <div className="qc-confirm" role="note"><strong>実行前確認</strong><span>Run <b className="mono">{selectedRun?.id}</b> のassembly attempt <b className="mono">{selectedAttempt?.id ?? '—'}</b></span><span>variant: <b>{qcVariantLabel(variant)}</b> · {hasElevenLabsProfile(selectedRun) ? '音声のみ外部送信 · 合成/QCはローカル' : '外部送信なし'} · 費用0円</span></div>
           <button className="button button-primary full-button" type="button" onClick={() => void execute()} disabled={submitting || busy || validationErrors.length > 0}>{submitting ? '登録中…' : busy ? 'QC監視中…' : 'ローカル技術QCを実行'}</button>
           {message && <div className={`inline-message is-${message.type}`} role="status">{message.text}</div>}
         </section>
@@ -1311,9 +1341,11 @@ function QcJobStatus({ job, attempt, artifacts }: { job?: Job; attempt?: StageAt
   </section>;
 }
 
-function NarrationPanel({ detail, jobs, onReload }: { detail: ProductionDetail; jobs: Job[]; onReload: () => Promise<void> }) {
+function NarrationPanel({ detail, jobs, providers, onReload }: { detail: ProductionDetail; jobs: Job[]; providers: ProviderStatus[]; onReload: () => Promise<void> }) {
   const eligibleRuns = useMemo(
-    () => [...detail.runs].filter(hasNarrationStage).sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')),
+    () => [...detail.runs]
+      .filter((run) => hasNarrationStage(run) && hasLocalSapiProfile(run))
+      .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')),
     [detail.runs],
   );
   const [selectedRunId, setSelectedRunId] = useState(eligibleRuns[0]?.id ?? '');
@@ -1416,12 +1448,13 @@ function NarrationPanel({ detail, jobs, onReload }: { detail: ProductionDetail; 
   const removePronunciation = (index: number) => setPronunciations((current) => current.length === 1 ? current : current.filter((_, itemIndex) => itemIndex !== index));
 
   if (eligibleRuns.length === 0) {
-    return <section className="panel narration-panel"><div className="panel-header"><div><span className="section-kicker">LOCAL NARRATION</span><h3>ローカル音声＋字幕worker</h3></div></div><EmptyState title="ナレーション工程を含むRunがありません" description="概要の再調整で narration を選択し、local_sapi プロファイルのRunを作成してください。" /></section>;
+    return <div className="narration-stack"><section className="panel narration-panel"><div className="panel-header"><div><span className="section-kicker">LOCAL NARRATION</span><h3>ローカル音声＋字幕worker</h3></div></div><EmptyState title="local_sapiのナレーションRunがありません" description="概要の再調整で narration を選択し、local_sapi プロファイルのRunを作成してください。" /></section><ExternalNarrationPanel detail={detail} jobs={jobs} providers={providers} onReload={onReload} /></div>;
   }
 
   const resultArtifacts = visibleJob?.result?.artifacts ?? currentAttempt?.artifacts ?? [];
   return (
-    <div className="narration-grid">
+    <div className="narration-stack">
+      <div className="narration-grid">
       <div>
         <section className="panel narration-panel">
           <div className="panel-header"><div><span className="section-kicker">LOCAL NARRATION</span><h3>ローカル音声＋字幕worker</h3></div><span className="tag">費用 0円</span></div>
@@ -1449,8 +1482,200 @@ function NarrationPanel({ detail, jobs, onReload }: { detail: ProductionDetail; 
         <NarrationJobStatus job={visibleJob} attempt={currentAttempt} artifacts={resultArtifacts} />
         <NarrationAttemptHistory attempts={selectedRun?.stageAttempts ?? []} />
       </aside>
+      </div>
+      <ExternalNarrationPanel detail={detail} jobs={jobs} providers={providers} onReload={onReload} />
     </div>
   );
+}
+
+function ExternalNarrationPanel({ detail, jobs, providers, onReload }: { detail: ProductionDetail; jobs: Job[]; providers: ProviderStatus[]; onReload: () => Promise<void> }) {
+  const eligibleRuns = useMemo(
+    () => [...detail.runs]
+      .filter((run) => hasNarrationStage(run) && hasElevenLabsProfile(run))
+      .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')),
+    [detail.runs],
+  );
+  const elevenLabs = providers.find((provider) => ['elevenlabs', 'elevenlabs_tts'].includes(provider.id.toLowerCase()));
+  const providerConfigured = elevenLabs?.configured === true;
+  const [selectedRunId, setSelectedRunId] = useState(eligibleRuns[0]?.id ?? '');
+  const [script, setScript] = useState('');
+  const [voiceId, setVoiceId] = useState('');
+  const [voiceSettings, setVoiceSettings] = useState<ExternalVoiceSettings>(DEFAULT_EXTERNAL_VOICE_SETTINGS);
+  const [seed, setSeed] = useState<number | null>(0);
+  const [payloadConfirmed, setPayloadConfirmed] = useState(false);
+  const [job, setJob] = useState<Job>();
+  const [busy, setBusy] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+  const [message, setMessage] = useState<{ type: 'error' | 'success' | 'info'; text: string }>();
+  const reloadedTerminalJob = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (!eligibleRuns.some((run) => run.id === selectedRunId)) {
+      setSelectedRunId(eligibleRuns[0]?.id ?? '');
+      setJob(undefined);
+      setMessage(undefined);
+      setPayloadConfirmed(false);
+    }
+  }, [eligibleRuns, selectedRunId]);
+
+  const selectedRun = eligibleRuns.find((run) => run.id === selectedRunId);
+  const gate = useMemo(
+    () => getExternalNarrationGate(selectedRun, providerConfigured),
+    [providerConfigured, selectedRun],
+  );
+  const normalizedInput = useMemo(
+    () => normalizeExternalNarrationInput({
+      provider: EXTERNAL_NARRATION_PROVIDER,
+      model_id: EXTERNAL_NARRATION_MODEL,
+      voiceId,
+      script,
+      voiceSettings,
+      seed,
+      confirmBillable: payloadConfirmed,
+    }),
+    [payloadConfirmed, script, seed, voiceId, voiceSettings],
+  );
+  const validationErrors = [
+    ...normalizedInput.errors.filter((error) => !error.includes('課金対象のpayload')),
+    ...gate.reasons,
+  ];
+
+  const currentAttempt = [...(selectedRun?.stageAttempts ?? [])]
+    .filter((attempt) => normalizeRequestedStage(attempt.stage) === 'narration')
+    .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))[0];
+  const visibleJob = job ?? jobs.find((item) =>
+    item.id === currentAttempt?.jobId
+    || (item.runId === selectedRun?.id && normalizeRequestedStage(item.stage ?? '') === 'narration'
+      && ['external_narration', 'elevenlabs_narration', 'elevenlabs_tts'].includes(normalizeRequestedStage(item.type))),
+  );
+  const isTerminal = visibleJob?.status === 'succeeded' || visibleJob?.status === 'failed' || visibleJob?.status === 'cancelled';
+
+  useEffect(() => {
+    if (!job || isTerminal) {
+      if (isTerminal && !submitting) setBusy(false);
+      return;
+    }
+    const timer = window.setInterval(() => {
+      void api.jobs().then((nextJobs) => {
+        const next = nextJobs.find((item) => item.id === job.id);
+        if (next) setJob(next);
+      }).catch(() => undefined);
+    }, 2_000);
+    return () => window.clearInterval(timer);
+  }, [isTerminal, job, submitting]);
+
+  useEffect(() => {
+    if (!visibleJob || !isTerminal || reloadedTerminalJob.current === visibleJob.id) return;
+    reloadedTerminalJob.current = visibleJob.id;
+    void onReload().catch(() => undefined);
+  }, [isTerminal, onReload, visibleJob]);
+
+  const updateVoiceSetting = <K extends keyof ExternalVoiceSettings>(key: K, value: ExternalVoiceSettings[K]) => {
+    setVoiceSettings((current) => ({ ...current, [key]: value }));
+    setPayloadConfirmed(false);
+  };
+
+  const execute = async () => {
+    if (submittingRef.current) return;
+    if (!selectedRun) {
+      setMessage({ type: 'error', text: 'elevenlabs_ttsのナレーションRunを選択してください。' });
+      return;
+    }
+    if (!gate.eligible) {
+      setMessage({ type: 'error', text: gate.reasons[0] ?? '外部TTSの実行条件を満たしていません。' });
+      return;
+    }
+    if (validationErrors.length > 0) {
+      setMessage({ type: 'error', text: validationErrors[0] });
+      return;
+    }
+    if (!payloadConfirmed) {
+      setMessage({ type: 'error', text: '実行するpayloadと課金条件を確認するチェックが必要です。' });
+      return;
+    }
+    submittingRef.current = true;
+    setSubmitting(true);
+    setBusy(true);
+    setJob(undefined);
+    setMessage({ type: 'info', text: 'ElevenLabs外部TTSをキューに登録しています。provider応答を監視します。' });
+    try {
+      const request: ExternalNarrationRequest = normalizedInput.request;
+      const submitted = await api.executeExternalNarration(selectedRun.id, request);
+      setJob(submitted);
+      setMessage({ type: submitted.status === 'failed' ? 'error' : 'success', text: submitted.status === 'failed' ? externalNarrationError(submitted.message ?? 'workerが失敗しました') : 'ElevenLabs外部TTSをキューに登録しました。' });
+      try {
+        await onReload();
+      } catch {
+        setMessage({ type: 'info', text: 'workerは登録済みです。制作詳細の再読込だけ失敗したため、job監視を継続します。' });
+      }
+      if (submitted.status === 'succeeded' || submitted.status === 'failed' || submitted.status === 'cancelled') setBusy(false);
+    } catch (error) {
+      setBusy(false);
+      setMessage({ type: 'error', text: externalNarrationError(error) });
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
+  };
+
+  if (eligibleRuns.length === 0) {
+    return <section className="panel external-narration-panel"><div className="panel-header"><div><span className="section-kicker">EXTERNAL ELEVENLABS</span><h3>外部音声＋字幕worker</h3></div><span className="tag">課金対象</span></div><p className="panel-lead">ElevenLabsは音声テキストを外部へ送信します。外部TTS専用の <b>elevenlabs_tts</b> profile、narration工程、正の見積、費用承認済みRunだけを実行できます。合成とQCはローカルで続けます。</p><EmptyState title="外部TTSの対象Runがありません" description="概要の再調整で narration を選択し、elevenlabs_tts プロファイルのRunを作成してください。Run作成後、正の見積額を承認すると実行できます。" /></section>;
+  }
+
+  const resultArtifacts = visibleJob?.result?.artifacts ?? currentAttempt?.artifacts ?? [];
+  const approvedMaxLabel = gate.approvedMax === undefined ? '未承認' : formatMoney(gate.approvedMax, gate.approvedCurrency ?? gate.estimateCurrency);
+  return (
+    <div className="narration-grid external-narration-grid">
+      <div>
+        <section className="panel external-narration-panel">
+          <div className="panel-header"><div><span className="section-kicker">EXTERNAL ELEVENLABS</span><h3>ElevenLabs外部音声＋字幕worker</h3></div><span className="tag tag-billable">課金対象</span></div>
+          <p className="panel-lead">音声テキストをElevenLabsへ送信し、文字単位alignmentからsegment字幕を生成します。実行前にRunの見積・承認と、このpayloadの内容を二重に確認します。</p>
+          <label className="field"><span>対象Run（elevenlabs_tts＋narration、費用承認済みのみ実行可能）</span><select value={selectedRunId} disabled={busy || submitting} onChange={(event) => { setSelectedRunId(event.target.value); setJob(undefined); setMessage(undefined); setPayloadConfirmed(false); }} aria-label="ElevenLabs外部ナレーション対象Run">
+            {eligibleRuns.map((run) => { const runGate = getExternalNarrationGate(run, providerConfigured); return <option key={run.id} value={run.id}>{run.label} · {run.id} · {runGate.estimate === undefined ? '見積未設定' : formatMoney(runGate.estimate, runGate.estimateCurrency)} · {runGate.costApproved ? '承認済み' : '承認待ち'}</option>; })}
+          </select></label>
+          <div className="narration-run-summary external-run-summary"><span>Run ID</span><strong className="mono">{selectedRun?.id}</strong><span>実行profile</span><strong>{selectedRun?.executionProfile}</strong><span>Provider</span><strong>{EXTERNAL_NARRATION_PROVIDER}</strong><span>見積</span><strong>{gate.estimate === undefined ? '—' : formatMoney(gate.estimate, gate.estimateCurrency)}</strong><span>承認上限</span><strong>{approvedMaxLabel}</strong></div>
+          {!providerConfigured && <div className="notice notice-warning"><div><strong>ElevenLabs providerが未設定です</strong><p>{elevenLabs?.message ?? 'Provider statusで認証情報を設定してから実行してください。'}</p></div></div>}
+          {gate.reasons.length > 0 && <div className="validation-list" role="status">{gate.reasons.map((error) => <div key={error}>・{error}</div>)}</div>}
+          <label className="field"><span>論理セグメント（1行=1segment、空行は除去）</span><textarea rows={9} value={script} onChange={(event) => { setScript(event.target.value); setPayloadConfirmed(false); }} placeholder={'例：\nClaude Codeで、開発をもっと速く。\nまずは字幕タイミングも保存します。'} aria-describedby="external-narration-segment-help" />
+            <small id="external-narration-segment-help" className="field-help">{normalizedInput.request.segments.length} / {EXTERNAL_NARRATION_LIMITS.maxSegments} segment · {normalizedInput.totalCharacters.toLocaleString()} / {EXTERNAL_NARRATION_LIMITS.maxTotalLength.toLocaleString()} 文字</small>
+          </label>
+          <label className="field"><span>voice_id（ElevenLabs）</span><input value={voiceId} onChange={(event) => { setVoiceId(event.target.value); setPayloadConfirmed(false); }} placeholder="例：21m00Tcm4TlvDq8ikWAM" aria-label="ElevenLabs voice_id" /></label>
+          <div className="narration-form-grid external-settings-grid">
+            <label className="field"><span>stability（0〜1）</span><input type="number" min={0} max={1} step={0.01} value={voiceSettings.stability} onChange={(event) => updateVoiceSetting('stability', Number(event.target.value))} /></label>
+            <label className="field"><span>similarity（0〜1）</span><input type="number" min={0} max={1} step={0.01} value={voiceSettings.similarityBoost} onChange={(event) => updateVoiceSetting('similarityBoost', Number(event.target.value))} /></label>
+            <label className="field"><span>style（0〜1）</span><input type="number" min={0} max={1} step={0.01} value={voiceSettings.style} onChange={(event) => updateVoiceSetting('style', Number(event.target.value))} /></label>
+            <label className="field"><span>speed（0.7〜1.2）</span><input type="number" min={0.7} max={1.2} step={0.01} value={voiceSettings.speed} onChange={(event) => updateVoiceSetting('speed', Number(event.target.value))} /></label>
+          </div>
+          <label className="toggle-field external-speaker-boost"><input type="checkbox" checked={voiceSettings.useSpeakerBoost} onChange={(event) => updateVoiceSetting('useSpeakerBoost', event.target.checked)} /><span><strong>speaker boost</strong><small>ElevenLabsのuse_speaker_boostとして送信</small></span></label>
+          <label className="field inline-field"><span>seed</span><div><input type="number" min={0} max={EXTERNAL_NARRATION_LIMITS.maxSeed} step={1} value={seed ?? ''} onChange={(event) => { const value = event.target.value.trim(); setSeed(value === '' ? null : Number(value)); setPayloadConfirmed(false); }} /><span>0〜{EXTERNAL_NARRATION_LIMITS.maxSeed.toLocaleString()}</span></div></label>
+          {normalizedInput.errors.filter((error) => !error.includes('課金対象のpayload')).length > 0 && <div className="validation-list" role="status">{normalizedInput.errors.filter((error) => !error.includes('課金対象のpayload')).map((error) => <div key={error}>・{error}</div>)}</div>}
+          <div className="external-preflight" role="note"><strong>課金・payload最終確認</strong><dl><div><dt>Provider</dt><dd>{EXTERNAL_NARRATION_PROVIDER}</dd></div><div><dt>model_id</dt><dd className="mono">{EXTERNAL_NARRATION_MODEL}</dd></div><div><dt>voice_id</dt><dd className="mono">{voiceId.trim() || '未設定'}</dd></div><div><dt>総文字数</dt><dd>{normalizedInput.totalCharacters.toLocaleString()} 文字</dd></div><div><dt>Run estimate</dt><dd>{gate.estimate === undefined ? '未設定' : formatMoney(gate.estimate, gate.estimateCurrency)}</dd></div><div><dt>approved max</dt><dd>{approvedMaxLabel}</dd></div></dl><p>USD実費はprovider応答で未確定です。完了後にcharacter-costとprovider task IDを記録します。</p></div>
+          <label className="external-second-confirm"><input type="checkbox" checked={payloadConfirmed} disabled={!gate.eligible || busy || submitting} onChange={(event) => setPayloadConfirmed(event.target.checked)} /><span><strong>このpayloadで課金対象のElevenLabs実行を明示確認する</strong><small>provider、model_id、voice_id、segment、voice settings、seed、見積上限を確認しました。送信payloadにはconfirm_billable: trueを付与します。</small></span></label>
+          <button className="button button-primary full-button" type="button" onClick={() => void execute()} disabled={submitting || busy || !gate.eligible || validationErrors.length > 0 || !payloadConfirmed}>{submitting ? '登録中…' : busy ? 'provider監視中…' : '確認済みpayloadで外部TTSを実行'}</button>
+          {message && <div className={`inline-message is-${message.type}`} role="status">{message.text}</div>}
+        </section>
+      </div>
+      <aside>
+        <ExternalNarrationJobStatus job={visibleJob} attempt={currentAttempt} artifacts={resultArtifacts} />
+        <NarrationAttemptHistory attempts={selectedRun?.stageAttempts ?? []} />
+      </aside>
+    </div>
+  );
+}
+
+function ExternalNarrationJobStatus({ job, attempt, artifacts }: { job?: Job; attempt?: StageAttempt; artifacts: Artifact[] }) {
+  const status = job?.status ?? attempt?.status;
+  const cacheHit = job?.cacheHit ?? attempt?.cacheHit;
+  const result = job?.result;
+  const provider = result?.provider ?? attempt?.provider;
+  const providerTaskId = result?.providerTaskId ?? attempt?.providerTaskId;
+  const characterCost = result?.characterCost ?? attempt?.characterCost;
+  const actualUsd = result?.actualCostUsd !== undefined ? result.actualCostUsd : attempt?.actualCostUsd;
+  const timingSource = result?.timingSource ?? attempt?.timingSource;
+  const active = status === 'pending' || status === 'running';
+  const actualUsdLabel = actualUsd === undefined || actualUsd === null ? '未確定' : formatMoney(actualUsd, 'USD');
+  return <section className="panel compact-panel narration-status-panel external-status-panel" aria-live="polite" aria-busy={active}><div className="panel-header"><div><span className="section-kicker">EXTERNAL TTS STATUS</span><h3>ElevenLabs実行状況</h3></div>{status ? <StatusBadge status={status} label={jobStatusLabel(status)} /> : <span className="muted">未実行</span>}</div>{!job && !attempt && <p className="muted">実行すると、2秒間隔でjobを監視し、provider taskと成果物を表示します。</p>}<dl className="narration-metrics"><div><dt>Job</dt><dd className="mono">{job?.id ?? attempt?.jobId ?? '—'}</dd></div><div><dt>Attempt</dt><dd>{job?.attempt ?? attempt?.attempt ?? '—'}</dd></div><div><dt>Provider</dt><dd>{provider ?? EXTERNAL_NARRATION_PROVIDER}</dd></div><div><dt>Provider task ID</dt><dd className="mono">{providerTaskId ?? '—'}</dd></div><div><dt>Character cost</dt><dd>{characterCost === undefined ? '—' : characterCost.toLocaleString()}</dd></div><div><dt>USD実費</dt><dd>{actualUsdLabel}</dd></div><div><dt>Cache hit</dt><dd>{cacheHit === undefined ? '—' : cacheHit ? 'はい' : 'いいえ'}</dd></div><div><dt>Timing</dt><dd>{timingSource ?? '—'}</dd></div><div><dt>更新</dt><dd>{formatDate(job?.updatedAt ?? attempt?.finishedAt ?? attempt?.startedAt)}</dd></div></dl>{job?.message && <p className={job.status === 'failed' ? 'narration-error-text' : 'muted'}>{job.message}{job.errorCode ? ` · ${job.errorCode}` : ''}</p>}<div className="narration-artifact-list"><strong>生成artifact / hash</strong>{artifacts.length === 0 ? <span className="muted">まだありません</span> : artifacts.map((artifact) => <div className="external-artifact-row" key={artifact.id}>{artifact.url ? <a href={artifact.url} target="_blank" rel="noreferrer">{artifact.name} ↗</a> : <span>{artifact.name}</span>}<small>{formatBytes(artifact.sizeBytes)} · SHA-256 <b className="mono">{artifact.sha256 ?? '未取得'}</b></small></div>)}</div><p className="gate-separation-note">外部送信は音声工程だけです。合成・technical QC・creative/rights/public gateとは別に記録します。</p></section>;
 }
 
 function NarrationJobStatus({ job, attempt, artifacts }: { job?: Job; attempt?: StageAttempt; artifacts: Artifact[] }) {
@@ -1477,6 +1702,7 @@ function RerunPanel({ productionId, onReload }: { productionId: string; onReload
 
   const toggleStage = (stage: string) => {
     if (changes.executionProfile === 'local_sapi' && !LOCAL_SAPI_STAGES.has(normalizeRequestedStage(stage))) return;
+    if (changes.executionProfile === 'elevenlabs_tts' && !ELEVENLABS_TTS_STAGES.has(normalizeRequestedStage(stage))) return;
     setPlan(undefined);
     setChanges((current) => ({
       ...current,
@@ -1506,6 +1732,14 @@ function RerunPanel({ productionId, onReload }: { productionId: string; onReload
       setMessage({ type: 'error', text: 'local_sapiはナレーション、字幕、カット編集、編集・合成、品質検査のいずれかを含むRunに指定してください。' });
       return;
     }
+    if (changes.executionProfile === 'elevenlabs_tts' && !changes.stages.some((stage) => normalizeRequestedStage(stage) === 'narration')) {
+      setMessage({ type: 'error', text: 'elevenlabs_ttsはnarration工程を必須にしてください。' });
+      return;
+    }
+    if (changes.executionProfile === 'elevenlabs_tts' && (!Number.isFinite(changes.maxCostJpy) || (changes.maxCostJpy ?? 0) <= 0)) {
+      setMessage({ type: 'error', text: 'elevenlabs_ttsは正の見積額（maxCostJpy）を必須にしてください。' });
+      return;
+    }
     if (plan.requiresCostEstimate && changes.executionProfile !== 'local_sapi' && (!changes.allowPaidApi || !changes.maxCostJpy || changes.maxCostJpy <= 0)) {
       setMessage({ type: 'error', text: '課金工程を含むため、有料APIの計画を有効にして見積額を入力してください。' });
       return;
@@ -1526,19 +1760,20 @@ function RerunPanel({ productionId, onReload }: { productionId: string; onReload
   return (
     <section className="panel rerun-panel">
       <div className="panel-header"><div><span className="section-kicker">PARTIAL RERUN</span><h3>再調整</h3></div></div>
-      <p className="panel-lead">変更箇所から再実行範囲と再利用候補を計算し、監査可能なRun計画として保存します。local_sapiの音声・字幕・カット編集・編集/合成は、Run作成後に各タブから明示実行できます。</p>
+      <p className="panel-lead">変更箇所から再実行範囲と再利用候補を計算し、監査可能なRun計画として保存します。local_sapiのローカル音声、またはelevenlabs_ttsの外部音声をRun作成後に各タブから明示実行できます。後者も合成・QCはローカルです。</p>
       <fieldset className="stage-checks">
         <legend>変更する工程</legend>
         {RERUN_STAGES.map(([id, label]) => (
           <label key={id}>
-            <input type="checkbox" checked={changes.stages.includes(id)} onChange={() => toggleStage(id)} disabled={changes.executionProfile === 'local_sapi' && !LOCAL_SAPI_STAGES.has(id)} />
+            <input type="checkbox" checked={changes.stages.includes(id)} onChange={() => toggleStage(id)} disabled={(changes.executionProfile === 'local_sapi' && !LOCAL_SAPI_STAGES.has(id)) || (changes.executionProfile === 'elevenlabs_tts' && !ELEVENLABS_TTS_STAGES.has(id))} />
             <span>{label}</span>
           </label>
         ))}
       </fieldset>
       <fieldset className="execution-profile-fieldset"><legend>実行プロファイル</legend>
-        <label className="profile-option"><input type="radio" name={`execution-profile-${productionId}`} value="default" checked={changes.executionProfile !== 'local_sapi'} onChange={() => { setPlan(undefined); setChanges((current) => ({ ...current, executionProfile: 'default' })); }} /><span><strong>通常</strong><small>既存のRun計画・費用ルールを使用</small></span></label>
+        <label className="profile-option"><input type="radio" name={`execution-profile-${productionId}`} value="default" checked={changes.executionProfile !== 'local_sapi' && changes.executionProfile !== 'elevenlabs_tts'} onChange={() => { setPlan(undefined); setChanges((current) => ({ ...current, executionProfile: 'default' })); }} /><span><strong>通常</strong><small>既存のRun計画・費用ルールを使用</small></span></label>
         <label className="profile-option"><input type="radio" name={`execution-profile-${productionId}`} value="local_sapi" checked={changes.executionProfile === 'local_sapi'} onChange={() => { setPlan(undefined); setChanges((current) => ({ ...current, executionProfile: 'local_sapi', stages: ['narration'], allowPaidApi: false, maxCostJpy: undefined })); }} /><span><strong>local_sapi（ローカルworker）</strong><small>narration・字幕・カット編集・編集/合成・QC、見積0円・外部送信なし</small></span></label>
+        <label className="profile-option"><input type="radio" name={`execution-profile-${productionId}`} value="elevenlabs_tts" checked={changes.executionProfile === 'elevenlabs_tts'} onChange={() => { setPlan(undefined); setChanges((current) => ({ ...current, executionProfile: 'elevenlabs_tts', stages: ['narration'], allowPaidApi: true, maxCostJpy: undefined })); }} /><span><strong>elevenlabs_tts（外部音声）</strong><small>音声だけ外部送信・課金、合成/QCはローカル。正の見積と承認が必要</small></span></label>
       </fieldset>
       <label className="field">
         <span>変更内容・理由</span>
@@ -1553,10 +1788,10 @@ function RerunPanel({ productionId, onReload }: { productionId: string; onReload
         <input
           type="checkbox"
           checked={changes.allowPaidApi}
-          disabled={changes.executionProfile === 'local_sapi'}
+          disabled={changes.executionProfile === 'local_sapi' || changes.executionProfile === 'elevenlabs_tts'}
           onChange={(event) => { setPlan(undefined); setChanges((current) => ({ ...current, allowPaidApi: event.target.checked, executionProfile: event.target.checked ? 'default' : current.executionProfile })); }}
         />
-          <span><strong>有料APIを使う計画</strong><small>{changes.executionProfile === 'local_sapi' ? 'local_sapiと相互排他的です' : 'Run作成後、監査タブで上限を承認します'}</small></span>
+          <span><strong>有料APIを使う計画</strong><small>{changes.executionProfile === 'local_sapi' ? 'local_sapiと相互排他的です' : changes.executionProfile === 'elevenlabs_tts' ? 'elevenlabs_ttsでは必須です。Run作成後に上限を承認します' : 'Run作成後、監査タブで上限を承認します'}</small></span>
       </label>
       {changes.allowPaidApi && (
         <label className="field inline-field">
