@@ -37,7 +37,7 @@
 | `setup-studio.ps1` | frontend依存を導入してbuildし、Python backend moduleを検査 | tracked |
 | `run-studio.ps1` | `127.0.0.1`限定でbackendとbuild済みUI、または開発用Viteを起動 | tracked |
 | `studio/` | React / Viteによる制作一覧、案件詳細、artifact preview / A-B比較、event、cost、approval、ローカルSAPI／ElevenLabsナレーション、カット編集、合成、technical QC UI | tracked source。`node_modules/`と`dist/`はignored |
-| `tools/studio/` | production索引、SQLite、artifact配信、run/approval、stage attempt、Windows SAPI narration/cache、ElevenLabs `with-timestamps` contract／worker／課金gate／cache、FFmpeg timeline/cache、FFmpeg assembly/cache、FFmpeg/ffprobe technical QC/cache、DPAPI secret、audit export API | tracked |
+| `tools/studio/` | production索引、SQLite、artifact配信、run/approval、stage attempt、Windows SAPI narration/cache、ElevenLabs `with-timestamps` contract／worker／課金gate／cache、FFmpeg timeline/cache、FFmpeg assembly/cache、FFmpeg/ffprobe technical QC/cache、`test-video`直列orchestrator、DPAPI secret、audit export API | tracked |
 | `tools/studio/sapi_synthesize.ps1` | UTF-8 JSON fileからSystem.Speechへ安全に入力し、segment WAVを出力するローカルhelper | tracked |
 | `outputs/studio/` | SQLite、hash chain付きevent JSONL mirror、暗号化secret、外部送信marker、監査ZIP、run別ナレーション／timeline／合成／technical QC成果物 | untracked/ignored |
 | `.env` | MiniMax／ElevenLabs API keyと任意MiniMax base | untracked/ignored secret |
@@ -139,6 +139,8 @@ API contractは[MiniMax V2 Create](https://platform.minimax.io/docs/api-referenc
 10. local technical QC workerは、選択中Runの成功済みassembly attemptからbackendが導出したcleanまたはcaptioned masterだけを受け取ります。assemblyがcontent-addressed cacheを再利用した場合に限り、同じproduction内の先行Runが実fileの所有元になり得ます。その場合もsource attempt chainを循環なしで終端まで辿り、各attemptのcache key、入力hash、artifact ID/path/bytes/SHA-256が同一であることを検証します。MP4 container、video/audio各1 stream、H.264/yuv420p、AAC 48 kHz stereo、container/video/audio各尺、期待尺、full decode、全編無音を検査し、`technical-qc.json`、`ffprobe.json`、自己hash付き`manifest.json`をatomic publishします。解析完了とpass/fail verdictを分け、fail verdictでもjobは成功として証跡を残します。tool/process failureだけをattempt失敗にし、creative、rights、public release statusは変更しません。cache hit時もmasterを再解析してreport改変を検出します。
 11. runの費用上限approvalとstage attempt/eventは追記記録で、以前の判断や試行を上書きしません。technical、creative、rights、public releaseは既存台帳の独立statusとして表示します。
 12. audit exportはSQLiteの単一read transactionとsnapshot一致済みevent mirror prefixを固定し、対象production/runの記録を`outputs/studio/audits/`へZIP化します。JSON/JSONLと一般textは秘密情報をredactし、安全な構造化処理を保証できない設定・markup形式は理由付きで除外します。Studio生成のSRT/timing/manifest/ffprobe/technical QC JSONは含め、WAVとMP4は`include_media=true`のときだけ含めます。package manifest自身を除く格納entryごとの実bytes/SHA-256、scope別event chain tail、除外mirrorを記録し、ZIP閉鎖後にも全entryを検証します。ZIP全体のSHA-256は外部sidecarへ保存します。DB snapshotとartifact copyの間に元fileが変わった場合、ZIP実体には`archive_entries`のbytes/hashを使用します。SQLiteは既存tracked台帳を置き換えません。
+
+`python -m tools.studio.cli test-video`は新しいmedia workerではなく、上記の既存service contractを順番に呼ぶcontrol-plane orchestratorです。workspace lockと索引更新の後、immutableな0円`local_sapi` Runを作成し、narration、単一登録済みvideo artifactのtimeline、assembly、QCをmain threadで直列queue／waitします。各terminal jobとattempt、cache利用、相対artifact path、bytes、SHA-256、technical verdictだけをbounded JSONへ集約します。失敗時は後続stageをqueueせず、QCは`analysis_status=succeeded`かつ`technical_verdict=pass`だけをCLI成功とします。外部provider、secret、課金gateはこのコマンドから呼びません。
 
 Studioの階層は次です。
 
@@ -261,6 +263,14 @@ APIの入力制約は、request body 64MB以下、画像/動画/音声ごとのs
 - mock provider E2E: `elevenlabs_tts` Run作成→正のUSD見積→上限approval→job／attempt成功→WAV/SRT/timing/manifestの4 artifact登録→同一payloadの2回目cache hit→ローカルassembly入力検証まで成功。2回目はsecret解決とprovider callを再実行せず、初回だけの1 callであることを確認
 - 安全境界: approval前はexternal contract／secretへ到達しない、固定production HTTPS endpoint、redirect拒否、loopback限定test注入、応答size／総deadline、5xx／timeoutの曖昧送信停止、production/cache markerによる別Run再送防止、API key／本文のDB audit summary非保存を回帰確認
 - 実ElevenLabs credentialを使うpaid smokeは意図的に実施していない。実際の日本語音質、provider account上の請求、USD実費照合は未確定
+
+2026-08-24のStudio `test-video` CLI確定結果:
+
+- repository Python自動テスト: 199/199合格。one-command orchestrationとCLIの15件で、工程順序、attempt引渡し、timeout／失敗時の後続停止、source変更拒否、QC fail、workspace lock、cleanup、中断、secret／path非漏洩を追加確認
+- Studio frontend契約テスト: 27/27合格、production build成功、npm audit 0件
+- 実制作E2E: `SHORT_20260823_claude_md_15s`の登録済み15秒clean masterを入力に、実Windows SAPI 11.104秒、1カットtimeline、captioned assembly、technical QCを1コマンドで完走。初回86.315秒、全4 job／attempt成功、QC 10/10 pass
+- 完成master: `outputs/studio/runs/run_b6892f69bb6b40c8b1b1cca0edcadd9d/assembly/64AF016E65AFBCFCACDA5BE93AE0E923C721437E8B900403B0E1B1439B0ABCDF/master-captioned.mp4`、4,524,600 bytes、SHA-256 `3A4A4EDB170F2A1D826231772BD56D1F998B7B31A1DA03C6D8C6A898C1F4A92E`。1080x1920／24fps／15.000秒、H.264／yuv420p + AAC 48kHz stereo、full decode／非無音を確認
+- 同一recipeの2回目は11.893秒。narration、timeline、assemblyはhash検証済みcacheを再利用し、QCは新しいassembly attemptのmasterを再解析してpass。外部通信、API key、課金処理は未使用
 
 未確定:
 
