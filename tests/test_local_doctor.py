@@ -712,6 +712,11 @@ else {
         self.assertNotIn("$comfyArguments += '--lowvram'", executable)
         self.assertIn("'--preview-method', 'none'", executable)
         self.assertIn("'--disable-pinned-memory'", executable)
+        self.assertIn("$allowedCustomNodes = @('ComfyUI-GGUF')", executable)
+        self.assertIn("$allowedCustomNodes += 'ComfyUI-MiniMax-H3-Turbo'", executable)
+        self.assertIn("$comfyArguments += '--disable-all-custom-nodes'", executable)
+        self.assertIn("$comfyArguments += '--whitelist-custom-nodes'", executable)
+        self.assertIn("$comfyArguments += $allowedCustomNodes", executable)
         self.assertIn(
             ".\\download-models.ps1 -Profile $Profile -AcceptLicense",
             source,

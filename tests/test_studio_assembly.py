@@ -27,6 +27,14 @@ from tools.studio.assembly import (
     generate_local_assembly,
     validate_local_assembly_outputs,
 )
+from tools.studio.assembly_execution import (
+    CAPTION_STYLE_PRESET_SHORTS_JA_LARGE_V1,
+    CAPTION_STYLE_PRESET_STUDIO_DEFAULT_V1,
+    LocalAssemblyValidationError,
+    normalize_caption_style_preset,
+    validate_local_assembly_payload,
+    validate_normalized_caption_style,
+)
 from tools.studio.jobs import JobCancelled, JobExecutionContext
 
 
@@ -115,24 +123,39 @@ class LocalAssemblyTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.temporary.cleanup()
 
-    def _key(self, *, include_captioned: bool = True) -> str:
+    def _key(
+        self,
+        *,
+        include_captioned: bool = True,
+        caption_style_preset: str = CAPTION_STYLE_PRESET_STUDIO_DEFAULT_V1,
+    ) -> str:
         return assembly_cache_key(
             hashlib.sha256(self.source.read_bytes()).hexdigest(),
             hashlib.sha256(self.narration.read_bytes()).hexdigest(),
             hashlib.sha256(self.captions.read_bytes()).hexdigest(),
             include_captioned,
+            caption_style_preset=caption_style_preset,
         )
 
-    def _run(self, *, include_captioned: bool = True) -> dict[str, object]:
+    def _run(
+        self,
+        *,
+        include_captioned: bool = True,
+        caption_style_preset: str = CAPTION_STYLE_PRESET_STUDIO_DEFAULT_V1,
+    ) -> dict[str, object]:
         return generate_local_assembly(
             self.workspace,
             production_id="PROD_TEST",
             run_id="RUN_TEST",
-            cache_key=self._key(include_captioned=include_captioned),
+            cache_key=self._key(
+                include_captioned=include_captioned,
+                caption_style_preset=caption_style_preset,
+            ),
             source_video=self.source,
             narration_wav=self.narration,
             captions_srt=self.captions,
             include_captioned=include_captioned,
+            caption_style_preset=caption_style_preset,
         )
 
     def test_generates_verified_clean_captioned_outputs_and_cache_hit(self) -> None:
@@ -203,6 +226,135 @@ class LocalAssemblyTests(unittest.TestCase):
             {"master-clean.mp4", "ffprobe.json", "manifest.json"},
         )
         self.assertFalse((self.workspace / result["output_directory"] / "master-captioned.mp4").exists())  # type: ignore[operator]
+
+    def test_caption_style_request_is_a_closed_backward_compatible_preset_enum(self) -> None:
+        base = {
+            "video_artifact_id": "art_" + "a" * 32,
+            "narration_attempt_id": "attempt_" + "b" * 32,
+            "include_captioned": True,
+        }
+        default = validate_local_assembly_payload(base)
+        self.assertEqual(
+            default["caption_style_preset"],
+            CAPTION_STYLE_PRESET_STUDIO_DEFAULT_V1,
+        )
+        self.assertEqual(
+            default["caption_style"],
+            normalize_caption_style_preset(CAPTION_STYLE_PRESET_STUDIO_DEFAULT_V1),
+        )
+
+        shorts = validate_local_assembly_payload(
+            {**base, "caption_style_preset": CAPTION_STYLE_PRESET_SHORTS_JA_LARGE_V1}
+        )
+        self.assertEqual(
+            shorts["caption_style"],
+            normalize_caption_style_preset(CAPTION_STYLE_PRESET_SHORTS_JA_LARGE_V1),
+        )
+
+        for unsafe in (
+            {**base, "caption_style": {"font_path": "C:/Windows/Fonts/meiryo.ttc"}},
+            {**base, "font_path": "C:/Windows/Fonts/meiryo.ttc"},
+            {**base, "filter": "subtitles=evil.ass"},
+            {**base, "caption_style_preset": r"{\an8}\pos(1,2)"},
+            {**base, "caption_style_preset": "C:/Windows/Fonts/meiryo.ttc"},
+            {
+                **base,
+                "include_captioned": False,
+                "caption_style_preset": CAPTION_STYLE_PRESET_SHORTS_JA_LARGE_V1,
+            },
+        ):
+            with self.subTest(unsafe=unsafe), self.assertRaises(LocalAssemblyValidationError):
+                validate_local_assembly_payload(unsafe)
+
+        tampered = normalize_caption_style_preset(CAPTION_STYLE_PRESET_SHORTS_JA_LARGE_V1)
+        tampered["font_name"] = "../../outside.ttf"
+        with self.assertRaises(LocalAssemblyValidationError):
+            validate_normalized_caption_style(tampered)
+
+    def test_shorts_caption_style_is_large_bold_safe_and_audited(self) -> None:
+        default_key = self._key()
+        shorts_key = self._key(
+            caption_style_preset=CAPTION_STYLE_PRESET_SHORTS_JA_LARGE_V1
+        )
+        self.assertNotEqual(default_key, shorts_key)
+
+        result = self._run(
+            caption_style_preset=CAPTION_STYLE_PRESET_SHORTS_JA_LARGE_V1
+        )
+        expected_style = normalize_caption_style_preset(
+            CAPTION_STYLE_PRESET_SHORTS_JA_LARGE_V1
+        )
+        self.assertEqual(result["caption_style_preset"], expected_style["preset"])
+        self.assertEqual(result["caption_style"], expected_style)
+        manifest_path = self.workspace / next(
+            item["path"]
+            for item in result["artifacts"]  # type: ignore[index]
+            if item["name"] == "manifest.json"
+        )
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        self.assertEqual(manifest["caption_style_preset"], expected_style["preset"])
+        self.assertEqual(manifest["caption_style"], expected_style)
+        self.assertEqual(manifest["caption_policy"]["preset"], expected_style["preset"])
+
+        validated = validate_local_assembly_outputs(
+            self.workspace,
+            production_id="PROD_TEST",
+            run_id="RUN_TEST",
+            cache_key=shorts_key,
+            source_video=self.source,
+            narration_wav=self.narration,
+            captions_srt=self.captions,
+            include_captioned=True,
+            caption_style_preset=CAPTION_STYLE_PRESET_SHORTS_JA_LARGE_V1,
+        )
+        self.assertTrue(validated["cache_hit"])
+        self.assertEqual(validated["caption_style"], expected_style)
+
+    def test_caption_style_manifest_tamper_is_rejected_even_with_a_new_self_hash(self) -> None:
+        result = self._run(
+            caption_style_preset=CAPTION_STYLE_PRESET_SHORTS_JA_LARGE_V1
+        )
+        manifest_path = self.workspace / next(
+            item["path"]
+            for item in result["artifacts"]  # type: ignore[index]
+            if item["name"] == "manifest.json"
+        )
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest.pop("manifest_sha256")
+        manifest["caption_style"]["font_size"] = 1
+        manifest["manifest_sha256"] = hashlib.sha256(
+            json.dumps(
+                manifest,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest().upper()
+        manifest_path.write_text(
+            json.dumps(
+                manifest,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+        with self.assertRaisesRegex(AssemblyError, "integrity"):
+            validate_local_assembly_outputs(
+                self.workspace,
+                production_id="PROD_TEST",
+                run_id="RUN_TEST",
+                cache_key=self._key(
+                    caption_style_preset=CAPTION_STYLE_PRESET_SHORTS_JA_LARGE_V1
+                ),
+                source_video=self.source,
+                narration_wav=self.narration,
+                captions_srt=self.captions,
+                include_captioned=True,
+                caption_style_preset=CAPTION_STYLE_PRESET_SHORTS_JA_LARGE_V1,
+            )
 
     def test_cache_tamper_is_regenerated_and_provenance_is_strict(self) -> None:
         first = self._run()
@@ -547,6 +699,29 @@ class LocalAssemblyTests(unittest.TestCase):
         self.assertIn("｛", dialogue)
         self.assertIn("｝", dialogue)
         self.assertIn("＼N", dialogue)
+
+    def test_ass_style_lines_match_default_and_shorts_presets(self) -> None:
+        raw = "1\n00:00:00,000 --> 00:00:01,000\n日本語字幕\n".encode("utf-8")
+        default = _build_ass(raw, width=1080, height=1920).decode("utf-8")
+        self.assertIn("WrapStyle: 2", default)
+        self.assertIn(
+            "Style: StudioDefault,Arial,42,&H00FFFFFF,&H00FFFFFF,&H00101010,&H90000000,0,0,0,0,100,100,0,0,1,2,1,2,48,48,48,1",
+            default,
+        )
+        self.assertIn(",StudioDefault,日本語字幕", default)
+
+        shorts = _build_ass(
+            raw,
+            width=1080,
+            height=1920,
+            caption_style_preset=CAPTION_STYLE_PRESET_SHORTS_JA_LARGE_V1,
+        ).decode("utf-8")
+        self.assertIn("WrapStyle: 0", shorts)
+        self.assertIn(
+            "Style: ShortsJaLarge,Yu Gothic UI,80,&H00FFFFFF,&H00FFFFFF,&H00101010,&H90000000,-1,0,0,0,100,100,0,0,1,5,1,2,96,96,300,1",
+            shorts,
+        )
+        self.assertIn(",ShortsJaLarge,日本語字幕", shorts)
 
     def test_cache_key_changes_with_tool_identity(self) -> None:
         kwargs = {

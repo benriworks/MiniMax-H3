@@ -3,8 +3,10 @@ from __future__ import annotations
 import hashlib
 import importlib
 import inspect
+import json
 import mimetypes
 import re
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +25,20 @@ from .database import (
     money_to_minor,
     utc_now,
 )
+from .comfyui_execution import (
+    COMFYUI_WORKFLOW_RELATIVE_PATH,
+    MODEL_SPECS as COMFYUI_MODEL_SPECS,
+    ComfyUIError,
+    ComfyUIValidationError,
+    comfyui_audit_payload,
+    comfyui_cache_key,
+    comfyui_payload_digest,
+    comfyui_public_result,
+    normalize_model_records,
+    normalize_workflow_record,
+    safe_comfyui_error,
+    validate_comfyui_payload,
+)
 from .execution import (
     LocalNarrationError,
     LocalNarrationValidationError,
@@ -34,6 +50,16 @@ from .execution import (
 )
 from .indexer import ProductionIndexer
 from .jobs import AuditExporter, JobCancelled, JobExecutionContext, JobManager
+from .pipeline import (
+    LOCAL_PIPELINE_JOB_KIND,
+    LOCAL_PIPELINE_PROFILE,
+    LocalPipelineError,
+    LocalPipelineValidationError,
+    local_pipeline_audit_payload,
+    local_pipeline_key,
+    run_local_pipeline,
+    validate_local_pipeline_payload,
+)
 from .qc_execution import (
     LocalQcError,
     LocalQcValidationError,
@@ -53,6 +79,7 @@ from .timeline_execution import (
 from .secrets import SecretStore, dpapi_available
 from .security import (
     SecurityError,
+    canonical_json,
     relative_workspace_path,
     sanitize_for_storage,
     sensitive_artifact_path,
@@ -120,11 +147,26 @@ _DEPENDENTS: dict[str, set[str]] = {
 }
 
 _CURRENCY_RE = re.compile(r"^[A-Z]{3}$")
-_EXECUTION_PROFILES = {"external", "local_sapi", "elevenlabs_tts"}
+_EXECUTION_PROFILES = {
+    "external",
+    "local_sapi",
+    "elevenlabs_tts",
+    "local_comfyui",
+}
 _LOCAL_SAPI_ZERO_COST_STAGES = {"narration", "captions", "timeline", "assembly", "qc"}
 _ELEVENLABS_TTS_STAGES = {"narration", "captions", "assembly", "qc"}
-_LOCAL_DOWNSTREAM_PROFILES = {"local_sapi", "elevenlabs_tts"}
+_LOCAL_COMFYUI_ZERO_COST_STAGES = {"video_generation", "timeline", "assembly", "qc"}
+_LOCAL_PIPELINE_ZERO_COST_STAGES = {
+    "narration",
+    "captions",
+    "video_generation",
+    "timeline",
+    "assembly",
+    "qc",
+}
+_LOCAL_DOWNSTREAM_PROFILES = {"local_sapi", "elevenlabs_tts", "local_pipeline"}
 _LOCAL_NARRATION_STAGE = "narration"
+_LOCAL_VIDEO_GENERATION_STAGE = "video_generation"
 _LOCAL_TIMELINE_STAGE = "timeline"
 _LOCAL_ASSEMBLY_STAGE = "assembly"
 _LOCAL_QC_STAGE = "qc"
@@ -133,6 +175,12 @@ _LOCAL_NARRATION_ARTIFACTS = {
     "narration.wav": ("audio", "audio/wav"),
     "captions.srt": ("subtitle", "application/x-subrip"),
     "timings.json": ("document", "application/json"),
+    "manifest.json": ("document", "application/json"),
+}
+_LOCAL_COMFYUI_ARTIFACTS = {
+    "generated-video.mp4": ("video", "video/mp4"),
+    "workflow.json": ("document", "application/json"),
+    "ffprobe.json": ("document", "application/json"),
     "manifest.json": ("document", "application/json"),
 }
 _LOCAL_ASSEMBLY_ARTIFACTS = {
@@ -302,6 +350,8 @@ def _stage_completion_result(
     attempt_id: str,
     result: dict[str, Any],
     cancel_event: JobExecutionContext | None,
+    *,
+    artifact_records: tuple[dict[str, Any], ...] = (),
 ) -> dict[str, Any] | AtomicStageCompletion:
     """Return a public result or the internal atomic-completion envelope.
 
@@ -315,8 +365,12 @@ def _stage_completion_result(
 
     public_result = {"stage_attempt_id": attempt_id, **result}
     if cancel_event is None:
+        if artifact_records:
+            raise ValueError(
+                "atomic artifact registration requires a job execution context"
+            )
         return public_result
-    return AtomicStageCompletion(attempt_id, result)
+    return AtomicStageCompletion(attempt_id, result, artifact_records)
 
 
 def _has_symlink_component(workspace: Path, candidate: str | Path) -> bool:
@@ -404,6 +458,50 @@ class StudioService:
         self.secret_store = SecretStore(self.workspace)
         self.jobs = JobManager(self.database)
         self.audit_exporter = AuditExporter(self.workspace, self.database)
+        self._pipeline_submit_lock = threading.Lock()
+        self._pipeline_capability = object()
+
+    def _complete_local_stage(
+        self,
+        attempt_id: str,
+        production_id: str,
+        result: dict[str, Any],
+        cancel_event: JobExecutionContext | None,
+        *,
+        artifact_records: list[dict[str, Any]] | tuple[dict[str, Any], ...] = (),
+    ) -> dict[str, Any] | AtomicStageCompletion:
+        """Complete a local stage without publishing artifacts ahead of it.
+
+        JobManager-backed calls pass validated artifact records to the database
+        in :class:`AtomicStageCompletion`, so artifact registration and the
+        linked job/stage success transition share one transaction. Historical
+        direct helper calls have no manager transaction; preserve their public
+        mapping behavior by registering the already-validated records here.
+        """
+
+        public = dict(result)
+        records = tuple(dict(item) for item in artifact_records)
+        if records:
+            if public.get("artifacts") not in (None, []):
+                raise ValueError(
+                    "atomic artifact records require an empty public artifact list"
+                )
+            if cancel_event is None:
+                public["artifacts"] = [
+                    self.database.register_studio_artifact(production_id, item)
+                    for item in records
+                ]
+                records = ()
+            else:
+                # The database replaces this placeholder with registered
+                # public artifacts inside the terminal transaction.
+                public["artifacts"] = []
+        return _stage_completion_result(
+            attempt_id,
+            public,
+            cancel_event,
+            artifact_records=records,
+        )
 
     def close(self) -> None:
         self.jobs.shutdown()
@@ -505,10 +603,15 @@ class StudioService:
         if not isinstance(execution_profile, str) or execution_profile not in _EXECUTION_PROFILES:
             raise RequestValidationError("execution_profile is not supported")
         affected_stages = set(plan["affected_stages"])
-        local_zero_cost_plan = (
-            execution_profile == "local_sapi"
-            and bool(affected_stages)
-            and affected_stages.issubset(_LOCAL_SAPI_ZERO_COST_STAGES)
+        local_zero_cost_plan = bool(affected_stages) and (
+            (
+                execution_profile == "local_sapi"
+                and affected_stages.issubset(_LOCAL_SAPI_ZERO_COST_STAGES)
+            )
+            or (
+                execution_profile == "local_comfyui"
+                and affected_stages.issubset(_LOCAL_COMFYUI_ZERO_COST_STAGES)
+            )
         )
         if (
             execution_profile == "local_sapi"
@@ -517,6 +620,18 @@ class StudioService:
         ):
             raise RequestValidationError(
                 "local_sapi zero-cost runs may only affect narration, captions, timeline, assembly, or qc.",
+                code="local_profile_stage_not_allowed",
+            )
+        if (
+            execution_profile == "local_comfyui"
+            and amount_minor == 0
+            and (
+                _LOCAL_VIDEO_GENERATION_STAGE not in affected_stages
+                or not affected_stages.issubset(_LOCAL_COMFYUI_ZERO_COST_STAGES)
+            )
+        ):
+            raise RequestValidationError(
+                "local_comfyui runs require video_generation and may only affect video_generation, timeline, assembly, or qc.",
                 code="local_profile_stage_not_allowed",
             )
         if plan["billable_stages"] and amount_minor <= 0 and not local_zero_cost_plan:
@@ -549,6 +664,20 @@ class StudioService:
                     "elevenlabs_tts runs require a positive estimated_cost.",
                     code="cost_estimate_required",
                 )
+        if execution_profile == "local_comfyui":
+            if amount_minor != 0:
+                raise RequestValidationError(
+                    "local_comfyui runs must use a zero-cost estimate.",
+                    code="local_profile_cost_not_allowed",
+                )
+            if (
+                _LOCAL_VIDEO_GENERATION_STAGE not in affected_stages
+                or not affected_stages.issubset(_LOCAL_COMFYUI_ZERO_COST_STAGES)
+            ):
+                raise RequestValidationError(
+                    "local_comfyui runs require video_generation and may only affect video_generation, timeline, assembly, or qc.",
+                    code="local_profile_stage_not_allowed",
+                )
         parent_revision_id = body.get("parent_revision_id")
         if parent_revision_id is not None:
             validate_identifier(parent_revision_id, label="parent revision id")
@@ -562,6 +691,1416 @@ class StudioService:
             execution_profile=execution_profile,
         )
         return {"revision": revision, "run": run}
+
+    @staticmethod
+    def _pipeline_artifact_view(value: Any) -> dict[str, Any] | None:
+        if not isinstance(value, dict):
+            return None
+        artifact_id = value.get("id", value.get("artifact_id"))
+        rel_path = value.get("rel_path", value.get("path"))
+        media_type = value.get("media_type", value.get("mime"))
+        view = {
+            "id": artifact_id,
+            "name": value.get("name"),
+            "kind": value.get("kind"),
+            "media_type": media_type,
+            "rel_path": rel_path,
+            "bytes": value.get("bytes"),
+            "sha256": value.get("sha256"),
+        }
+        if (
+            not isinstance(artifact_id, str)
+            or not isinstance(view["name"], str)
+            or not isinstance(view["kind"], str)
+            or not isinstance(media_type, str)
+            or not isinstance(rel_path, str)
+            or isinstance(view["bytes"], bool)
+            or not isinstance(view["bytes"], int)
+            or view["bytes"] <= 0
+            or not isinstance(view["sha256"], str)
+            or re.fullmatch(r"[0-9A-Fa-f]{64}", view["sha256"]) is None
+        ):
+            return None
+        view["sha256"] = view["sha256"].upper()
+        return view
+
+    def _verified_pipeline_attempt(
+        self,
+        run: dict[str, Any],
+        stage: str,
+        attempt_id: Any,
+        pipeline_key: str,
+    ) -> dict[str, Any]:
+        try:
+            validate_identifier(attempt_id, label="stage attempt id")
+        except (SecurityError, TypeError, ValueError):
+            raise RequestValidationError(
+                "The local pipeline stage lineage is invalid.",
+                code="invalid_provenance",
+            ) from None
+        attempt = self.database.get_stage_attempt(attempt_id)
+        job = (
+            self.database.get_job(attempt.get("job_id"))
+            if isinstance(attempt, dict) and isinstance(attempt.get("job_id"), str)
+            else None
+        )
+        attempt_result = attempt.get("result") if isinstance(attempt, dict) else None
+        job_result = job.get("result") if isinstance(job, dict) else None
+        job_payload = job.get("payload") if isinstance(job, dict) else None
+        if (
+            not isinstance(attempt, dict)
+            or attempt.get("run_id") != run["id"]
+            or attempt.get("production_id") != run["production_id"]
+            or attempt.get("stage") != stage
+            or attempt.get("status") != "succeeded"
+            or not isinstance(attempt_result, dict)
+            or not isinstance(job, dict)
+            or job.get("id") != attempt.get("job_id")
+            or job.get("production_id") != run["production_id"]
+            or job.get("status") != "succeeded"
+            or not isinstance(job_payload, dict)
+            or job_payload.get("run_id") != run["id"]
+            or job_payload.get("stage") != stage
+            or job_payload.get("execution_profile") != LOCAL_PIPELINE_PROFILE
+            or job_payload.get("pipeline_key") != pipeline_key
+            or job_payload.get("stage_attempt_id") != attempt_id
+            or not isinstance(job_result, dict)
+            or job_result.get("stage_attempt_id") != attempt_id
+            or {key: value for key, value in job_result.items() if key != "stage_attempt_id"}
+            != attempt_result
+        ):
+            raise RequestValidationError(
+                "The local pipeline stage lineage could not be verified.",
+                code="invalid_provenance",
+            )
+        return attempt
+
+    def _verified_pipeline_artifact(
+        self,
+        run: dict[str, Any],
+        attempt: dict[str, Any],
+        supplied: Any,
+    ) -> dict[str, Any]:
+        expected = self._pipeline_artifact_view(supplied)
+        result = attempt.get("result")
+        raw_artifacts = result.get("artifacts") if isinstance(result, dict) else None
+        matches = (
+            [
+                self._pipeline_artifact_view(item)
+                for item in raw_artifacts
+                if isinstance(item, dict)
+                and expected is not None
+                and item.get("id", item.get("artifact_id")) == expected["id"]
+            ]
+            if isinstance(raw_artifacts, list)
+            else []
+        )
+        registered = (
+            self.database.get_artifact(expected["id"])
+            if expected is not None
+            else None
+        )
+        registered_view = self._pipeline_artifact_view(registered)
+        if (
+            expected is None
+            or len(matches) != 1
+            or matches[0] != expected
+            or registered_view != expected
+            or not isinstance(registered, dict)
+            or registered.get("production_id") != run["production_id"]
+            or registered.get("available") is not True
+            or registered.get("origin") != "studio"
+        ):
+            raise RequestValidationError(
+                "The local pipeline artifact lineage could not be verified.",
+                code="invalid_provenance",
+            )
+        return expected
+
+    def _validate_pipeline_child_lineage(
+        self,
+        run: dict[str, Any],
+        stage: str,
+        body: dict[str, Any],
+        pipeline_key: str,
+        lineage: Any,
+    ) -> dict[str, Any]:
+        if not isinstance(lineage, dict) or any(
+            not isinstance(key, str) for key in lineage
+        ):
+            raise RequestValidationError(
+                "The local pipeline lineage is invalid.", code="invalid_provenance"
+            )
+        expected_keys = {
+            "video_generation": set(),
+            "narration": {"video_generation_attempt_id"},
+            "timeline": {
+                "video_generation_attempt_id",
+                "narration_attempt_id",
+                "video_artifact",
+            },
+            "assembly": {
+                "narration_attempt_id",
+                "timeline_attempt_id",
+                "timeline_artifact",
+            },
+            "qc": {"assembly_attempt_id", "master_artifact"},
+        }
+        if stage not in expected_keys or set(lineage) != expected_keys[stage]:
+            raise RequestValidationError(
+                "The local pipeline lineage is incomplete.", code="invalid_provenance"
+            )
+
+        verified: dict[str, Any] = {}
+        if stage in {"narration", "timeline"}:
+            video_attempt = self._verified_pipeline_attempt(
+                run,
+                "video_generation",
+                lineage["video_generation_attempt_id"],
+                pipeline_key,
+            )
+            verified["video_generation_attempt_id"] = video_attempt["id"]
+        if stage in {"timeline", "assembly"}:
+            narration_attempt = self._verified_pipeline_attempt(
+                run,
+                "narration",
+                lineage["narration_attempt_id"],
+                pipeline_key,
+            )
+            verified["narration_attempt_id"] = narration_attempt["id"]
+        if stage == "timeline":
+            video_artifact = self._verified_pipeline_artifact(
+                run, video_attempt, lineage["video_artifact"]
+            )
+            clips = body.get("clips") if isinstance(body, dict) else None
+            if (
+                not isinstance(clips, list)
+                or len(clips) != 1
+                or not isinstance(clips[0], dict)
+                or clips[0].get("video_artifact_id") != video_artifact["id"]
+            ):
+                raise RequestValidationError(
+                    "The local pipeline timeline input changed.",
+                    code="input_changed",
+                )
+            verified["video_artifact_id"] = video_artifact["id"]
+            verified["video_artifact_sha256"] = video_artifact["sha256"]
+        if stage == "assembly":
+            timeline_attempt = self._verified_pipeline_attempt(
+                run,
+                "timeline",
+                lineage["timeline_attempt_id"],
+                pipeline_key,
+            )
+            timeline_artifact = self._verified_pipeline_artifact(
+                run, timeline_attempt, lineage["timeline_artifact"]
+            )
+            if (
+                body.get("narration_attempt_id") != narration_attempt["id"]
+                or body.get("video_artifact_id") != timeline_artifact["id"]
+            ):
+                raise RequestValidationError(
+                    "The local pipeline assembly input changed.", code="input_changed"
+                )
+            verified["timeline_attempt_id"] = timeline_attempt["id"]
+            verified["timeline_artifact_id"] = timeline_artifact["id"]
+            verified["timeline_artifact_sha256"] = timeline_artifact["sha256"]
+        if stage == "qc":
+            assembly_attempt = self._verified_pipeline_attempt(
+                run,
+                "assembly",
+                lineage["assembly_attempt_id"],
+                pipeline_key,
+            )
+            master = self._verified_pipeline_artifact(
+                run, assembly_attempt, lineage["master_artifact"]
+            )
+            expected_name = (
+                "master-captioned.mp4"
+                if body.get("variant") == "captioned"
+                else "master-clean.mp4"
+            )
+            if (
+                body.get("assembly_attempt_id") != assembly_attempt["id"]
+                or master["name"] != expected_name
+            ):
+                raise RequestValidationError(
+                    "The local pipeline QC input changed.", code="input_changed"
+                )
+            verified["assembly_attempt_id"] = assembly_attempt["id"]
+            verified["master_artifact_id"] = master["id"]
+            verified["master_artifact_sha256"] = master["sha256"]
+        return verified
+
+    def _pipeline_run(self, run_id: str, pipeline_key: str) -> dict[str, Any]:
+        validate_identifier(run_id, label="run id")
+        run = self.database.get_run(run_id)
+        if (
+            run is None
+            or run.get("execution_profile") != LOCAL_PIPELINE_PROFILE
+            or run.get("pipeline_key") != pipeline_key
+            or set(run.get("requested_stages", []))
+            != _LOCAL_PIPELINE_ZERO_COST_STAGES
+            or run.get("estimated_cost", {}).get("amount") != "0.00"
+        ):
+            raise RequestValidationError(
+                "The local pipeline run is invalid.", code="invalid_provenance"
+            )
+        return run
+
+    def _pipeline_child_metadata(
+        self,
+        run: dict[str, Any],
+        capability: object | None,
+        pipeline_key: str | None,
+        lineage: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        if run.get("execution_profile") != LOCAL_PIPELINE_PROFILE:
+            if capability is not None or pipeline_key is not None or lineage is not None:
+                raise RequestValidationError(
+                    "Internal pipeline metadata is not accepted for this run.",
+                    code="invalid_provenance",
+                )
+            return {}
+        if (
+            capability is not self._pipeline_capability
+            or pipeline_key != run.get("pipeline_key")
+            or not isinstance(lineage, dict)
+        ):
+            raise RequestValidationError(
+                "Direct execution of a local pipeline child is blocked.",
+                code="execution_profile_required",
+            )
+        return {
+            "pipeline_key": pipeline_key,
+            "pipeline_lineage": sanitize_for_storage(lineage),
+        }
+
+    def _pipeline_artifact_is_intact(
+        self, production_id: str, value: Any
+    ) -> bool:
+        expected = self._pipeline_artifact_view(value)
+        if expected is None:
+            return False
+        registered = self.database.get_artifact(expected["id"])
+        if (
+            self._pipeline_artifact_view(registered) != expected
+            or not isinstance(registered, dict)
+            or registered.get("production_id") != production_id
+            or registered.get("available") is not True
+            or registered.get("origin") != "studio"
+            or sensitive_artifact_path(expected["rel_path"])
+        ):
+            return False
+        try:
+            if _has_symlink_component(self.workspace, expected["rel_path"]):
+                return False
+            path = workspace_path(
+                self.workspace, expected["rel_path"], must_exist=True
+            )
+            stat = path.stat()
+            return bool(
+                not path.is_symlink()
+                and path.is_file()
+                and stat.st_size == expected["bytes"]
+                and _sha256_file(path) == expected["sha256"]
+            )
+        except (SecurityError, OSError):
+            return False
+
+    def _reusable_succeeded_pipeline_job(
+        self,
+        job: dict[str, Any],
+        run: dict[str, Any],
+        revision: dict[str, Any],
+        pipeline_key: str,
+        payload: dict[str, Any],
+    ) -> bool:
+        result = job.get("result")
+        if not isinstance(result, dict):
+            return False
+        child_jobs = result.get("jobs")
+        expected_child_kinds = {
+            "video_generation": "local_video_generation",
+            "narration": "local_narration",
+            "timeline": "local_timeline",
+            "assembly": "local_assembly",
+            "qc": "local_qc",
+        }
+        if not isinstance(child_jobs, dict) or set(child_jobs) != set(
+            expected_child_kinds
+        ):
+            return False
+        seen_job_ids: set[str] = set()
+        seen_attempt_ids: set[str] = set()
+        attempt_results: dict[str, dict[str, Any]] = {}
+        child_payloads: dict[str, dict[str, Any]] = {}
+        for stage, expected_kind in expected_child_kinds.items():
+            child = child_jobs.get(stage)
+            if not isinstance(child, dict) or set(child) != {
+                "job_id",
+                "stage_attempt_id",
+                "cache_hit",
+            }:
+                return False
+            child_job_id = child.get("job_id")
+            attempt_id = child.get("stage_attempt_id")
+            try:
+                validate_identifier(child_job_id, label="job id")
+                validate_identifier(attempt_id, label="stage attempt id")
+            except (SecurityError, TypeError, ValueError):
+                return False
+            if (
+                child_job_id in seen_job_ids
+                or attempt_id in seen_attempt_ids
+                or not isinstance(child.get("cache_hit"), bool)
+            ):
+                return False
+            seen_job_ids.add(child_job_id)
+            seen_attempt_ids.add(attempt_id)
+            child_job = self.database.get_job(child_job_id)
+            attempt = self.database.get_stage_attempt(attempt_id)
+            child_payload = (
+                child_job.get("payload") if isinstance(child_job, dict) else None
+            )
+            child_result = (
+                child_job.get("result") if isinstance(child_job, dict) else None
+            )
+            attempt_result = (
+                attempt.get("result") if isinstance(attempt, dict) else None
+            )
+            if (
+                not isinstance(child_job, dict)
+                or child_job.get("kind") != expected_kind
+                or child_job.get("status") != "succeeded"
+                or child_job.get("production_id") != run["production_id"]
+                or not isinstance(child_payload, dict)
+                or child_payload.get("run_id") != run["id"]
+                or child_payload.get("production_id") != run["production_id"]
+                or child_payload.get("stage") != stage
+                or child_payload.get("stage_attempt_id") != attempt_id
+                or child_payload.get("execution_profile") != LOCAL_PIPELINE_PROFILE
+                or child_payload.get("pipeline_key") != pipeline_key
+                or not isinstance(child_result, dict)
+                or child_result.get("stage_attempt_id") != attempt_id
+                or child_result.get("cache_hit") != child.get("cache_hit")
+                or not isinstance(attempt_result, dict)
+                or {
+                    key: value
+                    for key, value in child_result.items()
+                    if key != "stage_attempt_id"
+                }
+                != attempt_result
+                or not isinstance(attempt, dict)
+                or attempt.get("id") != attempt_id
+                or attempt.get("job_id") != child_job_id
+                or attempt.get("run_id") != run["id"]
+                or attempt.get("production_id") != run["production_id"]
+                or attempt.get("stage") != stage
+                or attempt.get("status") != "succeeded"
+            ):
+                return False
+            attempt_results[stage] = attempt_result
+            child_payloads[stage] = child_payload
+        assembly_artifacts = dict(_LOCAL_ASSEMBLY_ARTIFACTS)
+        if not payload["include_captioned"]:
+            assembly_artifacts.pop("master-captioned.mp4", None)
+        expected_stage_artifacts = {
+            "video_generation": _LOCAL_COMFYUI_ARTIFACTS,
+            "narration": _LOCAL_NARRATION_ARTIFACTS,
+            "timeline": _LOCAL_TIMELINE_ARTIFACTS,
+            "assembly": assembly_artifacts,
+            "qc": _LOCAL_QC_ARTIFACTS,
+        }
+        for stage, expected_specs in expected_stage_artifacts.items():
+            raw = attempt_results[stage].get("artifacts")
+            if not isinstance(raw, list) or len(raw) != len(expected_specs):
+                return False
+            by_name: dict[str, dict[str, Any]] = {}
+            for item in raw:
+                view = self._pipeline_artifact_view(item)
+                if view is None or view["name"] in by_name:
+                    return False
+                by_name[view["name"]] = view
+            if set(by_name) != set(expected_specs):
+                return False
+            if any(
+                view["kind"] != expected_specs[name][0]
+                or view["media_type"] != expected_specs[name][1]
+                or not self._pipeline_artifact_is_intact(
+                    run["production_id"], view
+                )
+                for name, view in by_name.items()
+            ):
+                return False
+        expected_master_name = (
+            "master-captioned.mp4"
+            if payload["variant"] == "captioned"
+            else "master-clean.mp4"
+        )
+        artifacts = result.get("artifacts")
+        if not isinstance(artifacts, list) or len(artifacts) != 4:
+            return False
+        names = {
+            item.get("name") for item in artifacts if isinstance(item, dict)
+        }
+        if names != {
+            expected_master_name,
+            "technical-qc.json",
+            "ffprobe.json",
+            "manifest.json",
+        }:
+            return False
+        master = self._pipeline_artifact_view(result.get("master"))
+        generated = self._pipeline_artifact_view(result.get("video"))
+        timeline = self._pipeline_artifact_view(result.get("timeline"))
+        selected = [
+            self._pipeline_artifact_view(item)
+            for item in artifacts
+            if isinstance(item, dict) and item.get("name") == expected_master_name
+        ]
+        qc_result = result.get("qc")
+        reports = (
+            qc_result.get("report_artifacts")
+            if isinstance(qc_result, dict)
+            else None
+        )
+        report_views = (
+            [self._pipeline_artifact_view(item) for item in reports]
+            if isinstance(reports, list)
+            else []
+        )
+        final_report_views = [
+            self._pipeline_artifact_view(item)
+            for item in artifacts
+            if isinstance(item, dict) and item.get("name") != expected_master_name
+        ]
+
+        def child_artifact(stage: str, name: str) -> dict[str, Any] | None:
+            raw = attempt_results.get(stage, {}).get("artifacts")
+            matches = (
+                [
+                    self._pipeline_artifact_view(item)
+                    for item in raw
+                    if isinstance(item, dict) and item.get("name") == name
+                ]
+                if isinstance(raw, list)
+                else []
+            )
+            return matches[0] if len(matches) == 1 else None
+
+        report_names = {"technical-qc.json", "ffprobe.json", "manifest.json"}
+        report_view_by_name = {
+            item["name"]: item for item in report_views if isinstance(item, dict)
+        }
+        final_report_view_by_name = {
+            item["name"]: item
+            for item in final_report_views
+            if isinstance(item, dict)
+        }
+        expected_lineages = {
+            "video_generation": {},
+            "narration": {
+                "video_generation_attempt_id": child_jobs["video_generation"][
+                    "stage_attempt_id"
+                ]
+            },
+            "timeline": {
+                "video_generation_attempt_id": child_jobs["video_generation"][
+                    "stage_attempt_id"
+                ],
+                "narration_attempt_id": child_jobs["narration"][
+                    "stage_attempt_id"
+                ],
+                "video_artifact_id": generated["id"] if generated else None,
+                "video_artifact_sha256": generated["sha256"] if generated else None,
+            },
+            "assembly": {
+                "narration_attempt_id": child_jobs["narration"][
+                    "stage_attempt_id"
+                ],
+                "timeline_attempt_id": child_jobs["timeline"][
+                    "stage_attempt_id"
+                ],
+                "timeline_artifact_id": timeline["id"] if timeline else None,
+                "timeline_artifact_sha256": timeline["sha256"] if timeline else None,
+            },
+            "qc": {
+                "assembly_attempt_id": child_jobs["assembly"][
+                    "stage_attempt_id"
+                ],
+                "master_artifact_id": master["id"] if master else None,
+                "master_artifact_sha256": master["sha256"] if master else None,
+            },
+        }
+        qc_child_result = attempt_results.get("qc", {})
+        qc_child_verdict = qc_child_result.get(
+            "technical_verdict", qc_child_result.get("verdict")
+        )
+        if (
+            result.get("production_id") != run["production_id"]
+            or result.get("run_id") != run["id"]
+            or result.get("revision_id") != revision["id"]
+            or result.get("pipeline_key") != pipeline_key
+            or result.get("execution_profile") != LOCAL_PIPELINE_PROFILE
+            or result.get("technical_verdict") != "pass"
+            or result.get("variant") != payload["variant"]
+            or result.get("caption_style_preset")
+            != payload["caption_style_preset"]
+            or result.get("workflow_preset") != payload["workflow_preset"]
+            or result.get("prompt_sha256")
+            != hashlib.sha256(payload["prompt"].encode("utf-8")).hexdigest().upper()
+            or result.get("seed_decimal") != str(payload["seed"])
+            or isinstance(result.get("duration_ms"), bool)
+            or not isinstance(result.get("duration_ms"), int)
+            or result.get("duration_ms") <= 0
+            or attempt_results.get("video_generation", {}).get("duration_ms")
+            != result.get("duration_ms")
+            or qc_child_result.get("analysis_status") != "succeeded"
+            or qc_child_verdict != "pass"
+            or any(
+                child_payloads[stage].get("pipeline_lineage") != expected
+                for stage, expected in expected_lineages.items()
+            )
+            or generated is None
+            or generated.get("name") != "generated-video.mp4"
+            or generated.get("kind") != "video"
+            or generated
+            != child_artifact("video_generation", "generated-video.mp4")
+            or timeline is None
+            or timeline.get("name") != "timeline-preview.mp4"
+            or timeline.get("kind") != "video"
+            or timeline != child_artifact("timeline", "timeline-preview.mp4")
+            or len(selected) != 1
+            or selected[0] is None
+            or master != selected[0]
+            or master != child_artifact("assembly", expected_master_name)
+            or not isinstance(qc_result, dict)
+            or qc_result.get("verdict") != "pass"
+            or not isinstance(reports, list)
+            or len(reports) != 3
+            or any(item is None for item in report_views)
+            or {
+                item.get("name") for item in reports if isinstance(item, dict)
+            }
+            != report_names
+            or set(report_view_by_name) != report_names
+            or set(final_report_view_by_name) != report_names
+            or report_view_by_name != final_report_view_by_name
+            or any(
+                view != child_artifact("qc", name)
+                for name, view in report_view_by_name.items()
+            )
+        ):
+            return False
+        # Every top-level artifact is now exactly bound to a child artifact,
+        # and every child artifact was physically rehashed above.
+        return True
+
+    def _validated_local_pipeline_result(
+        self,
+        result: Any,
+        *,
+        run: dict[str, Any],
+        revision: dict[str, Any],
+        pipeline_key: str,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        candidate = {"result": result}
+        if not self._reusable_succeeded_pipeline_job(
+            candidate, run, revision, pipeline_key, payload
+        ):
+            raise LocalPipelineError(
+                "The local pipeline returned an invalid result.",
+                code="invalid_worker_result",
+            )
+        assert isinstance(result, dict)
+        return result
+
+    def _execute_local_pipeline_stage(
+        self,
+        run_id: str,
+        stage: str,
+        body: dict[str, Any],
+        *,
+        pipeline_key: str,
+        lineage: dict[str, Any],
+    ) -> dict[str, Any]:
+        run = self._pipeline_run(run_id, pipeline_key)
+        lineage_audit = self._validate_pipeline_child_lineage(
+            run, stage, body, pipeline_key, lineage
+        )
+        methods = {
+            "video_generation": self.execute_local_video_generation,
+            "narration": self.execute_local_narration,
+            "timeline": self.execute_local_timeline,
+            "assembly": self.execute_local_assembly,
+            "qc": self.execute_local_qc,
+        }
+        method = methods.get(stage)
+        if method is None:
+            raise RequestValidationError(
+                "The local pipeline stage is not supported.",
+                code="local_profile_stage_not_allowed",
+            )
+        return method(
+            run_id,
+            body,
+            _pipeline_capability=self._pipeline_capability,
+            _pipeline_key=pipeline_key,
+            _pipeline_lineage=lineage_audit,
+        )
+
+    def execute_local_pipeline(
+        self, production_id: str, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Create or resume one immutable, zero-cost local production run."""
+
+        validate_identifier(production_id, label="production id")
+        if self.database.get_production(production_id) is None:
+            raise KeyError("production not found")
+        try:
+            payload = validate_local_pipeline_payload(body)
+            pipeline_key = local_pipeline_key(payload)
+            audit = local_pipeline_audit_payload(payload, pipeline_key=pipeline_key)
+        except LocalPipelineValidationError as exc:
+            raise RequestValidationError(
+                "The local pipeline request is invalid.", code=exc.code
+            ) from exc
+
+        changes = [{"type": "script"}, {"type": "video"}]
+        plan = build_rerun_plan(production_id, changes)
+        if (
+            set(plan.get("affected_stages", [])) != _LOCAL_PIPELINE_ZERO_COST_STAGES
+            or len(plan.get("affected_stages", []))
+            != len(_LOCAL_PIPELINE_ZERO_COST_STAGES)
+        ):
+            raise RequestValidationError(
+                "The local pipeline plan is invalid.",
+                code="local_profile_stage_not_allowed",
+            )
+        with self._pipeline_submit_lock:
+            revision, run = self.database.create_revision_and_run(
+                production_id,
+                changes,
+                plan,
+                0,
+                "USD",
+                execution_profile=LOCAL_PIPELINE_PROFILE,
+                pipeline_key=pipeline_key,
+            )
+            job_payload = {
+                "production_id": production_id,
+                "run_id": run["id"],
+                "revision_id": revision["id"],
+                "stage": "pipeline",
+                **audit,
+            }
+            latest = self.database.find_latest_job_for_run(
+                LOCAL_PIPELINE_JOB_KIND, production_id, run["id"]
+            )
+            reuse_succeeded = not (
+                isinstance(latest, dict)
+                and latest.get("status") == "succeeded"
+                and not self._reusable_succeeded_pipeline_job(
+                    latest, run, revision, pipeline_key, payload
+                )
+            )
+
+            def execute(
+                _job_id: str, cancel_event: JobExecutionContext
+            ) -> dict[str, Any]:
+                result = run_local_pipeline(
+                    self,
+                    production_id=production_id,
+                    run_id=run["id"],
+                    revision_id=revision["id"],
+                    payload=payload,
+                    expected_pipeline_key=pipeline_key,
+                    cancel_event=cancel_event,
+                )
+                cancel_event.raise_if_cancelled()
+                return self._validated_local_pipeline_result(
+                    result,
+                    run=run,
+                    revision=revision,
+                    pipeline_key=pipeline_key,
+                    payload=payload,
+                )
+
+            job, created = self.jobs.submit_local_pipeline_once(
+                production_id=production_id,
+                run_id=run["id"],
+                pipeline_key=pipeline_key,
+                payload=job_payload,
+                callback=execute,
+                reuse_succeeded=reuse_succeeded,
+            )
+        return {
+            **job,
+            "run_id": run["id"],
+            "revision_id": revision["id"],
+            "pipeline_key": pipeline_key,
+            "deduplicated": not created,
+        }
+
+    def _resolve_comfyui_execution_inputs(
+        self,
+        payload: dict[str, Any],
+        cancel_event: JobExecutionContext | None = None,
+    ) -> dict[str, Any]:
+        """Resolve the one tracked graph, four pinned models, and ffprobe.
+
+        The public request never selects paths, endpoints, models, or tools.
+        Exact path/size/digest records are derived from repository constants;
+        the worker independently revalidates them before touching ComfyUI.
+        """
+
+        _raise_if_cancelled(cancel_event)
+        try:
+            from . import comfyui
+        except (ImportError, AttributeError) as exc:
+            raise ComfyUIError(
+                "The local ComfyUI worker is not installed.",
+                code="local_worker_unavailable",
+            ) from exc
+
+        workflow_path = workspace_path(
+            self.workspace, COMFYUI_WORKFLOW_RELATIVE_PATH, must_exist=True
+        )
+        if (
+            _has_symlink_component(self.workspace, COMFYUI_WORKFLOW_RELATIVE_PATH)
+            or workflow_path.is_symlink()
+            or not workflow_path.is_file()
+        ):
+            raise ComfyUIValidationError("workflow source is unsafe")
+        try:
+            workflow_bytes = workflow_path.read_bytes()
+            workflow = json.loads(workflow_bytes.decode("utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            raise ComfyUIValidationError("workflow source is invalid") from exc
+        if not isinstance(workflow, dict):
+            raise ComfyUIValidationError("workflow source is invalid")
+        workflow_record = normalize_workflow_record(
+            {
+                "path": COMFYUI_WORKFLOW_RELATIVE_PATH,
+                "bytes": len(workflow_bytes),
+                "sha256": hashlib.sha256(workflow_bytes).hexdigest().upper(),
+                "graph_sha256": hashlib.sha256(
+                    canonical_json(workflow).encode("utf-8")
+                ).hexdigest().upper(),
+            }
+        )
+
+        model_files: dict[str, dict[str, Any]] = {}
+        for role, spec in COMFYUI_MODEL_SPECS.items():
+            relative = str(spec["relative_path"]).replace("\\", "/")
+            try:
+                path = workspace_path(self.workspace, relative, must_exist=True)
+                stat = path.stat()
+            except (SecurityError, OSError):
+                raise ComfyUIValidationError(
+                    f"the pinned ComfyUI model for {role} is unavailable"
+                ) from None
+            if (
+                _has_symlink_component(self.workspace, relative)
+                or path.is_symlink()
+                or not path.is_file()
+                or stat.st_size != spec["bytes"]
+            ):
+                raise ComfyUIValidationError(
+                    f"the pinned ComfyUI model for {role} is invalid"
+                )
+            model_files[role] = {
+                "path": relative,
+                "bytes": stat.st_size,
+                "sha256": spec["sha256"],
+            }
+        # Validate the records here but keep the worker input shape path/bytes/
+        # sha256 only; normalize_model_records adds the derived model name to
+        # its return value, which is audit output rather than request input.
+        normalize_model_records(model_files)
+        _raise_if_cancelled(cancel_event)
+        runtime_identity = comfyui.resolve_comfyui_runtime_identity(
+            self.workspace, cancel_event=cancel_event
+        )
+        ffprobe_identity = comfyui.resolve_comfyui_tool_identity(
+            cancel_event=cancel_event
+        )
+        cache_key = comfyui_cache_key(
+            payload,
+            workflow=workflow_record,
+            models=model_files,
+            runtime_identity=runtime_identity,
+            ffprobe_identity=ffprobe_identity,
+        )
+        output_root = workspace_path(self.workspace, "outputs", must_exist=True)
+        if output_root.is_symlink() or not output_root.is_dir():
+            raise ComfyUIValidationError("ComfyUI output root is unavailable")
+        return {
+            "workflow": workflow,
+            "workflow_source_path": COMFYUI_WORKFLOW_RELATIVE_PATH,
+            "workflow_source_bytes": len(workflow_bytes),
+            "workflow_source_sha256": workflow_record["sha256"],
+            "workflow_record": workflow_record,
+            "model_files": model_files,
+            "runtime_identity": runtime_identity,
+            "ffprobe_identity": ffprobe_identity,
+            "cache_key": cache_key,
+            "output_roots": ["outputs"],
+        }
+
+    def _validate_local_comfyui_artifacts(
+        self,
+        run_id: str,
+        cache_key: str,
+        raw_artifacts: Any,
+    ) -> list[dict[str, Any]]:
+        if (
+            not isinstance(raw_artifacts, list)
+            or len(raw_artifacts) != len(_LOCAL_COMFYUI_ARTIFACTS)
+        ):
+            raise ComfyUIError(
+                "The ComfyUI worker returned an incomplete artifact set.",
+                code="invalid_worker_result",
+            )
+        expected_root = (
+            f"outputs/studio/runs/{run_id}/video_generation/{cache_key}/"
+        )
+        validated: list[dict[str, Any]] = []
+        seen_names: set[str] = set()
+        for item in raw_artifacts:
+            if not isinstance(item, dict) or not isinstance(item.get("rel_path"), str):
+                raise ComfyUIError(
+                    "The ComfyUI worker returned an invalid artifact.",
+                    code="invalid_worker_result",
+                )
+            try:
+                path = workspace_path(self.workspace, item["rel_path"], must_exist=True)
+                relative = relative_workspace_path(self.workspace, path)
+            except (SecurityError, OSError):
+                raise ComfyUIError(
+                    "The ComfyUI worker returned an unsafe artifact path.",
+                    code="unsafe_worker_artifact",
+                ) from None
+            expected = _LOCAL_COMFYUI_ARTIFACTS.get(path.name)
+            if (
+                expected is None
+                or path.name in seen_names
+                or relative != f"{expected_root}{path.name}"
+                or _has_symlink_component(self.workspace, item["rel_path"])
+                or path.is_symlink()
+                or not path.is_file()
+                or sensitive_artifact_path(relative)
+                or item.get("kind") != expected[0]
+                or item.get("media_type", item.get("mime")) != expected[1]
+            ):
+                raise ComfyUIError(
+                    "The ComfyUI worker returned an unexpected artifact.",
+                    code="invalid_worker_result",
+                )
+            stat = path.stat()
+            if (
+                stat.st_size <= 0
+                or (path.name == "generated-video.mp4" and stat.st_size > 2 * 1024 * 1024 * 1024)
+                or (path.name != "generated-video.mp4" and stat.st_size > 16 * 1024 * 1024)
+            ):
+                raise ComfyUIError(
+                    "The ComfyUI worker returned an invalid artifact size.",
+                    code="invalid_worker_result",
+                )
+            digest = _sha256_file(path)
+            if item.get("bytes") != stat.st_size or item.get("sha256") != digest:
+                raise ComfyUIError(
+                    "The ComfyUI worker returned mismatched artifact metadata.",
+                    code="invalid_worker_result",
+                )
+            seen_names.add(path.name)
+            validated.append(
+                {
+                    "id": stable_id("art", relative.casefold()),
+                    "rel_path": relative,
+                    "name": path.name,
+                    "kind": expected[0],
+                    "media_type": expected[1],
+                    "bytes": stat.st_size,
+                    "mtime_ns": stat.st_mtime_ns,
+                    "sha256": digest,
+                    "is_heavy": stat.st_size > 10 * 1024 * 1024,
+                }
+            )
+        if seen_names != set(_LOCAL_COMFYUI_ARTIFACTS):
+            raise ComfyUIError(
+                "The ComfyUI worker returned an incomplete artifact set.",
+                code="invalid_worker_result",
+            )
+        return validated
+
+    def _cached_local_comfyui_result(
+        self,
+        production_id: str,
+        payload: dict[str, Any],
+        inputs: dict[str, Any],
+        cancel_event: JobExecutionContext | None = None,
+    ) -> dict[str, Any] | None:
+        """Recheck a production-wide successful cache inside the GPU lane."""
+
+        cache_key = inputs["cache_key"]
+        previous = self.database.find_successful_stage_attempt(
+            production_id, _LOCAL_VIDEO_GENERATION_STAGE, cache_key
+        )
+        if not previous or not isinstance(previous.get("result"), dict):
+            return None
+
+        chain = [previous]
+        source_attempt = previous
+        visited_attempt_ids = {previous["id"]}
+        while source_attempt["result"].get("cache_source_attempt_id") is not None:
+            source_result = source_attempt["result"]
+            source_id = source_result.get("cache_source_attempt_id")
+            if (
+                not isinstance(source_id, str)
+                or source_id in visited_attempt_ids
+                or len(visited_attempt_ids) >= 128
+                or source_result.get("cache_hit") is not True
+            ):
+                return None
+            linked = self.database.get_stage_attempt(source_id)
+            if (
+                linked is None
+                or linked.get("production_id") != production_id
+                or linked.get("stage") != _LOCAL_VIDEO_GENERATION_STAGE
+                or linked.get("status") != "succeeded"
+                or linked.get("cache_key") != cache_key
+                or not isinstance(linked.get("result"), dict)
+            ):
+                return None
+            visited_attempt_ids.add(source_id)
+            chain.append(linked)
+            source_attempt = linked
+
+        prior_result = previous["result"]
+        prior_artifacts = prior_result.get("artifacts")
+        if (
+            not isinstance(prior_artifacts, list)
+            or len(prior_artifacts) != len(_LOCAL_COMFYUI_ARTIFACTS)
+        ):
+            return None
+
+        def artifact_signature(value: Any) -> dict[str, tuple[Any, ...]] | None:
+            if not isinstance(value, list) or len(value) != len(_LOCAL_COMFYUI_ARTIFACTS):
+                return None
+            records: dict[str, tuple[Any, ...]] = {}
+            for item in value:
+                if not isinstance(item, dict) or not isinstance(item.get("name"), str):
+                    return None
+                name = item["name"]
+                if name in records:
+                    return None
+                records[name] = tuple(
+                    item.get(field) for field in ("id", "rel_path", "bytes", "sha256")
+                )
+            return records if set(records) == set(_LOCAL_COMFYUI_ARTIFACTS) else None
+
+        reference_signature = artifact_signature(prior_artifacts)
+        if reference_signature is None or any(
+            artifact_signature(attempt["result"].get("artifacts"))
+            != reference_signature
+            for attempt in chain
+        ):
+            return None
+        try:
+            from . import comfyui
+
+            physical = comfyui.validate_comfyui_outputs(
+                self.workspace,
+                production_id=production_id,
+                run_id=source_attempt["run_id"],
+                payload=payload,
+                workflow=inputs["workflow"],
+                workflow_source_path=inputs["workflow_source_path"],
+                workflow_source_bytes=inputs["workflow_source_bytes"],
+                workflow_source_sha256=inputs["workflow_source_sha256"],
+                model_files=inputs["model_files"],
+                cancel_event=cancel_event,
+            )
+        except (ImportError, AttributeError, ComfyUIError, ComfyUIValidationError, OSError):
+            return None
+        physical_artifacts = physical.get("artifacts")
+        if not isinstance(physical_artifacts, list):
+            return None
+        physical_by_name = {
+            item.get("name"): item
+            for item in physical_artifacts
+            if isinstance(item, dict)
+        }
+        expected_root = (
+            f"outputs/studio/runs/{source_attempt['run_id']}/video_generation/{cache_key}/"
+        )
+        verified_artifacts: list[dict[str, Any]] = []
+        seen_names: set[str] = set()
+        for item in prior_artifacts:
+            if not isinstance(item, dict) or not isinstance(item.get("id"), str):
+                return None
+            artifact = self.database.get_artifact(item["id"])
+            if artifact is None or artifact.get("name") in seen_names:
+                return None
+            name = artifact.get("name")
+            expected = _LOCAL_COMFYUI_ARTIFACTS.get(name)
+            physical_item = physical_by_name.get(name)
+            if (
+                expected is None
+                or not isinstance(physical_item, dict)
+                or artifact.get("production_id") != production_id
+                or not artifact.get("available")
+                or artifact.get("origin") != "studio"
+                or artifact.get("kind") != expected[0]
+                or artifact.get("media_type") != expected[1]
+                or artifact.get("rel_path") != f"{expected_root}{name}"
+                or item.get("bytes") != artifact.get("bytes")
+                or item.get("sha256") != artifact.get("sha256")
+                or physical_item.get("bytes") != artifact.get("bytes")
+                or physical_item.get("sha256") != artifact.get("sha256")
+            ):
+                return None
+            try:
+                path = workspace_path(
+                    self.workspace, artifact["rel_path"], must_exist=True
+                )
+                stat = path.stat()
+            except (SecurityError, OSError):
+                return None
+            if (
+                _has_symlink_component(self.workspace, artifact["rel_path"])
+                or path.is_symlink()
+                or not path.is_file()
+                or sensitive_artifact_path(artifact["rel_path"])
+                or stat.st_size != artifact.get("bytes")
+                or not isinstance(artifact.get("sha256"), str)
+                or _sha256_file(path) != artifact["sha256"]
+            ):
+                return None
+            seen_names.add(str(name))
+            verified_artifacts.append(artifact)
+        if seen_names != set(_LOCAL_COMFYUI_ARTIFACTS):
+            return None
+
+        prompt_sha256 = hashlib.sha256(payload["prompt"].encode("utf-8")).hexdigest().upper()
+        physical_for_public = dict(physical)
+        physical_for_public["cache_hit"] = True
+        try:
+            cached = comfyui_public_result(
+                physical_for_public,
+                expected_cache_key=cache_key,
+                expected_prompt_sha256=prompt_sha256,
+                expected_seed=payload["seed"],
+                artifacts=verified_artifacts,
+                cache_hit=True,
+            )
+        except (ComfyUIError, ComfyUIValidationError):
+            return None
+        for attempt in chain:
+            attempt_result = attempt["result"]
+            attempt_cache_hit = attempt_result.get("cache_hit")
+            if not isinstance(attempt_cache_hit, bool):
+                return None
+            try:
+                prior_public = comfyui_public_result(
+                    attempt_result,
+                    expected_cache_key=cache_key,
+                    expected_prompt_sha256=prompt_sha256,
+                    expected_seed=payload["seed"],
+                    artifacts=verified_artifacts,
+                    cache_hit=attempt_cache_hit,
+                )
+            except (ComfyUIError, ComfyUIValidationError):
+                return None
+            if any(
+                prior_public.get(field) != cached.get(field)
+                for field in ("duration_ms", "provider_task_id", "prompt_sha256", "seed")
+            ):
+                return None
+        if cached.get("seed") != payload["seed"]:
+            return None
+        cached["cache_source_attempt_id"] = previous["id"]
+        return cached
+
+    def _execute_local_video_generation(
+        self,
+        attempt_id: str,
+        run_id: str,
+        production_id: str,
+        payload: dict[str, Any],
+        inputs: dict[str, Any],
+        cancel_event: JobExecutionContext | None = None,
+    ) -> dict[str, Any] | AtomicStageCompletion:
+        _raise_if_cancelled(cancel_event)
+        try:
+            self.database.update_stage_attempt(attempt_id, "running")
+            cache_key = inputs["cache_key"]
+            prompt_sha256 = hashlib.sha256(
+                payload["prompt"].encode("utf-8")
+            ).hexdigest().upper()
+            from . import comfyui
+
+            _raise_if_cancelled(cancel_event)
+            cached = self._cached_local_comfyui_result(
+                production_id, payload, inputs, cancel_event
+            )
+            if cached is not None:
+                return _stage_completion_result(attempt_id, cached, cancel_event)
+            resume_prompt_id = comfyui.recover_comfyui_prompt_id(
+                self.workspace,
+                production_id=production_id,
+                run_id=run_id,
+                cache_key=cache_key,
+                payload_digest=comfyui_payload_digest(payload),
+            )
+
+            def provider_submitted(provider_task_id: str) -> None:
+                self.database.append_event(
+                    "run",
+                    run_id,
+                    "video_generation.provider_submitted",
+                    {
+                        "attempt_id": attempt_id,
+                        "production_id": production_id,
+                        "provider": "comfyui",
+                        "provider_task_id": provider_task_id,
+                        "cache_key": cache_key,
+                    },
+                )
+
+            raw = comfyui.generate_comfyui_video(
+                self.workspace,
+                production_id=production_id,
+                run_id=run_id,
+                payload=payload,
+                workflow=inputs["workflow"],
+                workflow_source_path=inputs["workflow_source_path"],
+                workflow_source_bytes=inputs["workflow_source_bytes"],
+                workflow_source_sha256=inputs["workflow_source_sha256"],
+                model_files=inputs["model_files"],
+                output_roots=inputs["output_roots"],
+                expected_cache_key=cache_key,
+                cancel_event=cancel_event,
+                resume_prompt_id=resume_prompt_id,
+                on_provider_task_id=provider_submitted,
+            )
+            _raise_if_cancelled(cancel_event)
+            raw_cache_hit = raw.get("cache_hit", False) if isinstance(raw, dict) else False
+            if (
+                not isinstance(raw_cache_hit, bool)
+                or not isinstance(raw, dict)
+                or raw.get("seed") != payload["seed"]
+                or raw.get("workflow_preset") != payload["workflow_preset"]
+            ):
+                raise ComfyUIError(
+                    "The ComfyUI worker returned invalid request metadata.",
+                    code="invalid_worker_result",
+                )
+            provisional = comfyui_public_result(
+                raw,
+                expected_cache_key=cache_key,
+                expected_prompt_sha256=prompt_sha256,
+                expected_seed=payload["seed"],
+                artifacts=[],
+                cache_hit=raw_cache_hit,
+            )
+            physical = comfyui.validate_comfyui_outputs(
+                self.workspace,
+                production_id=production_id,
+                run_id=run_id,
+                payload=payload,
+                workflow=inputs["workflow"],
+                workflow_source_path=inputs["workflow_source_path"],
+                workflow_source_bytes=inputs["workflow_source_bytes"],
+                workflow_source_sha256=inputs["workflow_source_sha256"],
+                model_files=inputs["model_files"],
+                cancel_event=cancel_event,
+            )
+            if (
+                not isinstance(physical, dict)
+                or physical.get("seed") != payload["seed"]
+                or physical.get("workflow_preset") != payload["workflow_preset"]
+            ):
+                raise ComfyUIError(
+                    "The ComfyUI worker returned invalid verified metadata.",
+                    code="invalid_worker_result",
+                )
+            physical_for_public = dict(physical)
+            physical_for_public["cache_hit"] = raw_cache_hit
+            verified = comfyui_public_result(
+                physical_for_public,
+                expected_cache_key=cache_key,
+                expected_prompt_sha256=prompt_sha256,
+                expected_seed=payload["seed"],
+                artifacts=[],
+                cache_hit=raw_cache_hit,
+            )
+            if any(
+                provisional.get(field) != verified.get(field)
+                for field in ("duration_ms", "provider_task_id", "prompt_sha256", "seed")
+            ):
+                raise ComfyUIError(
+                    "The ComfyUI worker returned mismatched verification metadata.",
+                    code="invalid_worker_result",
+                )
+            raw_artifacts = raw.get("artifacts")
+            physical_artifacts = physical.get("artifacts")
+            if not isinstance(raw_artifacts, list) or not isinstance(physical_artifacts, list):
+                raise ComfyUIError(
+                    "The ComfyUI worker returned invalid artifacts.",
+                    code="invalid_worker_result",
+                )
+            physical_by_name = {
+                item.get("name"): item
+                for item in physical_artifacts
+                if isinstance(item, dict)
+            }
+            for item in raw_artifacts:
+                if not isinstance(item, dict):
+                    raise ComfyUIError(
+                        "The ComfyUI worker returned invalid artifacts.",
+                        code="invalid_worker_result",
+                    )
+                name = Path(str(item.get("rel_path") or "")).name
+                comparison = physical_by_name.get(name)
+                if (
+                    not isinstance(comparison, dict)
+                    or item.get("bytes") != comparison.get("bytes")
+                    or item.get("sha256") != comparison.get("sha256")
+                ):
+                    raise ComfyUIError(
+                        "The ComfyUI worker returned mismatched artifacts.",
+                        code="invalid_worker_result",
+                    )
+            artifact_records = self._validate_local_comfyui_artifacts(
+                run_id, cache_key, raw_artifacts
+            )
+            # The database replaces this placeholder with registered public
+            # artifacts inside the same transaction as job/stage success.
+            verified["artifacts"] = []
+            _raise_if_cancelled(cancel_event)
+            return _stage_completion_result(
+                attempt_id,
+                verified,
+                cancel_event,
+                artifact_records=tuple(artifact_records),
+            )
+        except JobCancelled:
+            raise
+        except Exception as exc:
+            if cancel_event is not None and cancel_event.is_set():
+                raise JobCancelled() from exc
+            error_code, error_message = safe_comfyui_error(exc)
+            # JobManager owns the terminal transition for a linked ComfyUI
+            # job/stage pair.  Wrap unknown exceptions at this boundary so
+            # only the fixed, allowlisted ComfyUI error reaches its atomic
+            # failure transaction; never fail the stage in advance.
+            raise ComfyUIError(error_message, code=error_code) from exc
+
+    def execute_local_video_generation(
+        self,
+        run_id: str,
+        body: dict[str, Any],
+        *,
+        _pipeline_capability: object | None = None,
+        _pipeline_key: str | None = None,
+        _pipeline_lineage: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Queue one pinned, zero-cost MiniMax H3 ComfyUI generation."""
+
+        validate_identifier(run_id, label="run id")
+        run = self.database.get_run(run_id)
+        if run is None:
+            raise KeyError("run not found")
+        if run.get("execution_profile") not in {"local_comfyui", LOCAL_PIPELINE_PROFILE}:
+            raise RequestValidationError(
+                "This run is not configured for local ComfyUI generation.",
+                code="execution_profile_required",
+            )
+        pipeline_metadata = self._pipeline_child_metadata(
+            run, _pipeline_capability, _pipeline_key, _pipeline_lineage
+        )
+        requested_stages = run.get("requested_stages")
+        if (
+            not isinstance(requested_stages, list)
+            or _LOCAL_VIDEO_GENERATION_STAGE not in requested_stages
+        ):
+            raise RequestValidationError(
+                "The video_generation stage was not requested by this run.",
+                code="stage_not_requested",
+            )
+        try:
+            payload = validate_comfyui_payload(body)
+            inputs = self._resolve_comfyui_execution_inputs(payload)
+        except (ComfyUIError, ComfyUIValidationError, OSError) as exc:
+            error_code, error_message = safe_comfyui_error(exc)
+            raise RequestValidationError(error_message, code=error_code) from exc
+        cache_key = inputs["cache_key"]
+        if not isinstance(cache_key, str) or not re.fullmatch(r"[0-9A-F]{64}", cache_key):
+            raise RequestValidationError(
+                "The ComfyUI worker returned an invalid cache key.",
+                code="invalid_worker_result",
+            )
+        audit = comfyui_audit_payload(
+            payload,
+            workflow=inputs["workflow_record"],
+            models=inputs["model_files"],
+            runtime_identity=inputs["runtime_identity"],
+            cache_key=cache_key,
+        )
+        attempt = self.database.create_stage_attempt(
+            run_id,
+            _LOCAL_VIDEO_GENERATION_STAGE,
+            cache_key,
+            {
+                "execution_profile": run["execution_profile"],
+                "cache_key": cache_key,
+                **audit,
+                **pipeline_metadata,
+            },
+        )
+        try:
+            job = self.jobs.submit(
+                "local_video_generation",
+                {
+                    "run_id": run_id,
+                    "production_id": run["production_id"],
+                    "stage": _LOCAL_VIDEO_GENERATION_STAGE,
+                    "execution_profile": run["execution_profile"],
+                    "cache_key": cache_key,
+                    **audit,
+                    **pipeline_metadata,
+                    "stage_attempt_id": attempt["id"],
+                },
+                lambda _job_id, cancel_event: self._execute_local_video_generation(
+                    attempt["id"],
+                    run_id,
+                    run["production_id"],
+                    payload,
+                    inputs,
+                    cancel_event,
+                ),
+                production_id=run["production_id"],
+                before_enqueue=lambda created_job: self.database.link_stage_attempt_job(
+                    attempt["id"], created_job["id"]
+                ),
+                lane="gpu",
+            )
+        except Exception as exc:
+            error_code, error_message = safe_comfyui_error(exc)
+            self.database.update_stage_attempt(
+                attempt["id"],
+                "failed",
+                error_code=error_code,
+                error_message=error_message,
+            )
+            raise
+        job["stage_attempt_id"] = attempt["id"]
+        job["cache_key"] = cache_key
+        return job
 
     def approve_run(self, run_id: str, body: dict[str, Any]) -> dict[str, Any]:
         validate_identifier(run_id, label="run id")
@@ -604,9 +2143,8 @@ class StudioService:
         except ValueError as exc:
             raise RequestValidationError(str(exc), code="approval_rejected") from exc
 
-    def _register_local_narration_artifacts(
+    def _validate_local_narration_artifact_records(
         self,
-        production_id: str,
         run_id: str,
         cache_key: str,
         raw_artifacts: Any,
@@ -709,14 +2247,24 @@ class StudioService:
                 "The local narration worker returned an incomplete artifact set.",
                 code="invalid_worker_result",
             )
-        registered: list[dict[str, Any]] = []
-        for artifact_data in validated:
-            artifact = self.database.register_studio_artifact(
-                production_id,
-                artifact_data,
-            )
-            registered.append(artifact)
-        return registered
+        return validated
+
+    def _register_local_narration_artifacts(
+        self,
+        production_id: str,
+        run_id: str,
+        cache_key: str,
+        raw_artifacts: Any,
+    ) -> list[dict[str, Any]]:
+        """Compatibility wrapper for direct callers outside JobManager."""
+
+        records = self._validate_local_narration_artifact_records(
+            run_id, cache_key, raw_artifacts
+        )
+        return [
+            self.database.register_studio_artifact(production_id, item)
+            for item in records
+        ]
 
     def _cached_local_narration_result(
         self, cache_key: str, production_id: str
@@ -800,9 +2348,10 @@ class StudioService:
         cancel_event: JobExecutionContext | None = None,
     ) -> dict[str, Any] | AtomicStageCompletion:
         _raise_if_cancelled(cancel_event)
-        self.database.update_stage_attempt(attempt_id, "running")
         try:
+            self.database.update_stage_attempt(attempt_id, "running")
             _raise_if_cancelled(cancel_event)
+            artifact_records: list[dict[str, Any]] = []
             cached = self._cached_local_narration_result(cache_key, production_id)
             if cached is not None:
                 result = cached
@@ -843,62 +2392,52 @@ class StudioService:
                     if isinstance(raw, dict)
                     else False,
                 )
-                artifacts = self._register_local_narration_artifacts(
-                    production_id,
+                artifact_records = self._validate_local_narration_artifact_records(
                     run_id,
                     cache_key,
                     raw.get("artifacts") if isinstance(raw, dict) else None,
                 )
-                result["artifacts"] = artifacts
             _raise_if_cancelled(cancel_event)
-            return _stage_completion_result(attempt_id, result, cancel_event)
-        except JobCancelled as exc:
-            try:
-                self.database.update_stage_attempt(
-                    attempt_id,
-                    "failed",
-                    error_code=exc.error_code,
-                    error_message=exc.public_message,
-                )
-            except Exception:
-                pass
+            return self._complete_local_stage(
+                attempt_id,
+                production_id,
+                result,
+                cancel_event,
+                artifact_records=artifact_records,
+            )
+        except JobCancelled:
             raise
         except Exception as exc:
             if cancel_event is not None and cancel_event.is_set():
-                try:
-                    self.database.update_stage_attempt(
-                        attempt_id,
-                        "failed",
-                        error_code=JobCancelled.error_code,
-                        error_message=JobCancelled.public_message,
-                    )
-                except Exception:
-                    pass
                 raise JobCancelled() from exc
             error_code, error_message = safe_error(exc)
-            try:
-                self.database.update_stage_attempt(
-                    attempt_id,
-                    "failed",
-                    error_code=error_code,
-                    error_message=error_message,
-                )
-            except Exception:
-                pass
-            raise
+            if isinstance(exc, LocalNarrationError):
+                raise
+            raise LocalNarrationError(error_message, code=error_code) from exc
 
-    def execute_local_narration(self, run_id: str, body: dict[str, Any]) -> dict[str, Any]:
+    def execute_local_narration(
+        self,
+        run_id: str,
+        body: dict[str, Any],
+        *,
+        _pipeline_capability: object | None = None,
+        _pipeline_key: str | None = None,
+        _pipeline_lineage: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Queue a zero-cost local narration attempt for a local_sapi run."""
 
         validate_identifier(run_id, label="run id")
         run = self.database.get_run(run_id)
         if run is None:
             raise KeyError("run not found")
-        if run.get("execution_profile") != "local_sapi":
+        if run.get("execution_profile") not in {"local_sapi", LOCAL_PIPELINE_PROFILE}:
             raise RequestValidationError(
                 "This run is not configured for local narration.",
                 code="execution_profile_required",
             )
+        pipeline_metadata = self._pipeline_child_metadata(
+            run, _pipeline_capability, _pipeline_key, _pipeline_lineage
+        )
         requested_stages = run.get("requested_stages")
         if not isinstance(requested_stages, list) or _LOCAL_NARRATION_STAGE not in requested_stages:
             raise RequestValidationError(
@@ -911,9 +2450,10 @@ class StudioService:
             raise RequestValidationError(str(exc), code=exc.code) from exc
         cache_key = narration_cache_key(payload)
         attempt_payload = {
-            "execution_profile": "local_sapi",
+            "execution_profile": run["execution_profile"],
             "cache_key": cache_key,
             **audit_payload(payload),
+            **pipeline_metadata,
         }
         attempt = self.database.create_stage_attempt(
             run_id, _LOCAL_NARRATION_STAGE, cache_key, attempt_payload
@@ -925,9 +2465,11 @@ class StudioService:
                     "run_id": run_id,
                     "production_id": run["production_id"],
                     "stage": _LOCAL_NARRATION_STAGE,
-                    "execution_profile": "local_sapi",
+                    "execution_profile": run["execution_profile"],
                     "cache_key": cache_key,
                     **audit_payload(payload),
+                    **pipeline_metadata,
+                    "stage_attempt_id": attempt["id"],
                 },
                 lambda _job_id, cancel_event: self._execute_local_narration(
                     attempt["id"],
@@ -1593,9 +3135,8 @@ class StudioService:
             "aggregate_bytes": aggregate_bytes,
         }
 
-    def _register_local_timeline_artifacts(
+    def _validate_local_timeline_artifact_records(
         self,
-        production_id: str,
         run_id: str,
         cache_key: str,
         raw_artifacts: Any,
@@ -1667,9 +3208,23 @@ class StudioService:
                 "The local timeline worker returned an incomplete artifact set.",
                 code="invalid_worker_result",
             )
+        return validated
+
+    def _register_local_timeline_artifacts(
+        self,
+        production_id: str,
+        run_id: str,
+        cache_key: str,
+        raw_artifacts: Any,
+    ) -> list[dict[str, Any]]:
+        """Compatibility wrapper for direct callers outside JobManager."""
+
+        records = self._validate_local_timeline_artifact_records(
+            run_id, cache_key, raw_artifacts
+        )
         return [
             self.database.register_studio_artifact(production_id, item)
-            for item in validated
+            for item in records
         ]
 
     def _cached_local_timeline_result(
@@ -1883,13 +3438,14 @@ class StudioService:
         cancel_event: JobExecutionContext | None = None,
     ) -> dict[str, Any] | AtomicStageCompletion:
         _raise_if_cancelled(cancel_event)
-        self.database.update_stage_attempt(attempt_id, "running")
-        expected_clips = inputs["cache_clips"]
-        expected_duration_ms = sum(
-            item["end_ms"] - item["start_ms"] for item in expected_clips
-        )
         try:
+            self.database.update_stage_attempt(attempt_id, "running")
+            expected_clips = inputs["cache_clips"]
+            expected_duration_ms = sum(
+                item["end_ms"] - item["start_ms"] for item in expected_clips
+            )
             _raise_if_cancelled(cancel_event)
+            artifact_records: list[dict[str, Any]] = []
             cached = self._cached_local_timeline_result(
                 cache_key, production_id, expected_clips, cancel_event
             )
@@ -1991,63 +3547,53 @@ class StudioService:
                             "The local timeline worker returned mismatched artifacts.",
                             code="invalid_worker_result",
                         )
-                artifacts = self._register_local_timeline_artifacts(
-                    production_id,
+                artifact_records = self._validate_local_timeline_artifact_records(
                     run_id,
                     cache_key,
                     raw_artifacts,
                 )
                 result = physical_public
-                result["artifacts"] = artifacts
             _raise_if_cancelled(cancel_event)
-            return _stage_completion_result(attempt_id, result, cancel_event)
-        except JobCancelled as exc:
-            try:
-                self.database.update_stage_attempt(
-                    attempt_id,
-                    "failed",
-                    error_code=exc.error_code,
-                    error_message=exc.public_message,
-                )
-            except Exception:
-                pass
+            return self._complete_local_stage(
+                attempt_id,
+                production_id,
+                result,
+                cancel_event,
+                artifact_records=artifact_records,
+            )
+        except JobCancelled:
             raise
         except Exception as exc:
             if cancel_event is not None and cancel_event.is_set():
-                try:
-                    self.database.update_stage_attempt(
-                        attempt_id,
-                        "failed",
-                        error_code=JobCancelled.error_code,
-                        error_message=JobCancelled.public_message,
-                    )
-                except Exception:
-                    pass
                 raise JobCancelled() from exc
             error_code, error_message = safe_timeline_error(exc)
-            try:
-                self.database.update_stage_attempt(
-                    attempt_id,
-                    "failed",
-                    error_code=error_code,
-                    error_message=error_message,
-                )
-            except Exception:
-                pass
-            raise
+            if isinstance(exc, LocalTimelineError):
+                raise
+            raise LocalTimelineError(error_message, code=error_code) from exc
 
-    def execute_local_timeline(self, run_id: str, body: dict[str, Any]) -> dict[str, Any]:
+    def execute_local_timeline(
+        self,
+        run_id: str,
+        body: dict[str, Any],
+        *,
+        _pipeline_capability: object | None = None,
+        _pipeline_key: str | None = None,
+        _pipeline_lineage: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Queue a zero-cost local hard-cut timeline composition attempt."""
 
         validate_identifier(run_id, label="run id")
         run = self.database.get_run(run_id)
         if run is None:
             raise KeyError("run not found")
-        if run.get("execution_profile") != "local_sapi":
+        if run.get("execution_profile") not in {"local_sapi", LOCAL_PIPELINE_PROFILE}:
             raise RequestValidationError(
                 "This run is not configured for local timeline composition.",
                 code="execution_profile_required",
             )
+        pipeline_metadata = self._pipeline_child_metadata(
+            run, _pipeline_capability, _pipeline_key, _pipeline_lineage
+        )
         requested_stages = run.get("requested_stages")
         if not isinstance(requested_stages, list) or _LOCAL_TIMELINE_STAGE not in requested_stages:
             raise RequestValidationError(
@@ -2085,7 +3631,11 @@ class StudioService:
             run_id,
             _LOCAL_TIMELINE_STAGE,
             cache_key,
-            {"execution_profile": "local_sapi", **audit},
+            {
+                "execution_profile": run["execution_profile"],
+                **audit,
+                **pipeline_metadata,
+            },
         )
         try:
             job = self.jobs.submit(
@@ -2094,8 +3644,10 @@ class StudioService:
                     "run_id": run_id,
                     "production_id": run["production_id"],
                     "stage": _LOCAL_TIMELINE_STAGE,
-                    "execution_profile": "local_sapi",
+                    "execution_profile": run["execution_profile"],
                     **audit,
+                    **pipeline_metadata,
+                    "stage_attempt_id": attempt["id"],
                 },
                 lambda _job_id, cancel_event: self._execute_local_timeline(
                     attempt["id"],
@@ -2345,7 +3897,7 @@ class StudioService:
                     artifacts=narration_artifacts,
                     cache_hit=cache_hit,
                 )
-            elif run.get("execution_profile") == "local_sapi":
+            elif run.get("execution_profile") in {"local_sapi", LOCAL_PIPELINE_PROFILE}:
                 public_result(
                     narration_result,
                     expected_cache_key=narration_attempt["cache_key"],
@@ -2378,9 +3930,8 @@ class StudioService:
             ),
         }
 
-    def _register_local_assembly_artifacts(
+    def _validate_local_assembly_artifact_records(
         self,
-        production_id: str,
         run_id: str,
         cache_key: str,
         include_captioned: bool,
@@ -2455,9 +4006,24 @@ class StudioService:
                 "The local assembly worker returned an incomplete artifact set.",
                 code="invalid_worker_result",
             )
+        return validated
+
+    def _register_local_assembly_artifacts(
+        self,
+        production_id: str,
+        run_id: str,
+        cache_key: str,
+        include_captioned: bool,
+        raw_artifacts: Any,
+    ) -> list[dict[str, Any]]:
+        """Compatibility wrapper for direct callers outside JobManager."""
+
+        records = self._validate_local_assembly_artifact_records(
+            run_id, cache_key, include_captioned, raw_artifacts
+        )
         return [
             self.database.register_studio_artifact(production_id, item)
-            for item in validated
+            for item in records
         ]
 
     def _cached_local_assembly_result(
@@ -2466,6 +4032,7 @@ class StudioService:
         production_id: str,
         expected_hashes: dict[str, str],
         include_captioned: bool,
+        caption_style: dict[str, Any],
         inputs: dict[str, Any],
         cancel_event: JobExecutionContext | None = None,
     ) -> dict[str, Any] | None:
@@ -2487,6 +4054,7 @@ class StudioService:
                 narration_wav=inputs["narration_wav"],
                 captions_srt=inputs["captions_srt"],
                 include_captioned=include_captioned,
+                caption_style_preset=caption_style["preset"],
                 cancel_event=cancel_event,
             )
         except (ImportError, AttributeError, LocalAssemblyError, OSError):
@@ -2563,6 +4131,7 @@ class StudioService:
                 expected_cache_key=cache_key,
                 expected_hashes=expected_hashes,
                 expected_include_captioned=include_captioned,
+                expected_caption_style=caption_style,
                 artifacts=verified,
                 cache_hit=True,
             )
@@ -2573,6 +4142,7 @@ class StudioService:
                 expected_cache_key=cache_key,
                 expected_hashes=expected_hashes,
                 expected_include_captioned=include_captioned,
+                expected_caption_style=caption_style,
                 artifacts=verified,
                 cache_hit=True,
             )
@@ -2594,19 +4164,21 @@ class StudioService:
         cancel_event: JobExecutionContext | None = None,
     ) -> dict[str, Any] | AtomicStageCompletion:
         _raise_if_cancelled(cancel_event)
-        self.database.update_stage_attempt(attempt_id, "running")
-        expected_hashes = {
-            "source_video_sha256": inputs["source_video_sha256"],
-            "narration_wav_sha256": inputs["narration_wav_sha256"],
-            "captions_sha256": inputs["captions_sha256"],
-        }
         try:
+            self.database.update_stage_attempt(attempt_id, "running")
+            expected_hashes = {
+                "source_video_sha256": inputs["source_video_sha256"],
+                "narration_wav_sha256": inputs["narration_wav_sha256"],
+                "captions_sha256": inputs["captions_sha256"],
+            }
             _raise_if_cancelled(cancel_event)
+            artifact_records: list[dict[str, Any]] = []
             cached = self._cached_local_assembly_result(
                 cache_key,
                 production_id,
                 expected_hashes,
                 payload["include_captioned"],
+                payload["caption_style"],
                 inputs,
                 cancel_event,
             )
@@ -2631,6 +4203,7 @@ class StudioService:
                         narration_wav=inputs["narration_wav"],
                         captions_srt=inputs["captions_srt"],
                         include_captioned=payload["include_captioned"],
+                        caption_style_preset=payload["caption_style_preset"],
                         cancel_event=cancel_event,
                     )
                 except LocalAssemblyError:
@@ -2649,6 +4222,7 @@ class StudioService:
                     expected_cache_key=cache_key,
                     expected_hashes=expected_hashes,
                     expected_include_captioned=payload["include_captioned"],
+                    expected_caption_style=payload["caption_style"],
                     artifacts=[],
                     cache_hit=raw_cache_hit
                     if isinstance(raw_cache_hit, bool)
@@ -2664,6 +4238,7 @@ class StudioService:
                     narration_wav=inputs["narration_wav"],
                     captions_srt=inputs["captions_srt"],
                     include_captioned=payload["include_captioned"],
+                    caption_style_preset=payload["caption_style_preset"],
                     cancel_event=cancel_event,
                 )
                 physical_for_public = dict(physical_result)
@@ -2673,6 +4248,7 @@ class StudioService:
                     expected_cache_key=cache_key,
                     expected_hashes=expected_hashes,
                     expected_include_captioned=payload["include_captioned"],
+                    expected_caption_style=payload["caption_style"],
                     artifacts=[],
                     cache_hit=raw_cache_hit,
                 )
@@ -2712,53 +4288,40 @@ class StudioService:
                             "The local assembly worker returned mismatched artifacts.",
                             code="invalid_worker_result",
                         )
-                artifacts = self._register_local_assembly_artifacts(
-                    production_id,
+                artifact_records = self._validate_local_assembly_artifact_records(
                     run_id,
                     cache_key,
                     payload["include_captioned"],
                     raw.get("artifacts") if isinstance(raw, dict) else None,
                 )
                 result = physical_public
-                result["artifacts"] = artifacts
             _raise_if_cancelled(cancel_event)
-            return _stage_completion_result(attempt_id, result, cancel_event)
-        except JobCancelled as exc:
-            try:
-                self.database.update_stage_attempt(
-                    attempt_id,
-                    "failed",
-                    error_code=exc.error_code,
-                    error_message=exc.public_message,
-                )
-            except Exception:
-                pass
+            return self._complete_local_stage(
+                attempt_id,
+                production_id,
+                result,
+                cancel_event,
+                artifact_records=artifact_records,
+            )
+        except JobCancelled:
             raise
         except Exception as exc:
             if cancel_event is not None and cancel_event.is_set():
-                try:
-                    self.database.update_stage_attempt(
-                        attempt_id,
-                        "failed",
-                        error_code=JobCancelled.error_code,
-                        error_message=JobCancelled.public_message,
-                    )
-                except Exception:
-                    pass
                 raise JobCancelled() from exc
             error_code, error_message = safe_assembly_error(exc)
-            try:
-                self.database.update_stage_attempt(
-                    attempt_id,
-                    "failed",
-                    error_code=error_code,
-                    error_message=error_message,
-                )
-            except Exception:
-                pass
-            raise
+            if isinstance(exc, LocalAssemblyError):
+                raise
+            raise LocalAssemblyError(error_message, code=error_code) from exc
 
-    def execute_local_assembly(self, run_id: str, body: dict[str, Any]) -> dict[str, Any]:
+    def execute_local_assembly(
+        self,
+        run_id: str,
+        body: dict[str, Any],
+        *,
+        _pipeline_capability: object | None = None,
+        _pipeline_key: str | None = None,
+        _pipeline_lineage: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Queue a zero-cost local FFmpeg assembly attempt."""
 
         validate_identifier(run_id, label="run id")
@@ -2770,6 +4333,9 @@ class StudioService:
                 "This run is not configured for local assembly.",
                 code="execution_profile_required",
             )
+        pipeline_metadata = self._pipeline_child_metadata(
+            run, _pipeline_capability, _pipeline_key, _pipeline_lineage
+        )
         requested_stages = run.get("requested_stages")
         required_stages = {_LOCAL_NARRATION_STAGE, _LOCAL_ASSEMBLY_STAGE}
         if not isinstance(requested_stages, list) or not required_stages.issubset(requested_stages):
@@ -2790,6 +4356,7 @@ class StudioService:
                 inputs["narration_wav_sha256"],
                 inputs["captions_sha256"],
                 payload["include_captioned"],
+                caption_style_preset=payload["caption_style_preset"],
             )
         except (ImportError, AttributeError) as exc:
             raise RequestValidationError(
@@ -2820,6 +4387,7 @@ class StudioService:
                 "execution_profile": run["execution_profile"],
                 "cache_key": cache_key,
                 **audit,
+                **pipeline_metadata,
             },
         )
         try:
@@ -2832,6 +4400,8 @@ class StudioService:
                     "execution_profile": run["execution_profile"],
                     "cache_key": cache_key,
                     **audit,
+                    **pipeline_metadata,
+                    "stage_attempt_id": attempt["id"],
                 },
                 lambda _job_id, cancel_event: self._execute_local_assembly(
                     attempt["id"],
@@ -2885,6 +4455,7 @@ class StudioService:
             )
         assembly_result = assembly_attempt["result"]
         include_captioned = assembly_result.get("include_captioned")
+        caption_style = assembly_result.get("caption_style")
         cache_hit = assembly_result.get("cache_hit")
         expected_hashes = {
             field: assembly_result.get(field)
@@ -2905,6 +4476,7 @@ class StudioService:
                 expected_cache_key=assembly_attempt["cache_key"],
                 expected_hashes=expected_hashes,
                 expected_include_captioned=include_captioned,
+                expected_caption_style=caption_style,
                 artifacts=[],
                 cache_hit=cache_hit,
             )
@@ -3005,6 +4577,7 @@ class StudioService:
                     expected_cache_key=assembly_attempt["cache_key"],
                     expected_hashes=expected_hashes,
                     expected_include_captioned=include_captioned,
+                    expected_caption_style=caption_style,
                     artifacts=[],
                     cache_hit=linked_cache_hit,
                 )
@@ -3092,9 +4665,8 @@ class StudioService:
             "expected_duration_ms": expected_duration_ms,
         }
 
-    def _register_local_qc_artifacts(
+    def _validate_local_qc_artifact_records(
         self,
-        production_id: str,
         run_id: str,
         cache_key: str,
         raw_artifacts: Any,
@@ -3165,9 +4737,23 @@ class StudioService:
                 "The local QC worker returned an incomplete artifact set.",
                 code="invalid_worker_result",
             )
+        return validated
+
+    def _register_local_qc_artifacts(
+        self,
+        production_id: str,
+        run_id: str,
+        cache_key: str,
+        raw_artifacts: Any,
+    ) -> list[dict[str, Any]]:
+        """Compatibility wrapper for direct callers outside JobManager."""
+
+        records = self._validate_local_qc_artifact_records(
+            run_id, cache_key, raw_artifacts
+        )
         return [
             self.database.register_studio_artifact(production_id, item)
-            for item in validated
+            for item in records
         ]
 
     @staticmethod
@@ -3323,9 +4909,10 @@ class StudioService:
         cancel_event: JobExecutionContext | None = None,
     ) -> dict[str, Any] | AtomicStageCompletion:
         _raise_if_cancelled(cancel_event)
-        self.database.update_stage_attempt(attempt_id, "running")
         try:
+            self.database.update_stage_attempt(attempt_id, "running")
             _raise_if_cancelled(cancel_event)
+            artifact_records: list[dict[str, Any]] = []
             cached = self._cached_local_qc_result(
                 run_id,
                 production_id,
@@ -3438,49 +5025,37 @@ class StudioService:
                             "The local QC worker returned mismatched artifacts.",
                             code="invalid_worker_result",
                         )
-                artifacts = self._register_local_qc_artifacts(
-                    production_id, run_id, cache_key, physical_artifacts
+                artifact_records = self._validate_local_qc_artifact_records(
+                    run_id, cache_key, physical_artifacts
                 )
                 result = dict(physical_public)
-                result["artifacts"] = artifacts
             _raise_if_cancelled(cancel_event)
-            return _stage_completion_result(attempt_id, result, cancel_event)
-        except JobCancelled as exc:
-            try:
-                self.database.update_stage_attempt(
-                    attempt_id,
-                    "failed",
-                    error_code=exc.error_code,
-                    error_message=exc.public_message,
-                )
-            except Exception:
-                pass
+            return self._complete_local_stage(
+                attempt_id,
+                production_id,
+                result,
+                cancel_event,
+                artifact_records=artifact_records,
+            )
+        except JobCancelled:
             raise
         except Exception as exc:
             if cancel_event is not None and cancel_event.is_set():
-                try:
-                    self.database.update_stage_attempt(
-                        attempt_id,
-                        "failed",
-                        error_code=JobCancelled.error_code,
-                        error_message=JobCancelled.public_message,
-                    )
-                except Exception:
-                    pass
                 raise JobCancelled() from exc
             error_code, error_message = safe_qc_error(exc)
-            try:
-                self.database.update_stage_attempt(
-                    attempt_id,
-                    "failed",
-                    error_code=error_code,
-                    error_message=error_message,
-                )
-            except Exception:
-                pass
-            raise
+            if isinstance(exc, LocalQcError):
+                raise
+            raise LocalQcError(error_message, code=error_code) from exc
 
-    def execute_local_qc(self, run_id: str, body: dict[str, Any]) -> dict[str, Any]:
+    def execute_local_qc(
+        self,
+        run_id: str,
+        body: dict[str, Any],
+        *,
+        _pipeline_capability: object | None = None,
+        _pipeline_key: str | None = None,
+        _pipeline_lineage: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Queue a zero-cost local technical QC attempt."""
 
         validate_identifier(run_id, label="run id")
@@ -3492,6 +5067,9 @@ class StudioService:
                 "This run is not configured for local technical QC.",
                 code="execution_profile_required",
             )
+        pipeline_metadata = self._pipeline_child_metadata(
+            run, _pipeline_capability, _pipeline_key, _pipeline_lineage
+        )
         requested_stages = run.get("requested_stages")
         required_stages = {_LOCAL_ASSEMBLY_STAGE, _LOCAL_QC_STAGE}
         if not isinstance(requested_stages, list) or not required_stages.issubset(
@@ -3545,7 +5123,11 @@ class StudioService:
             run_id,
             _LOCAL_QC_STAGE,
             cache_key,
-            {"execution_profile": run["execution_profile"], **audit},
+            {
+                "execution_profile": run["execution_profile"],
+                **audit,
+                **pipeline_metadata,
+            },
         )
         try:
             job = self.jobs.submit(
@@ -3556,6 +5138,8 @@ class StudioService:
                     "stage": _LOCAL_QC_STAGE,
                     "execution_profile": run["execution_profile"],
                     **audit,
+                    **pipeline_metadata,
+                    "stage_attempt_id": attempt["id"],
                 },
                 lambda _job_id, cancel_event: self._execute_local_qc(
                     attempt["id"],

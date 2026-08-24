@@ -88,22 +88,71 @@ test('normalizeNarrationInput removes empty lines and enforces segment and text 
   assert.ok(tooMuch.errors.some((error) => error.includes(`${limits.maxTotalLength.toLocaleString()}文字以内`)));
 });
 
-test('normalizeLocalAssemblyInput trims source IDs and rejects missing selections', () => {
-  const valid = api.normalizeLocalAssemblyInput(' video-1 ', ' attempt-1 ', true);
+test('normalizeLocalAssemblyInput trims source IDs and accepts only closed caption presets', () => {
+  assert.equal(api.DEFAULT_LOCAL_ASSEMBLY_CAPTION_STYLE_PRESET, 'studio_default_v1');
+  assert.equal(api.RECOMMENDED_LOCAL_ASSEMBLY_CAPTION_STYLE_PRESET, 'shorts_ja_large_v1');
+  assert.deepEqual(api.LOCAL_ASSEMBLY_CAPTION_STYLE_PRESETS, ['studio_default_v1', 'shorts_ja_large_v1']);
+
+  const valid = api.normalizeLocalAssemblyInput(' video-1 ', ' attempt-1 ', true, 'shorts_ja_large_v1');
   assert.deepEqual(valid.errors, []);
   assert.deepEqual(valid.request, {
     videoArtifactId: 'video-1',
     narrationAttemptId: 'attempt-1',
     includeCaptioned: true,
+    captionStylePreset: 'shorts_ja_large_v1',
   });
 
-  const invalid = api.normalizeLocalAssemblyInput('  ', '', false);
+  const invalid = api.normalizeLocalAssemblyInput('  ', '', false, 'studio_default_v1');
   assert.deepEqual(invalid.request, {
     videoArtifactId: '',
     narrationAttemptId: '',
     includeCaptioned: false,
+    captionStylePreset: 'studio_default_v1',
   });
   assert.equal(invalid.errors.length, 2);
   assert.ok(invalid.errors[0].includes('動画artifact'));
   assert.ok(invalid.errors[1].includes('ナレーション'));
+
+  assert.ok(api.normalizeLocalAssemblyInput('video-1', 'attempt-1', true, 'raw-ass').errors.some((error) => error.includes('字幕プリセット')));
+  assert.ok(api.normalizeLocalAssemblyInput('video-1', 'attempt-1', false, 'shorts_ja_large_v1').errors.some((error) => error.includes('字幕付き版')));
+});
+
+test('buildLocalAssemblyPayload emits the exact caption preset wire body', () => {
+  const payload = api.buildLocalAssemblyPayload({
+    videoArtifactId: ' video-1 ',
+    narrationAttemptId: ' attempt-1 ',
+    includeCaptioned: true,
+    captionStylePreset: 'shorts_ja_large_v1',
+    captionStyle: { font: 'untrusted' },
+    filter: 'subtitles=unsafe.ass',
+  });
+  assert.deepEqual(payload, {
+    video_artifact_id: 'video-1',
+    narration_attempt_id: 'attempt-1',
+    include_captioned: true,
+    caption_style_preset: 'shorts_ja_large_v1',
+  });
+  assert.deepEqual(Object.keys(payload).sort(), [
+    'caption_style_preset',
+    'include_captioned',
+    'narration_attempt_id',
+    'video_artifact_id',
+  ]);
+  assert.throws(() => api.buildLocalAssemblyPayload({
+    videoArtifactId: 'video-1',
+    narrationAttemptId: 'attempt-1',
+    includeCaptioned: true,
+    captionStylePreset: 'custom',
+  }), /字幕プリセット/);
+
+  assert.deepEqual(api.buildLocalAssemblyPayload({
+    videoArtifactId: 'video-1',
+    narrationAttemptId: 'attempt-1',
+    includeCaptioned: false,
+  }), {
+    video_artifact_id: 'video-1',
+    narration_attempt_id: 'attempt-1',
+    include_captioned: false,
+    caption_style_preset: 'studio_default_v1',
+  });
 });

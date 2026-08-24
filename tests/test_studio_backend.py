@@ -16,7 +16,21 @@ from pathlib import Path
 from unittest import mock
 
 from tools.studio.instance_lock import StudioInstanceLockError
-from tools.studio.assembly_execution import LocalAssemblyError
+from tools.studio.assembly_execution import (
+    DEFAULT_CAPTION_STYLE_PRESET,
+    LocalAssemblyError,
+    normalize_caption_style_preset,
+)
+from tools.studio.comfyui_execution import (
+    COMFYUI_WORKFLOW_FILE_BYTES,
+    COMFYUI_WORKFLOW_FILE_SHA256,
+    COMFYUI_WORKFLOW_GRAPH_SHA256,
+    COMFYUI_WORKFLOW_PRESET,
+    COMFYUI_WORKFLOW_RELATIVE_PATH,
+    MODEL_SPECS as COMFYUI_MODEL_SPECS,
+    RUNTIME_FILE_SPECS as COMFYUI_RUNTIME_FILE_SPECS,
+    RUNTIME_REPOSITORY_SPECS as COMFYUI_RUNTIME_REPOSITORY_SPECS,
+)
 from tools.studio.qc_execution import LocalQcError
 from tools.studio.database import (
     SCHEMA_VERSION,
@@ -108,6 +122,7 @@ def fake_local_assembly_result(
     narration_wav: Path,
     captions_srt: Path,
     include_captioned: bool,
+    caption_style_preset: str = DEFAULT_CAPTION_STYLE_PRESET,
 ) -> dict[str, object]:
     del production_id
     output_directory = (
@@ -144,6 +159,7 @@ def fake_local_assembly_result(
                 "sha256": hashlib.sha256(content).hexdigest().upper(),
             }
         )
+    caption_style = normalize_caption_style_preset(caption_style_preset)
     return {
         "artifacts": artifacts,
         "duration_ms": 125,
@@ -154,6 +170,8 @@ def fake_local_assembly_result(
         "actual_cost": 0,
         "timing_source": "ffprobe",
         "include_captioned": include_captioned,
+        "caption_style_preset": caption_style["preset"],
+        "caption_style": caption_style,
         "source_video_sha256": hashlib.sha256(source_video.read_bytes()).hexdigest().upper(),
         "narration_wav_sha256": hashlib.sha256(narration_wav.read_bytes()).hexdigest().upper(),
         "captions_sha256": hashlib.sha256(captions_srt.read_bytes()).hexdigest().upper(),
@@ -170,6 +188,7 @@ def fake_validate_local_assembly_outputs(
     narration_wav: Path,
     captions_srt: Path,
     include_captioned: bool,
+    caption_style_preset: str = DEFAULT_CAPTION_STYLE_PRESET,
 ) -> dict[str, object]:
     del production_id
     output_directory = (
@@ -195,6 +214,7 @@ def fake_validate_local_assembly_outputs(
                 "sha256": hashlib.sha256(content).hexdigest().upper(),
             }
         )
+    caption_style = normalize_caption_style_preset(caption_style_preset)
     return {
         "artifacts": artifacts,
         "duration_ms": 125,
@@ -205,6 +225,8 @@ def fake_validate_local_assembly_outputs(
         "actual_cost": 0,
         "timing_source": "ffprobe",
         "include_captioned": include_captioned,
+        "caption_style_preset": caption_style["preset"],
+        "caption_style": caption_style,
         "source_video_sha256": hashlib.sha256(source_video.read_bytes()).hexdigest().upper(),
         "narration_wav_sha256": hashlib.sha256(narration_wav.read_bytes()).hexdigest().upper(),
         "captions_sha256": hashlib.sha256(captions_srt.read_bytes()).hexdigest().upper(),
@@ -495,6 +517,7 @@ def create_succeeded_assembly_attempt(
     registered = service._register_local_assembly_artifacts(
         PRODUCTION_ID, run_id, cache_key, include_captioned, raw_artifacts
     )
+    caption_style = normalize_caption_style_preset()
     attempt = service.database.create_stage_attempt(
         run_id, "assembly", cache_key, {"test_fixture": True}
     )
@@ -510,6 +533,8 @@ def create_succeeded_assembly_attempt(
         "actual_cost": 0,
         "timing_source": "ffprobe",
         "include_captioned": include_captioned,
+        "caption_style_preset": caption_style["preset"],
+        "caption_style": caption_style,
         "source_video_sha256": "A" * 64,
         "narration_wav_sha256": "B" * 64,
         "captions_sha256": "C" * 64,
@@ -634,10 +659,15 @@ class DatabaseMigrationTests(unittest.TestCase):
                     row["name"]
                     for row in connection.execute("PRAGMA table_info(stage_attempts)")
                 }
+                pipeline_claims = connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='local_pipeline_claims'"
+                ).fetchone()
 
             self.assertIn("execution_profile", run_columns)
+            self.assertIn("pipeline_key", run_columns)
             self.assertEqual(schema_version, str(SCHEMA_VERSION))
             self.assertIsNotNone(stage_attempts)
+            self.assertIsNotNone(pipeline_claims)
             self.assertIn("job_id", stage_attempt_columns)
 
 
@@ -669,6 +699,24 @@ class AtomicCompletionTests(unittest.TestCase):
         self.service.database.update_job(str(job["id"]), "running")
         self.service.database.update_stage_attempt(str(attempt["id"]), "running")
         return job, attempt
+
+    def _artifact_record(self, name: str) -> dict[str, object]:
+        path = self.fixture.root / "outputs" / "studio" / "atomic" / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        payload = b"atomic-studio-artifact"
+        path.write_bytes(payload)
+        stat = path.stat()
+        return {
+            "id": f"art_atomic_{hashlib.sha256(name.encode()).hexdigest()[:16]}",
+            "rel_path": path.relative_to(self.fixture.root).as_posix(),
+            "name": name,
+            "kind": "video",
+            "media_type": "video/mp4",
+            "bytes": stat.st_size,
+            "mtime_ns": stat.st_mtime_ns,
+            "sha256": hashlib.sha256(payload).hexdigest().upper(),
+            "is_heavy": False,
+        }
 
     def test_atomic_completion_commits_job_and_stage_with_split_results(self) -> None:
         job, attempt = self._active_pair()
@@ -744,6 +792,80 @@ class AtomicCompletionTests(unittest.TestCase):
         self.assertNotIn("job.succeeded", event_types)
         self.assertNotIn("stage.attempt.succeeded", event_types)
 
+    def test_atomic_completion_commits_artifact_and_terminal_truth_together(self) -> None:
+        job, attempt = self._active_pair()
+        job_id = str(job["id"])
+        attempt_id = str(attempt["id"])
+        artifact = self._artifact_record("generated.mp4")
+
+        committed = self.service.database.complete_job_with_stage_attempt(
+            job_id,
+            attempt_id,
+            {"cache_hit": False, "artifacts": []},
+            [artifact],
+        )
+
+        registered = committed["stage_attempt"]["result"]["artifacts"]
+        self.assertEqual(len(registered), 1)
+        self.assertEqual(registered[0]["id"], artifact["id"])
+        self.assertEqual(
+            committed["job"]["result"]["artifacts"],
+            registered,
+        )
+        self.assertIsNotNone(self.service.database.get_artifact(str(artifact["id"])))
+        with closing(self.service.database.connect()) as connection:
+            rows = connection.execute(
+                "SELECT id, event_type FROM events "
+                "WHERE event_type IN ('artifact.created', 'stage.attempt.succeeded', 'job.succeeded') "
+                "AND (scope_id=? OR scope_id=? OR scope_id=?) ORDER BY id",
+                (PRODUCTION_ID, str(attempt["run_id"]), job_id),
+            ).fetchall()
+        self.assertEqual(
+            [row["event_type"] for row in rows],
+            ["artifact.created", "stage.attempt.succeeded", "job.succeeded"],
+        )
+
+    def test_atomic_completion_rolls_back_artifact_when_success_update_fails(self) -> None:
+        job, attempt = self._active_pair()
+        job_id = str(job["id"])
+        attempt_id = str(attempt["id"])
+        artifact = self._artifact_record("rollback.mp4")
+        with closing(self.service.database.connect()) as connection:
+            connection.execute(
+                "CREATE TRIGGER reject_test_atomic_success "
+                "BEFORE UPDATE OF status ON jobs "
+                f"WHEN NEW.id='{job_id}' AND NEW.status='succeeded' "
+                "BEGIN SELECT RAISE(ABORT, 'test rollback'); END"
+            )
+
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.service.database.complete_job_with_stage_attempt(
+                job_id,
+                attempt_id,
+                {"cache_hit": False, "artifacts": []},
+                [artifact],
+            )
+
+        self.assertIsNone(self.service.database.get_artifact(str(artifact["id"])))
+        self.assertEqual(self.service.database.get_job(job_id)["status"], "running")
+        self.assertEqual(
+            self.service.database.get_stage_attempt(attempt_id)["status"],
+            "running",
+        )
+        with closing(self.service.database.connect()) as connection:
+            version_count = connection.execute(
+                "SELECT COUNT(*) AS count FROM artifact_versions WHERE artifact_id=?",
+                (artifact["id"],),
+            ).fetchone()["count"]
+            event_count = connection.execute(
+                "SELECT COUNT(*) AS count FROM events "
+                "WHERE event_type='artifact.created' "
+                "AND json_extract(payload_json, '$.artifact_id')=?",
+                (artifact["id"],),
+            ).fetchone()["count"]
+        self.assertEqual(version_count, 0)
+        self.assertEqual(event_count, 0)
+
     def test_job_manager_shutdown_wins_completion_boundary_without_split_truth(self) -> None:
         created = self.service.create_run(
             PRODUCTION_ID,
@@ -818,6 +940,208 @@ class AtomicCompletionTests(unittest.TestCase):
             (completed["status"], final_attempt["status"]),
             ("interrupted", "succeeded"),
         )
+
+    def test_job_manager_atomically_fails_pair_when_completion_commit_raises(self) -> None:
+        created = self.service.create_run(
+            PRODUCTION_ID,
+            {"changes": [{"type": "script"}], "execution_profile": "local_sapi"},
+        )
+        run_id = str(created["run"]["id"])
+        attempt = self.service.database.create_stage_attempt(
+            run_id, "narration", "D" * 64, {"test": True}
+        )
+        attempt_id = str(attempt["id"])
+
+        def callback(_job_id: str, _context: threading.Event) -> AtomicStageCompletion:
+            self.service.database.update_stage_attempt(attempt_id, "running")
+            return AtomicStageCompletion(
+                attempt_id,
+                {"cache_hit": False, "artifacts": []},
+            )
+
+        with mock.patch.object(
+            self.service.database,
+            "complete_job_with_stage_attempt",
+            side_effect=sqlite3.IntegrityError("test completion failure"),
+        ):
+            job = self.service.jobs.submit(
+                "local_narration",
+                {"run_id": run_id, "stage": "narration"},
+                callback,
+                production_id=PRODUCTION_ID,
+                before_enqueue=lambda created_job: self.service.database.link_stage_attempt_job(
+                    attempt_id, str(created_job["id"])
+                ),
+            )
+            completed = self.service.jobs.wait(str(job["id"]), timeout=2)
+
+        self.assertIsNotNone(completed)
+        assert completed is not None
+        final_attempt = self.service.database.get_stage_attempt(attempt_id)
+        assert final_attempt is not None
+        self.assertEqual(completed["status"], "failed")
+        self.assertEqual(final_attempt["status"], "failed")
+        self.assertEqual(completed["error"]["code"], "job_failed")
+        self.assertEqual(final_attempt["error"]["code"], "job_failed")
+        with closing(self.service.database.connect()) as connection:
+            terminal_events = connection.execute(
+                "SELECT event_type FROM events "
+                "WHERE scope_id IN (?, ?) "
+                "AND event_type IN ('stage.attempt.failed', 'job.failed') ORDER BY id",
+                (run_id, str(job["id"])),
+            ).fetchall()
+        self.assertEqual(
+            [row["event_type"] for row in terminal_events],
+            ["stage.attempt.failed", "job.failed"],
+        )
+
+    def test_job_manager_atomically_fails_payload_linked_queued_stage(self) -> None:
+        created = self.service.create_run(
+            PRODUCTION_ID,
+            {"changes": [{"type": "script"}], "execution_profile": "local_sapi"},
+        )
+        run_id = str(created["run"]["id"])
+        attempt = self.service.database.create_stage_attempt(
+            run_id, "narration", "E" * 64, {"test": True}
+        )
+        attempt_id = str(attempt["id"])
+
+        class SafeComfyFailure(RuntimeError):
+            error_code = "comfyui_failed"
+            public_message = "The local ComfyUI job failed."
+
+        def callback(_job_id: str, _context: threading.Event) -> dict[str, object]:
+            # Deliberately fail before the callback can mark the stage running.
+            raise SafeComfyFailure()
+
+        atomic_failure = self.service.database.fail_job_with_stage_attempt
+        with mock.patch.object(
+            self.service.database,
+            "fail_job_with_stage_attempt",
+            wraps=atomic_failure,
+        ) as fail_pair:
+            job = self.service.jobs.submit(
+                "local_video_generation",
+                {
+                    "run_id": run_id,
+                    "stage": "narration",
+                    "stage_attempt_id": attempt_id,
+                },
+                callback,
+                production_id=PRODUCTION_ID,
+                before_enqueue=lambda created_job: self.service.database.link_stage_attempt_job(
+                    attempt_id, str(created_job["id"])
+                ),
+                lane="gpu",
+            )
+            completed = self.service.jobs.wait(str(job["id"]), timeout=2)
+
+        assert completed is not None
+        final_attempt = self.service.database.get_stage_attempt(attempt_id)
+        assert final_attempt is not None
+        self.assertEqual(completed["status"], "failed")
+        self.assertEqual(final_attempt["status"], "failed")
+        self.assertEqual(completed["error"]["code"], "comfyui_failed")
+        self.assertEqual(final_attempt["error"], completed["error"])
+        self.assertEqual(final_attempt["started_at"], None)
+        self.assertEqual(final_attempt["completed_at"], completed["completed_at"])
+        fail_pair.assert_called_once()
+        self.assertEqual(fail_pair.call_args.args[:2], (job["id"], attempt_id))
+
+    def test_payload_link_rejects_mismatched_completion_envelope(self) -> None:
+        created = self.service.create_run(
+            PRODUCTION_ID,
+            {"changes": [{"type": "script"}], "execution_profile": "local_sapi"},
+        )
+        run_id = str(created["run"]["id"])
+        linked = self.service.database.create_stage_attempt(
+            run_id, "narration", "6" * 64, {"test": "linked"}
+        )
+        unrelated = self.service.database.create_stage_attempt(
+            run_id, "assembly", "5" * 64, {"test": "unrelated"}
+        )
+        linked_id = str(linked["id"])
+
+        def callback(
+            _job_id: str, _context: threading.Event
+        ) -> AtomicStageCompletion:
+            self.service.database.update_stage_attempt(linked_id, "running")
+            return AtomicStageCompletion(
+                str(unrelated["id"]), {"cache_hit": False, "artifacts": []}
+            )
+
+        with mock.patch.object(
+            self.service.database,
+            "complete_job_with_stage_attempt",
+            wraps=self.service.database.complete_job_with_stage_attempt,
+        ) as complete_pair:
+            job = self.service.jobs.submit(
+                "local_video_generation",
+                {
+                    "run_id": run_id,
+                    "stage": "narration",
+                    "stage_attempt_id": linked_id,
+                },
+                callback,
+                production_id=PRODUCTION_ID,
+                before_enqueue=lambda created_job: self.service.database.link_stage_attempt_job(
+                    linked_id, str(created_job["id"])
+                ),
+                lane="gpu",
+            )
+            completed = self.service.jobs.wait(str(job["id"]), timeout=2)
+
+        assert completed is not None
+        linked_after = self.service.database.get_stage_attempt(linked_id)
+        unrelated_after = self.service.database.get_stage_attempt(str(unrelated["id"]))
+        assert linked_after is not None and unrelated_after is not None
+        self.assertEqual(completed["status"], "failed")
+        self.assertEqual(completed["error"]["code"], "invalid_worker_result")
+        self.assertEqual(linked_after["status"], "failed")
+        self.assertEqual(unrelated_after["status"], "queued")
+        complete_pair.assert_not_called()
+
+    def test_payload_link_rejects_plain_completion_result(self) -> None:
+        created = self.service.create_run(
+            PRODUCTION_ID,
+            {"changes": [{"type": "script"}], "execution_profile": "local_sapi"},
+        )
+        run_id = str(created["run"]["id"])
+        attempt = self.service.database.create_stage_attempt(
+            run_id, "narration", "4" * 64, {"test": "plain-result"}
+        )
+        attempt_id = str(attempt["id"])
+
+        def callback(
+            _job_id: str, _context: threading.Event
+        ) -> dict[str, object]:
+            self.service.database.update_stage_attempt(attempt_id, "running")
+            return {"cache_hit": False, "artifacts": []}
+
+        job = self.service.jobs.submit(
+            "local_video_generation",
+            {
+                "run_id": run_id,
+                "stage": "narration",
+                "stage_attempt_id": attempt_id,
+            },
+            callback,
+            production_id=PRODUCTION_ID,
+            before_enqueue=lambda created_job: self.service.database.link_stage_attempt_job(
+                attempt_id, str(created_job["id"])
+            ),
+            lane="gpu",
+        )
+        completed = self.service.jobs.wait(str(job["id"]), timeout=2)
+
+        assert completed is not None
+        final_attempt = self.service.database.get_stage_attempt(attempt_id)
+        assert final_attempt is not None
+        self.assertEqual(completed["status"], "failed")
+        self.assertEqual(completed["error"]["code"], "invalid_worker_result")
+        self.assertEqual(final_attempt["status"], "failed")
+        self.assertEqual(final_attempt["error"], completed["error"])
+        self.assertEqual(final_attempt["completed_at"], completed["completed_at"])
 
     def test_atomic_completion_rejects_wrong_link_and_non_running_state(self) -> None:
         job, attempt = self._active_pair()
@@ -988,6 +1312,739 @@ class ServiceTests(unittest.TestCase):
         detail = self.service.production_detail(PRODUCTION_ID)
         assert detail is not None
         self.assertEqual(detail["runs"], [])
+
+    def test_local_comfyui_profile_is_zero_cost_and_video_only(self) -> None:
+        created = self.service.create_run(
+            PRODUCTION_ID,
+            {
+                "changes": [{"type": "video"}],
+                "execution_profile": "local_comfyui",
+            },
+        )
+        self.assertEqual(created["run"]["execution_profile"], "local_comfyui")
+        self.assertEqual(created["run"]["estimated_cost"]["amount"], "0.00")
+        self.assertIn("video_generation", created["run"]["requested_stages"])
+
+        with self.assertRaises(RequestValidationError) as raised:
+            self.service.create_run(
+                PRODUCTION_ID,
+                {
+                    "changes": [{"type": "script"}],
+                    "execution_profile": "local_comfyui",
+                },
+            )
+        self.assertEqual(raised.exception.code, "local_profile_stage_not_allowed")
+
+        with self.assertRaises(RequestValidationError) as raised:
+            self.service.create_run(
+                PRODUCTION_ID,
+                {
+                    "changes": [{"type": "video"}],
+                    "execution_profile": "local_comfyui",
+                    "estimated_cost": {"amount": "0.01", "currency": "USD"},
+                },
+            )
+        self.assertEqual(raised.exception.code, "local_profile_cost_not_allowed")
+
+    def test_local_comfyui_generation_uses_gpu_lane_and_persists_safe_lineage(self) -> None:
+        created = self.service.create_run(
+            PRODUCTION_ID,
+            {
+                "changes": [{"type": "video"}],
+                "execution_profile": "local_comfyui",
+            },
+        )
+        run_id = created["run"]["id"]
+        cache_key = "9" * 64
+        prompt_id = "11111111-1111-4111-8111-111111111111"
+        prompt = "A private Japanese presenter prompt that must not enter job payloads."
+        workflow_record = {
+            "path": COMFYUI_WORKFLOW_RELATIVE_PATH,
+            "bytes": COMFYUI_WORKFLOW_FILE_BYTES,
+            "sha256": COMFYUI_WORKFLOW_FILE_SHA256,
+            "graph_sha256": COMFYUI_WORKFLOW_GRAPH_SHA256,
+        }
+        model_files = {
+            role: {
+                "path": spec["relative_path"],
+                "bytes": spec["bytes"],
+                "sha256": spec["sha256"],
+            }
+            for role, spec in COMFYUI_MODEL_SPECS.items()
+        }
+        runtime_identity = {
+            role: {
+                "path": spec["relative_path"],
+                "bytes": spec["bytes"],
+                "sha256": spec["sha256"],
+            }
+            for role, spec in COMFYUI_RUNTIME_FILE_SPECS.items()
+        }
+        runtime_identity["repositories"] = {
+            role: {
+                "path": spec["relative_path"],
+                "revision": spec["revision"],
+                "tracked_clean": True,
+            }
+            for role, spec in COMFYUI_RUNTIME_REPOSITORY_SPECS.items()
+        }
+        resolved = {
+            "workflow": {"test": True},
+            "workflow_source_path": COMFYUI_WORKFLOW_RELATIVE_PATH,
+            "workflow_source_bytes": COMFYUI_WORKFLOW_FILE_BYTES,
+            "workflow_source_sha256": COMFYUI_WORKFLOW_FILE_SHA256,
+            "workflow_record": workflow_record,
+            "model_files": model_files,
+            "runtime_identity": runtime_identity,
+            "ffprobe_identity": {
+                "path": "ffprobe",
+                "version": "test",
+                "sha256": "F" * 64,
+            },
+            "cache_key": cache_key,
+            "output_roots": ["outputs"],
+        }
+
+        def worker_result(
+            workspace: Path,
+            *,
+            production_id: str,
+            run_id: str,
+            payload: dict[str, object],
+            **kwargs: object,
+        ) -> dict[str, object]:
+            del production_id
+            if "output_roots" in kwargs:
+                self.assertEqual(kwargs.get("expected_cache_key"), cache_key)
+            callback = kwargs.get("on_provider_task_id")
+            if callable(callback):
+                callback(prompt_id)
+            output_directory = (
+                workspace
+                / "outputs"
+                / "studio"
+                / "runs"
+                / run_id
+                / "video_generation"
+                / cache_key
+            )
+            output_directory.mkdir(parents=True, exist_ok=True)
+            files = {
+                "generated-video.mp4": ("video", "video/mp4", VIDEO_BYTES),
+                "workflow.json": ("document", "application/json", b"{}\n"),
+                "ffprobe.json": ("document", "application/json", b"{}\n"),
+                "manifest.json": ("document", "application/json", b"{}\n"),
+            }
+            artifacts = []
+            for name, (kind, media_type, content) in files.items():
+                path = output_directory / name
+                path.write_bytes(content)
+                artifacts.append(
+                    {
+                        "name": name,
+                        "rel_path": path.relative_to(workspace).as_posix(),
+                        "kind": kind,
+                        "media_type": media_type,
+                        "bytes": len(content),
+                        "sha256": hashlib.sha256(content).hexdigest().upper(),
+                    }
+                )
+            return {
+                "artifacts": artifacts,
+                "duration_ms": 5_167,
+                "cache_key": cache_key,
+                "cache_hit": False,
+                "provider": "comfyui",
+                "provider_task_id": prompt_id,
+                "prompt_id": prompt_id,
+                "actual_cost": 0,
+                "timing_source": "ffprobe",
+                "workflow_preset": COMFYUI_WORKFLOW_PRESET,
+                "prompt_sha256": hashlib.sha256(
+                    str(payload["prompt"]).encode("utf-8")
+                ).hexdigest().upper(),
+                "seed": payload["seed"],
+            }
+
+        def validate_result(*args: object, **kwargs: object) -> dict[str, object]:
+            result = worker_result(*args, **kwargs)
+            result["cache_hit"] = True
+            return result
+
+        original_submit = self.service.jobs.submit
+        submitted_lanes: list[str] = []
+
+        def recording_submit(*args: object, **kwargs: object) -> dict[str, object]:
+            submitted_lanes.append(str(kwargs.get("lane", "default")))
+            return original_submit(*args, **kwargs)
+
+        request = {
+            "workflow_preset": COMFYUI_WORKFLOW_PRESET,
+            "prompt": prompt,
+            "seed": 42,
+        }
+        with (
+            mock.patch.object(
+                self.service,
+                "_resolve_comfyui_execution_inputs",
+                return_value=resolved,
+            ),
+            mock.patch.object(self.service.jobs, "submit", side_effect=recording_submit),
+            mock.patch(
+                "tools.studio.comfyui.recover_comfyui_prompt_id", return_value=None
+            ),
+            mock.patch(
+                "tools.studio.comfyui.generate_comfyui_video",
+                side_effect=worker_result,
+            ),
+            mock.patch(
+                "tools.studio.comfyui.validate_comfyui_outputs",
+                side_effect=validate_result,
+            ),
+        ):
+            queued = self.service.execute_local_video_generation(run_id, request)
+            completed = self.service.jobs.wait(queued["id"], timeout=10)
+
+        assert completed is not None
+        self.assertEqual(submitted_lanes, ["gpu"])
+        self.assertEqual(queued["payload"]["stage_attempt_id"], queued["stage_attempt_id"])
+        persisted_job = self.service.database.get_job(queued["id"])
+        assert persisted_job is not None
+        self.assertEqual(
+            persisted_job["payload"]["stage_attempt_id"], queued["stage_attempt_id"]
+        )
+        self.assertEqual(completed["status"], "succeeded", completed)
+        self.assertEqual(completed["result"]["provider_task_id"], prompt_id)
+        self.assertEqual(completed["result"]["prompt_sha256"], hashlib.sha256(prompt.encode()).hexdigest().upper())
+        self.assertEqual(len(completed["result"]["artifacts"]), 4)
+        self.assertNotIn(prompt, json.dumps(completed, ensure_ascii=False))
+        persisted = self.service.database.path.read_bytes()
+        self.assertNotIn(prompt.encode("utf-8"), persisted)
+
+        run = self.service.run(run_id)
+        assert run is not None
+        attempt = next(
+            item for item in run["stage_attempts"] if item["stage"] == "video_generation"
+        )
+        self.assertEqual(attempt["job_id"], queued["id"])
+        self.assertEqual(attempt["status"], "succeeded")
+        self.assertEqual(attempt["result"]["prompt_sha256"], completed["result"]["prompt_sha256"])
+        snapshot = self.service.database.production_audit_snapshot(PRODUCTION_ID)
+        assert snapshot is not None
+        events = snapshot["events"]
+        provider_events = [
+            event
+            for event in events
+            if event["event_type"] == "video_generation.provider_submitted"
+        ]
+        self.assertEqual(len(provider_events), 1)
+        self.assertEqual(provider_events[0]["payload"]["provider_task_id"], prompt_id)
+
+        prior_attempt_id = attempt["id"]
+        for _index in range(2):
+            cached_run = self.service.create_run(
+                PRODUCTION_ID,
+                {
+                    "changes": [{"type": "video"}],
+                    "execution_profile": "local_comfyui",
+                },
+            )["run"]["id"]
+            with (
+                mock.patch.object(
+                    self.service,
+                    "_resolve_comfyui_execution_inputs",
+                    return_value=resolved,
+                ),
+                mock.patch(
+                    "tools.studio.comfyui.validate_comfyui_outputs",
+                    side_effect=validate_result,
+                ),
+                mock.patch(
+                    "tools.studio.comfyui.recover_comfyui_prompt_id",
+                    side_effect=AssertionError("cache reuse must precede marker recovery"),
+                ),
+                mock.patch(
+                    "tools.studio.comfyui.generate_comfyui_video",
+                    side_effect=AssertionError("cache reuse must not submit ComfyUI"),
+                ),
+            ):
+                cached_job = self.service.execute_local_video_generation(
+                    cached_run, request
+                )
+                cached_completed = self.service.jobs.wait(
+                    cached_job["id"], timeout=10
+                )
+            assert cached_completed is not None
+            self.assertEqual(cached_completed["status"], "succeeded", cached_completed)
+            self.assertTrue(cached_completed["result"]["cache_hit"])
+            self.assertEqual(
+                cached_completed["result"]["cache_source_attempt_id"],
+                prior_attempt_id,
+            )
+            self.assertEqual(
+                {
+                    item["id"]
+                    for item in cached_completed["result"]["artifacts"]
+                },
+                {item["id"] for item in completed["result"]["artifacts"]},
+            )
+            prior_attempt_id = cached_completed["result"]["stage_attempt_id"]
+
+    def test_local_comfyui_worker_failure_atomically_fails_job_and_stage(self) -> None:
+        created = self.service.create_run(
+            PRODUCTION_ID,
+            {
+                "changes": [{"type": "video"}],
+                "execution_profile": "local_comfyui",
+            },
+        )
+        run_id = created["run"]["id"]
+        cache_key = "7" * 64
+        workflow_record = {
+            "path": COMFYUI_WORKFLOW_RELATIVE_PATH,
+            "bytes": COMFYUI_WORKFLOW_FILE_BYTES,
+            "sha256": COMFYUI_WORKFLOW_FILE_SHA256,
+            "graph_sha256": COMFYUI_WORKFLOW_GRAPH_SHA256,
+        }
+        model_files = {
+            role: {
+                "path": spec["relative_path"],
+                "bytes": spec["bytes"],
+                "sha256": spec["sha256"],
+            }
+            for role, spec in COMFYUI_MODEL_SPECS.items()
+        }
+        runtime_identity = {
+            role: {
+                "path": spec["relative_path"],
+                "bytes": spec["bytes"],
+                "sha256": spec["sha256"],
+            }
+            for role, spec in COMFYUI_RUNTIME_FILE_SPECS.items()
+        }
+        runtime_identity["repositories"] = {
+            role: {
+                "path": spec["relative_path"],
+                "revision": spec["revision"],
+                "tracked_clean": True,
+            }
+            for role, spec in COMFYUI_RUNTIME_REPOSITORY_SPECS.items()
+        }
+        resolved = {
+            "workflow": {"test": True},
+            "workflow_source_path": COMFYUI_WORKFLOW_RELATIVE_PATH,
+            "workflow_source_bytes": COMFYUI_WORKFLOW_FILE_BYTES,
+            "workflow_source_sha256": COMFYUI_WORKFLOW_FILE_SHA256,
+            "workflow_record": workflow_record,
+            "model_files": model_files,
+            "runtime_identity": runtime_identity,
+            "ffprobe_identity": {
+                "path": "ffprobe",
+                "version": "test",
+                "sha256": "F" * 64,
+            },
+            "cache_key": cache_key,
+            "output_roots": ["outputs"],
+        }
+        request = {
+            "workflow_preset": COMFYUI_WORKFLOW_PRESET,
+            "prompt": "private prompt must not leak from an unknown worker failure",
+            "seed": 43,
+        }
+        secret = "SECRET_INTERNAL_COMFY_PATH"
+        atomic_failure = self.service.database.fail_job_with_stage_attempt
+        with (
+            mock.patch.object(
+                self.service,
+                "_resolve_comfyui_execution_inputs",
+                return_value=resolved,
+            ),
+            mock.patch(
+                "tools.studio.comfyui.recover_comfyui_prompt_id", return_value=None
+            ),
+            mock.patch(
+                "tools.studio.comfyui.generate_comfyui_video",
+                side_effect=RuntimeError(secret),
+            ),
+            mock.patch.object(
+                self.service.database,
+                "fail_job_with_stage_attempt",
+                wraps=atomic_failure,
+            ) as fail_pair,
+        ):
+            queued = self.service.execute_local_video_generation(run_id, request)
+            completed = self.service.jobs.wait(queued["id"], timeout=10)
+
+        assert completed is not None
+        attempt_id = queued["stage_attempt_id"]
+        attempt = self.service.database.get_stage_attempt(attempt_id)
+        assert attempt is not None
+        self.assertEqual(completed["status"], "failed")
+        self.assertEqual(attempt["status"], "failed")
+        self.assertEqual(completed["error"]["code"], "comfyui_failed")
+        self.assertEqual(attempt["error"], completed["error"])
+        self.assertEqual(completed["completed_at"], attempt["completed_at"])
+        self.assertEqual(completed["payload"]["stage_attempt_id"], attempt_id)
+        fail_pair.assert_called_once()
+        self.assertEqual(fail_pair.call_args.args[:2], (queued["id"], attempt_id))
+
+        with closing(self.service.database.connect()) as connection:
+            terminal_events = connection.execute(
+                "SELECT event_type, created_at FROM events "
+                "WHERE scope_id IN (?, ?) "
+                "AND event_type IN ('stage.attempt.failed', 'job.failed') ORDER BY id",
+                (run_id, queued["id"]),
+            ).fetchall()
+        self.assertEqual(
+            [row["event_type"] for row in terminal_events],
+            ["stage.attempt.failed", "job.failed"],
+        )
+        self.assertEqual(
+            {row["created_at"] for row in terminal_events},
+            {completed["completed_at"]},
+        )
+        self.assertNotIn(secret.encode("utf-8"), self.service.database.path.read_bytes())
+
+    def test_local_media_stages_publish_artifacts_only_at_atomic_completion(self) -> None:
+        created = self.service.create_run(
+            PRODUCTION_ID,
+            {
+                "changes": [{"type": "timeline"}, {"type": "script"}],
+                "execution_profile": "local_sapi",
+            },
+        )
+        run_id = created["run"]["id"]
+        detail = self.service.production_detail(PRODUCTION_ID)
+        assert detail is not None
+        source_video = next(
+            item for item in detail["artifacts"] if item["kind"] == "video"
+        )
+
+        timeline_module = types.ModuleType("tools.studio.timeline")
+        timeline_module.timeline_cache_key = lambda _clips: "1" * 64
+        timeline_module.generate_local_timeline = fake_local_timeline_result
+        timeline_module.validate_local_timeline_outputs = (
+            fake_validate_local_timeline_outputs
+        )
+
+        atomic_complete = self.service.database.complete_job_with_stage_attempt
+        observed: list[tuple[str, str, int]] = []
+
+        def complete_pair(
+            job_id: str,
+            stage_attempt_id: str,
+            public_result: object,
+            artifact_records: object = (),
+        ) -> dict[str, object]:
+            self.assertIsInstance(public_result, dict)
+            assert isinstance(public_result, dict)
+            self.assertEqual(public_result.get("artifacts"), [])
+            self.assertIsInstance(artifact_records, (list, tuple))
+            assert isinstance(artifact_records, (list, tuple))
+            records = tuple(artifact_records)
+            self.assertGreater(len(records), 0)
+            for record in records:
+                self.assertIsInstance(record, dict)
+                assert isinstance(record, dict)
+                with closing(self.service.database.connect()) as connection:
+                    existing = connection.execute(
+                        "SELECT id FROM artifacts WHERE rel_path=?",
+                        (record["rel_path"],),
+                    ).fetchone()
+                self.assertIsNone(existing)
+            observed.append((job_id, stage_attempt_id, len(records)))
+            return atomic_complete(
+                job_id,
+                stage_attempt_id,
+                public_result,
+                records,
+            )
+
+        queued_and_completed: list[tuple[dict[str, object], dict[str, object]]] = []
+        with (
+            mock.patch.dict(sys.modules, {"tools.studio.timeline": timeline_module}),
+            mock.patch("tools.studio.timeline", timeline_module, create=True),
+            mock.patch(
+                "tools.studio.narration.generate_local_narration",
+                side_effect=fake_local_narration_result,
+            ),
+            mock.patch(
+                "tools.studio.assembly.assembly_cache_key", return_value="2" * 64
+            ),
+            mock.patch(
+                "tools.studio.assembly.generate_local_assembly",
+                side_effect=fake_local_assembly_result,
+            ),
+            mock.patch(
+                "tools.studio.assembly.validate_local_assembly_outputs",
+                side_effect=fake_validate_local_assembly_outputs,
+            ),
+            mock.patch("tools.studio.qc.qc_cache_key", return_value="3" * 64),
+            mock.patch(
+                "tools.studio.qc.generate_local_qc", side_effect=fake_local_qc_result
+            ),
+            mock.patch(
+                "tools.studio.qc.validate_local_qc_outputs",
+                side_effect=fake_validate_local_qc_outputs,
+            ),
+            mock.patch.object(
+                self.service.database,
+                "register_studio_artifact",
+                side_effect=AssertionError(
+                    "worker-backed stages must not register artifacts before completion"
+                ),
+            ),
+            mock.patch.object(
+                self.service.database,
+                "complete_job_with_stage_attempt",
+                side_effect=complete_pair,
+            ),
+        ):
+            timeline_job = self.service.execute_local_timeline(
+                run_id,
+                {
+                    "clips": [
+                        {
+                            "video_artifact_id": source_video["id"],
+                            "start_ms": 0,
+                            "end_ms": 125,
+                        }
+                    ]
+                },
+            )
+            timeline = self.service.jobs.wait(timeline_job["id"], timeout=10)
+            assert timeline is not None
+            queued_and_completed.append((timeline_job, timeline))
+
+            narration_job = self.service.execute_local_narration(
+                run_id, {"segments": [{"text": "atomic local narration"}]}
+            )
+            narration = self.service.jobs.wait(narration_job["id"], timeout=10)
+            assert narration is not None
+            queued_and_completed.append((narration_job, narration))
+
+            assembly_job = self.service.execute_local_assembly(
+                run_id,
+                {
+                    "video_artifact_id": source_video["id"],
+                    "narration_attempt_id": narration["result"]["stage_attempt_id"],
+                    "include_captioned": False,
+                },
+            )
+            assembly = self.service.jobs.wait(assembly_job["id"], timeout=10)
+            assert assembly is not None
+            queued_and_completed.append((assembly_job, assembly))
+
+            qc_job = self.service.execute_local_qc(
+                run_id,
+                {
+                    "assembly_attempt_id": assembly["result"]["stage_attempt_id"],
+                    "variant": "clean",
+                },
+            )
+            qc = self.service.jobs.wait(qc_job["id"], timeout=10)
+            assert qc is not None
+            queued_and_completed.append((qc_job, qc))
+
+        self.assertEqual([count for _job, _attempt, count in observed], [4, 4, 3, 3])
+        for queued, completed in queued_and_completed:
+            with self.subTest(kind=queued["kind"]):
+                self.assertEqual(completed["status"], "succeeded", completed)
+                self.assertEqual(
+                    queued["payload"]["stage_attempt_id"],
+                    queued["stage_attempt_id"],
+                )
+                self.assertEqual(
+                    completed["result"]["stage_attempt_id"],
+                    queued["stage_attempt_id"],
+                )
+                attempt = self.service.database.get_stage_attempt(
+                    queued["stage_attempt_id"]
+                )
+                assert attempt is not None
+                self.assertEqual(attempt["status"], "succeeded")
+                self.assertEqual(completed["completed_at"], attempt["completed_at"])
+                self.assertNotIn("stage_attempt_id", attempt["result"])
+                self.assertEqual(
+                    {item["id"] for item in completed["result"]["artifacts"]},
+                    {item["id"] for item in attempt["result"]["artifacts"]},
+                )
+
+    def test_local_media_worker_failures_atomically_fail_linked_pairs(self) -> None:
+        secret = "PRIVATE_LOCAL_WORKER_EXCEPTION_DETAIL"
+        failures: list[
+            tuple[dict[str, object], dict[str, object], str]
+        ] = []
+        atomic_failure = self.service.database.fail_job_with_stage_attempt
+
+        with mock.patch.object(
+            self.service.database,
+            "fail_job_with_stage_attempt",
+            wraps=atomic_failure,
+        ) as fail_pair:
+            narration_run = self.service.create_run(
+                PRODUCTION_ID,
+                {
+                    "changes": [{"type": "script"}],
+                    "execution_profile": "local_sapi",
+                },
+            )["run"]["id"]
+            with mock.patch(
+                "tools.studio.narration.generate_local_narration",
+                side_effect=RuntimeError(secret),
+            ):
+                narration_job = self.service.execute_local_narration(
+                    narration_run,
+                    {"segments": [{"text": "narration failure"}]},
+                )
+                narration_failed = self.service.jobs.wait(
+                    narration_job["id"], timeout=10
+                )
+            assert narration_failed is not None
+            failures.append(
+                (narration_job, narration_failed, "local_narration_failed")
+            )
+
+            timeline_run = self.service.create_run(
+                PRODUCTION_ID,
+                {
+                    "changes": [{"type": "timeline"}],
+                    "execution_profile": "local_sapi",
+                },
+            )["run"]["id"]
+            detail = self.service.production_detail(PRODUCTION_ID)
+            assert detail is not None
+            source_video = next(
+                item for item in detail["artifacts"] if item["kind"] == "video"
+            )
+            timeline_module = types.ModuleType("tools.studio.timeline")
+            timeline_module.timeline_cache_key = lambda _clips: "4" * 64
+            timeline_module.generate_local_timeline = mock.Mock(
+                side_effect=RuntimeError(secret)
+            )
+            timeline_module.validate_local_timeline_outputs = (
+                fake_validate_local_timeline_outputs
+            )
+            with (
+                mock.patch.dict(
+                    sys.modules, {"tools.studio.timeline": timeline_module}
+                ),
+                mock.patch("tools.studio.timeline", timeline_module, create=True),
+            ):
+                timeline_job = self.service.execute_local_timeline(
+                    timeline_run,
+                    {
+                        "clips": [
+                            {
+                                "video_artifact_id": source_video["id"],
+                                "start_ms": 0,
+                                "end_ms": 125,
+                            }
+                        ]
+                    },
+                )
+                timeline_failed = self.service.jobs.wait(
+                    timeline_job["id"], timeout=10
+                )
+            assert timeline_failed is not None
+            failures.append(
+                (
+                    timeline_job,
+                    timeline_failed,
+                    "local_timeline_failed",
+                )
+            )
+
+            assembly_run = self.service.create_run(
+                PRODUCTION_ID,
+                {
+                    "changes": [{"type": "script"}],
+                    "execution_profile": "local_sapi",
+                },
+            )["run"]["id"]
+            with mock.patch(
+                "tools.studio.narration.generate_local_narration",
+                side_effect=fake_local_narration_result,
+            ):
+                narration_job = self.service.execute_local_narration(
+                    assembly_run,
+                    {"segments": [{"text": "assembly prerequisite"}]},
+                )
+                narration = self.service.jobs.wait(narration_job["id"], timeout=10)
+            assert narration is not None
+            self.assertEqual(narration["status"], "succeeded", narration)
+            with (
+                mock.patch(
+                    "tools.studio.assembly.assembly_cache_key", return_value="5" * 64
+                ),
+                mock.patch(
+                    "tools.studio.assembly.generate_local_assembly",
+                    side_effect=RuntimeError(secret),
+                ),
+            ):
+                assembly_job = self.service.execute_local_assembly(
+                    assembly_run,
+                    {
+                        "video_artifact_id": source_video["id"],
+                        "narration_attempt_id": narration["result"][
+                            "stage_attempt_id"
+                        ],
+                        "include_captioned": False,
+                    },
+                )
+                assembly_failed = self.service.jobs.wait(
+                    assembly_job["id"], timeout=10
+                )
+            assert assembly_failed is not None
+            failures.append(
+                (assembly_job, assembly_failed, "local_assembly_failed")
+            )
+
+            qc_run = self.service.create_run(
+                PRODUCTION_ID,
+                {
+                    "changes": [{"type": "assembly"}],
+                    "execution_profile": "local_sapi",
+                },
+            )["run"]["id"]
+            assembly_attempt, _master = create_succeeded_assembly_attempt(
+                self.service, qc_run
+            )
+            with (
+                mock.patch("tools.studio.qc.qc_cache_key", return_value="6" * 64),
+                mock.patch(
+                    "tools.studio.qc.generate_local_qc",
+                    side_effect=RuntimeError(secret),
+                ),
+            ):
+                qc_job = self.service.execute_local_qc(
+                    qc_run,
+                    {
+                        "assembly_attempt_id": assembly_attempt["id"],
+                        "variant": "clean",
+                    },
+                )
+                qc_failed = self.service.jobs.wait(qc_job["id"], timeout=10)
+            assert qc_failed is not None
+            failures.append((qc_job, qc_failed, "local_qc_failed"))
+
+            for queued, completed, expected_code in failures:
+                attempt = self.service.database.get_stage_attempt(
+                    queued["stage_attempt_id"]
+                )
+                assert attempt is not None
+                with self.subTest(kind=queued["kind"]):
+                    self.assertEqual(completed["status"], "failed")
+                    self.assertEqual(attempt["status"], "failed")
+                    self.assertEqual(completed["error"]["code"], expected_code)
+                    self.assertEqual(attempt["error"], completed["error"])
+                    self.assertEqual(completed["completed_at"], attempt["completed_at"])
+                    self.assertEqual(
+                        completed["payload"]["stage_attempt_id"], attempt["id"]
+                    )
+
+        self.assertEqual(fail_pair.call_count, 4)
+        self.assertNotIn(secret.encode("utf-8"), self.service.database.path.read_bytes())
 
     def test_zero_cost_run_rejects_cost_approval(self) -> None:
         created = self.service.create_run(
@@ -1399,6 +2456,7 @@ class ServiceTests(unittest.TestCase):
             "video_artifact_id": video["id"],
             "narration_attempt_id": narration_attempt_id,
             "include_captioned": True,
+            "caption_style_preset": "shorts_ja_large_v1",
         }
         calls: list[str] = []
         generation_errors: list[str] = []
@@ -1438,6 +2496,9 @@ class ServiceTests(unittest.TestCase):
             self.assertFalse(first["result"]["cache_hit"])
             self.assertEqual(first["result"]["provider"], "local_ffmpeg")
             self.assertEqual(first["result"]["actual_cost"], 0)
+            self.assertEqual(
+                first["result"]["caption_style_preset"], "shorts_ja_large_v1"
+            )
             self.assertEqual(len(first["result"]["artifacts"]), 4)
 
             second_job = self.service.execute_local_assembly(run_id, request)
@@ -2282,6 +3343,13 @@ class ServiceTests(unittest.TestCase):
                 "execution_profile": "local_sapi",
             },
         )
+        local_comfyui = self.service.create_run(
+            PRODUCTION_ID,
+            {
+                "changes": [{"type": "video", "note": "comfy restore proof"}],
+                "execution_profile": "local_comfyui",
+            },
+        )
         with mock.patch(
             "tools.studio.narration.generate_local_narration",
             side_effect=fake_local_narration_result,
@@ -2306,8 +3374,8 @@ class ServiceTests(unittest.TestCase):
         rebuilt = StudioService(self.fixture.root)
         self.service = rebuilt
         result = rebuilt.indexer.refresh()
-        self.assertEqual(result["domain_records_restored"]["revisions"], 3)
-        self.assertEqual(result["domain_records_restored"]["runs"], 3)
+        self.assertEqual(result["domain_records_restored"]["revisions"], 4)
+        self.assertEqual(result["domain_records_restored"]["runs"], 4)
         self.assertEqual(result["domain_records_restored"]["stage_attempts"], 1)
         self.assertEqual(result["domain_records_restored"]["artifacts"], 4)
         self.assertEqual(result["domain_records_restored"]["approvals"], 1)
@@ -2329,6 +3397,11 @@ class ServiceTests(unittest.TestCase):
         )
         self.assertEqual(restored_timeline["execution_profile"], "local_sapi")
         self.assertIn("timeline", restored_timeline["requested_stages"])
+        restored_comfyui = next(
+            run for run in detail["runs"] if run["id"] == local_comfyui["run"]["id"]
+        )
+        self.assertEqual(restored_comfyui["execution_profile"], "local_comfyui")
+        self.assertIn("video_generation", restored_comfyui["requested_stages"])
         audit = rebuilt.audit_export(PRODUCTION_ID, {"include_media": False})
         completed = rebuilt.jobs.wait(audit["id"], timeout=10)
         assert completed is not None
@@ -2556,6 +3629,71 @@ class HTTPTests(unittest.TestCase):
         )
         self.assertEqual(status, 422)
         self.assertEqual(json.loads(body)["error"]["code"], "execution_profile_required")
+
+    def test_local_comfyui_video_generation_http_route_forwards_exact_body(self) -> None:
+        created = self.server.service.create_run(
+            PRODUCTION_ID,
+            {
+                "changes": [{"type": "video"}],
+                "execution_profile": "local_comfyui",
+            },
+        )
+        run_id = created["run"]["id"]
+        request_body = {
+            "workflow_preset": COMFYUI_WORKFLOW_PRESET,
+            "prompt": "A presenter turns toward the camera.",
+            "seed": 9_223_372_036_854_775_807,
+        }
+        queued = {
+            "id": "job_" + "a" * 32,
+            "kind": "local_video_generation",
+            "status": "queued",
+        }
+        with mock.patch.object(
+            self.server.service,
+            "execute_local_video_generation",
+            return_value=queued,
+        ) as execute:
+            status, _headers, body = self.request(
+                "POST",
+                f"/api/runs/{run_id}/execute-local-video-generation",
+                body=request_body,
+                headers={"X-Studio-Token": self.token},
+            )
+        self.assertEqual(status, 202)
+        self.assertEqual(json.loads(body), queued)
+        execute.assert_called_once_with(run_id, request_body)
+
+    def test_local_pipeline_http_route_forwards_exact_int64_body(self) -> None:
+        request_body = {
+            "workflow_preset": COMFYUI_WORKFLOW_PRESET,
+            "prompt": "A presenter faces the camera.",
+            "seed": 9_223_372_036_854_775_807,
+            "segments": [{"text": "一括生成を開始します。"}],
+            "rate": 0,
+            "include_captioned": True,
+            "caption_style_preset": "shorts_ja_large_v1",
+            "variant": "captioned",
+        }
+        queued = {
+            "id": "job_" + "b" * 32,
+            "kind": "local_pipeline",
+            "status": "queued",
+        }
+        with mock.patch.object(
+            self.server.service,
+            "execute_local_pipeline",
+            return_value=queued,
+        ) as execute:
+            status, _headers, body = self.request(
+                "POST",
+                f"/api/productions/{PRODUCTION_ID}/execute-local-pipeline",
+                body=request_body,
+                headers={"X-Studio-Token": self.token},
+            )
+        self.assertEqual(status, 202)
+        self.assertEqual(json.loads(body), queued)
+        execute.assert_called_once_with(PRODUCTION_ID, request_body)
 
     def test_local_timeline_http_endpoint_records_attempt_and_artifacts(self) -> None:
         created = self.server.service.create_run(

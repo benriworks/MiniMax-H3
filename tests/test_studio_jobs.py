@@ -67,6 +67,148 @@ class JobManagerShutdownTests(unittest.TestCase):
                 with self.assertRaises(JobCancelled):
                     context.register_process(type("Process", (), {"pid": 54321})())
 
+    def test_gpu_lane_is_fifo_and_serial(self) -> None:
+        first_started = threading.Event()
+        release_first = threading.Event()
+        second_started = threading.Event()
+        order: list[str] = []
+
+        def first(_job_id: str) -> dict[str, object]:
+            order.append("first-start")
+            first_started.set()
+            release_first.wait(2)
+            order.append("first-end")
+            return {}
+
+        def second(_job_id: str) -> dict[str, object]:
+            order.append("second-start")
+            second_started.set()
+            return {}
+
+        first_job = self.manager.submit("local_video_generation", {}, first, lane="gpu")
+        self.assertTrue(first_started.wait(2))
+        second_job = self.manager.submit("local_video_generation", {}, second, lane="gpu")
+        self.assertFalse(second_started.wait(0.1))
+
+        release_first.set()
+        self.assertEqual(self.manager.wait(first_job["id"], timeout=2)["status"], "succeeded")
+        self.assertEqual(self.manager.wait(second_job["id"], timeout=2)["status"], "succeeded")
+        self.assertEqual(order, ["first-start", "first-end", "second-start"])
+
+    def test_default_and_gpu_lanes_run_in_parallel(self) -> None:
+        default_started = threading.Event()
+        gpu_started = threading.Event()
+        release = threading.Event()
+
+        def callback(started: threading.Event, _job_id: str) -> dict[str, object]:
+            started.set()
+            release.wait(2)
+            return {}
+
+        default_job = self.manager.submit(
+            "local_assembly", {}, lambda job_id: callback(default_started, job_id)
+        )
+        gpu_job = self.manager.submit(
+            "local_video_generation",
+            {},
+            lambda job_id: callback(gpu_started, job_id),
+            lane="gpu",
+        )
+        self.assertTrue(default_started.wait(2))
+        self.assertTrue(gpu_started.wait(2))
+
+        release.set()
+        self.assertEqual(self.manager.wait(default_job["id"], timeout=2)["status"], "succeeded")
+        self.assertEqual(self.manager.wait(gpu_job["id"], timeout=2)["status"], "succeeded")
+
+    def test_pipeline_lane_can_wait_without_blocking_child_lanes(self) -> None:
+        pipeline_started = threading.Event()
+        default_started = threading.Event()
+        release = threading.Event()
+
+        def pipeline(_job_id: str) -> dict[str, object]:
+            pipeline_started.set()
+            release.wait(2)
+            return {}
+
+        pipeline_job = self.manager.submit(
+            "local_pipeline", {}, pipeline, lane="pipeline"
+        )
+        self.assertTrue(pipeline_started.wait(2))
+        default_job = self.manager.submit(
+            "local_narration",
+            {},
+            lambda _job_id: (default_started.set() or {}),
+        )
+        self.assertTrue(default_started.wait(2))
+        self.assertEqual(
+            self.manager.wait(default_job["id"], timeout=2)["status"], "succeeded"
+        )
+        release.set()
+        self.assertEqual(
+            self.manager.wait(pipeline_job["id"], timeout=2)["status"], "succeeded"
+        )
+
+    def test_cancel_and_wait_retires_worker_before_returning(self) -> None:
+        started = threading.Event()
+        callback_finished = threading.Event()
+
+        def callback(
+            _job_id: str, context: JobExecutionContext
+        ) -> dict[str, object]:
+            started.set()
+            try:
+                context.wait(5)
+                context.raise_if_cancelled()
+                return {}
+            finally:
+                callback_finished.set()
+
+        job = self.manager.submit("local_narration", {}, callback)
+        self.assertTrue(started.wait(2))
+        completed = self.manager.cancel_and_wait(job["id"], timeout=2)
+        self.assertTrue(callback_finished.is_set())
+        self.assertIsNotNone(completed)
+        assert completed is not None
+        self.assertEqual(completed["status"], "interrupted")
+        self.assertTrue(self.manager._finished[job["id"]].is_set())
+
+    def test_invalid_lane_fails_before_persistent_job_creation(self) -> None:
+        with mock.patch.object(self.database, "create_job", wraps=self.database.create_job) as create_job:
+            with self.assertRaises(ValueError):
+                self.manager.submit("local_video_generation", {}, lambda _job_id: {}, lane="unknown")
+        create_job.assert_not_called()
+
+    def test_shutdown_stops_both_lanes_and_interrupts_all_jobs(self) -> None:
+        default_started = threading.Event()
+        gpu_started = threading.Event()
+
+        def callback(started: threading.Event, _job_id: str, context: threading.Event) -> dict[str, object]:
+            started.set()
+            context.wait(5)
+            raise JobCancelled()
+
+        default_job = self.manager.submit(
+            "local_assembly",
+            {},
+            lambda job_id, context: callback(default_started, job_id, context),
+        )
+        gpu_job = self.manager.submit(
+            "local_video_generation",
+            {},
+            lambda job_id, context: callback(gpu_started, job_id, context),
+            lane="gpu",
+        )
+        self.assertTrue(default_started.wait(2))
+        self.assertTrue(gpu_started.wait(2))
+
+        self.manager.shutdown(timeout=2)
+        self.assertFalse(self.manager._thread.is_alive())
+        self.assertFalse(self.manager._gpu_thread.is_alive())
+        self.assertFalse(self.manager._pipeline_thread.is_alive())
+        self.assertEqual(self.manager.wait(default_job["id"], timeout=1)["status"], "interrupted")
+        self.assertEqual(self.manager.wait(gpu_job["id"], timeout=1)["status"], "interrupted")
+
     def test_shutdown_terminates_registered_process_before_worker_join(self) -> None:
         started = threading.Event()
         process_holder: dict[str, subprocess.Popen[bytes]] = {}

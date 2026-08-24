@@ -35,17 +35,25 @@ from .security import SecurityError, canonical_json, validate_identifier, worksp
 try:
     # The control-plane contract is kept separate so service.py can validate
     # worker results without importing any media implementation details.
-    from .assembly_execution import LocalAssemblyError
+    from .assembly_execution import (
+        DEFAULT_CAPTION_STYLE_PRESET,
+        LocalAssemblyError,
+        LocalAssemblyValidationError,
+        normalize_caption_style_preset,
+        validate_normalized_caption_style,
+    )
 except ImportError:  # pragma: no cover - compatibility for isolated use
-    class LocalAssemblyError(RuntimeError):
-        def __init__(self, message: str, *, code: str = "local_assembly_failed"):
-            super().__init__(message)
-            self.error_code = code
-            self.public_message = message
+    from assembly_execution import (  # type: ignore[no-redef]
+        DEFAULT_CAPTION_STYLE_PRESET,
+        LocalAssemblyError,
+        LocalAssemblyValidationError,
+        normalize_caption_style_preset,
+        validate_normalized_caption_style,
+    )
 
 
-ASSEMBLY_SCHEMA_VERSION = 1
-IMPLEMENTATION_VERSION = "local-ffmpeg-v1"
+ASSEMBLY_SCHEMA_VERSION = 2
+IMPLEMENTATION_VERSION = "local-ffmpeg-v2"
 PROVIDER = "local_ffmpeg"
 TIMING_SOURCE = "ffprobe"
 
@@ -69,7 +77,7 @@ MAX_VIDEO_WIDTH = 16_384
 MAX_VIDEO_HEIGHT = 16_384
 MAX_VIDEO_PIXELS = 64 * 1024 * 1024
 _AUDIO_POLICY_VERSION = "replace-source-audio-pad-short-reject-over-250ms-v1"
-_OUTPUT_POLICY_VERSION = "h264-yuv420p-aac-mp4-v1"
+_OUTPUT_POLICY_VERSION = "h264-yuv420p-aac-mp4-caption-presets-v2"
 
 _CACHE_KEY_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,256}$")
 _ALLOWED_CAPTION_CONTROL = {"\r", "\n", "\t"}
@@ -154,6 +162,23 @@ class AssemblyValidationError(AssemblyError):
 
 class AssemblyToolError(AssemblyError):
     error_code = "local_ffmpeg_unavailable"
+
+
+def _resolved_caption_style(
+    caption_style_preset: str = DEFAULT_CAPTION_STYLE_PRESET,
+    *,
+    include_captioned: bool = True,
+) -> dict[str, Any]:
+    try:
+        style = normalize_caption_style_preset(caption_style_preset)
+    except LocalAssemblyValidationError as exc:
+        raise AssemblyValidationError(str(exc), code=exc.code) from exc
+    if not include_captioned and style["preset"] != DEFAULT_CAPTION_STYLE_PRESET:
+        raise AssemblyValidationError(
+            "caption_style_preset requires include_captioned=true",
+            code="invalid_local_assembly_request",
+        )
+    return style
 
 
 def _sha256_file(path: Path) -> str:
@@ -280,6 +305,7 @@ def assembly_cache_key(
     captions_sha256: str,
     include_captioned: bool,
     *,
+    caption_style_preset: str = DEFAULT_CAPTION_STYLE_PRESET,
     ffmpeg_identity: Mapping[str, Any] | None = None,
     ffprobe_identity: Mapping[str, Any] | None = None,
     tool_identity: Mapping[str, Mapping[str, Any]] | None = None,
@@ -292,6 +318,10 @@ def assembly_cache_key(
 
     if not isinstance(include_captioned, bool):
         raise AssemblyValidationError("include_captioned must be a boolean")
+    caption_style = _resolved_caption_style(
+        caption_style_preset,
+        include_captioned=include_captioned,
+    )
     if tool_identity is not None:
         if ffmpeg_identity is not None or ffprobe_identity is not None:
             raise AssemblyValidationError("tool identity was provided twice")
@@ -308,9 +338,10 @@ def assembly_cache_key(
         "narration_wav_sha256": _strict_sha256(narration_wav_sha256, label="narration_wav_sha256"),
         "captions_sha256": _strict_sha256(captions_sha256, label="captions_sha256"),
         "include_captioned": include_captioned,
+        "caption_style": caption_style,
         "audio_policy": _AUDIO_POLICY_VERSION,
         "output_policy": _output_policy(include_captioned),
-        "caption_policy": _caption_policy(),
+        "caption_policy": _caption_policy(caption_style),
         "resource_policy": _resource_policy(),
         "tool_identity": {
             "ffmpeg": _normalize_tool_identity(ffmpeg_identity, label="ffmpeg_identity"),
@@ -878,26 +909,67 @@ def _parse_srt(data: bytes) -> list[tuple[int, int, str]]:
     return cues
 
 
-def _build_ass(data: bytes, *, width: int, height: int) -> bytes:
+def _ass_color(value: str, *, alpha: int = 0) -> str:
+    """Convert a canonical #RRGGBB preset color into ASS AABBGGRR."""
+
+    if not re.fullmatch(r"#[0-9A-F]{6}", value) or not 0 <= alpha <= 255:
+        raise AssemblyValidationError("caption style color is invalid")
+    red, green, blue = value[1:3], value[3:5], value[5:7]
+    return f"&H{alpha:02X}{blue}{green}{red}"
+
+
+def _build_ass(
+    data: bytes,
+    *,
+    width: int,
+    height: int,
+    caption_style_preset: str = DEFAULT_CAPTION_STYLE_PRESET,
+) -> bytes:
     cues = _parse_srt(data)
+    style = _resolved_caption_style(caption_style_preset)
+    ass_fields = [
+        style["ass_style_name"],
+        style["font_name"],
+        str(style["font_size"]),
+        _ass_color(style["primary_color"]),
+        _ass_color(style["secondary_color"]),
+        _ass_color(style["outline_color"]),
+        _ass_color(style["back_color"], alpha=style["back_alpha"]),
+        "-1" if style["bold"] else "0",
+        "-1" if style["italic"] else "0",
+        "-1" if style["underline"] else "0",
+        "-1" if style["strike_out"] else "0",
+        str(style["scale_x"]),
+        str(style["scale_y"]),
+        str(style["spacing"]),
+        str(style["angle"]),
+        str(style["border_style"]),
+        str(style["outline_width"]),
+        str(style["shadow_depth"]),
+        str(style["alignment"]),
+        str(style["margin_left"]),
+        str(style["margin_right"]),
+        str(style["margin_vertical"]),
+        str(style["encoding"]),
+    ]
     lines = [
         "[Script Info]",
         "ScriptType: v4.00+",
         f"PlayResX: {width}",
         f"PlayResY: {height}",
         "ScaledBorderAndShadow: yes",
-        "WrapStyle: 2",
+        f"WrapStyle: {style['wrap_style']}",
         "",
         "[V4+ Styles]",
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-        "Style: StudioDefault,Arial,42,&H00FFFFFF,&H00FFFFFF,&H00101010,&H90000000,0,0,0,0,100,100,0,0,1,2,1,2,48,48,48,1",
+        f"Style: {','.join(ass_fields)}",
         "",
         "[Events]",
         "Format: Layer, Start, End, Style, Text",
     ]
     for start_ms, end_ms, caption in cues:
         lines.append(
-            f"Dialogue: 0,{_ass_time(start_ms)},{_ass_time(end_ms)},StudioDefault,{_escape_ass_text(caption)}"
+            f"Dialogue: 0,{_ass_time(start_ms)},{_ass_time(end_ms)},{style['ass_style_name']},{_escape_ass_text(caption)}"
         )
     return ("\n".join(lines) + "\n").encode("utf-8")
 
@@ -1051,11 +1123,18 @@ def _audio_policy(*, source_duration_ms: int, narration_duration_ms: int) -> dic
     }
 
 
-def _caption_policy() -> dict[str, Any]:
+def _caption_policy(caption_style: Mapping[str, Any]) -> dict[str, Any]:
+    try:
+        canonical_style = validate_normalized_caption_style(dict(caption_style))
+    except LocalAssemblyValidationError as exc:
+        raise AssemblyValidationError(str(exc), code=exc.code) from exc
     return {
-        "format": "srt_to_fixed_style_ass",
+        "policy_version": "srt-to-enum-preset-ass-v2",
+        "format": "srt_to_preset_style_ass",
         "end_tolerance_ms": 250,
         "override_tags": "disabled_by_fullwidth_escape",
+        "preset": canonical_style["preset"],
+        "wrap_style": canonical_style["wrap_style"],
     }
 
 
@@ -1092,6 +1171,7 @@ def _validate_cache(
     inputs: Mapping[str, Mapping[str, Any]],
     target_duration_ms: int,
     include_captioned: bool,
+    caption_style: Mapping[str, Any],
     narration_duration_ms: int,
     source_width: int,
     source_height: int,
@@ -1117,9 +1197,11 @@ def _validate_cache(
         or manifest.get("timing_source") != TIMING_SOURCE
         or manifest.get("duration_ms") != target_duration_ms
         or manifest.get("include_captioned") is not include_captioned
+        or manifest.get("caption_style_preset") != caption_style["preset"]
+        or manifest.get("caption_style") != dict(caption_style)
         or manifest.get("tool_identity") != dict(tool_identity)
         or manifest.get("output_policy") != _output_policy(include_captioned)
-        or manifest.get("caption_policy") != _caption_policy()
+        or manifest.get("caption_policy") != _caption_policy(caption_style)
         or manifest.get("resource_policy") != _resource_policy()
         or manifest.get("video_dimensions") != {"width": source_width, "height": source_height}
         or manifest.get("audio_policy")
@@ -1288,6 +1370,7 @@ def _build_manifest(
     probes: Mapping[str, Mapping[str, Any]],
     stage: Path,
     include_captioned: bool,
+    caption_style: Mapping[str, Any],
     narration_duration_ms: int,
     tool_identity: Mapping[str, Mapping[str, str]],
     source_width: int,
@@ -1318,9 +1401,11 @@ def _build_manifest(
         "timing_source": TIMING_SOURCE,
         "duration_ms": target_duration_ms,
         "include_captioned": include_captioned,
+        "caption_style_preset": caption_style["preset"],
+        "caption_style": dict(caption_style),
         "tool_identity": dict(tool_identity),
         "output_policy": _output_policy(include_captioned),
-        "caption_policy": _caption_policy(),
+        "caption_policy": _caption_policy(caption_style),
         "resource_policy": _resource_policy(),
         "video_dimensions": {"width": source_width, "height": source_height},
         "audio_policy": _audio_policy(
@@ -1359,6 +1444,8 @@ def _result(
         "timing_source": TIMING_SOURCE,
         "actual_cost": 0,
         "include_captioned": manifest["include_captioned"],
+        "caption_style_preset": manifest["caption_style_preset"],
+        "caption_style": dict(manifest["caption_style"]),
         "source_video_sha256": manifest["inputs"]["source_video"]["sha256"],
         "narration_wav_sha256": manifest["inputs"]["narration_wav"]["sha256"],
         "captions_sha256": manifest["inputs"]["captions_srt"]["sha256"],
@@ -1376,6 +1463,7 @@ def validate_local_assembly_outputs(
     narration_wav: str | Path,
     captions_srt: str | Path,
     include_captioned: bool,
+    caption_style_preset: str = DEFAULT_CAPTION_STYLE_PRESET,
     ffmpeg: str | Path | None = None,
     ffprobe: str | Path | None = None,
     cancel_event: Any | None = None,
@@ -1394,6 +1482,10 @@ def validate_local_assembly_outputs(
     validate_identifier(run_id, label="run id")
     if not isinstance(include_captioned, bool):
         raise AssemblyValidationError("include_captioned must be a boolean")
+    caption_style = _resolved_caption_style(
+        caption_style_preset,
+        include_captioned=include_captioned,
+    )
     cache_key = _strict_cache_key(cache_key)
     if not isinstance(workspace, Path):
         workspace = Path(workspace)
@@ -1451,6 +1543,7 @@ def validate_local_assembly_outputs(
         input_records["narration_wav"]["sha256"],
         input_records["captions_srt"]["sha256"],
         include_captioned,
+        caption_style_preset=caption_style["preset"],
         tool_identity=resolved_tool_identity,
     )
     _raise_if_cancelled(cancel_event)
@@ -1469,6 +1562,7 @@ def validate_local_assembly_outputs(
         inputs=input_records,
         target_duration_ms=target_duration_ms,
         include_captioned=include_captioned,
+        caption_style=caption_style,
         narration_duration_ms=narration_duration_ms,
         source_width=source_width,
         source_height=source_height,
@@ -1498,6 +1592,7 @@ def assemble_local_video(
     narration_wav: str | Path,
     captions_srt: str | Path,
     include_captioned: bool,
+    caption_style_preset: str = DEFAULT_CAPTION_STYLE_PRESET,
     ffmpeg: str | Path | None = None,
     ffprobe: str | Path | None = None,
     cancel_event: Any | None = None,
@@ -1516,6 +1611,10 @@ def assemble_local_video(
     validate_identifier(run_id, label="run id")
     if not isinstance(include_captioned, bool):
         raise AssemblyValidationError("include_captioned must be a boolean")
+    caption_style = _resolved_caption_style(
+        caption_style_preset,
+        include_captioned=include_captioned,
+    )
     cache_key = _strict_cache_key(cache_key)
     if not isinstance(workspace, Path):
         workspace = Path(workspace)
@@ -1579,6 +1678,7 @@ def assemble_local_video(
         input_records["narration_wav"]["sha256"],
         input_records["captions_srt"]["sha256"],
         include_captioned,
+        caption_style_preset=caption_style["preset"],
         tool_identity=resolved_tool_identity,
     )
     _raise_if_cancelled(cancel_event)
@@ -1596,6 +1696,7 @@ def assemble_local_video(
         inputs=input_records,
         target_duration_ms=target_duration_ms,
         include_captioned=include_captioned,
+        caption_style=caption_style,
         narration_duration_ms=narration_duration_ms,
         source_width=source_width,
         source_height=source_height,
@@ -1649,7 +1750,12 @@ def assemble_local_video(
             raise AssemblyError("captions_srt changed during staging", code="input_changed")
         _write_atomic(
             stage / "captions.ass",
-            _build_ass(caption_data, width=source_width, height=source_height),
+            _build_ass(
+                caption_data,
+                width=source_width,
+                height=source_height,
+                caption_style_preset=caption_style["preset"],
+            ),
         )
         filter_path = stage / "filter-script.txt"
         _write_atomic(
@@ -1850,6 +1956,7 @@ def assemble_local_video(
                 },
                 stage=stage,
                 include_captioned=include_captioned,
+                caption_style=caption_style,
                 narration_duration_ms=narration_duration_ms,
                 tool_identity=resolved_tool_identity,
                 source_width=source_width,
@@ -1874,6 +1981,7 @@ def assemble_local_video(
         inputs=input_records,
         target_duration_ms=target_duration_ms,
         include_captioned=include_captioned,
+        caption_style=caption_style,
         narration_duration_ms=narration_duration_ms,
         source_width=source_width,
         source_height=source_height,

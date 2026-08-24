@@ -13,7 +13,15 @@
 .\run-studio.ps1
 ```
 
-通常は`http://127.0.0.1:8765`を開きます。現在のMVPは既存制作台帳の閲覧、再実行計画、Run記録、有料工程の費用上限承認、監査exportに加え、Windows SAPIによる無課金のローカルナレーション生成、FFmpegによるclean／字幕焼き込みmasterのローカル合成、完成masterのローカルtechnical QCを扱えます。字幕、segment timing、発音置換、工程cache、codec／stream／duration／full-decode／全編無音の検査、ffprobe・manifestも記録します。外部有料TTS、画面収録、動画生成のworkerはまだ接続しません。詳細とセキュリティ境界は[STUDIO_MVP_JA.md](STUDIO_MVP_JA.md)を参照してください。
+通常は`http://127.0.0.1:8765`を開きます。現在のMVPは既存制作台帳の閲覧、再実行計画、Run記録、有料工程の費用上限承認、監査exportに加え、Windows SAPIによる無課金のローカルナレーション生成、固定ComfyUIによるローカル動画生成、FFmpegによるclean／字幕焼き込みmasterのローカル合成、完成masterのローカルtechnical QCを扱えます。字幕、segment timing、発音置換、工程cache、codec／stream／duration／full-decode／全編無音の検査、ffprobe・manifestも記録します。ElevenLabs外部TTSは別の承認済みprofileで扱い、画面収録とMiniMax外部APIのStudio workerは未接続です。詳細とセキュリティ境界は[STUDIO_MVP_JA.md](STUDIO_MVP_JA.md)を参照してください。
+
+### `一括生成`（local_pipeline）
+
+Studioの`一括生成`タブはschema v4の`POST /api/productions/{production_id}/execute-local-pipeline`から固定local-onlyの制作を一つのimmutableな0円Runとして開始します。`video_generation`、`narration`、`captions`、`timeline`、`assembly`、`qc`の6 requested stageを記録し、ComfyUI動画生成→Windows SAPI→生成動画1本のone-clip timeline→assembly→technical QCの5 stageを専用pipeline laneで実行します。GPU childとdefault childを協調し、DB-levelのRun/top-job dedupe、failed／interruptedのsame-run retry、parent-child cancellation wait、local stage成果物のatomic確定を行います。
+
+workflow preset、prompt、seed、segments、rate、字幕preset、variantなどの公開bodyは固定allowlistで検証されます。seedは0〜2^63−1のJSON integerです。ElevenLabs、MiniMax API、API key、cost approvalはこの経路で使いません。UIは2秒pollingで進捗を再取得し、最終master artifactとtechnical QC verdictを表示します。raw prompt/scriptはSQLite、event、job metadataへ複製しませんが、明示的な`workflow.json`、`timings`、`manifest` artifactにはcontentが含まれ得ます。
+
+現行local_pipelineは2026-08-25にroot検証済みです。Python全263件は262件合格＋Windows上のnon-Windows専用1件skip、frontendは35/35合格し、production buildも成功しました。fake-backed統合では5 child stage、captioned master、QC文書3件、外部TTS非到達、全中間artifactの改変検知とsame-run自己修復を確認しています。この検証ではComfyUIへ新規promptをPOSTしていないため、実GPU一括完走時間と完成映像の目視品質は未確認です。
 
 <div align="center">
   <img width="100%" src="assets/minimax-h3-header.gif" alt="MiniMax H3">

@@ -58,6 +58,17 @@ $comfyArguments = @(
     '--output-directory', $outputRoot
 )
 
+# ComfyUI imports every top-level custom_nodes entry by default. Keep the
+# executable plugin set closed so Studio can attest the live process before a
+# GPU submission. Turbo profiles opt into their one additional pinned node.
+$allowedCustomNodes = @('ComfyUI-GGUF')
+if ($Profile -in @('lowvram_turbo', 'lowvram_q4_turbo', 'official_q4_turbo')) {
+    $allowedCustomNodes += 'ComfyUI-MiniMax-H3-Turbo'
+}
+$comfyArguments += '--disable-all-custom-nodes'
+$comfyArguments += '--whitelist-custom-nodes'
+$comfyArguments += $allowedCustomNodes
+
 if ($EmergencyLowVram) {
     $comfyArguments += @('--novram', '--cpu-vae')
 }
@@ -73,6 +84,7 @@ else {
 
 Write-Host "Starting ComfyUI at http://127.0.0.1:$Port"
 Write-Host "Profile: $Profile"
+Write-Host "Custom nodes: $($allowedCustomNodes -join ', ') (all others disabled)"
 Write-Host 'Profile selection validates prerequisites; it does not auto-load or switch the ComfyUI workflow.'
 if ($Profile -eq 'lowvram_turbo') {
     Write-Host 'Open manually: workflows\minimax_h3_t2v_lowvram_turbo.json (Turbo LoRA, 6 steps, low_vram merge)'
