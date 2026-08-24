@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import importlib
 import inspect
+import json
 import mimetypes
 import re
 from pathlib import Path
@@ -22,6 +23,20 @@ from .database import (
     StudioDatabase,
     money_to_minor,
     utc_now,
+)
+from .comfyui_execution import (
+    COMFYUI_WORKFLOW_RELATIVE_PATH,
+    MODEL_SPECS as COMFYUI_MODEL_SPECS,
+    ComfyUIError,
+    ComfyUIValidationError,
+    comfyui_audit_payload,
+    comfyui_cache_key,
+    comfyui_payload_digest,
+    comfyui_public_result,
+    normalize_model_records,
+    normalize_workflow_record,
+    safe_comfyui_error,
+    validate_comfyui_payload,
 )
 from .execution import (
     LocalNarrationError,
@@ -53,6 +68,7 @@ from .timeline_execution import (
 from .secrets import SecretStore, dpapi_available
 from .security import (
     SecurityError,
+    canonical_json,
     relative_workspace_path,
     sanitize_for_storage,
     sensitive_artifact_path,
@@ -120,11 +136,18 @@ _DEPENDENTS: dict[str, set[str]] = {
 }
 
 _CURRENCY_RE = re.compile(r"^[A-Z]{3}$")
-_EXECUTION_PROFILES = {"external", "local_sapi", "elevenlabs_tts"}
+_EXECUTION_PROFILES = {
+    "external",
+    "local_sapi",
+    "elevenlabs_tts",
+    "local_comfyui",
+}
 _LOCAL_SAPI_ZERO_COST_STAGES = {"narration", "captions", "timeline", "assembly", "qc"}
 _ELEVENLABS_TTS_STAGES = {"narration", "captions", "assembly", "qc"}
+_LOCAL_COMFYUI_ZERO_COST_STAGES = {"video_generation", "timeline", "assembly", "qc"}
 _LOCAL_DOWNSTREAM_PROFILES = {"local_sapi", "elevenlabs_tts"}
 _LOCAL_NARRATION_STAGE = "narration"
+_LOCAL_VIDEO_GENERATION_STAGE = "video_generation"
 _LOCAL_TIMELINE_STAGE = "timeline"
 _LOCAL_ASSEMBLY_STAGE = "assembly"
 _LOCAL_QC_STAGE = "qc"
@@ -133,6 +156,12 @@ _LOCAL_NARRATION_ARTIFACTS = {
     "narration.wav": ("audio", "audio/wav"),
     "captions.srt": ("subtitle", "application/x-subrip"),
     "timings.json": ("document", "application/json"),
+    "manifest.json": ("document", "application/json"),
+}
+_LOCAL_COMFYUI_ARTIFACTS = {
+    "generated-video.mp4": ("video", "video/mp4"),
+    "workflow.json": ("document", "application/json"),
+    "ffprobe.json": ("document", "application/json"),
     "manifest.json": ("document", "application/json"),
 }
 _LOCAL_ASSEMBLY_ARTIFACTS = {
@@ -302,6 +331,8 @@ def _stage_completion_result(
     attempt_id: str,
     result: dict[str, Any],
     cancel_event: JobExecutionContext | None,
+    *,
+    artifact_records: tuple[dict[str, Any], ...] = (),
 ) -> dict[str, Any] | AtomicStageCompletion:
     """Return a public result or the internal atomic-completion envelope.
 
@@ -315,8 +346,12 @@ def _stage_completion_result(
 
     public_result = {"stage_attempt_id": attempt_id, **result}
     if cancel_event is None:
+        if artifact_records:
+            raise ValueError(
+                "atomic artifact registration requires a job execution context"
+            )
         return public_result
-    return AtomicStageCompletion(attempt_id, result)
+    return AtomicStageCompletion(attempt_id, result, artifact_records)
 
 
 def _has_symlink_component(workspace: Path, candidate: str | Path) -> bool:
@@ -505,10 +540,15 @@ class StudioService:
         if not isinstance(execution_profile, str) or execution_profile not in _EXECUTION_PROFILES:
             raise RequestValidationError("execution_profile is not supported")
         affected_stages = set(plan["affected_stages"])
-        local_zero_cost_plan = (
-            execution_profile == "local_sapi"
-            and bool(affected_stages)
-            and affected_stages.issubset(_LOCAL_SAPI_ZERO_COST_STAGES)
+        local_zero_cost_plan = bool(affected_stages) and (
+            (
+                execution_profile == "local_sapi"
+                and affected_stages.issubset(_LOCAL_SAPI_ZERO_COST_STAGES)
+            )
+            or (
+                execution_profile == "local_comfyui"
+                and affected_stages.issubset(_LOCAL_COMFYUI_ZERO_COST_STAGES)
+            )
         )
         if (
             execution_profile == "local_sapi"
@@ -517,6 +557,18 @@ class StudioService:
         ):
             raise RequestValidationError(
                 "local_sapi zero-cost runs may only affect narration, captions, timeline, assembly, or qc.",
+                code="local_profile_stage_not_allowed",
+            )
+        if (
+            execution_profile == "local_comfyui"
+            and amount_minor == 0
+            and (
+                _LOCAL_VIDEO_GENERATION_STAGE not in affected_stages
+                or not affected_stages.issubset(_LOCAL_COMFYUI_ZERO_COST_STAGES)
+            )
+        ):
+            raise RequestValidationError(
+                "local_comfyui runs require video_generation and may only affect video_generation, timeline, assembly, or qc.",
                 code="local_profile_stage_not_allowed",
             )
         if plan["billable_stages"] and amount_minor <= 0 and not local_zero_cost_plan:
@@ -549,6 +601,20 @@ class StudioService:
                     "elevenlabs_tts runs require a positive estimated_cost.",
                     code="cost_estimate_required",
                 )
+        if execution_profile == "local_comfyui":
+            if amount_minor != 0:
+                raise RequestValidationError(
+                    "local_comfyui runs must use a zero-cost estimate.",
+                    code="local_profile_cost_not_allowed",
+                )
+            if (
+                _LOCAL_VIDEO_GENERATION_STAGE not in affected_stages
+                or not affected_stages.issubset(_LOCAL_COMFYUI_ZERO_COST_STAGES)
+            ):
+                raise RequestValidationError(
+                    "local_comfyui runs require video_generation and may only affect video_generation, timeline, assembly, or qc.",
+                    code="local_profile_stage_not_allowed",
+                )
         parent_revision_id = body.get("parent_revision_id")
         if parent_revision_id is not None:
             validate_identifier(parent_revision_id, label="parent revision id")
@@ -562,6 +628,653 @@ class StudioService:
             execution_profile=execution_profile,
         )
         return {"revision": revision, "run": run}
+
+    def _resolve_comfyui_execution_inputs(
+        self,
+        payload: dict[str, Any],
+        cancel_event: JobExecutionContext | None = None,
+    ) -> dict[str, Any]:
+        """Resolve the one tracked graph, four pinned models, and ffprobe.
+
+        The public request never selects paths, endpoints, models, or tools.
+        Exact path/size/digest records are derived from repository constants;
+        the worker independently revalidates them before touching ComfyUI.
+        """
+
+        _raise_if_cancelled(cancel_event)
+        try:
+            from . import comfyui
+        except (ImportError, AttributeError) as exc:
+            raise ComfyUIError(
+                "The local ComfyUI worker is not installed.",
+                code="local_worker_unavailable",
+            ) from exc
+
+        workflow_path = workspace_path(
+            self.workspace, COMFYUI_WORKFLOW_RELATIVE_PATH, must_exist=True
+        )
+        if (
+            _has_symlink_component(self.workspace, COMFYUI_WORKFLOW_RELATIVE_PATH)
+            or workflow_path.is_symlink()
+            or not workflow_path.is_file()
+        ):
+            raise ComfyUIValidationError("workflow source is unsafe")
+        try:
+            workflow_bytes = workflow_path.read_bytes()
+            workflow = json.loads(workflow_bytes.decode("utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            raise ComfyUIValidationError("workflow source is invalid") from exc
+        if not isinstance(workflow, dict):
+            raise ComfyUIValidationError("workflow source is invalid")
+        workflow_record = normalize_workflow_record(
+            {
+                "path": COMFYUI_WORKFLOW_RELATIVE_PATH,
+                "bytes": len(workflow_bytes),
+                "sha256": hashlib.sha256(workflow_bytes).hexdigest().upper(),
+                "graph_sha256": hashlib.sha256(
+                    canonical_json(workflow).encode("utf-8")
+                ).hexdigest().upper(),
+            }
+        )
+
+        model_files: dict[str, dict[str, Any]] = {}
+        for role, spec in COMFYUI_MODEL_SPECS.items():
+            relative = str(spec["relative_path"]).replace("\\", "/")
+            try:
+                path = workspace_path(self.workspace, relative, must_exist=True)
+                stat = path.stat()
+            except (SecurityError, OSError):
+                raise ComfyUIValidationError(
+                    f"the pinned ComfyUI model for {role} is unavailable"
+                ) from None
+            if (
+                _has_symlink_component(self.workspace, relative)
+                or path.is_symlink()
+                or not path.is_file()
+                or stat.st_size != spec["bytes"]
+            ):
+                raise ComfyUIValidationError(
+                    f"the pinned ComfyUI model for {role} is invalid"
+                )
+            model_files[role] = {
+                "path": relative,
+                "bytes": stat.st_size,
+                "sha256": spec["sha256"],
+            }
+        # Validate the records here but keep the worker input shape path/bytes/
+        # sha256 only; normalize_model_records adds the derived model name to
+        # its return value, which is audit output rather than request input.
+        normalize_model_records(model_files)
+        _raise_if_cancelled(cancel_event)
+        runtime_identity = comfyui.resolve_comfyui_runtime_identity(
+            self.workspace, cancel_event=cancel_event
+        )
+        ffprobe_identity = comfyui.resolve_comfyui_tool_identity(
+            cancel_event=cancel_event
+        )
+        cache_key = comfyui_cache_key(
+            payload,
+            workflow=workflow_record,
+            models=model_files,
+            runtime_identity=runtime_identity,
+            ffprobe_identity=ffprobe_identity,
+        )
+        output_root = workspace_path(self.workspace, "outputs", must_exist=True)
+        if output_root.is_symlink() or not output_root.is_dir():
+            raise ComfyUIValidationError("ComfyUI output root is unavailable")
+        return {
+            "workflow": workflow,
+            "workflow_source_path": COMFYUI_WORKFLOW_RELATIVE_PATH,
+            "workflow_source_bytes": len(workflow_bytes),
+            "workflow_source_sha256": workflow_record["sha256"],
+            "workflow_record": workflow_record,
+            "model_files": model_files,
+            "runtime_identity": runtime_identity,
+            "ffprobe_identity": ffprobe_identity,
+            "cache_key": cache_key,
+            "output_roots": ["outputs"],
+        }
+
+    def _validate_local_comfyui_artifacts(
+        self,
+        run_id: str,
+        cache_key: str,
+        raw_artifacts: Any,
+    ) -> list[dict[str, Any]]:
+        if (
+            not isinstance(raw_artifacts, list)
+            or len(raw_artifacts) != len(_LOCAL_COMFYUI_ARTIFACTS)
+        ):
+            raise ComfyUIError(
+                "The ComfyUI worker returned an incomplete artifact set.",
+                code="invalid_worker_result",
+            )
+        expected_root = (
+            f"outputs/studio/runs/{run_id}/video_generation/{cache_key}/"
+        )
+        validated: list[dict[str, Any]] = []
+        seen_names: set[str] = set()
+        for item in raw_artifacts:
+            if not isinstance(item, dict) or not isinstance(item.get("rel_path"), str):
+                raise ComfyUIError(
+                    "The ComfyUI worker returned an invalid artifact.",
+                    code="invalid_worker_result",
+                )
+            try:
+                path = workspace_path(self.workspace, item["rel_path"], must_exist=True)
+                relative = relative_workspace_path(self.workspace, path)
+            except (SecurityError, OSError):
+                raise ComfyUIError(
+                    "The ComfyUI worker returned an unsafe artifact path.",
+                    code="unsafe_worker_artifact",
+                ) from None
+            expected = _LOCAL_COMFYUI_ARTIFACTS.get(path.name)
+            if (
+                expected is None
+                or path.name in seen_names
+                or relative != f"{expected_root}{path.name}"
+                or _has_symlink_component(self.workspace, item["rel_path"])
+                or path.is_symlink()
+                or not path.is_file()
+                or sensitive_artifact_path(relative)
+                or item.get("kind") != expected[0]
+                or item.get("media_type", item.get("mime")) != expected[1]
+            ):
+                raise ComfyUIError(
+                    "The ComfyUI worker returned an unexpected artifact.",
+                    code="invalid_worker_result",
+                )
+            stat = path.stat()
+            if (
+                stat.st_size <= 0
+                or (path.name == "generated-video.mp4" and stat.st_size > 2 * 1024 * 1024 * 1024)
+                or (path.name != "generated-video.mp4" and stat.st_size > 16 * 1024 * 1024)
+            ):
+                raise ComfyUIError(
+                    "The ComfyUI worker returned an invalid artifact size.",
+                    code="invalid_worker_result",
+                )
+            digest = _sha256_file(path)
+            if item.get("bytes") != stat.st_size or item.get("sha256") != digest:
+                raise ComfyUIError(
+                    "The ComfyUI worker returned mismatched artifact metadata.",
+                    code="invalid_worker_result",
+                )
+            seen_names.add(path.name)
+            validated.append(
+                {
+                    "id": stable_id("art", relative.casefold()),
+                    "rel_path": relative,
+                    "name": path.name,
+                    "kind": expected[0],
+                    "media_type": expected[1],
+                    "bytes": stat.st_size,
+                    "mtime_ns": stat.st_mtime_ns,
+                    "sha256": digest,
+                    "is_heavy": stat.st_size > 10 * 1024 * 1024,
+                }
+            )
+        if seen_names != set(_LOCAL_COMFYUI_ARTIFACTS):
+            raise ComfyUIError(
+                "The ComfyUI worker returned an incomplete artifact set.",
+                code="invalid_worker_result",
+            )
+        return validated
+
+    def _cached_local_comfyui_result(
+        self,
+        production_id: str,
+        payload: dict[str, Any],
+        inputs: dict[str, Any],
+        cancel_event: JobExecutionContext | None = None,
+    ) -> dict[str, Any] | None:
+        """Recheck a production-wide successful cache inside the GPU lane."""
+
+        cache_key = inputs["cache_key"]
+        previous = self.database.find_successful_stage_attempt(
+            production_id, _LOCAL_VIDEO_GENERATION_STAGE, cache_key
+        )
+        if not previous or not isinstance(previous.get("result"), dict):
+            return None
+
+        chain = [previous]
+        source_attempt = previous
+        visited_attempt_ids = {previous["id"]}
+        while source_attempt["result"].get("cache_source_attempt_id") is not None:
+            source_result = source_attempt["result"]
+            source_id = source_result.get("cache_source_attempt_id")
+            if (
+                not isinstance(source_id, str)
+                or source_id in visited_attempt_ids
+                or len(visited_attempt_ids) >= 128
+                or source_result.get("cache_hit") is not True
+            ):
+                return None
+            linked = self.database.get_stage_attempt(source_id)
+            if (
+                linked is None
+                or linked.get("production_id") != production_id
+                or linked.get("stage") != _LOCAL_VIDEO_GENERATION_STAGE
+                or linked.get("status") != "succeeded"
+                or linked.get("cache_key") != cache_key
+                or not isinstance(linked.get("result"), dict)
+            ):
+                return None
+            visited_attempt_ids.add(source_id)
+            chain.append(linked)
+            source_attempt = linked
+
+        prior_result = previous["result"]
+        prior_artifacts = prior_result.get("artifacts")
+        if (
+            not isinstance(prior_artifacts, list)
+            or len(prior_artifacts) != len(_LOCAL_COMFYUI_ARTIFACTS)
+        ):
+            return None
+
+        def artifact_signature(value: Any) -> dict[str, tuple[Any, ...]] | None:
+            if not isinstance(value, list) or len(value) != len(_LOCAL_COMFYUI_ARTIFACTS):
+                return None
+            records: dict[str, tuple[Any, ...]] = {}
+            for item in value:
+                if not isinstance(item, dict) or not isinstance(item.get("name"), str):
+                    return None
+                name = item["name"]
+                if name in records:
+                    return None
+                records[name] = tuple(
+                    item.get(field) for field in ("id", "rel_path", "bytes", "sha256")
+                )
+            return records if set(records) == set(_LOCAL_COMFYUI_ARTIFACTS) else None
+
+        reference_signature = artifact_signature(prior_artifacts)
+        if reference_signature is None or any(
+            artifact_signature(attempt["result"].get("artifacts"))
+            != reference_signature
+            for attempt in chain
+        ):
+            return None
+        try:
+            from . import comfyui
+
+            physical = comfyui.validate_comfyui_outputs(
+                self.workspace,
+                production_id=production_id,
+                run_id=source_attempt["run_id"],
+                payload=payload,
+                workflow=inputs["workflow"],
+                workflow_source_path=inputs["workflow_source_path"],
+                workflow_source_bytes=inputs["workflow_source_bytes"],
+                workflow_source_sha256=inputs["workflow_source_sha256"],
+                model_files=inputs["model_files"],
+                cancel_event=cancel_event,
+            )
+        except (ImportError, AttributeError, ComfyUIError, ComfyUIValidationError, OSError):
+            return None
+        physical_artifacts = physical.get("artifacts")
+        if not isinstance(physical_artifacts, list):
+            return None
+        physical_by_name = {
+            item.get("name"): item
+            for item in physical_artifacts
+            if isinstance(item, dict)
+        }
+        expected_root = (
+            f"outputs/studio/runs/{source_attempt['run_id']}/video_generation/{cache_key}/"
+        )
+        verified_artifacts: list[dict[str, Any]] = []
+        seen_names: set[str] = set()
+        for item in prior_artifacts:
+            if not isinstance(item, dict) or not isinstance(item.get("id"), str):
+                return None
+            artifact = self.database.get_artifact(item["id"])
+            if artifact is None or artifact.get("name") in seen_names:
+                return None
+            name = artifact.get("name")
+            expected = _LOCAL_COMFYUI_ARTIFACTS.get(name)
+            physical_item = physical_by_name.get(name)
+            if (
+                expected is None
+                or not isinstance(physical_item, dict)
+                or artifact.get("production_id") != production_id
+                or not artifact.get("available")
+                or artifact.get("origin") != "studio"
+                or artifact.get("kind") != expected[0]
+                or artifact.get("media_type") != expected[1]
+                or artifact.get("rel_path") != f"{expected_root}{name}"
+                or item.get("bytes") != artifact.get("bytes")
+                or item.get("sha256") != artifact.get("sha256")
+                or physical_item.get("bytes") != artifact.get("bytes")
+                or physical_item.get("sha256") != artifact.get("sha256")
+            ):
+                return None
+            try:
+                path = workspace_path(
+                    self.workspace, artifact["rel_path"], must_exist=True
+                )
+                stat = path.stat()
+            except (SecurityError, OSError):
+                return None
+            if (
+                _has_symlink_component(self.workspace, artifact["rel_path"])
+                or path.is_symlink()
+                or not path.is_file()
+                or sensitive_artifact_path(artifact["rel_path"])
+                or stat.st_size != artifact.get("bytes")
+                or not isinstance(artifact.get("sha256"), str)
+                or _sha256_file(path) != artifact["sha256"]
+            ):
+                return None
+            seen_names.add(str(name))
+            verified_artifacts.append(artifact)
+        if seen_names != set(_LOCAL_COMFYUI_ARTIFACTS):
+            return None
+
+        prompt_sha256 = hashlib.sha256(payload["prompt"].encode("utf-8")).hexdigest().upper()
+        physical_for_public = dict(physical)
+        physical_for_public["cache_hit"] = True
+        try:
+            cached = comfyui_public_result(
+                physical_for_public,
+                expected_cache_key=cache_key,
+                expected_prompt_sha256=prompt_sha256,
+                expected_seed=payload["seed"],
+                artifacts=verified_artifacts,
+                cache_hit=True,
+            )
+        except (ComfyUIError, ComfyUIValidationError):
+            return None
+        for attempt in chain:
+            attempt_result = attempt["result"]
+            attempt_cache_hit = attempt_result.get("cache_hit")
+            if not isinstance(attempt_cache_hit, bool):
+                return None
+            try:
+                prior_public = comfyui_public_result(
+                    attempt_result,
+                    expected_cache_key=cache_key,
+                    expected_prompt_sha256=prompt_sha256,
+                    expected_seed=payload["seed"],
+                    artifacts=verified_artifacts,
+                    cache_hit=attempt_cache_hit,
+                )
+            except (ComfyUIError, ComfyUIValidationError):
+                return None
+            if any(
+                prior_public.get(field) != cached.get(field)
+                for field in ("duration_ms", "provider_task_id", "prompt_sha256", "seed")
+            ):
+                return None
+        if cached.get("seed") != payload["seed"]:
+            return None
+        cached["cache_source_attempt_id"] = previous["id"]
+        return cached
+
+    def _execute_local_video_generation(
+        self,
+        attempt_id: str,
+        run_id: str,
+        production_id: str,
+        payload: dict[str, Any],
+        inputs: dict[str, Any],
+        cancel_event: JobExecutionContext | None = None,
+    ) -> dict[str, Any] | AtomicStageCompletion:
+        _raise_if_cancelled(cancel_event)
+        try:
+            self.database.update_stage_attempt(attempt_id, "running")
+            cache_key = inputs["cache_key"]
+            prompt_sha256 = hashlib.sha256(
+                payload["prompt"].encode("utf-8")
+            ).hexdigest().upper()
+            from . import comfyui
+
+            _raise_if_cancelled(cancel_event)
+            cached = self._cached_local_comfyui_result(
+                production_id, payload, inputs, cancel_event
+            )
+            if cached is not None:
+                return _stage_completion_result(attempt_id, cached, cancel_event)
+            resume_prompt_id = comfyui.recover_comfyui_prompt_id(
+                self.workspace,
+                production_id=production_id,
+                run_id=run_id,
+                cache_key=cache_key,
+                payload_digest=comfyui_payload_digest(payload),
+            )
+
+            def provider_submitted(provider_task_id: str) -> None:
+                self.database.append_event(
+                    "run",
+                    run_id,
+                    "video_generation.provider_submitted",
+                    {
+                        "attempt_id": attempt_id,
+                        "production_id": production_id,
+                        "provider": "comfyui",
+                        "provider_task_id": provider_task_id,
+                        "cache_key": cache_key,
+                    },
+                )
+
+            raw = comfyui.generate_comfyui_video(
+                self.workspace,
+                production_id=production_id,
+                run_id=run_id,
+                payload=payload,
+                workflow=inputs["workflow"],
+                workflow_source_path=inputs["workflow_source_path"],
+                workflow_source_bytes=inputs["workflow_source_bytes"],
+                workflow_source_sha256=inputs["workflow_source_sha256"],
+                model_files=inputs["model_files"],
+                output_roots=inputs["output_roots"],
+                expected_cache_key=cache_key,
+                cancel_event=cancel_event,
+                resume_prompt_id=resume_prompt_id,
+                on_provider_task_id=provider_submitted,
+            )
+            _raise_if_cancelled(cancel_event)
+            raw_cache_hit = raw.get("cache_hit", False) if isinstance(raw, dict) else False
+            if (
+                not isinstance(raw_cache_hit, bool)
+                or not isinstance(raw, dict)
+                or raw.get("seed") != payload["seed"]
+                or raw.get("workflow_preset") != payload["workflow_preset"]
+            ):
+                raise ComfyUIError(
+                    "The ComfyUI worker returned invalid request metadata.",
+                    code="invalid_worker_result",
+                )
+            provisional = comfyui_public_result(
+                raw,
+                expected_cache_key=cache_key,
+                expected_prompt_sha256=prompt_sha256,
+                expected_seed=payload["seed"],
+                artifacts=[],
+                cache_hit=raw_cache_hit,
+            )
+            physical = comfyui.validate_comfyui_outputs(
+                self.workspace,
+                production_id=production_id,
+                run_id=run_id,
+                payload=payload,
+                workflow=inputs["workflow"],
+                workflow_source_path=inputs["workflow_source_path"],
+                workflow_source_bytes=inputs["workflow_source_bytes"],
+                workflow_source_sha256=inputs["workflow_source_sha256"],
+                model_files=inputs["model_files"],
+                cancel_event=cancel_event,
+            )
+            if (
+                not isinstance(physical, dict)
+                or physical.get("seed") != payload["seed"]
+                or physical.get("workflow_preset") != payload["workflow_preset"]
+            ):
+                raise ComfyUIError(
+                    "The ComfyUI worker returned invalid verified metadata.",
+                    code="invalid_worker_result",
+                )
+            physical_for_public = dict(physical)
+            physical_for_public["cache_hit"] = raw_cache_hit
+            verified = comfyui_public_result(
+                physical_for_public,
+                expected_cache_key=cache_key,
+                expected_prompt_sha256=prompt_sha256,
+                expected_seed=payload["seed"],
+                artifacts=[],
+                cache_hit=raw_cache_hit,
+            )
+            if any(
+                provisional.get(field) != verified.get(field)
+                for field in ("duration_ms", "provider_task_id", "prompt_sha256", "seed")
+            ):
+                raise ComfyUIError(
+                    "The ComfyUI worker returned mismatched verification metadata.",
+                    code="invalid_worker_result",
+                )
+            raw_artifacts = raw.get("artifacts")
+            physical_artifacts = physical.get("artifacts")
+            if not isinstance(raw_artifacts, list) or not isinstance(physical_artifacts, list):
+                raise ComfyUIError(
+                    "The ComfyUI worker returned invalid artifacts.",
+                    code="invalid_worker_result",
+                )
+            physical_by_name = {
+                item.get("name"): item
+                for item in physical_artifacts
+                if isinstance(item, dict)
+            }
+            for item in raw_artifacts:
+                if not isinstance(item, dict):
+                    raise ComfyUIError(
+                        "The ComfyUI worker returned invalid artifacts.",
+                        code="invalid_worker_result",
+                    )
+                name = Path(str(item.get("rel_path") or "")).name
+                comparison = physical_by_name.get(name)
+                if (
+                    not isinstance(comparison, dict)
+                    or item.get("bytes") != comparison.get("bytes")
+                    or item.get("sha256") != comparison.get("sha256")
+                ):
+                    raise ComfyUIError(
+                        "The ComfyUI worker returned mismatched artifacts.",
+                        code="invalid_worker_result",
+                    )
+            artifact_records = self._validate_local_comfyui_artifacts(
+                run_id, cache_key, raw_artifacts
+            )
+            # The database replaces this placeholder with registered public
+            # artifacts inside the same transaction as job/stage success.
+            verified["artifacts"] = []
+            _raise_if_cancelled(cancel_event)
+            return _stage_completion_result(
+                attempt_id,
+                verified,
+                cancel_event,
+                artifact_records=tuple(artifact_records),
+            )
+        except JobCancelled:
+            raise
+        except Exception as exc:
+            if cancel_event is not None and cancel_event.is_set():
+                raise JobCancelled() from exc
+            error_code, error_message = safe_comfyui_error(exc)
+            # JobManager owns the terminal transition for a linked ComfyUI
+            # job/stage pair.  Wrap unknown exceptions at this boundary so
+            # only the fixed, allowlisted ComfyUI error reaches its atomic
+            # failure transaction; never fail the stage in advance.
+            raise ComfyUIError(error_message, code=error_code) from exc
+
+    def execute_local_video_generation(
+        self, run_id: str, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Queue one pinned, zero-cost MiniMax H3 ComfyUI generation."""
+
+        validate_identifier(run_id, label="run id")
+        run = self.database.get_run(run_id)
+        if run is None:
+            raise KeyError("run not found")
+        if run.get("execution_profile") != "local_comfyui":
+            raise RequestValidationError(
+                "This run is not configured for local ComfyUI generation.",
+                code="execution_profile_required",
+            )
+        requested_stages = run.get("requested_stages")
+        if (
+            not isinstance(requested_stages, list)
+            or _LOCAL_VIDEO_GENERATION_STAGE not in requested_stages
+        ):
+            raise RequestValidationError(
+                "The video_generation stage was not requested by this run.",
+                code="stage_not_requested",
+            )
+        try:
+            payload = validate_comfyui_payload(body)
+            inputs = self._resolve_comfyui_execution_inputs(payload)
+        except (ComfyUIError, ComfyUIValidationError, OSError) as exc:
+            error_code, error_message = safe_comfyui_error(exc)
+            raise RequestValidationError(error_message, code=error_code) from exc
+        cache_key = inputs["cache_key"]
+        if not isinstance(cache_key, str) or not re.fullmatch(r"[0-9A-F]{64}", cache_key):
+            raise RequestValidationError(
+                "The ComfyUI worker returned an invalid cache key.",
+                code="invalid_worker_result",
+            )
+        audit = comfyui_audit_payload(
+            payload,
+            workflow=inputs["workflow_record"],
+            models=inputs["model_files"],
+            runtime_identity=inputs["runtime_identity"],
+            cache_key=cache_key,
+        )
+        attempt = self.database.create_stage_attempt(
+            run_id,
+            _LOCAL_VIDEO_GENERATION_STAGE,
+            cache_key,
+            {
+                "execution_profile": "local_comfyui",
+                "cache_key": cache_key,
+                **audit,
+            },
+        )
+        try:
+            job = self.jobs.submit(
+                "local_video_generation",
+                {
+                    "run_id": run_id,
+                    "production_id": run["production_id"],
+                    "stage": _LOCAL_VIDEO_GENERATION_STAGE,
+                    "execution_profile": "local_comfyui",
+                    "cache_key": cache_key,
+                    **audit,
+                    "stage_attempt_id": attempt["id"],
+                },
+                lambda _job_id, cancel_event: self._execute_local_video_generation(
+                    attempt["id"],
+                    run_id,
+                    run["production_id"],
+                    payload,
+                    inputs,
+                    cancel_event,
+                ),
+                production_id=run["production_id"],
+                before_enqueue=lambda created_job: self.database.link_stage_attempt_job(
+                    attempt["id"], created_job["id"]
+                ),
+                lane="gpu",
+            )
+        except Exception as exc:
+            error_code, error_message = safe_comfyui_error(exc)
+            self.database.update_stage_attempt(
+                attempt["id"],
+                "failed",
+                error_code=error_code,
+                error_message=error_message,
+            )
+            raise
+        job["stage_attempt_id"] = attempt["id"]
+        job["cache_key"] = cache_key
+        return job
 
     def approve_run(self, run_id: str, body: dict[str, Any]) -> dict[str, Any]:
         validate_identifier(run_id, label="run id")
@@ -2466,6 +3179,7 @@ class StudioService:
         production_id: str,
         expected_hashes: dict[str, str],
         include_captioned: bool,
+        caption_style: dict[str, Any],
         inputs: dict[str, Any],
         cancel_event: JobExecutionContext | None = None,
     ) -> dict[str, Any] | None:
@@ -2487,6 +3201,7 @@ class StudioService:
                 narration_wav=inputs["narration_wav"],
                 captions_srt=inputs["captions_srt"],
                 include_captioned=include_captioned,
+                caption_style_preset=caption_style["preset"],
                 cancel_event=cancel_event,
             )
         except (ImportError, AttributeError, LocalAssemblyError, OSError):
@@ -2563,6 +3278,7 @@ class StudioService:
                 expected_cache_key=cache_key,
                 expected_hashes=expected_hashes,
                 expected_include_captioned=include_captioned,
+                expected_caption_style=caption_style,
                 artifacts=verified,
                 cache_hit=True,
             )
@@ -2573,6 +3289,7 @@ class StudioService:
                 expected_cache_key=cache_key,
                 expected_hashes=expected_hashes,
                 expected_include_captioned=include_captioned,
+                expected_caption_style=caption_style,
                 artifacts=verified,
                 cache_hit=True,
             )
@@ -2607,6 +3324,7 @@ class StudioService:
                 production_id,
                 expected_hashes,
                 payload["include_captioned"],
+                payload["caption_style"],
                 inputs,
                 cancel_event,
             )
@@ -2631,6 +3349,7 @@ class StudioService:
                         narration_wav=inputs["narration_wav"],
                         captions_srt=inputs["captions_srt"],
                         include_captioned=payload["include_captioned"],
+                        caption_style_preset=payload["caption_style_preset"],
                         cancel_event=cancel_event,
                     )
                 except LocalAssemblyError:
@@ -2649,6 +3368,7 @@ class StudioService:
                     expected_cache_key=cache_key,
                     expected_hashes=expected_hashes,
                     expected_include_captioned=payload["include_captioned"],
+                    expected_caption_style=payload["caption_style"],
                     artifacts=[],
                     cache_hit=raw_cache_hit
                     if isinstance(raw_cache_hit, bool)
@@ -2664,6 +3384,7 @@ class StudioService:
                     narration_wav=inputs["narration_wav"],
                     captions_srt=inputs["captions_srt"],
                     include_captioned=payload["include_captioned"],
+                    caption_style_preset=payload["caption_style_preset"],
                     cancel_event=cancel_event,
                 )
                 physical_for_public = dict(physical_result)
@@ -2673,6 +3394,7 @@ class StudioService:
                     expected_cache_key=cache_key,
                     expected_hashes=expected_hashes,
                     expected_include_captioned=payload["include_captioned"],
+                    expected_caption_style=payload["caption_style"],
                     artifacts=[],
                     cache_hit=raw_cache_hit,
                 )
@@ -2790,6 +3512,7 @@ class StudioService:
                 inputs["narration_wav_sha256"],
                 inputs["captions_sha256"],
                 payload["include_captioned"],
+                caption_style_preset=payload["caption_style_preset"],
             )
         except (ImportError, AttributeError) as exc:
             raise RequestValidationError(
@@ -2885,6 +3608,7 @@ class StudioService:
             )
         assembly_result = assembly_attempt["result"]
         include_captioned = assembly_result.get("include_captioned")
+        caption_style = assembly_result.get("caption_style")
         cache_hit = assembly_result.get("cache_hit")
         expected_hashes = {
             field: assembly_result.get(field)
@@ -2905,6 +3629,7 @@ class StudioService:
                 expected_cache_key=assembly_attempt["cache_key"],
                 expected_hashes=expected_hashes,
                 expected_include_captioned=include_captioned,
+                expected_caption_style=caption_style,
                 artifacts=[],
                 cache_hit=cache_hit,
             )
@@ -3005,6 +3730,7 @@ class StudioService:
                     expected_cache_key=assembly_attempt["cache_key"],
                     expected_hashes=expected_hashes,
                     expected_include_captioned=include_captioned,
+                    expected_caption_style=caption_style,
                     artifacts=[],
                     cache_hit=linked_cache_hit,
                 )

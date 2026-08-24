@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   api,
   LOCAL_NARRATION_LIMITS,
+  RECOMMENDED_LOCAL_ASSEMBLY_CAPTION_STYLE_PRESET,
   StudioApiError,
   getLocalQcAvailableVariants,
   getLocalQcAssemblyAttempts,
@@ -15,11 +16,16 @@ import {
   EXTERNAL_NARRATION_MODEL,
   EXTERNAL_NARRATION_PROVIDER,
   DEFAULT_EXTERNAL_VOICE_SETTINGS,
+  LOCAL_COMFYUI_WORKFLOW_PRESET,
+  isLocalComfyUiJobForSelection,
+  isLocalComfyUiExecutionActive,
+  isLocalComfyUiExecutionActiveAcross,
   duplicateTimelineClip,
   moveTimelineClip,
   normalizeLocalTimelineInput,
   normalizeLocalAssemblyInput,
   normalizeLocalQcInput,
+  normalizeLocalComfyUiInput,
   normalizeNarrationInput,
   normalizeExternalNarrationInput,
   getExternalNarrationGate,
@@ -32,7 +38,9 @@ import type {
   ExternalVoiceSettings,
   HealthStatus,
   Job,
+  LocalAssemblyCaptionStylePreset,
   LocalAssemblyRequest,
+  LocalComfyUiRequest,
   LocalTimelineClip,
   LocalTimelineRequest,
   LocalQcRequest,
@@ -49,7 +57,7 @@ import type {
   StudioStatus,
 } from './types';
 
-type DetailTab = 'overview' | 'narration' | 'timeline' | 'assembly' | 'qc' | 'artifacts' | 'compare' | 'logs' | 'audit';
+type DetailTab = 'overview' | 'video' | 'narration' | 'timeline' | 'assembly' | 'qc' | 'artifacts' | 'compare' | 'logs' | 'audit';
 
 const STATUS_LABEL: Record<StudioStatus, string> = {
   pending: '待機',
@@ -239,6 +247,21 @@ const localTimelineError = (error: unknown): string => {
     return 'このRunはlocal_sapi実行用ではありません。timeline工程を含むlocal_sapi Runを選択してください。';
   }
   return `ローカルカット編集に失敗しました：${message}`;
+};
+
+const localComfyUiError = (error: unknown): string => {
+  if (error instanceof StudioApiError && error.unsupported) {
+    return 'このStudio backendはローカルComfyUI動画生成に対応していません。backendを更新してから再試行してください。';
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  const normalized = message.toLowerCase();
+  if (normalized.includes('profile') && normalized.includes('comfy')) {
+    return 'このRunはlocal_comfyui実行用ではありません。動画生成用のRunを作成してください。';
+  }
+  if (normalized.includes('stage') && normalized.includes('video')) {
+    return 'このRunにはvideo_generation工程がありません。動画生成を選択してRunを作成してください。';
+  }
+  return `ローカルComfyUI動画生成に失敗しました：${message}`;
 };
 
 const displayQcValue = (value: unknown): string => {
@@ -509,6 +532,7 @@ function ProductionWorkspace({ detail, jobs, providers, onReload }: { detail: Pr
 
   const tabs: { id: DetailTab; label: string; count?: number }[] = [
     { id: 'overview', label: '概要' },
+    { id: 'video', label: '生成映像' },
     { id: 'narration', label: 'ナレーション' },
     { id: 'timeline', label: 'カット編集' },
     { id: 'assembly', label: '編集・合成' },
@@ -558,6 +582,7 @@ function ProductionWorkspace({ detail, jobs, providers, onReload }: { detail: Pr
 
       <div className="tab-content" id="production-tabpanel" role="tabpanel" aria-labelledby={`production-tab-${tab}`}>
         {tab === 'overview' && <Overview detail={detail} latestRun={latestRun} onReload={onReload} />}
+        {tab === 'video' && <VideoGenerationPanel detail={detail} jobs={jobs} onReload={onReload} />}
         {tab === 'narration' && <NarrationPanel detail={detail} jobs={jobs} providers={providers} onReload={onReload} />}
         {tab === 'timeline' && <TimelinePanel detail={detail} jobs={jobs} onReload={onReload} />}
         {tab === 'assembly' && <AssemblyPanel detail={detail} jobs={jobs} onReload={onReload} />}
@@ -641,6 +666,213 @@ function Overview({ detail, latestRun, onReload }: { detail: ProductionDetail; l
   );
 }
 
+const hasVideoGenerationStage = (run: ProductionRun): boolean =>
+  run.requestedStages.some((stage) => ['video', 'video_generation'].includes(normalizeRequestedStage(stage)))
+  || run.stages.some((stage) => ['video', 'video_generation'].includes(normalizeRequestedStage(stage.name)));
+
+const localComfyUiJobMatchesAttempt = (job: Job, attempt?: StageAttempt): boolean => Boolean(
+  attempt
+  && (job.id === attempt.jobId || job.stageAttemptId === attempt.id),
+);
+
+const localComfyUiJobTimestamp = (job: Job): string =>
+  job.updatedAt
+  ?? job.startedAt
+  ?? (typeof job.raw.updated_at === 'string' ? job.raw.updated_at : undefined)
+  ?? (typeof job.raw.created_at === 'string' ? job.raw.created_at : undefined)
+  ?? '';
+
+const newestLocalComfyUiJob = (jobs: Job[]): Job | undefined => [...jobs]
+  .sort((left, right) => localComfyUiJobTimestamp(right).localeCompare(localComfyUiJobTimestamp(left)))[0];
+
+/**
+ * Select a job only after considering the latest stage attempt. A locally
+ * submitted terminal job is intentionally ignored while that same Run has a
+ * newer active attempt or matching active job.
+ */
+const selectLocalComfyUiDisplayJob = (
+  localJob: Job | undefined,
+  currentAttempt: StageAttempt | undefined,
+  matchingJobs: Job[],
+  runId?: string,
+): Job | undefined => {
+  const localJobMatchesRun = Boolean(
+    localJob
+    && ((runId && localJob.runId === runId) || localComfyUiJobMatchesAttempt(localJob, currentAttempt)),
+  );
+  const candidates = [
+    ...(localJobMatchesRun && localJob ? [localJob] : []),
+    ...matchingJobs,
+  ].filter((candidate, index, all) => all.findIndex((item) => item.id === candidate.id) === index);
+  const linkedJobs = candidates.filter((candidate) => localComfyUiJobMatchesAttempt(candidate, currentAttempt));
+  const activeJobs = candidates.filter((candidate) => isLocalComfyUiExecutionActive(candidate));
+  if (currentAttempt && isLocalComfyUiExecutionActive(currentAttempt)) {
+    return newestLocalComfyUiJob(linkedJobs.filter((candidate) => isLocalComfyUiExecutionActive(candidate)))
+      ?? newestLocalComfyUiJob(activeJobs);
+  }
+  return newestLocalComfyUiJob(linkedJobs)
+    ?? newestLocalComfyUiJob(activeJobs)
+    ?? newestLocalComfyUiJob(candidates);
+};
+
+function VideoGenerationPanel({ detail, jobs, onReload }: { detail: ProductionDetail; jobs: Job[]; onReload: () => Promise<void> }) {
+  const eligibleRuns = useMemo(
+    () => [...detail.runs]
+      .filter((run) => hasVideoGenerationStage(run) && run.executionProfile === 'local_comfyui')
+      .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')),
+    [detail.runs],
+  );
+  const [selectedRunId, setSelectedRunId] = useState(eligibleRuns[0]?.id ?? '');
+  const [prompt, setPrompt] = useState('');
+  const [seed, setSeed] = useState('0');
+  const [job, setJob] = useState<Job>();
+  const [busy, setBusy] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+  const [message, setMessage] = useState<{ type: 'error' | 'success' | 'info'; text: string }>();
+  const reloadedTerminalJob = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (!eligibleRuns.some((run) => run.id === selectedRunId)) {
+      setSelectedRunId(eligibleRuns[0]?.id ?? '');
+      setJob(undefined);
+      setMessage(undefined);
+    }
+  }, [eligibleRuns, selectedRunId]);
+
+  const selectedRun = eligibleRuns.find((run) => run.id === selectedRunId);
+  const currentAttempt = [...(selectedRun?.stageAttempts ?? [])]
+    .filter((attempt) => normalizeRequestedStage(attempt.stage) === 'video_generation')
+    .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))[0];
+  const matchingJobs = selectedRun
+    ? jobs.filter((item) => isLocalComfyUiJobForSelection(item, { runId: selectedRun.id }))
+    : [];
+  const visibleJob = selectLocalComfyUiDisplayJob(job, currentAttempt, matchingJobs, selectedRun?.id);
+  const executionStatus = visibleJob?.status ?? currentAttempt?.status;
+  const localJobForRun = job && (
+    (selectedRun?.id !== undefined && job.runId === selectedRun.id)
+    || localComfyUiJobMatchesAttempt(job, currentAttempt)
+  ) ? job : undefined;
+  const executionActive = isLocalComfyUiExecutionActiveAcross([
+    localJobForRun,
+    currentAttempt,
+    ...matchingJobs,
+  ]);
+  const isTerminal = executionStatus === 'succeeded' || executionStatus === 'failed' || executionStatus === 'cancelled';
+  const normalizedInput = useMemo(() => normalizeLocalComfyUiInput(prompt, seed), [prompt, seed]);
+  const validationErrors = normalizedInput.errors;
+
+  useEffect(() => {
+    if (!selectedRun || !executionActive || isTerminal) {
+      if (isTerminal && !submitting) setBusy(false);
+      return;
+    }
+    const timer = window.setInterval(() => {
+      void api.jobs().then((nextJobs) => {
+        const nextMatchingJobs = nextJobs.filter((item) => isLocalComfyUiJobForSelection(item, { runId: selectedRun.id }));
+        const next = selectLocalComfyUiDisplayJob(job, currentAttempt, nextMatchingJobs, selectedRun.id);
+        setJob(next);
+      }).catch(() => undefined);
+    }, 2_000);
+    return () => window.clearInterval(timer);
+  }, [currentAttempt, executionActive, isTerminal, job, selectedRun, submitting]);
+
+  useEffect(() => {
+    if (!visibleJob || !isTerminal || reloadedTerminalJob.current === visibleJob.id) return;
+    reloadedTerminalJob.current = visibleJob.id;
+    void onReload().catch(() => undefined);
+  }, [isTerminal, onReload, visibleJob]);
+
+  const execute = async () => {
+    if (submittingRef.current) return;
+    if (!selectedRun) {
+      setMessage({ type: 'error', text: 'video_generation工程を含むlocal_comfyui Runを選択してください。' });
+      return;
+    }
+    if (validationErrors.length > 0) {
+      setMessage({ type: 'error', text: validationErrors[0] });
+      return;
+    }
+    submittingRef.current = true;
+    setSubmitting(true);
+    setBusy(true);
+    setJob(undefined);
+    reloadedTerminalJob.current = undefined;
+    setMessage({ type: 'info', text: 'ComfyUI動画生成workerをキューに登録しています。成功とはまだ判定していません。' });
+    try {
+      const request: LocalComfyUiRequest = normalizedInput.request;
+      const submitted = await api.executeLocalVideoGeneration(selectedRun.id, request);
+      setJob(submitted);
+      setMessage({
+        type: submitted.status === 'failed' ? 'error' : 'success',
+        text: submitted.status === 'failed'
+          ? localComfyUiError(submitted.message ?? 'workerが失敗しました')
+          : 'ComfyUI動画生成workerをキューに登録しました。',
+      });
+      try {
+        await onReload();
+      } catch {
+        setMessage({ type: 'info', text: 'workerは登録済みです。制作詳細の再読込だけ失敗したため、job監視を継続します。' });
+      }
+      if (submitted.status === 'succeeded' || submitted.status === 'failed' || submitted.status === 'cancelled') setBusy(false);
+    } catch (error) {
+      setBusy(false);
+      setMessage({ type: 'error', text: localComfyUiError(error) });
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
+  };
+
+  if (eligibleRuns.length === 0) {
+    return <section className="panel video-generation-panel"><div className="panel-header"><div><span className="section-kicker">LOCAL COMFYUI</span><h3>生成映像</h3></div></div><EmptyState title="local_comfyuiの動画生成Runがありません" description="概要の再調整で生成映像（video）を選択し、local_comfyuiプロファイルのRunを作成してください。" /></section>;
+  }
+
+  const resultArtifacts = visibleJob?.result?.artifacts ?? currentAttempt?.artifacts ?? [];
+  return (
+    <div className="timeline-grid">
+      <div>
+        <section className="panel video-generation-panel">
+          <div className="panel-header"><div><span className="section-kicker">LOCAL COMFYUI</span><h3>生成映像</h3></div><span className="tag">費用 0円</span></div>
+          <p className="panel-lead">固定済みのMiniMax H3 workflow presetで、プロンプトとseedだけを指定してローカル生成します。workflow JSON、モデルパス、endpointは画面から入力できません。</p>
+          <label className="field"><span>対象Run（video_generation工程を要求したRun）</span><select value={selectedRunId} disabled={busy || submitting || executionActive} onChange={(event) => { setSelectedRunId(event.target.value); setJob(undefined); setMessage(undefined); }} aria-label="生成映像対象Run">
+            {eligibleRuns.map((run) => <option key={run.id} value={run.id}>{run.label} · {run.id} · {run.executionProfile}</option>)}
+          </select></label>
+          <div className="timeline-run-summary"><span>Run ID</span><strong className="mono">{selectedRun?.id}</strong><span>Workflow</span><strong className="mono">{LOCAL_COMFYUI_WORKFLOW_PRESET}</strong></div>
+          <label className="field"><span>生成プロンプト</span><textarea rows={8} value={prompt} disabled={busy || submitting || executionActive} onChange={(event) => setPrompt(event.target.value)} placeholder="例：正面を向いた日本人女性が、柔らかい自然光のスタジオで静かに微笑む。フォトリアル、縦長構図。" aria-label="生成プロンプト" /></label>
+          <label className="field"><span>seed（0〜2^63−1の整数）</span><input type="text" inputMode="numeric" pattern="[0-9]*" value={seed} disabled={busy || submitting || executionActive} onChange={(event) => setSeed(event.target.value)} aria-label="生成seed" /></label>
+          {validationErrors.length > 0 && <div className="validation-list" role="status">{validationErrors.map((error) => <div key={error}>・{error}</div>)}</div>}
+          <button className="button button-primary full-button" type="button" onClick={() => void execute()} disabled={submitting || busy || executionActive || validationErrors.length > 0}>{submitting ? '登録中…' : busy || executionActive ? 'worker監視中…' : '動画生成を実行'}</button>
+          {message && <div className={`inline-message is-${message.type}`} role="status">{message.text}</div>}
+        </section>
+      </div>
+      <aside>
+        <VideoGenerationJobStatus job={visibleJob} attempt={currentAttempt} artifacts={resultArtifacts} />
+        <VideoGenerationAttemptHistory attempts={selectedRun?.stageAttempts.filter((attempt) => normalizeRequestedStage(attempt.stage) === 'video_generation') ?? []} />
+      </aside>
+    </div>
+  );
+}
+
+function VideoGenerationJobStatus({ job, attempt, artifacts }: { job?: Job; attempt?: StageAttempt; artifacts: Artifact[] }) {
+  const status = job?.status ?? attempt?.status;
+  const active = status === 'pending' || status === 'running';
+  const result = job?.result;
+  const cacheHit = job?.cacheHit ?? attempt?.cacheHit;
+  const provider = result?.provider ?? attempt?.provider ?? 'comfyui';
+  const providerTaskId = result?.providerTaskId ?? attempt?.providerTaskId;
+  const durationSeconds = result?.durationSeconds ?? job?.durationSeconds ?? attempt?.durationSeconds;
+  const promptHash = result?.promptSha256 ?? attempt?.promptSha256;
+  const seed = result?.seed ?? attempt?.seed;
+  const workflowPreset = result?.workflowPreset ?? attempt?.workflowPreset;
+  return <section className="panel compact-panel timeline-status-panel" aria-live="polite" aria-busy={active}><div className="panel-header"><div><span className="section-kicker">VIDEO GENERATION STATUS</span><h3>動画生成実行状況</h3></div>{status ? <StatusBadge status={status} label={jobStatusLabel(status)} /> : <span className="muted">未実行</span>}</div>{!job && !attempt && <p className="muted">実行すると、キュー投入後の状態をここで監視します。</p>}<dl className="narration-metrics"><div><dt>Job</dt><dd className="mono">{job?.id ?? attempt?.jobId ?? '—'}</dd></div><div><dt>Stage attempt</dt><dd className="mono">{job?.stageAttemptId ?? attempt?.id ?? '—'}</dd></div><div><dt>Cache hit</dt><dd>{cacheHit === undefined ? '—' : cacheHit ? 'はい' : 'いいえ'}</dd></div><div><dt>所要時間</dt><dd>{formatDuration(durationSeconds)}</dd></div><div><dt>Provider</dt><dd>{provider}</dd></div><div><dt>Provider task ID</dt><dd className="mono">{providerTaskId ?? '—'}</dd></div><div><dt>Workflow preset</dt><dd className="mono">{workflowPreset ?? '—'}</dd></div><div><dt>seed</dt><dd className="mono">{seed === undefined ? '—' : String(seed)}</dd></div><div><dt>prompt SHA-256</dt><dd className="mono">{promptHash ?? '—'}</dd></div><div><dt>更新</dt><dd>{formatDate(job?.updatedAt ?? attempt?.finishedAt ?? attempt?.startedAt)}</dd></div></dl>{job?.message && <p className={job.status === 'failed' ? 'narration-error-text' : 'muted'}>{job.message}{job.errorCode ? ` · ${job.errorCode}` : ''}</p>}<div className="narration-artifact-list"><strong>生成artifact</strong>{artifacts.length === 0 ? <span className="muted">まだありません</span> : artifacts.map((artifact) => <a key={artifact.id} href={artifact.url} target="_blank" rel="noreferrer">{artifact.name} · {formatBytes(artifact.sizeBytes)} ↗</a>)}</div><p className="gate-separation-note">prompt本文はイベントログやjob表示へ複製せず、監査にはSHA-256だけを記録します。</p></section>;
+}
+
+function VideoGenerationAttemptHistory({ attempts }: { attempts: StageAttempt[] }) {
+  const ordered = [...attempts].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
+  return <section className="panel compact-panel"><div className="panel-header"><div><span className="section-kicker">STAGE ATTEMPTS</span><h3>動画生成試行履歴</h3></div><span className="count-chip">{ordered.length}</span></div>{ordered.length === 0 ? <p className="muted">stage attempt記録はまだありません。</p> : <div className="attempt-list">{ordered.map((attempt) => <article className="attempt-row" key={attempt.id}><div><strong>#{attempt.attempt ?? '—'} · {attempt.id}</strong><small>{formatDate(attempt.startedAt ?? attempt.createdAt)}{attempt.finishedAt ? ` → ${formatDate(attempt.finishedAt)}` : ''}</small></div><StatusBadge status={attempt.status} label={jobStatusLabel(attempt.status)} /><div><span>{attempt.cacheHit === undefined ? 'cache —' : attempt.cacheHit ? 'cache hit' : 'cache miss'}</span><span>{formatDuration(attempt.durationSeconds)}</span><span>{attempt.artifacts.length} artifact</span></div>{attempt.message && <p>{attempt.message}</p>}</article>)}</div>}</section>;
+}
+
 const RERUN_STAGES = [
   ['script', '台本'],
   ['narration', 'ナレーション'],
@@ -655,6 +887,7 @@ const RERUN_STAGES = [
 
 const LOCAL_SAPI_STAGES = new Set(['narration', 'captions', 'timeline', 'assembly', 'qc']);
 const ELEVENLABS_TTS_STAGES = new Set(['narration', 'captions', 'assembly', 'qc']);
+const LOCAL_COMFYUI_STAGES = new Set(['video', 'video_generation', 'timeline', 'assembly', 'qc']);
 
 const artifactFileName = (artifact: Artifact): string =>
   (artifact.name || artifact.path || '').split(/[\\/]/).pop()?.toLowerCase() ?? '';
@@ -936,6 +1169,7 @@ function AssemblyPanel({ detail, jobs, onReload }: { detail: ProductionDetail; j
   const [videoArtifactId, setVideoArtifactId] = useState('');
   const [narrationAttemptId, setNarrationAttemptId] = useState('');
   const [includeCaptioned, setIncludeCaptioned] = useState(true);
+  const [captionStylePreset, setCaptionStylePreset] = useState<LocalAssemblyCaptionStylePreset>(RECOMMENDED_LOCAL_ASSEMBLY_CAPTION_STYLE_PRESET);
   const [job, setJob] = useState<Job>();
   const [busy, setBusy] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -984,8 +1218,8 @@ function AssemblyPanel({ detail, jobs, onReload }: { detail: ProductionDetail; j
   const isTerminal = visibleJob?.status === 'succeeded' || visibleJob?.status === 'failed' || visibleJob?.status === 'cancelled';
   const selectedNarrationAttempt = narrationAttempts.find((attempt) => attempt.id === narrationAttemptId);
   const normalizedInput = useMemo(
-    () => normalizeLocalAssemblyInput(videoArtifactId, narrationAttemptId, includeCaptioned),
-    [includeCaptioned, narrationAttemptId, videoArtifactId],
+    () => normalizeLocalAssemblyInput(videoArtifactId, narrationAttemptId, includeCaptioned, captionStylePreset),
+    [captionStylePreset, includeCaptioned, narrationAttemptId, videoArtifactId],
   );
   const validationErrors = [
     ...normalizedInput.errors,
@@ -1073,8 +1307,12 @@ function AssemblyPanel({ detail, jobs, onReload }: { detail: ProductionDetail; j
           </select><small id="assembly-narration-help" className="field-help">narration.wav と captions.srt の両方を含む成功済みstage attemptのみ表示しています。</small></label>
           {narrationAttempts.length === 0 && <div className="notice notice-warning"><div><strong>利用できるナレーション試行がありません</strong><p>ローカルナレーションを先に成功させ、音声とcaptions.srtを生成してください。</p></div></div>}
           {selectedNarrationAttempt && <div className="assembly-source-summary"><span>音声・字幕</span><strong>{selectedNarrationAttempt.artifacts.map((artifact) => artifact.name).join('、')}</strong></div>}
-          <label className="assembly-check"><input type="checkbox" checked={includeCaptioned} disabled={busy || submitting} onChange={(event) => setIncludeCaptioned(event.target.checked)} /><span><strong>字幕付き版も生成</strong><small>オンの場合、通常版に加えてcaptions.srtを焼き込んだcaptioned版を生成します。</small></span></label>
-          <div className="assembly-confirm" role="note"><strong>実行前確認</strong><span>Run <b className="mono">{selectedRun?.id}</b> に選択した動画・音声・字幕を合成</span><span>{hasElevenLabsProfile(selectedRun) ? '音声のみ外部送信 · 合成はローカルworker' : '外部送信なし · ローカルworker'} · 費用0円</span></div>
+          <label className="assembly-check"><input type="checkbox" checked={includeCaptioned} disabled={busy || submitting} onChange={(event) => { const next = event.target.checked; setIncludeCaptioned(next); if (!next) setCaptionStylePreset('studio_default_v1'); }} /><span><strong>字幕付き版も生成</strong><small>オンの場合、通常版に加えてcaptions.srtを焼き込んだcaptioned版を生成します。</small></span></label>
+          <label className="field"><span>字幕プリセット</span><select value={captionStylePreset} disabled={busy || submitting || !includeCaptioned} onChange={(event) => { const next = event.target.value; if (next === 'studio_default_v1' || next === 'shorts_ja_large_v1') setCaptionStylePreset(next); }} aria-describedby="assembly-caption-style-help" aria-label="字幕プリセット">
+            <option value="shorts_ja_large_v1">Shorts向け大字幕（推奨）</option>
+            <option value="studio_default_v1">標準字幕（従来互換）</option>
+          </select><small id="assembly-caption-style-help" className="field-help">閉じた検証済みpresetのみ選択できます。Shorts向けは大きな太字・強い縁取り・safe marginを使用します。</small></label>
+          <div className="assembly-confirm" role="note"><strong>実行前確認</strong><span>Run <b className="mono">{selectedRun?.id}</b> に選択した動画・音声・字幕を合成</span><span>字幕preset: <b className="mono">{captionStylePreset}</b></span><span>{hasElevenLabsProfile(selectedRun) ? '音声のみ外部送信 · 合成はローカルworker' : '外部送信なし · ローカルworker'} · 費用0円</span></div>
           {validationErrors.length > 0 && <div className="validation-list" role="status">{validationErrors.map((error) => <div key={error}>・{error}</div>)}</div>}
           <button className="button button-primary full-button" type="button" onClick={() => void execute()} disabled={submitting || busy || validationErrors.length > 0}>{submitting ? '登録中…' : busy ? 'worker監視中…' : 'ローカル編集・合成を実行'}</button>
           {message && <div className={`inline-message is-${message.type}`} role="status">{message.text}</div>}
@@ -1703,6 +1941,7 @@ function RerunPanel({ productionId, onReload }: { productionId: string; onReload
   const toggleStage = (stage: string) => {
     if (changes.executionProfile === 'local_sapi' && !LOCAL_SAPI_STAGES.has(normalizeRequestedStage(stage))) return;
     if (changes.executionProfile === 'elevenlabs_tts' && !ELEVENLABS_TTS_STAGES.has(normalizeRequestedStage(stage))) return;
+    if (changes.executionProfile === 'local_comfyui' && !LOCAL_COMFYUI_STAGES.has(normalizeRequestedStage(stage))) return;
     setPlan(undefined);
     setChanges((current) => ({
       ...current,
@@ -1736,11 +1975,15 @@ function RerunPanel({ productionId, onReload }: { productionId: string; onReload
       setMessage({ type: 'error', text: 'elevenlabs_ttsはnarration工程を必須にしてください。' });
       return;
     }
+    if (changes.executionProfile === 'local_comfyui' && !changes.stages.some((stage) => ['video', 'video_generation'].includes(normalizeRequestedStage(stage)))) {
+      setMessage({ type: 'error', text: 'local_comfyuiは生成映像（video_generation）工程を必須にしてください。' });
+      return;
+    }
     if (changes.executionProfile === 'elevenlabs_tts' && (!Number.isFinite(changes.maxCostJpy) || (changes.maxCostJpy ?? 0) <= 0)) {
       setMessage({ type: 'error', text: 'elevenlabs_ttsは正の見積額（maxCostJpy）を必須にしてください。' });
       return;
     }
-    if (plan.requiresCostEstimate && changes.executionProfile !== 'local_sapi' && (!changes.allowPaidApi || !changes.maxCostJpy || changes.maxCostJpy <= 0)) {
+    if (plan.requiresCostEstimate && changes.executionProfile !== 'local_sapi' && changes.executionProfile !== 'local_comfyui' && (!changes.allowPaidApi || !changes.maxCostJpy || changes.maxCostJpy <= 0)) {
       setMessage({ type: 'error', text: '課金工程を含むため、有料APIの計画を有効にして見積額を入力してください。' });
       return;
     }
@@ -1765,14 +2008,15 @@ function RerunPanel({ productionId, onReload }: { productionId: string; onReload
         <legend>変更する工程</legend>
         {RERUN_STAGES.map(([id, label]) => (
           <label key={id}>
-            <input type="checkbox" checked={changes.stages.includes(id)} onChange={() => toggleStage(id)} disabled={(changes.executionProfile === 'local_sapi' && !LOCAL_SAPI_STAGES.has(id)) || (changes.executionProfile === 'elevenlabs_tts' && !ELEVENLABS_TTS_STAGES.has(id))} />
+            <input type="checkbox" checked={changes.stages.includes(id)} onChange={() => toggleStage(id)} disabled={(changes.executionProfile === 'local_sapi' && !LOCAL_SAPI_STAGES.has(id)) || (changes.executionProfile === 'elevenlabs_tts' && !ELEVENLABS_TTS_STAGES.has(id)) || (changes.executionProfile === 'local_comfyui' && !LOCAL_COMFYUI_STAGES.has(id))} />
             <span>{label}</span>
           </label>
         ))}
       </fieldset>
       <fieldset className="execution-profile-fieldset"><legend>実行プロファイル</legend>
-        <label className="profile-option"><input type="radio" name={`execution-profile-${productionId}`} value="default" checked={changes.executionProfile !== 'local_sapi' && changes.executionProfile !== 'elevenlabs_tts'} onChange={() => { setPlan(undefined); setChanges((current) => ({ ...current, executionProfile: 'default' })); }} /><span><strong>通常</strong><small>既存のRun計画・費用ルールを使用</small></span></label>
+        <label className="profile-option"><input type="radio" name={`execution-profile-${productionId}`} value="default" checked={changes.executionProfile !== 'local_sapi' && changes.executionProfile !== 'elevenlabs_tts' && changes.executionProfile !== 'local_comfyui'} onChange={() => { setPlan(undefined); setChanges((current) => ({ ...current, executionProfile: 'default' })); }} /><span><strong>通常</strong><small>既存のRun計画・費用ルールを使用</small></span></label>
         <label className="profile-option"><input type="radio" name={`execution-profile-${productionId}`} value="local_sapi" checked={changes.executionProfile === 'local_sapi'} onChange={() => { setPlan(undefined); setChanges((current) => ({ ...current, executionProfile: 'local_sapi', stages: ['narration'], allowPaidApi: false, maxCostJpy: undefined })); }} /><span><strong>local_sapi（ローカルworker）</strong><small>narration・字幕・カット編集・編集/合成・QC、見積0円・外部送信なし</small></span></label>
+        <label className="profile-option"><input type="radio" name={`execution-profile-${productionId}`} value="local_comfyui" checked={changes.executionProfile === 'local_comfyui'} onChange={() => { setPlan(undefined); setChanges((current) => ({ ...current, executionProfile: 'local_comfyui', stages: ['video'], allowPaidApi: false, maxCostJpy: undefined })); }} /><span><strong>local_comfyui（ローカル動画worker）</strong><small>生成映像を実行。後続工程は影響計画として記録し、このprofileではまだ実行しません</small></span></label>
         <label className="profile-option"><input type="radio" name={`execution-profile-${productionId}`} value="elevenlabs_tts" checked={changes.executionProfile === 'elevenlabs_tts'} onChange={() => { setPlan(undefined); setChanges((current) => ({ ...current, executionProfile: 'elevenlabs_tts', stages: ['narration'], allowPaidApi: true, maxCostJpy: undefined })); }} /><span><strong>elevenlabs_tts（外部音声）</strong><small>音声だけ外部送信・課金、合成/QCはローカル。正の見積と承認が必要</small></span></label>
       </fieldset>
       <label className="field">
@@ -1788,10 +2032,10 @@ function RerunPanel({ productionId, onReload }: { productionId: string; onReload
         <input
           type="checkbox"
           checked={changes.allowPaidApi}
-          disabled={changes.executionProfile === 'local_sapi' || changes.executionProfile === 'elevenlabs_tts'}
+          disabled={changes.executionProfile === 'local_sapi' || changes.executionProfile === 'local_comfyui' || changes.executionProfile === 'elevenlabs_tts'}
           onChange={(event) => { setPlan(undefined); setChanges((current) => ({ ...current, allowPaidApi: event.target.checked, executionProfile: event.target.checked ? 'default' : current.executionProfile })); }}
         />
-          <span><strong>有料APIを使う計画</strong><small>{changes.executionProfile === 'local_sapi' ? 'local_sapiと相互排他的です' : changes.executionProfile === 'elevenlabs_tts' ? 'elevenlabs_ttsでは必須です。Run作成後に上限を承認します' : 'Run作成後、監査タブで上限を承認します'}</small></span>
+          <span><strong>有料APIを使う計画</strong><small>{changes.executionProfile === 'local_sapi' ? 'local_sapiと相互排他的です' : changes.executionProfile === 'local_comfyui' ? 'local_comfyuiはローカルGPUで実行するため課金なしです' : changes.executionProfile === 'elevenlabs_tts' ? 'elevenlabs_ttsでは必須です。Run作成後に上限を承認します' : 'Run作成後、監査タブで上限を承認します'}</small></span>
       </label>
       {changes.allowPaidApi && (
         <label className="field inline-field">
@@ -1807,8 +2051,8 @@ function RerunPanel({ productionId, onReload }: { productionId: string; onReload
           <dl>
             <div><dt>再実行</dt><dd>{(plan.stages.length ? plan.stages : changes.stages).map(stageLabel).join('、')}</dd></div>
             <div><dt>再利用</dt><dd>{plan.reusedStages.length ? plan.reusedStages.map(stageLabel).join('、') : 'APIから情報なし'}</dd></div>
-            <div><dt>課金工程</dt><dd>{changes.executionProfile === 'local_sapi' ? 'なし（ローカル）' : plan.billableStages.length ? plan.billableStages.map(stageLabel).join('、') : 'なし'}</dd></div>
-            <div><dt>見積費用</dt><dd>{changes.executionProfile === 'local_sapi' ? '0円（外部送信なし）' : plan.estimatedCost === undefined ? (plan.requiresCostEstimate ? (changes.maxCostJpy && changes.maxCostJpy > 0 ? formatMoney(changes.maxCostJpy, 'JPY') : '見積入力が必要') : '課金なし') : formatMoney(plan.estimatedCost, plan.currency)}</dd></div>
+            <div><dt>課金工程</dt><dd>{changes.executionProfile === 'local_sapi' || changes.executionProfile === 'local_comfyui' ? 'なし（ローカル）' : plan.billableStages.length ? plan.billableStages.map(stageLabel).join('、') : 'なし'}</dd></div>
+            <div><dt>見積費用</dt><dd>{changes.executionProfile === 'local_sapi' || changes.executionProfile === 'local_comfyui' ? '0円（外部送信なし）' : plan.estimatedCost === undefined ? (plan.requiresCostEstimate ? (changes.maxCostJpy && changes.maxCostJpy > 0 ? formatMoney(changes.maxCostJpy, 'JPY') : '見積入力が必要') : '課金なし') : formatMoney(plan.estimatedCost, plan.currency)}</dd></div>
           </dl>
           <div className="button-row">
             <button className="button button-ghost" onClick={() => setPlan(undefined)} disabled={busy}>戻る</button>

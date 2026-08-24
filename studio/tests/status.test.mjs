@@ -14,5 +14,3 @@ test('compound production gates retain pass and blocker semantics', () => {
   assert.equal(normalizeStatus('interrupted'), 'cancelled');
   assert.equal(normalizeStatus('process_interrupted'), 'cancelled');
 });
-
-await import('./narration.test.mjs');

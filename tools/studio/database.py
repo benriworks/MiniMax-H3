@@ -25,7 +25,12 @@ from .security import (
 
 SCHEMA_VERSION = 3
 MAX_EVENT_LINE_BYTES = 2 * 1024 * 1024
-_RUN_EXECUTION_PROFILES = {"external", "local_sapi", "elevenlabs_tts"}
+_RUN_EXECUTION_PROFILES = {
+    "external",
+    "local_sapi",
+    "elevenlabs_tts",
+    "local_comfyui",
+}
 _LOCAL_SAPI_ZERO_COST_STAGES = {
     "narration",
     "captions",
@@ -34,6 +39,7 @@ _LOCAL_SAPI_ZERO_COST_STAGES = {
     "qc",
 }
 _ELEVENLABS_TTS_STAGES = {"narration", "captions", "assembly", "qc"}
+_LOCAL_COMFYUI_ZERO_COST_STAGES = {"video_generation", "timeline", "assembly", "qc"}
 _DEFAULT_INTERRUPTED_ERROR_CODE = "process_interrupted"
 _DEFAULT_INTERRUPTED_ERROR_MESSAGE = "The Studio process stopped."
 _MAX_RESTORED_STUDIO_ARTIFACT_BYTES = 2 * 1024 * 1024 * 1024
@@ -103,12 +109,14 @@ class AtomicStageCompletion:
 
     ``public_result`` is the stage result that must be persisted on the
     attempt.  The database derives the historical job result by adding
-    ``stage_attempt_id`` to that mapping; the envelope itself is never
-    persisted as a public job result.
+    ``stage_attempt_id`` to that mapping.  Optional ``artifact_records`` are
+    registered in the same transaction as the job/stage success transition;
+    the envelope itself is never persisted as a public job result.
     """
 
     stage_attempt_id: str
     public_result: dict[str, Any]
+    artifact_records: tuple[dict[str, Any], ...] = ()
 
 
 class AtomicCompletionError(ValueError):
@@ -994,76 +1002,116 @@ class StudioDatabase:
             "artifact_versions_added": inserted_versions,
         }
 
-    def register_studio_artifact(self, production_id: str, artifact: dict[str, Any]) -> dict[str, Any]:
+    def _register_studio_artifact_in_transaction(
+        self,
+        connection: sqlite3.Connection,
+        production_id: str,
+        artifact: dict[str, Any],
+        *,
+        timestamp: str,
+    ) -> dict[str, Any]:
+        """Register one validated Studio artifact on the caller transaction."""
+
+        connection.execute(
+            """
+            INSERT INTO artifacts(
+                id, production_id, rel_path, origin, name, kind, media_type,
+                bytes, mtime_ns, sha256, is_heavy, available, indexed_at
+            ) VALUES(?, ?, ?, 'studio', ?, ?, ?, ?, ?, ?, ?, 1, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                bytes=excluded.bytes,
+                mtime_ns=excluded.mtime_ns,
+                sha256=excluded.sha256,
+                available=1,
+                indexed_at=excluded.indexed_at
+            """,
+            (
+                artifact["id"],
+                production_id,
+                artifact["rel_path"],
+                artifact["name"],
+                artifact["kind"],
+                artifact["media_type"],
+                artifact["bytes"],
+                artifact["mtime_ns"],
+                artifact.get("sha256"),
+                int(bool(artifact["is_heavy"])),
+                timestamp,
+            ),
+        )
+        connection.execute(
+            "INSERT OR IGNORE INTO artifact_versions(artifact_id, observed_at, bytes, mtime_ns, sha256) "
+            "VALUES(?, ?, ?, ?, ?)",
+            (
+                artifact["id"],
+                timestamp,
+                artifact["bytes"],
+                artifact["mtime_ns"],
+                artifact.get("sha256"),
+            ),
+        )
+        row = connection.execute(
+            "SELECT * FROM artifacts WHERE id=?", (artifact["id"],)
+        ).fetchone()
+        if row is None or any(
+            (
+                row["production_id"] != production_id,
+                row["rel_path"] != artifact["rel_path"],
+                row["origin"] != "studio",
+                row["name"] != artifact["name"],
+                row["kind"] != artifact["kind"],
+                row["media_type"] != artifact["media_type"],
+                row["bytes"] != artifact["bytes"],
+                row["mtime_ns"] != artifact["mtime_ns"],
+                row["sha256"] != artifact.get("sha256"),
+                bool(row["is_heavy"]) != bool(artifact["is_heavy"]),
+                not bool(row["available"]),
+            )
+        ):
+            raise ValueError("artifact registration did not preserve artifact identity")
+        result = self._artifact_dict(row)
+        self._append_event(
+            connection,
+            "production",
+            production_id,
+            "artifact.created",
+            {
+                "artifact_id": result["id"],
+                "kind": result["kind"],
+                "artifact": {
+                    key: result[key]
+                    for key in (
+                        "id",
+                        "production_id",
+                        "rel_path",
+                        "origin",
+                        "name",
+                        "kind",
+                        "media_type",
+                        "bytes",
+                        "mtime_ns",
+                        "sha256",
+                        "is_heavy",
+                        "available",
+                        "indexed_at",
+                    )
+                },
+            },
+            created_at=timestamp,
+        )
+        return result
+
+    def register_studio_artifact(
+        self, production_id: str, artifact: dict[str, Any]
+    ) -> dict[str, Any]:
         timestamp = utc_now()
         with self.transaction() as connection:
-            connection.execute(
-                """
-                INSERT INTO artifacts(
-                    id, production_id, rel_path, origin, name, kind, media_type,
-                    bytes, mtime_ns, sha256, is_heavy, available, indexed_at
-                ) VALUES(?, ?, ?, 'studio', ?, ?, ?, ?, ?, ?, ?, 1, ?)
-                ON CONFLICT(id) DO UPDATE SET
-                    bytes=excluded.bytes,
-                    mtime_ns=excluded.mtime_ns,
-                    sha256=excluded.sha256,
-                    available=1,
-                    indexed_at=excluded.indexed_at
-                """,
-                (
-                    artifact["id"],
-                    production_id,
-                    artifact["rel_path"],
-                    artifact["name"],
-                    artifact["kind"],
-                    artifact["media_type"],
-                    artifact["bytes"],
-                    artifact["mtime_ns"],
-                    artifact.get("sha256"),
-                    int(bool(artifact["is_heavy"])),
-                    timestamp,
-                ),
-            )
-            connection.execute(
-                "INSERT OR IGNORE INTO artifact_versions(artifact_id, observed_at, bytes, mtime_ns, sha256) "
-                "VALUES(?, ?, ?, ?, ?)",
-                (
-                    artifact["id"],
-                    timestamp,
-                    artifact["bytes"],
-                    artifact["mtime_ns"],
-                    artifact.get("sha256"),
-                ),
-            )
-            self._append_event(
+            return self._register_studio_artifact_in_transaction(
                 connection,
-                "production",
                 production_id,
-                "artifact.created",
-                {
-                    "artifact_id": artifact["id"],
-                    "kind": artifact["kind"],
-                    "artifact": {
-                        "id": artifact["id"],
-                        "production_id": production_id,
-                        "rel_path": artifact["rel_path"],
-                        "origin": "studio",
-                        "name": artifact["name"],
-                        "kind": artifact["kind"],
-                        "media_type": artifact["media_type"],
-                        "bytes": artifact["bytes"],
-                        "mtime_ns": artifact["mtime_ns"],
-                        "sha256": artifact.get("sha256"),
-                        "is_heavy": bool(artifact["is_heavy"]),
-                        "available": True,
-                        "indexed_at": timestamp,
-                    },
-                },
-                created_at=timestamp,
+                artifact,
+                timestamp=timestamp,
             )
-        result = self.get_artifact(artifact["id"])
-        assert result is not None
-        return result
 
     @staticmethod
     def _production_dict(row: sqlite3.Row) -> dict[str, Any]:
@@ -2032,6 +2080,14 @@ class StudioDatabase:
                         or not set(requested_stages).issubset(_ELEVENLABS_TTS_STAGES)
                     ):
                         continue
+                    if execution_profile == "local_comfyui" and (
+                        estimated_minor != 0
+                        or "video_generation" not in requested_stages
+                        or not set(requested_stages).issubset(
+                            _LOCAL_COMFYUI_ZERO_COST_STAGES
+                        )
+                    ):
+                        continue
                     run_core = {
                         "id": run["id"],
                         "production_id": run["production_id"],
@@ -2368,6 +2424,7 @@ class StudioDatabase:
         job_id: str,
         stage_attempt_id: str,
         public_result: Any,
+        artifact_records: Sequence[dict[str, Any]] = (),
     ) -> dict[str, Any]:
         """Commit a job and its linked active stage attempt together.
 
@@ -2382,10 +2439,21 @@ class StudioDatabase:
         safe_stage_result = sanitize_for_storage(public_result)
         if not isinstance(safe_stage_result, dict):
             raise ValueError("stage completion result must be an object")
+        if isinstance(artifact_records, (str, bytes, bytearray)):
+            raise ValueError("artifact records must be a sequence of objects")
+        safe_artifact_records = sanitize_for_storage(list(artifact_records))
+        if not isinstance(safe_artifact_records, list) or any(
+            not isinstance(item, dict) for item in safe_artifact_records
+        ):
+            raise ValueError("artifact records must be a sequence of objects")
+        if safe_artifact_records and safe_stage_result.get("artifacts") not in (
+            None,
+            [],
+        ):
+            raise ValueError("atomic artifact records require an empty public artifact list")
         # The linked database row is authoritative.  A worker result must not
         # be able to replace its attempt identity with an untrusted field.
         safe_stage_result.pop("stage_attempt_id", None)
-        safe_job_result = {**safe_stage_result, "stage_attempt_id": stage_attempt_id}
         with self.transaction() as connection:
             job = connection.execute(
                 "SELECT * FROM jobs WHERE id=?", (job_id,)
@@ -2417,6 +2485,21 @@ class StudioDatabase:
                     job_status=job["status"],
                     stage_status=attempt["status"],
                 )
+
+            if safe_artifact_records:
+                safe_stage_result["artifacts"] = [
+                    self._register_studio_artifact_in_transaction(
+                        connection,
+                        attempt["production_id"],
+                        artifact,
+                        timestamp=timestamp,
+                    )
+                    for artifact in safe_artifact_records
+                ]
+            safe_job_result = {
+                **safe_stage_result,
+                "stage_attempt_id": stage_attempt_id,
+            }
 
             connection.execute(
                 "UPDATE jobs SET status='succeeded', completed_at=?, result_json=?, "
@@ -2492,6 +2575,135 @@ class StudioDatabase:
                 "stage_attempt": self._stage_attempt_dict(updated_attempt),
             }
         return committed
+
+    def fail_job_with_stage_attempt(
+        self,
+        job_id: str,
+        stage_attempt_id: str,
+        *,
+        error_code: str,
+        error_message: str,
+    ) -> dict[str, Any]:
+        """Fail a linked active job/stage pair in one transaction.
+
+        JobManager uses this when work returned an atomic completion envelope
+        but final artifact registration or terminal commit was rejected.  A
+        partial failure is not accepted: the linked pair either becomes
+        failed together, is already terminal together, or this method raises.
+        """
+
+        timestamp = utc_now()
+        safe_code = str(sanitize_for_storage(error_code or "job_failed"))[:128]
+        safe_message = str(sanitize_for_storage(error_message or ""))[:1000] or None
+        with self.transaction() as connection:
+            job = connection.execute(
+                "SELECT * FROM jobs WHERE id=?", (job_id,)
+            ).fetchone()
+            attempt = connection.execute(
+                "SELECT * FROM stage_attempts WHERE id=?", (stage_attempt_id,)
+            ).fetchone()
+            if job is None:
+                raise KeyError("job not found")
+            if attempt is None:
+                raise KeyError("stage attempt not found")
+            if attempt["job_id"] != job_id:
+                raise ValueError("stage attempt is linked to another job")
+            run = connection.execute(
+                "SELECT production_id FROM runs WHERE id=?", (attempt["run_id"],)
+            ).fetchone()
+            if (
+                run is None
+                or job["production_id"] != attempt["production_id"]
+                or attempt["production_id"] != run["production_id"]
+            ):
+                raise ValueError("job and stage attempt production do not match")
+
+            if job["status"] in {"failed", "interrupted"} and attempt[
+                "status"
+            ] == "failed":
+                return {
+                    "committed": False,
+                    "job": self._job_dict(job),
+                    "stage_attempt": self._stage_attempt_dict(attempt),
+                }
+            if job["status"] != "running" or attempt["status"] not in {
+                "queued",
+                "running",
+            }:
+                raise AtomicCompletionError(
+                    "atomic failure requires a running job and active stage attempt",
+                    code="atomic_failure_not_active",
+                    job_status=job["status"],
+                    stage_status=attempt["status"],
+                )
+
+            connection.execute(
+                "UPDATE stage_attempts SET status='failed', completed_at=?, "
+                "result_json=NULL, error_code=?, error_message=? "
+                "WHERE id=? AND status IN ('queued', 'running')",
+                (timestamp, safe_code, safe_message, stage_attempt_id),
+            )
+            if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                raise AtomicCompletionError(
+                    "stage attempt changed before atomic failure could commit",
+                    code="atomic_failure_not_active",
+                    job_status=job["status"],
+                    stage_status="unknown",
+                )
+            connection.execute(
+                "UPDATE jobs SET status='failed', completed_at=?, result_json=NULL, "
+                "error_code=?, error_message=? WHERE id=? AND status='running'",
+                (timestamp, safe_code, safe_message, job_id),
+            )
+            if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                raise AtomicCompletionError(
+                    "job changed before atomic failure could commit",
+                    code="atomic_failure_not_active",
+                    job_status="unknown",
+                    stage_status="failed",
+                )
+
+            self._append_event(
+                connection,
+                "run",
+                attempt["run_id"],
+                "stage.attempt.failed",
+                {
+                    "attempt_id": attempt["id"],
+                    "production_id": attempt["production_id"],
+                    "stage": attempt["stage"],
+                    "attempt": attempt["attempt"],
+                    "cache_key": attempt["cache_key"],
+                    "result": None,
+                    "error_code": safe_code,
+                    "error_message": safe_message,
+                },
+                created_at=timestamp,
+            )
+            self._append_event(
+                connection,
+                "job",
+                job_id,
+                "job.failed",
+                {
+                    "result": None,
+                    "error_code": safe_code,
+                    "error_message": safe_message,
+                },
+                created_at=timestamp,
+            )
+            updated_job = connection.execute(
+                "SELECT * FROM jobs WHERE id=?", (job_id,)
+            ).fetchone()
+            updated_attempt = connection.execute(
+                "SELECT * FROM stage_attempts WHERE id=?", (stage_attempt_id,)
+            ).fetchone()
+            assert updated_job is not None and updated_attempt is not None
+            return {
+                "committed": True,
+                "job": self._job_dict(updated_job),
+                "stage_attempt": self._stage_attempt_dict(updated_attempt),
+            }
 
     def update_job(
         self,

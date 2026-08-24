@@ -41,6 +41,9 @@ _RUN_CREATE_RE = re.compile(r"^/api/productions/([^/]+)/runs$")
 _RUN_APPROVE_RE = re.compile(r"^/api/runs/([^/]+)/approve$")
 _RUN_LOCAL_NARRATION_RE = re.compile(r"^/api/runs/([^/]+)/execute-local-narration$")
 _RUN_EXTERNAL_NARRATION_RE = re.compile(r"^/api/runs/([^/]+)/execute-external-narration$")
+_RUN_LOCAL_VIDEO_GENERATION_RE = re.compile(
+    r"^/api/runs/([^/]+)/execute-local-video-generation$"
+)
 _RUN_LOCAL_TIMELINE_RE = re.compile(r"^/api/runs/([^/]+)/execute-local-timeline$")
 _RUN_LOCAL_ASSEMBLY_RE = re.compile(r"^/api/runs/([^/]+)/execute-local-assembly$")
 _RUN_LOCAL_QC_RE = re.compile(r"^/api/runs/([^/]+)/execute-local-qc$")
@@ -427,6 +430,12 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
         match = _RUN_EXTERNAL_NARRATION_RE.fullmatch(path)
         if match:
             self._send_json(202, service.execute_external_narration(match.group(1), body))
+            return
+        match = _RUN_LOCAL_VIDEO_GENERATION_RE.fullmatch(path)
+        if match:
+            self._send_json(
+                202, service.execute_local_video_generation(match.group(1), body)
+            )
             return
         match = _RUN_LOCAL_TIMELINE_RE.fullmatch(path)
         if match:

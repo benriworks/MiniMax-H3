@@ -145,7 +145,9 @@ Turboを選んだ場合は、同じコマンドのprofileを `lowvram_turbo` ま
 .\run-local.ps1 -Profile lowvram
 ```
 
-既定では `127.0.0.1:8188` のみにlistenし、`--enable-dynamic-vram` を使います。`--lowvram` は付けません。previewを無効化し、pinned memoryも無効化します。
+既定では `127.0.0.1:8188` のみにlistenし、`--enable-dynamic-vram` を使います。`--lowvram` は付けません。previewとpinned memoryを無効化します。さらに`--disable-all-custom-nodes`を付け、通常profileは固定`ComfyUI-GGUF`だけ、Turbo profileは固定`ComfyUI-MiniMax-H3-Turbo`も追加してallowlistします。ComfyUI本体が`custom_nodes/`をGit管理外にしていても、未知の起動codeを自動importしないための境界です。
+
+Studioの固定動画生成workerは `official_q4` の標準Dynamic VRAM起動だけを受け付けます。`-EmergencyLowVram`は手動workflow用の退避modeであり、Studio経路ではありません。Studioで使う場合は `run-local.ps1 -Profile official_q4`（必要なら`-NoBrowser`）で起動し、EmergencyまたはTurboのlistenerを流用しないでください。
 
 `-Profile` は必要モデルと対応workflowの契約をdoctorで検査しますが、ComfyUI UIへJSONを自動ロード・切替しません。launcherが表示する `Open manually:` の対象を、起動後に利用者が明示的に開いてください。前回のworkflowがUIに残っている場合も、そのまま実行しないでください。
 

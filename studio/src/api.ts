@@ -9,7 +9,9 @@ import type {
   HealthStatus,
   Job,
   JobResult,
+  LocalAssemblyCaptionStylePreset,
   LocalAssemblyRequest,
+  LocalComfyUiRequest,
   LocalTimelineClip,
   LocalTimelineRequest,
   LocalQcRequest,
@@ -362,20 +364,71 @@ export interface NormalizedAssemblyInput {
   errors: string[];
 }
 
+export const LOCAL_ASSEMBLY_CAPTION_STYLE_PRESETS = [
+  'studio_default_v1',
+  'shorts_ja_large_v1',
+] as const satisfies readonly LocalAssemblyCaptionStylePreset[];
+
+export const DEFAULT_LOCAL_ASSEMBLY_CAPTION_STYLE_PRESET: LocalAssemblyCaptionStylePreset = 'studio_default_v1';
+export const RECOMMENDED_LOCAL_ASSEMBLY_CAPTION_STYLE_PRESET: LocalAssemblyCaptionStylePreset = 'shorts_ja_large_v1';
+
+export const isLocalAssemblyCaptionStylePreset = (
+  value: unknown,
+): value is LocalAssemblyCaptionStylePreset => (
+  typeof value === 'string'
+  && LOCAL_ASSEMBLY_CAPTION_STYLE_PRESETS.some((preset) => preset === value)
+);
+
 export const normalizeLocalAssemblyInput = (
   videoArtifactId: string,
   narrationAttemptId: string,
   includeCaptioned: boolean,
+  captionStylePreset: unknown = DEFAULT_LOCAL_ASSEMBLY_CAPTION_STYLE_PRESET,
 ): NormalizedAssemblyInput => {
+  const normalizedPreset = isLocalAssemblyCaptionStylePreset(captionStylePreset)
+    ? captionStylePreset
+    : DEFAULT_LOCAL_ASSEMBLY_CAPTION_STYLE_PRESET;
   const request: LocalAssemblyRequest = {
     videoArtifactId: videoArtifactId.trim(),
     narrationAttemptId: narrationAttemptId.trim(),
     includeCaptioned: Boolean(includeCaptioned),
+    captionStylePreset: normalizedPreset,
   };
   const errors: string[] = [];
   if (!request.videoArtifactId) errors.push('動画artifactを選択してください。');
   if (!request.narrationAttemptId) errors.push('成功済みナレーション試行を選択してください。');
+  if (!isLocalAssemblyCaptionStylePreset(captionStylePreset)) {
+    errors.push('字幕プリセットはstudio_default_v1またはshorts_ja_large_v1を指定してください。');
+  }
+  if (!request.includeCaptioned && request.captionStylePreset !== 'studio_default_v1') {
+    errors.push('shorts_ja_large_v1は字幕付き版を生成する場合のみ選択できます。');
+  }
   return { request, errors };
+};
+
+export interface LocalAssemblyPayload {
+  video_artifact_id: string;
+  narration_attempt_id: string;
+  include_captioned: boolean;
+  caption_style_preset: LocalAssemblyCaptionStylePreset;
+}
+
+/** Return the exact local assembly wire body after applying the same form validation. */
+export const buildLocalAssemblyPayload = (value: unknown): LocalAssemblyPayload => {
+  const record = asRecord(value);
+  const normalized = normalizeLocalAssemblyInput(
+    text(pick(record, ['videoArtifactId', 'video_artifact_id'])),
+    text(pick(record, ['narrationAttemptId', 'narration_attempt_id'])),
+    boolean(pick(record, ['includeCaptioned', 'include_captioned']), true),
+    pick(record, ['captionStylePreset', 'caption_style_preset']),
+  );
+  if (normalized.errors.length > 0) throw new TypeError(normalized.errors[0]);
+  return {
+    video_artifact_id: normalized.request.videoArtifactId,
+    narration_attempt_id: normalized.request.narrationAttemptId,
+    include_captioned: normalized.request.includeCaptioned,
+    caption_style_preset: normalized.request.captionStylePreset,
+  };
 };
 
 export const LOCAL_TIMELINE_LIMITS = {
@@ -461,6 +514,111 @@ export const buildLocalTimelinePayload = (value: unknown): LocalTimelinePayload 
 };
 
 export const toLocalTimelinePayload = buildLocalTimelinePayload;
+
+export const LOCAL_COMFYUI_WORKFLOW_PRESET = 'minimax_h3_t2v_official_q4_v1' as const;
+export const LOCAL_COMFYUI_MAX_PROMPT_CHARS = 50_000;
+export const LOCAL_COMFYUI_MAX_SEED = '9223372036854775807' as const;
+const LOCAL_COMFYUI_MAX_SEED_BIGINT = BigInt(LOCAL_COMFYUI_MAX_SEED);
+const LOCAL_COMFYUI_SAFE_INTEGER_BIGINT = BigInt(Number.MAX_SAFE_INTEGER);
+
+export interface LocalComfyUiPayload {
+  workflow_preset: typeof LOCAL_COMFYUI_WORKFLOW_PRESET;
+  prompt: string;
+  /** A decimal string is retained above Number.MAX_SAFE_INTEGER for JSON serialization. */
+  seed: number | string;
+}
+
+export interface NormalizedLocalComfyUiInput {
+  request: LocalComfyUiRequest;
+  payload: LocalComfyUiPayload;
+  errors: string[];
+}
+
+const localComfyUiPromptErrors = (prompt: string): string[] => {
+  const errors: string[] = [];
+  if (!prompt) errors.push('生成プロンプトを入力してください。');
+  if (prompt.length > LOCAL_COMFYUI_MAX_PROMPT_CHARS) {
+    errors.push(`生成プロンプトは${LOCAL_COMFYUI_MAX_PROMPT_CHARS.toLocaleString('ja-JP')}文字以内にしてください。`);
+  }
+  if ([...prompt].some((character) => {
+    const code = character.charCodeAt(0);
+    return (code <= 0x1f && code !== 0x09 && code !== 0x0a && code !== 0x0d) || code === 0x7f;
+  })) {
+    errors.push('生成プロンプトに制御文字は使用できません。');
+  }
+  for (let index = 0; index < prompt.length; index += 1) {
+    const code = prompt.charCodeAt(index);
+    if (code >= 0xd800 && code <= 0xdfff && (code < 0xdc00 || index === 0 || prompt.charCodeAt(index - 1) < 0xd800 || prompt.charCodeAt(index - 1) > 0xdbff)) {
+      const next = prompt.charCodeAt(index + 1);
+      if (code < 0xdc00 && next >= 0xdc00 && next <= 0xdfff) {
+        index += 1;
+        continue;
+      }
+      errors.push('生成プロンプトに不正なUnicode文字は使用できません。');
+      break;
+    }
+  }
+  return errors;
+};
+
+const normalizeLocalComfyUiSeed = (value: unknown): { text: string; wire: number | string; error?: string } => {
+  const raw = typeof value === 'number' ? String(value) : typeof value === 'string' ? value.trim() : '';
+  if (!raw) return { text: '', wire: 0, error: 'seedは0以上の整数で指定してください。' };
+  if (!/^\d+$/.test(raw)) return { text: raw, wire: 0, error: 'seedは0以上の整数で指定してください。' };
+  try {
+    const parsed = BigInt(raw);
+    if (parsed < 0n || parsed > LOCAL_COMFYUI_MAX_SEED_BIGINT) {
+      return { text: raw, wire: 0, error: `seedは0〜${LOCAL_COMFYUI_MAX_SEED}の範囲で指定してください。` };
+    }
+    const textValue = parsed.toString();
+    return {
+      text: textValue,
+      wire: parsed <= LOCAL_COMFYUI_SAFE_INTEGER_BIGINT ? Number(parsed) : textValue,
+    };
+  } catch {
+    return { text: raw, wire: 0, error: 'seedは0以上の整数で指定してください。' };
+  }
+};
+
+/** Normalize the only user-controlled fields accepted by the local ComfyUI worker. */
+export const normalizeLocalComfyUiInput = (
+  promptValue: unknown,
+  seedValue: unknown,
+): NormalizedLocalComfyUiInput => {
+  const prompt = typeof promptValue === 'string' ? promptValue.trim() : '';
+  const seed = normalizeLocalComfyUiSeed(seedValue);
+  const errors = [...localComfyUiPromptErrors(prompt)];
+  if (seed.error) errors.push(seed.error);
+  return {
+    request: {
+      workflowPreset: LOCAL_COMFYUI_WORKFLOW_PRESET,
+      prompt,
+      seed: seed.text,
+    },
+    payload: {
+      workflow_preset: LOCAL_COMFYUI_WORKFLOW_PRESET,
+      prompt,
+      seed: seed.wire,
+    },
+    errors,
+  };
+};
+
+export const normalizeLocalComfyUIInput = normalizeLocalComfyUiInput;
+
+/** Build the exact snake_case body; arbitrary workflow/model/path fields are discarded. */
+export const buildLocalComfyUiPayload = (value: unknown): LocalComfyUiPayload => {
+  const record = asRecord(value);
+  const normalized = normalizeLocalComfyUiInput(
+    pick(record, ['prompt']),
+    pick(record, ['seed']),
+  );
+  if (normalized.errors.length > 0) throw new TypeError(normalized.errors[0]);
+  return normalized.payload;
+};
+
+export const buildLocalComfyUIPayload = buildLocalComfyUiPayload;
+export const toLocalComfyUiPayload = buildLocalComfyUiPayload;
 
 export const reorderTimelineClips = <T>(clips: readonly T[], fromIndex: number, toIndex: number): T[] => {
   const output = [...clips];
@@ -658,6 +816,41 @@ export const isLocalTimelineJobForSelection = (
       && (!selection.stageAttemptId || stageAttemptId === selection.stageAttemptId),
   );
 };
+
+export const isLocalComfyUiJobForSelection = (
+  value: unknown,
+  selection: { runId?: string; stageAttemptId?: string },
+): boolean => {
+  const record = asRecord(value);
+  const result = asRecord(pick(record, ['result', 'job_result', 'output']));
+  const payload = asRecord(pick(record, ['payload', 'request', 'meta']));
+  const field = (keys: string[]): unknown => pick(record, keys) ?? pick(payload, keys);
+  const runId = text(field(['run_id', 'runId']) ?? pick(result, ['run_id', 'runId']), '');
+  const stage = normalizeStudioStageName(field(['stage', 'step', 'type', 'kind']));
+  const jobType = normalizeStudioStageName(text(field(['type', 'kind']), ''));
+  const stageAttemptId = text(
+    field(['stage_attempt_id', 'stageAttemptId'])
+      ?? pick(result, ['stage_attempt_id', 'stageAttemptId']),
+    '',
+  );
+  const stageMatches = stage === 'video_generation' || stage === 'video' || jobType === 'local_video_generation';
+  return Boolean(
+    stageMatches
+      && (!selection.runId || runId === selection.runId)
+      && (!selection.stageAttemptId || stageAttemptId === selection.stageAttemptId),
+  );
+};
+
+/** True for an in-flight ComfyUI job or stage attempt after a detail reload. */
+export const isLocalComfyUiExecutionActive = (value: unknown): boolean => {
+  const record = asRecord(value);
+  const status = text(pick(record, ['status', 'state']), '').toLowerCase();
+  return status === 'pending' || status === 'running' || status === 'queued' || status === 'processing';
+};
+
+/** Check every selected-run candidate so a stale terminal local job cannot hide active work. */
+export const isLocalComfyUiExecutionActiveAcross = (values: readonly unknown[]): boolean =>
+  values.some((value) => isLocalComfyUiExecutionActive(value));
 
 const rawAttemptArtifacts = (value: unknown): unknown[] => {
   const record = asRecord(value);
@@ -1004,6 +1197,42 @@ const externalActualCostValue = (record: UnknownRecord, result: UnknownRecord): 
   return pickIncludingNull(result, ['actual_cost', 'actualCost']);
 };
 
+const integerOrDecimalText = (value: unknown): number | string | undefined => {
+  if (typeof value === 'number' && Number.isInteger(value) && Number.isFinite(value)) return value;
+  if (typeof value !== 'string') return undefined;
+  const normalized = value.trim();
+  if (!/^\d+$/.test(normalized)) return undefined;
+  return normalized.length <= 15 ? Number(normalized) : normalized;
+};
+
+const seedDecimalText = (value: unknown): string | undefined => {
+  if (typeof value !== 'string' || !/^\d+$/.test(value.trim())) return undefined;
+  const normalized = value.trim();
+  return normalized.replace(/^0+(?=\d)/, '');
+};
+
+const normalizeLocalComfyUiMetadata = (
+  record: UnknownRecord,
+  result: UnknownRecord,
+): Pick<StageAttempt, 'promptSha256' | 'seed' | 'workflowPreset'> => ({
+  promptSha256: text(
+    pick(record, ['prompt_sha256', 'promptSha256'])
+      ?? pick(result, ['prompt_sha256', 'promptSha256']),
+    '',
+  ) || undefined,
+  seed: seedDecimalText(
+    pick(record, ['seed_decimal', 'seedDecimal'])
+      ?? pick(result, ['seed_decimal', 'seedDecimal']),
+  ) ?? integerOrDecimalText(
+    pick(record, ['seed']) ?? pick(result, ['seed']),
+  ),
+  workflowPreset: text(
+    pick(record, ['workflow_preset', 'workflowPreset'])
+      ?? pick(result, ['workflow_preset', 'workflowPreset']),
+    '',
+  ) || undefined,
+});
+
 const normalizeStageAttempt = (value: unknown, index: number): StageAttempt => {
   const record = asRecord(value);
   const stage = text(pick(record, ['stage', 'stage_name', 'name', 'type']), 'narration');
@@ -1013,6 +1242,7 @@ const normalizeStageAttempt = (value: unknown, index: number): StageAttempt => {
   const artifactValues = items(pick(record, ['artifacts', 'outputs']), ['items', 'artifacts', 'outputs']);
   const resultArtifactValues = items(pick(result, ['artifacts', 'outputs']), ['items', 'artifacts', 'outputs']);
   const artifacts = (artifactValues.length > 0 ? artifactValues : resultArtifactValues).map(normalizeArtifact);
+  const comfyMetadata = normalizeLocalComfyUiMetadata(record, result);
   return {
     id: text(pick(record, ['id', 'attempt_id', 'stage_attempt_id']), `stage-attempt-${index}`),
     stage,
@@ -1029,6 +1259,7 @@ const normalizeStageAttempt = (value: unknown, index: number): StageAttempt => {
       : boolean(pick(record, ['cache_hit', 'cacheHit', 'cached'])),
     provider: text(pick(record, ['provider']) ?? pick(result, ['provider']), '') || undefined,
     providerTaskId: text(pick(record, ['provider_task_id', 'providerTaskId']) ?? pick(result, ['provider_task_id', 'providerTaskId']), '') || undefined,
+    ...comfyMetadata,
     characterCost: number(pick(record, ['character_cost', 'characterCost', 'billable_characters']) ?? pick(result, ['character_cost', 'characterCost', 'billable_characters'])),
     actualCostUsd: numberOrNull(externalActualCostValue(record, result)),
     actualCost: number(pick(record, ['actual_cost', 'actualCost']) ?? pick(result, ['actual_cost', 'actualCost'])),
@@ -1040,23 +1271,32 @@ const normalizeStageAttempt = (value: unknown, index: number): StageAttempt => {
   };
 };
 
-const normalizeJobResult = (value: unknown): JobResult | undefined => {
+const normalizeJobResult = (value: unknown, outerRecord: UnknownRecord = {}): JobResult | undefined => {
   if (!value || typeof value !== 'object') return undefined;
   const record = asRecord(value);
-  const error = normalizeError(record);
+  const nestedResult = asRecord(pick(record, ['result', 'output']));
+  const result = Object.keys(nestedResult).length > 0 ? nestedResult : {};
+  const error = normalizeError(record, normalizeError(result).message ?? '');
+  const directRecord = { ...outerRecord, ...record };
+  const comfyMetadata = normalizeLocalComfyUiMetadata(directRecord, result);
   return {
-    attempt: number(pick(record, ['attempt', 'attempt_number', 'try'])),
-    stageAttemptId: text(pick(record, ['stage_attempt_id', 'stageAttemptId']), '') || undefined,
-    artifacts: items(pick(record, ['artifacts', 'outputs']), ['items', 'artifacts', 'outputs']).map(normalizeArtifact),
-    cacheHit: pick(record, ['cache_hit', 'cacheHit', 'cached']) === undefined ? undefined : boolean(pick(record, ['cache_hit', 'cacheHit', 'cached'])),
-    durationSeconds: durationSeconds(record),
-    ...normalizeQcFields(record, {}),
-    provider: text(pick(record, ['provider']), '') || undefined,
-    providerTaskId: text(pick(record, ['provider_task_id', 'providerTaskId']), '') || undefined,
-    characterCost: number(pick(record, ['character_cost', 'characterCost', 'billable_characters'])),
-    actualCostUsd: numberOrNull(externalActualCostValue(record, {})),
-    actualCost: number(pick(record, ['actual_cost', 'actualCost'])),
-    timingSource: text(pick(record, ['timing_source', 'timingSource']), '') || undefined,
+    attempt: number(pick(record, ['attempt', 'attempt_number', 'try']) ?? pick(result, ['attempt', 'attempt_number', 'try'])),
+    stageAttemptId: text(pick(record, ['stage_attempt_id', 'stageAttemptId']) ?? pick(result, ['stage_attempt_id', 'stageAttemptId']), '') || undefined,
+    artifacts: (items(pick(record, ['artifacts', 'outputs']), ['items', 'artifacts', 'outputs']).length > 0
+      ? items(pick(record, ['artifacts', 'outputs']), ['items', 'artifacts', 'outputs'])
+      : items(pick(result, ['artifacts', 'outputs']), ['items', 'artifacts', 'outputs'])).map(normalizeArtifact),
+    cacheHit: pick(record, ['cache_hit', 'cacheHit', 'cached']) === undefined
+      ? (pick(result, ['cache_hit', 'cacheHit', 'cached']) === undefined ? undefined : boolean(pick(result, ['cache_hit', 'cacheHit', 'cached'])))
+      : boolean(pick(record, ['cache_hit', 'cacheHit', 'cached'])),
+    durationSeconds: durationSeconds(record) ?? durationSeconds(result),
+    ...normalizeQcFields(record, result),
+    provider: text(pick(directRecord, ['provider']) ?? pick(result, ['provider']), '') || undefined,
+    providerTaskId: text(pick(directRecord, ['provider_task_id', 'providerTaskId']) ?? pick(result, ['provider_task_id', 'providerTaskId']), '') || undefined,
+    ...comfyMetadata,
+    characterCost: number(pick(record, ['character_cost', 'characterCost', 'billable_characters']) ?? pick(result, ['character_cost', 'characterCost', 'billable_characters'])),
+    actualCostUsd: numberOrNull(externalActualCostValue(directRecord, result)),
+    actualCost: number(pick(directRecord, ['actual_cost', 'actualCost']) ?? pick(result, ['actual_cost', 'actualCost'])),
+    timingSource: text(pick(directRecord, ['timing_source', 'timingSource']) ?? pick(result, ['timing_source', 'timingSource']), '') || undefined,
     message: error.message,
     errorCode: error.code,
     raw: record,
@@ -1070,7 +1310,7 @@ export const normalizeJob = (value: unknown, index = 0): Job => {
   const payload = asRecord(pick(record, ['payload', 'request', 'meta']));
   const field = (keys: string[]): unknown => pick(record, keys) ?? pick(payload, keys);
   const resultValue = pick(record, ['result', 'job_result', 'output']) ?? pick(root, ['result', 'job_result', 'output']);
-  const result = normalizeJobResult(resultValue);
+  const result = normalizeJobResult(resultValue, record);
   const error = normalizeError(record, result?.message ?? '');
   const assemblyAttemptId = text(
     field(['assembly_attempt_id', 'assemblyAttemptId'])
@@ -1227,6 +1467,15 @@ const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
 const post = <T>(path: string, body?: unknown): Promise<T> =>
   request<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) });
 
+export const serializeLocalComfyUiPayload = (payload: LocalComfyUiPayload): string => {
+  // JSON.stringify rounds numbers above Number.MAX_SAFE_INTEGER. The backend
+  // accepts a Python integer, so preserve a validated 64-bit seed as a JSON
+  // number literal when the browser form contains the upper half of the range.
+  if (typeof payload.seed !== 'string') return JSON.stringify(payload);
+  const rest = JSON.stringify({ workflow_preset: payload.workflow_preset, prompt: payload.prompt });
+  return `${rest.slice(0, -1)},"seed":${payload.seed}}`;
+};
+
 export const api = {
   async health(): Promise<HealthStatus> {
     try {
@@ -1345,6 +1594,9 @@ export const api = {
     if (changes.executionProfile === 'local_sapi') {
       body.execution_profile = 'local_sapi';
       body.estimated_cost = { amount: 0, currency: 'JPY' };
+    } else if (changes.executionProfile === 'local_comfyui') {
+      body.execution_profile = 'local_comfyui';
+      body.estimated_cost = { amount: 0, currency: 'JPY' };
     } else if (changes.executionProfile === 'elevenlabs_tts') {
       body.execution_profile = 'elevenlabs_tts';
     }
@@ -1365,11 +1617,10 @@ export const api = {
   },
 
   async executeLocalAssembly(runId: string, body: LocalAssemblyRequest): Promise<Job> {
-    const value = await post<unknown>(`/api/runs/${encodeURIComponent(runId)}/execute-local-assembly`, {
-      video_artifact_id: body.videoArtifactId,
-      narration_attempt_id: body.narrationAttemptId,
-      include_captioned: body.includeCaptioned,
-    });
+    const value = await post<unknown>(
+      `/api/runs/${encodeURIComponent(runId)}/execute-local-assembly`,
+      buildLocalAssemblyPayload(body),
+    );
     return normalizeJob(value);
   },
 
@@ -1377,6 +1628,18 @@ export const api = {
     const value = await post<unknown>(
       `/api/runs/${encodeURIComponent(runId)}/execute-local-timeline`,
       buildLocalTimelinePayload(body.clips),
+    );
+    return normalizeJob(value);
+  },
+
+  async executeLocalVideoGeneration(runId: string, body: LocalComfyUiRequest): Promise<Job> {
+    const payload = buildLocalComfyUiPayload(body);
+    const value = await request<unknown>(
+      `/api/runs/${encodeURIComponent(runId)}/execute-local-video-generation`,
+      {
+        method: 'POST',
+        body: serializeLocalComfyUiPayload(payload),
+      },
     );
     return normalizeJob(value);
   },

@@ -6,6 +6,7 @@ import json
 import mimetypes
 import os
 import queue
+import re
 import signal
 import subprocess
 import threading
@@ -65,6 +66,11 @@ _PUBLIC_ERROR_CODES = frozenset(
         "cache_key_mismatch",
         "cache_integrity_failed",
         "caption_timing_out_of_range",
+        "comfyui_failed",
+        "comfyui_generation_failed",
+        "comfyui_request_rejected",
+        "comfyui_submission_unknown",
+        "comfyui_timeout",
         "cost_approval_not_required",
         "cost_estimate_required",
         "execution_profile_required",
@@ -74,6 +80,10 @@ _PUBLIC_ERROR_CODES = frozenset(
         "invalid_cache",
         "invalid_cache_key",
         "invalid_captions",
+        "invalid_comfyui_output",
+        "invalid_comfyui_request",
+        "invalid_comfyui_response",
+        "invalid_comfyui_runtime",
         "invalid_ffprobe_result",
         "invalid_identifier",
         "invalid_input_path",
@@ -97,6 +107,7 @@ _PUBLIC_ERROR_CODES = frozenset(
         "local_assembly_failed",
         "local_ffmpeg_failed",
         "local_ffprobe_failed",
+        "local_ffprobe_unavailable",
         "local_ffmpeg_qc_timeout",
         "local_ffmpeg_timeline_failed",
         "local_ffmpeg_timeout",
@@ -109,6 +120,7 @@ _PUBLIC_ERROR_CODES = frozenset(
         "local_timeline_failed",
         "local_worker_unavailable",
         "metadata_too_large",
+        "mismatched_provider_output",
         "narration_invalid",
         "narration_longer_than_source",
         "narration_synthesis_failed",
@@ -128,6 +140,7 @@ _PUBLIC_ERROR_CODES = frozenset(
         "unsupported_media_type",
         "unsafe_input_path",
         "unsafe_output_path",
+        "unsafe_provider_output",
         "unsafe_worker_artifact",
         "windows_sapi_unavailable",
     }
@@ -334,6 +347,30 @@ def _force_kill_pid(pid: int) -> None:
         pass
 
 
+class _AtomicStageLinkError(RuntimeError):
+    """A fixed public error for an invalid worker/stage completion link."""
+
+    error_code = "invalid_worker_result"
+    public_message = "The background worker returned inconsistent stage metadata."
+
+
+def _payload_stage_attempt_id(job: dict[str, Any]) -> str | None:
+    """Read an opt-in atomic failure link from the durable job payload.
+
+    Existing workers do not persist this field and retain their historical
+    behavior.  Worker-backed jobs that do include it can be failed atomically
+    even when their callback raises before returning a completion envelope.
+    """
+
+    payload = job.get("payload")
+    if not isinstance(payload, dict) or "stage_attempt_id" not in payload:
+        return None
+    value = payload.get("stage_attempt_id")
+    if not isinstance(value, str) or re.fullmatch(r"attempt_[0-9a-f]{32}", value) is None:
+        raise _AtomicStageLinkError()
+    return value
+
+
 def _terminate_process_tree(pid: int, *, deadline: float | None = None) -> None:
     """Stop one subprocess and all descendants, bounded but not join-only."""
 
@@ -417,17 +454,40 @@ def _sha256_file(path: Path) -> str:
 
 
 class JobManager:
+    _LANES = ("default", "gpu")
+
     def __init__(self, database: StudioDatabase):
         self.database = database
-        self._queue: queue.Queue[_QueuedJob | None] = queue.Queue()
+        # Keep one FIFO queue and one worker per execution lane.  The default
+        # lane remains the compatibility surface for existing callers that
+        # inspect ``_queue``/``_thread`` in tests and diagnostics; GPU work is
+        # deliberately serialized on its own worker so a long ComfyUI job
+        # cannot occupy the narration/FFmpeg lane.
+        self._queues: dict[str, queue.Queue[_QueuedJob | None]] = {
+            lane: queue.Queue() for lane in self._LANES
+        }
+        self._queue = self._queues["default"]
         self._finished: dict[str, threading.Event] = {}
         self._active: dict[str, JobExecutionContext] = {}
         self._lock = threading.Lock()
         self._closed = False
         self._shutdown_enqueued = False
         self._shutdown_interrupt_started = False
-        self._thread = threading.Thread(target=self._worker, name="studio-job-worker", daemon=True)
+        self._threads: dict[str, threading.Thread] = {
+            lane: threading.Thread(
+                target=self._worker,
+                args=(lane,),
+                name=("studio-job-worker" if lane == "default" else f"studio-job-worker-{lane}"),
+                daemon=True,
+            )
+            for lane in self._LANES
+        }
+        # ``_thread`` is an existing private compatibility hook.  Keep it as
+        # the default worker, and expose the GPU worker for diagnostics/tests.
+        self._thread = self._threads["default"]
+        self._gpu_thread = self._threads["gpu"]
         self._thread.start()
+        self._gpu_thread.start()
 
     def submit(
         self,
@@ -437,7 +497,14 @@ class JobManager:
         *,
         production_id: str | None = None,
         before_enqueue: Callable[[dict[str, Any]], None] | None = None,
+        lane: str = "default",
     ) -> dict[str, Any]:
+        # Validate before acquiring the admission lock or creating a durable
+        # row.  Callers can safely reject a typo without leaving an orphaned
+        # public job record behind.
+        if lane not in self._LANES:
+            raise ValueError(f"Unsupported job lane: {lane!r}")
+        work_queue = self._queues[lane]
         with self._lock:
             if self._closed:
                 raise JobManagerClosed("Studio background jobs are closed.")
@@ -451,7 +518,7 @@ class JobManager:
             try:
                 if before_enqueue is not None:
                     before_enqueue(job)
-                self._queue.put(_QueuedJob(job["id"], callback, context))
+                work_queue.put(_QueuedJob(job["id"], callback, context))
             except Exception:
                 # Persist setup failure and never expose an unlinked queued
                 # worker. The caller remains responsible for failing its
@@ -501,13 +568,15 @@ class JobManager:
                 return callback(job_id, **{parameter.name: context})
         return callback(job_id)
 
-    def _worker(self) -> None:
+    def _worker(self, lane: str = "default") -> None:
+        work_queue = self._queues[lane]
         while True:
-            item = self._queue.get()
+            item = work_queue.get()
             if item is None:
-                self._queue.task_done()
+                work_queue.task_done()
                 return
             job_id, callback, context = item.job_id, item.callback, item.context
+            atomic_stage_attempt_id: str | None = None
             try:
                 context.raise_if_cancelled()
                 job = self.database.get_job(job_id)
@@ -516,6 +585,16 @@ class JobManager:
                     # terminal interrupted state. Never run it afterwards.
                     continue
                 self.database.update_job(job_id, "running")
+                atomic_stage_attempt_id = _payload_stage_attempt_id(job)
+                if atomic_stage_attempt_id is not None:
+                    linked_attempt = self.database.get_stage_attempt(
+                        atomic_stage_attempt_id
+                    )
+                    if (
+                        linked_attempt is None
+                        or linked_attempt.get("job_id") != job_id
+                    ):
+                        raise _AtomicStageLinkError()
                 context.raise_if_cancelled()
                 context.set_baseline_processes(_child_process_ids())
                 # Shutdown may have started while the descendant baseline was
@@ -529,12 +608,24 @@ class JobManager:
                     # Commit both rows and both audit events in one SQLite
                     # transaction so shutdown can win or lose the race, but
                     # can never leave stage/job truth split across outcomes.
+                    if (
+                        atomic_stage_attempt_id is not None
+                        and result.stage_attempt_id != atomic_stage_attempt_id
+                    ):
+                        raise _AtomicStageLinkError()
+                    atomic_stage_attempt_id = result.stage_attempt_id
                     self.database.complete_job_with_stage_attempt(
                         job_id,
                         result.stage_attempt_id,
                         result.public_result,
+                        result.artifact_records,
                     )
                 else:
+                    if atomic_stage_attempt_id is not None:
+                        # A durable stage link opts this job into paired
+                        # terminal truth.  A plain mapping cannot safely
+                        # commit only the job row and strand its stage.
+                        raise _AtomicStageLinkError()
                     current = self.database.get_job(job_id)
                     if current is not None and current.get("status") == "running":
                         self.database.update_job(job_id, "succeeded", result=result)
@@ -552,12 +643,21 @@ class JobManager:
                         # bounded, redacted public description from explicitly
                         # safe exceptions.
                         error_code = _public_error_code(exc)
-                        self.database.update_job(
-                            job_id,
-                            "failed",
-                            error_code=error_code,
-                            error_message=_public_error_message(exc, error_code),
-                        )
+                        error_message = _public_error_message(exc, error_code)
+                        if atomic_stage_attempt_id is not None:
+                            self.database.fail_job_with_stage_attempt(
+                                job_id,
+                                atomic_stage_attempt_id,
+                                error_code=error_code,
+                                error_message=error_message,
+                            )
+                        else:
+                            self.database.update_job(
+                                job_id,
+                                "failed",
+                                error_code=error_code,
+                                error_message=error_message,
+                            )
                 except Exception:
                     pass
             finally:
@@ -568,7 +668,7 @@ class JobManager:
                     event = self._finished.get(job_id)
                     if event:
                         event.set()
-                self._queue.task_done()
+                work_queue.task_done()
 
     def wait(self, job_id: str, timeout: float = 30.0) -> dict[str, Any] | None:
         with self._lock:
@@ -620,15 +720,19 @@ class JobManager:
             )
             interrupt_thread.start()
         if enqueue_sentinel:
-            self._queue.put(None)
+            for work_queue in self._queues.values():
+                work_queue.put(None)
 
-        while self._thread.is_alive():
+        threads = tuple(self._threads.values())
+        while any(thread.is_alive() for thread in threads):
             for context in contexts:
                 _terminate_context_processes(context, deadline=deadline)
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 break
-            self._thread.join(min(0.1, remaining))
+            for thread in threads:
+                if thread.is_alive():
+                    thread.join(min(0.1, remaining))
         # A callback that ignores cancellation cannot be killed as a Python
         # thread, but its registered/descendant subprocesses must still be
         # gone before close returns.
