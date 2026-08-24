@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib
 import inspect
 import mimetypes
 import re
@@ -119,8 +120,10 @@ _DEPENDENTS: dict[str, set[str]] = {
 }
 
 _CURRENCY_RE = re.compile(r"^[A-Z]{3}$")
-_EXECUTION_PROFILES = {"external", "local_sapi"}
+_EXECUTION_PROFILES = {"external", "local_sapi", "elevenlabs_tts"}
 _LOCAL_SAPI_ZERO_COST_STAGES = {"narration", "captions", "timeline", "assembly", "qc"}
+_ELEVENLABS_TTS_STAGES = {"narration", "captions", "assembly", "qc"}
+_LOCAL_DOWNSTREAM_PROFILES = {"local_sapi", "elevenlabs_tts"}
 _LOCAL_NARRATION_STAGE = "narration"
 _LOCAL_TIMELINE_STAGE = "timeline"
 _LOCAL_ASSEMBLY_STAGE = "assembly"
@@ -152,6 +155,16 @@ _LOCAL_TIMELINE_ARTIFACTS = {
 _MAX_LOCAL_TIMELINE_CLIPS = 32
 _MAX_LOCAL_TIMELINE_INPUT_BYTES = 4 * 1024 * 1024 * 1024
 _MAX_LOCAL_TIMELINE_VIDEO_BYTES = 2 * 1024 * 1024 * 1024
+_EXTERNAL_NARRATION_STAGE = "narration"
+_EXTERNAL_NARRATION_PROVIDER = "elevenlabs"
+_EXTERNAL_AMBIGUOUS_ERROR_CODES = frozenset(
+    {
+        "ambiguous_submission",
+        "external_tts_ambiguous_submission",
+        "external_submission_ambiguous",
+        "external_submission_unknown",
+    }
+)
 
 
 def _sha256_file(path: Path) -> str:
@@ -192,6 +205,97 @@ def _call_local_worker(
         except (TypeError, ValueError):
             pass
     return worker(*args, **kwargs)
+
+
+def _load_external_tts_contract() -> Any:
+    """Load the external-TTS request/result contract only after gating.
+
+    Keeping this import out of module initialization is intentional: an
+    unapproved request must not import the provider adapter (or any of its
+    HTTP dependencies) as a side effect.
+    """
+
+    try:
+        return importlib.import_module("tools.studio.external_tts_execution")
+    except (ImportError, AttributeError) as exc:
+        raise RequestValidationError(
+            "The external narration contract is not installed.",
+            code="external_worker_unavailable",
+        ) from exc
+
+
+def _external_contract_function(module: Any, *names: str) -> Any:
+    for name in names:
+        function = getattr(module, name, None)
+        if callable(function):
+            return function
+    raise RequestValidationError(
+        "The external narration contract is not installed.",
+        code="external_worker_unavailable",
+    )
+
+
+def _external_error_pair(exc: BaseException) -> tuple[str, str]:
+    """Return a bounded provider error without crossing secrets or paths."""
+
+    code = getattr(exc, "error_code", None)
+    message = getattr(exc, "public_message", None)
+    if not isinstance(code, str) or not re.fullmatch(r"[a-z0-9_.-]{1,128}", code):
+        code = "external_narration_failed"
+    if code not in {
+        "ambiguous_submission",
+        "external_tts_ambiguous_submission",
+        "external_submission_ambiguous",
+        "external_submission_unknown",
+        "external_tts_failed",
+        "external_narration_failed",
+        "external_tts_secret_unavailable",
+        "invalid_worker_result",
+        "invalid_external_narration_request",
+        "external_worker_unavailable",
+        "external_provider_error",
+        "external_tts_media_failed",
+        "external_redirect_rejected",
+        "external_tts_network_failed",
+        "invalid_external_provider_metadata",
+        "invalid_external_alignment",
+        "external_request_invalid",
+        "cache_integrity_failed",
+        "publish_failed",
+    }:
+        code = "external_narration_failed"
+    if not isinstance(message, str) or not message:
+        message = "The external narration job failed."
+    # Provider exception strings are not trusted; use only explicitly public
+    # messages and keep the persisted audit value bounded.
+    return code, message[:1000]
+
+
+def _external_worker_function(module: Any) -> Any:
+    names = (
+        "generate_external_tts",
+        "generate_external_narration",
+        "generate_elevenlabs_narration",
+        "synthesize_elevenlabs",
+    )
+    candidates = [
+        getattr(module, name, None)
+        for name in names
+        if callable(getattr(module, name, None))
+    ]
+    if not candidates:
+        raise RequestValidationError(
+            "The external narration worker is not installed.",
+            code="external_worker_unavailable",
+        )
+    # The provider module exposes compatibility aliases.  Tests and callers
+    # may patch any one of them; select the lone identity that differs from
+    # the untouched alias group so a patched seam is never bypassed.
+    counts: dict[int, int] = {}
+    for candidate in candidates:
+        counts[id(candidate)] = counts.get(id(candidate), 0) + 1
+    distinct = [candidate for candidate in candidates if counts[id(candidate)] == 1]
+    return distinct[0] if len(distinct) == 1 else candidates[0]
 
 
 def _stage_completion_result(
@@ -430,6 +534,20 @@ class StudioService:
                 raise RequestValidationError(
                     "local_sapi zero-cost runs may only affect narration, captions, timeline, assembly, or qc.",
                     code="local_profile_stage_not_allowed",
+                )
+        if execution_profile == "elevenlabs_tts":
+            if (
+                _EXTERNAL_NARRATION_STAGE not in affected_stages
+                or not affected_stages.issubset(_ELEVENLABS_TTS_STAGES)
+            ):
+                raise RequestValidationError(
+                    "elevenlabs_tts runs require narration and may only affect narration, captions, assembly, or qc.",
+                    code="external_profile_stage_not_allowed",
+                )
+            if amount_minor <= 0:
+                raise RequestValidationError(
+                    "elevenlabs_tts runs require a positive estimated_cost.",
+                    code="cost_estimate_required",
                 )
         parent_revision_id = body.get("parent_revision_id")
         if parent_revision_id is not None:
@@ -826,6 +944,504 @@ class StudioService:
             )
         except Exception as exc:
             error_code, error_message = safe_error(exc)
+            self.database.update_stage_attempt(
+                attempt["id"], "failed", error_code=error_code, error_message=error_message
+            )
+            raise
+        job["stage_attempt_id"] = attempt["id"]
+        job["cache_key"] = cache_key
+        return job
+
+    def _validate_external_narration_payload(
+        self, body: dict[str, Any]
+    ) -> tuple[Any, dict[str, Any]]:
+        """Validate an ElevenLabs request through the external contract.
+
+        ``confirm_billable`` is a control-plane acknowledgement.  The
+        external contract validates the literal alongside the provider fields;
+        its cache-key implementation is responsible for excluding the flag
+        from the provider identity.
+        """
+
+        contract = _load_external_tts_contract()
+        validator = _external_contract_function(
+            contract,
+            "validate_external_tts_payload",
+            "validate_elevenlabs_payload",
+        )
+        try:
+            payload = validator(dict(body))
+        except RequestValidationError:
+            raise
+        except Exception as exc:
+            code = getattr(exc, "code", None) or getattr(
+                exc, "error_code", "invalid_external_narration_request"
+            )
+            raise RequestValidationError(str(exc), code=str(code)[:128]) from exc
+        if not isinstance(payload, dict):
+            raise RequestValidationError(
+                "The external narration contract returned an invalid payload.",
+                code="invalid_external_narration_request",
+            )
+        return contract, payload
+
+    @staticmethod
+    def _external_cache_key(contract: Any, payload: dict[str, Any]) -> str:
+        function = _external_contract_function(
+            contract,
+            "external_tts_cache_key",
+            "elevenlabs_cache_key",
+            "narration_cache_key",
+        )
+        try:
+            cache_key = function(payload)
+        except Exception as exc:
+            code = getattr(exc, "error_code", "invalid_external_narration_request")
+            raise RequestValidationError(str(exc), code=str(code)[:128]) from exc
+        if not isinstance(cache_key, str) or not re.fullmatch(r"[A-Fa-f0-9]{64}", cache_key):
+            raise RequestValidationError(
+                "The external narration contract returned an invalid cache key.",
+                code="invalid_worker_result",
+            )
+        return cache_key.upper()
+
+    @staticmethod
+    def _external_audit_payload(
+        contract: Any, payload: dict[str, Any], *, cache_key: str
+    ) -> dict[str, Any]:
+        function = getattr(contract, "external_tts_audit_payload", None)
+        if not callable(function):
+            function = getattr(contract, "audit_payload", None)
+        if callable(function):
+            try:
+                value = function(payload, cache_key=cache_key)
+            except TypeError:
+                value = function(payload)
+            if isinstance(value, dict):
+                return sanitize_for_storage(value)
+        segments = payload.get("segments", [])
+        return {
+            "segment_count": len(segments) if isinstance(segments, list) else 0,
+            "text_chars": sum(
+                len(item.get("text", ""))
+                for item in segments
+                if isinstance(item, dict) and isinstance(item.get("text"), str)
+            ),
+            "segment_text_sha256": [
+                hashlib.sha256(item.get("text", "").encode("utf-8")).hexdigest()
+                for item in segments
+                if isinstance(item, dict) and isinstance(item.get("text"), str)
+            ],
+            "voice_id": payload.get("voice_id"),
+            "model_id": payload.get("model_id"),
+            "cache_key": cache_key,
+        }
+
+    @staticmethod
+    def _external_public_result(
+        contract: Any,
+        raw: Any,
+        *,
+        expected_cache_key: str,
+        artifacts: list[dict[str, Any]],
+        cache_hit: bool,
+    ) -> dict[str, Any]:
+        function = getattr(contract, "external_tts_public_result", None)
+        if not callable(function):
+            function = getattr(contract, "public_result", None)
+        if callable(function):
+            try:
+                value = function(
+                    raw,
+                    expected_cache_key=expected_cache_key,
+                    artifacts=artifacts,
+                    cache_hit=cache_hit,
+                )
+            except TypeError:
+                # A compact worker contract may not accept ``artifacts``;
+                # preserve its validation while attaching the server-verified
+                # artifact records below.
+                value = function(
+                    raw,
+                    expected_cache_key=expected_cache_key,
+                    cache_hit=cache_hit,
+                )
+            if not isinstance(value, dict):
+                raise ValueError("external narration worker returned an invalid result")
+            result = dict(value)
+            result["artifacts"] = artifacts
+            result.setdefault("request_cache_key", expected_cache_key)
+            result["cache_hit"] = cache_hit
+            return sanitize_for_storage(result)
+
+        if not isinstance(raw, dict):
+            raise ValueError("external narration worker returned an invalid result")
+        returned_key = raw.get("cache_key")
+        if returned_key != expected_cache_key:
+            raise ValueError("external narration worker returned a mismatched cache key")
+        if raw.get("provider") != _EXTERNAL_NARRATION_PROVIDER:
+            raise ValueError("external narration worker returned an invalid provider")
+        if not isinstance(raw.get("cache_hit"), bool) or raw["cache_hit"] != cache_hit:
+            raise ValueError("external narration worker returned invalid cache metadata")
+        duration_ms = raw.get("duration_ms")
+        if isinstance(duration_ms, bool) or not isinstance(duration_ms, int) or duration_ms <= 0:
+            raise ValueError("external narration worker returned invalid timing")
+        task_id = raw.get("provider_task_id", raw.get("request_id"))
+        if task_id is not None and (
+            not isinstance(task_id, str) or not task_id or len(task_id) > 256
+        ):
+            raise ValueError("external narration worker returned invalid task metadata")
+        actual_cost = raw.get("actual_cost")
+        if actual_cost is not None:
+            raise ValueError("external narration worker returned invalid cost metadata")
+        character_cost = raw.get("character_cost")
+        if (
+            isinstance(character_cost, bool)
+            or not isinstance(character_cost, int)
+            or character_cost < 0
+        ):
+            raise ValueError("external narration worker returned invalid character usage")
+        result = {
+            "artifacts": artifacts,
+            "duration_ms": duration_ms,
+            "cache_key": expected_cache_key,
+            "request_cache_key": expected_cache_key,
+            "cache_hit": cache_hit,
+            "provider": _EXTERNAL_NARRATION_PROVIDER,
+            "provider_task_id": task_id,
+            "request_id": raw.get("request_id", task_id),
+            "actual_cost": actual_cost,
+            "timing_source": raw.get("timing_source", "provider_timestamps"),
+            "character_cost": character_cost,
+        }
+        for key in ("character_count", "usage", "cost"):
+            if key in raw:
+                result[key] = sanitize_for_storage(raw[key])
+        return result
+
+    def _cached_external_narration_result(
+        self,
+        contract: Any,
+        cache_key: str,
+        production_id: str,
+    ) -> dict[str, Any] | None:
+        previous = self.database.find_successful_stage_attempt(
+            production_id, _EXTERNAL_NARRATION_STAGE, cache_key
+        )
+        if not previous or not isinstance(previous.get("result"), dict):
+            return None
+        prior_result = previous["result"]
+        prior_artifacts = prior_result.get("artifacts")
+        if not isinstance(prior_artifacts, list) or len(prior_artifacts) != len(
+            _LOCAL_NARRATION_ARTIFACTS
+        ):
+            return None
+        source_root = (
+            f"outputs/studio/runs/{previous['run_id']}/narration/{cache_key}/"
+        )
+        verified: list[dict[str, Any]] = []
+        seen_names: set[str] = set()
+        for item in prior_artifacts:
+            if not isinstance(item, dict) or not isinstance(item.get("id"), str):
+                return None
+            artifact = self.database.get_artifact(item["id"])
+            if (
+                artifact is None
+                or artifact.get("production_id") != production_id
+                or not artifact.get("available")
+                or artifact.get("origin") != "studio"
+                or artifact.get("name") not in _LOCAL_NARRATION_ARTIFACTS
+                or artifact.get("name") in seen_names
+                or artifact.get("kind") != _LOCAL_NARRATION_ARTIFACTS[artifact["name"]][0]
+                or artifact.get("media_type") != _LOCAL_NARRATION_ARTIFACTS[artifact["name"]][1]
+                or artifact.get("rel_path") != f"{source_root}{artifact['name']}"
+                or item.get("bytes") != artifact.get("bytes")
+                or item.get("sha256") != artifact.get("sha256")
+            ):
+                return None
+            try:
+                path = workspace_path(self.workspace, artifact["rel_path"], must_exist=True)
+            except (SecurityError, OSError):
+                return None
+            if (
+                _has_symlink_component(self.workspace, artifact["rel_path"])
+                or path.is_symlink()
+                or not path.is_file()
+                or sensitive_artifact_path(artifact["rel_path"])
+            ):
+                return None
+            stat = path.stat()
+            if (
+                stat.st_size != artifact.get("bytes")
+                or not isinstance(artifact.get("sha256"), str)
+                or _sha256_file(path) != artifact["sha256"]
+            ):
+                return None
+            seen_names.add(artifact["name"])
+            verified.append(artifact)
+        if seen_names != set(_LOCAL_NARRATION_ARTIFACTS):
+            return None
+        cached = self._external_public_result(
+            contract,
+            {**prior_result, "cache_hit": True},
+            expected_cache_key=cache_key,
+            artifacts=verified,
+            cache_hit=True,
+        )
+        cached["cache_source_attempt_id"] = previous["id"]
+        return cached
+
+    def _execute_external_narration(
+        self,
+        attempt_id: str,
+        run_id: str,
+        production_id: str,
+        payload: dict[str, Any],
+        cache_key: str,
+        contract: Any,
+        cancel_event: JobExecutionContext | None = None,
+    ) -> dict[str, Any] | AtomicStageCompletion:
+        _raise_if_cancelled(cancel_event)
+        self.database.update_stage_attempt(attempt_id, "running")
+        try:
+            cached = self._cached_external_narration_result(
+                contract, cache_key, production_id
+            )
+            if cached is not None:
+                result = cached
+            else:
+                _raise_if_cancelled(cancel_event)
+                # A second request may already have been admitted while the
+                # first request was in flight.  Re-check immediately before
+                # resolving the credential/provider so an ambiguous first
+                # submission cannot turn that queued request into a duplicate
+                # billable POST.
+                if self.database.find_failed_stage_attempt(
+                    production_id,
+                    _EXTERNAL_NARRATION_STAGE,
+                    cache_key,
+                    error_codes=tuple(_EXTERNAL_AMBIGUOUS_ERROR_CODES),
+                ):
+                    error = RuntimeError("external submission outcome is unknown")
+                    setattr(error, "error_code", "external_submission_unknown")
+                    setattr(
+                        error,
+                        "public_message",
+                        "The previous external submission may have been accepted; do not retry automatically.",
+                    )
+                    raise error
+                # The credential is read only after the approval gate and only
+                # on a cache miss, immediately before importing/calling the
+                # provider adapter.  It never enters a job payload/result.
+                try:
+                    resolve_secret = getattr(self.secret_store, "resolve", None)
+                    if callable(resolve_secret):
+                        api_key = resolve_secret("elevenlabs")
+                    else:
+                        # Backward-compatible with the current SecretStore;
+                        # newer stores resolve env/.env/DPAPI through resolve.
+                        api_key = self.secret_store.get("elevenlabs")
+                except Exception as exc:
+                    error = RuntimeError("external provider secret unavailable")
+                    setattr(error, "error_code", "external_tts_secret_unavailable")
+                    setattr(error, "public_message", "The ElevenLabs credential is not configured.")
+                    raise error from exc
+                if not isinstance(api_key, str) or not api_key:
+                    error = RuntimeError("external provider secret unavailable")
+                    setattr(error, "error_code", "external_tts_secret_unavailable")
+                    setattr(error, "public_message", "The ElevenLabs credential is not configured.")
+                    raise error
+                try:
+                    provider_module = importlib.import_module("tools.studio.elevenlabs")
+                    worker = _external_worker_function(provider_module)
+                except (ImportError, AttributeError) as exc:
+                    error = RuntimeError("external provider worker unavailable")
+                    setattr(error, "error_code", "external_worker_unavailable")
+                    setattr(error, "public_message", "The ElevenLabs worker is not installed.")
+                    raise error from exc
+                worker_kwargs: dict[str, Any] = {
+                    "production_id": production_id,
+                    "run_id": run_id,
+                    "payload": payload,
+                    "api_key": api_key,
+                }
+                try:
+                    signature = inspect.signature(worker)
+                    if "api_key" not in signature.parameters and "secret" in signature.parameters:
+                        worker_kwargs["secret"] = worker_kwargs.pop("api_key")
+                except (TypeError, ValueError):
+                    pass
+                raw = _call_local_worker(
+                    worker,
+                    self.workspace,
+                    cancel_event=cancel_event,
+                    **worker_kwargs,
+                )
+                _raise_if_cancelled(cancel_event)
+                result = self._external_public_result(
+                    contract,
+                    raw,
+                    expected_cache_key=cache_key,
+                    artifacts=[],
+                    cache_hit=False,
+                )
+                artifacts = self._register_local_narration_artifacts(
+                    production_id,
+                    run_id,
+                    cache_key,
+                    raw.get("artifacts") if isinstance(raw, dict) else None,
+                )
+                result["artifacts"] = artifacts
+            _raise_if_cancelled(cancel_event)
+            return _stage_completion_result(attempt_id, result, cancel_event)
+        except JobCancelled as exc:
+            try:
+                self.database.update_stage_attempt(
+                    attempt_id,
+                    "failed",
+                    error_code=exc.error_code,
+                    error_message=exc.public_message,
+                )
+            except Exception:
+                pass
+            raise
+        except Exception as exc:
+            if cancel_event is not None and cancel_event.is_set():
+                try:
+                    self.database.update_stage_attempt(
+                        attempt_id,
+                        "failed",
+                        error_code=JobCancelled.error_code,
+                        error_message=JobCancelled.public_message,
+                    )
+                except Exception:
+                    pass
+                raise JobCancelled() from exc
+            error_code, error_message = _external_error_pair(exc)
+            try:
+                self.database.update_stage_attempt(
+                    attempt_id,
+                    "failed",
+                    error_code=error_code,
+                    error_message=error_message,
+                )
+            except Exception:
+                pass
+            raise
+
+    def execute_external_narration(
+        self, run_id: str, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Queue an approved, billable ElevenLabs narration attempt."""
+
+        validate_identifier(run_id, label="run id")
+        run = self.database.get_run(run_id)
+        if run is None:
+            raise KeyError("run not found")
+        if run.get("execution_profile") != "elevenlabs_tts":
+            raise RequestValidationError(
+                "This run is not configured for ElevenLabs narration.",
+                code="execution_profile_required",
+            )
+        requested_stages = run.get("requested_stages")
+        if not isinstance(requested_stages, list) or _EXTERNAL_NARRATION_STAGE not in requested_stages:
+            raise RequestValidationError(
+                "The narration stage was not requested by this run.",
+                code="stage_not_requested",
+            )
+        try:
+            estimate_minor = money_to_minor(run["estimated_cost"]["amount"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise RequestValidationError(
+                "The run does not contain a valid external narration estimate.",
+                code="cost_estimate_required",
+            ) from exc
+        if estimate_minor <= 0:
+            raise RequestValidationError(
+                "External narration requires a positive estimated cost.",
+                code="cost_estimate_required",
+            )
+        # This is deliberately a literal second confirmation in the public
+        # request.  The UI presents the exact payload character count and the
+        # approved run cap before setting it, preventing an accidental spend
+        # caused by a stale approval click.
+        if not isinstance(body, dict) or body.get("confirm_billable") is not True:
+            raise RequestValidationError(
+                "confirm_billable must be true for external narration.",
+                code="billable_confirmation_required",
+            )
+        approval = run.get("latest_approval")
+        if not isinstance(approval, dict) or approval.get("decision") != "approved":
+            raise RequestValidationError(
+                "The run requires an approved cost gate before external narration.",
+                code="approval_required",
+            )
+        try:
+            approved_minor = money_to_minor(approval["approved_max"]["amount"])
+            approved_currency = str(approval["approved_max"]["currency"]).upper()
+            estimate_currency = str(run["estimated_cost"]["currency"]).upper()
+        except (KeyError, TypeError, ValueError) as exc:
+            raise RequestValidationError(
+                "The run approval is invalid.", code="approval_rejected"
+            ) from exc
+        if approved_currency != estimate_currency or approved_minor < estimate_minor:
+            raise RequestValidationError(
+                "The approved cost cap is below the external narration estimate.",
+                code="approval_rejected",
+            )
+
+        # No external module, worker, or secret is touched before every gate
+        # above has passed.
+        contract, payload = self._validate_external_narration_payload(body)
+        cache_key = self._external_cache_key(contract, payload)
+        if self.database.find_failed_stage_attempt(
+            run["production_id"],
+            _EXTERNAL_NARRATION_STAGE,
+            cache_key,
+            error_codes=tuple(_EXTERNAL_AMBIGUOUS_ERROR_CODES),
+        ):
+            raise RequestValidationError(
+                "The previous external submission may have been accepted; resubmission is blocked.",
+                code="ambiguous_submission",
+            )
+        attempt_payload = {
+            "execution_profile": "elevenlabs_tts",
+            "provider": _EXTERNAL_NARRATION_PROVIDER,
+            "cache_key": cache_key,
+            "estimated_cost": run["estimated_cost"],
+            **self._external_audit_payload(contract, payload, cache_key=cache_key),
+        }
+        attempt = self.database.create_stage_attempt(
+            run_id, _EXTERNAL_NARRATION_STAGE, cache_key, attempt_payload
+        )
+        try:
+            job = self.jobs.submit(
+                "external_narration",
+                {
+                    "run_id": run_id,
+                    "production_id": run["production_id"],
+                    "stage": _EXTERNAL_NARRATION_STAGE,
+                    "execution_profile": "elevenlabs_tts",
+                    "provider": _EXTERNAL_NARRATION_PROVIDER,
+                    "cache_key": cache_key,
+                    **self._external_audit_payload(contract, payload, cache_key=cache_key),
+                },
+                lambda _job_id, cancel_event: self._execute_external_narration(
+                    attempt["id"],
+                    run_id,
+                    run["production_id"],
+                    payload,
+                    cache_key,
+                    contract,
+                    cancel_event,
+                ),
+                production_id=run["production_id"],
+                before_enqueue=lambda created_job: self.database.link_stage_attempt_job(
+                    attempt["id"], created_job["id"]
+                ),
+            )
+        except Exception as exc:
+            error_code, error_message = _external_error_pair(exc)
             self.database.update_stage_attempt(
                 attempt["id"], "failed", error_code=error_code, error_message=error_message
             )
@@ -1590,10 +2206,65 @@ class StudioService:
                 "The narration attempt has an incomplete artifact set.",
                 code="assembly_narration_not_available",
             )
+        cache_hit = narration_result.get("cache_hit")
+        if not isinstance(cache_hit, bool):
+            raise RequestValidationError(
+                "The narration attempt metadata is not valid.",
+                code="assembly_narration_not_available",
+            )
+        # A successful cache hit may point at a physical narration owned by a
+        # prior run in the same production.  Follow the immutable source chain
+        # to that owner before checking paths; accepting the current run ID
+        # here would either reject valid reuse or tempt the worker to copy an
+        # unverified file.
+        narration_owner_attempt = narration_attempt
+        narration_owner_result = narration_result
+        visited_narration_attempts = {narration_attempt["id"]}
+        while narration_owner_result.get("cache_source_attempt_id") is not None:
+            source_id = narration_owner_result.get("cache_source_attempt_id")
+            if (
+                not isinstance(source_id, str)
+                or source_id in visited_narration_attempts
+                or narration_owner_result.get("cache_hit") is not True
+                or len(visited_narration_attempts) >= 128
+            ):
+                raise RequestValidationError(
+                    "The narration cache lineage is not valid.",
+                    code="assembly_narration_not_available",
+                )
+            source_attempt = self.database.get_stage_attempt(source_id)
+            if (
+                source_attempt is None
+                or source_attempt.get("production_id") != production_id
+                or source_attempt.get("stage") != _LOCAL_NARRATION_STAGE
+                or source_attempt.get("status") != "succeeded"
+                or source_attempt.get("cache_key") != narration_attempt.get("cache_key")
+                or not isinstance(source_attempt.get("result"), dict)
+            ):
+                raise RequestValidationError(
+                    "The narration cache lineage is not valid.",
+                    code="assembly_narration_not_available",
+                )
+            narration_owner_attempt = source_attempt
+            narration_owner_result = source_attempt["result"]
+            visited_narration_attempts.add(source_id)
         narration_root = (
-            f"outputs/studio/runs/{run['id']}/narration/"
+            f"outputs/studio/runs/{narration_owner_attempt['run_id']}/narration/"
             f"{narration_attempt['cache_key']}/"
         )
+        owner_artifacts_by_name: dict[str, dict[str, Any]] = {}
+        if narration_owner_attempt["id"] != narration_attempt["id"]:
+            owner_raw_artifacts = narration_owner_result.get("artifacts")
+            if not isinstance(owner_raw_artifacts, list):
+                raise RequestValidationError(
+                    "The narration cache lineage is incomplete.",
+                    code="assembly_narration_not_available",
+                )
+            owner_artifacts_by_name = {
+                item.get("name"): item
+                for item in owner_raw_artifacts
+                if isinstance(item, dict) and isinstance(item.get("name"), str)
+            }
         narration_artifacts: list[dict[str, Any]] = []
         narration_paths: dict[str, Path] = {}
         seen_names: set[str] = set()
@@ -1610,6 +2281,7 @@ class StudioService:
                     code="assembly_narration_not_available",
                 )
             expected = _LOCAL_NARRATION_ARTIFACTS.get(artifact["name"])
+            owner_item = owner_artifacts_by_name.get(artifact["name"])
             if (
                 expected is None
                 or artifact.get("production_id") != production_id
@@ -1620,6 +2292,13 @@ class StudioService:
                 or artifact.get("rel_path") != f"{narration_root}{artifact['name']}"
                 or item.get("bytes") != artifact.get("bytes")
                 or item.get("sha256") != artifact.get("sha256")
+                or (
+                    owner_item is not None
+                    and any(
+                        owner_item.get(field) != item.get(field)
+                        for field in ("id", "rel_path", "bytes", "sha256")
+                    )
+                )
             ):
                 raise RequestValidationError(
                     "The narration attempt artifact does not match its record.",
@@ -1657,15 +2336,25 @@ class StudioService:
                 code="assembly_narration_not_available",
             )
         try:
-            public_result(
-                narration_result,
-                expected_cache_key=narration_attempt["cache_key"],
-                artifacts=narration_artifacts,
-                cache_hit=narration_result.get("cache_hit")
-                if isinstance(narration_result.get("cache_hit"), bool)
-                else False,
-            )
-        except LocalNarrationError:
+            if run.get("execution_profile") == "elevenlabs_tts":
+                contract = _load_external_tts_contract()
+                self._external_public_result(
+                    contract,
+                    narration_result,
+                    expected_cache_key=narration_attempt["cache_key"],
+                    artifacts=narration_artifacts,
+                    cache_hit=cache_hit,
+                )
+            elif run.get("execution_profile") == "local_sapi":
+                public_result(
+                    narration_result,
+                    expected_cache_key=narration_attempt["cache_key"],
+                    artifacts=narration_artifacts,
+                    cache_hit=cache_hit,
+                )
+            else:
+                raise ValueError("unknown narration execution profile")
+        except Exception:
             raise RequestValidationError(
                 "The narration attempt metadata is not valid.",
                 code="assembly_narration_not_available",
@@ -2076,7 +2765,7 @@ class StudioService:
         run = self.database.get_run(run_id)
         if run is None:
             raise KeyError("run not found")
-        if run.get("execution_profile") != "local_sapi":
+        if run.get("execution_profile") not in _LOCAL_DOWNSTREAM_PROFILES:
             raise RequestValidationError(
                 "This run is not configured for local assembly.",
                 code="execution_profile_required",
@@ -2128,7 +2817,7 @@ class StudioService:
             _LOCAL_ASSEMBLY_STAGE,
             cache_key,
             {
-                "execution_profile": "local_sapi",
+                "execution_profile": run["execution_profile"],
                 "cache_key": cache_key,
                 **audit,
             },
@@ -2140,7 +2829,7 @@ class StudioService:
                     "run_id": run_id,
                     "production_id": run["production_id"],
                     "stage": _LOCAL_ASSEMBLY_STAGE,
-                    "execution_profile": "local_sapi",
+                    "execution_profile": run["execution_profile"],
                     "cache_key": cache_key,
                     **audit,
                 },
@@ -2798,7 +3487,7 @@ class StudioService:
         run = self.database.get_run(run_id)
         if run is None:
             raise KeyError("run not found")
-        if run.get("execution_profile") != "local_sapi":
+        if run.get("execution_profile") not in _LOCAL_DOWNSTREAM_PROFILES:
             raise RequestValidationError(
                 "This run is not configured for local technical QC.",
                 code="execution_profile_required",
@@ -2856,7 +3545,7 @@ class StudioService:
             run_id,
             _LOCAL_QC_STAGE,
             cache_key,
-            {"execution_profile": "local_sapi", **audit},
+            {"execution_profile": run["execution_profile"], **audit},
         )
         try:
             job = self.jobs.submit(
@@ -2865,7 +3554,7 @@ class StudioService:
                     "run_id": run_id,
                     "production_id": run["production_id"],
                     "stage": _LOCAL_QC_STAGE,
-                    "execution_profile": "local_sapi",
+                    "execution_profile": run["execution_profile"],
                     **audit,
                 },
                 lambda _job_id, cancel_event: self._execute_local_qc(

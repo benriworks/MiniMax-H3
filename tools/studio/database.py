@@ -25,7 +25,7 @@ from .security import (
 
 SCHEMA_VERSION = 3
 MAX_EVENT_LINE_BYTES = 2 * 1024 * 1024
-_RUN_EXECUTION_PROFILES = {"external", "local_sapi"}
+_RUN_EXECUTION_PROFILES = {"external", "local_sapi", "elevenlabs_tts"}
 _LOCAL_SAPI_ZERO_COST_STAGES = {
     "narration",
     "captions",
@@ -33,6 +33,7 @@ _LOCAL_SAPI_ZERO_COST_STAGES = {
     "assembly",
     "qc",
 }
+_ELEVENLABS_TTS_STAGES = {"narration", "captions", "assembly", "qc"}
 _DEFAULT_INTERRUPTED_ERROR_CODE = "process_interrupted"
 _DEFAULT_INTERRUPTED_ERROR_MESSAGE = "The Studio process stopped."
 _MAX_RESTORED_STUDIO_ARTIFACT_BYTES = 2 * 1024 * 1024 * 1024
@@ -1651,6 +1652,45 @@ class StudioDatabase:
             ).fetchone()
         return self._stage_attempt_dict(row) if row else None
 
+    def find_failed_stage_attempt(
+        self,
+        production_id: str,
+        stage: str,
+        cache_key: str,
+        *,
+        error_codes: Sequence[str] | None = None,
+    ) -> dict[str, Any] | None:
+        """Return the newest failed attempt matching a cache identity.
+
+        External submissions can be accepted by a provider while the client
+        loses the response.  Such an attempt is deliberately retained as a
+        failed, *ambiguous* row; callers use this lookup to prevent a second
+        billable submission for the same production/cache identity.
+        """
+
+        clauses = [
+            "production_id=?",
+            "stage=?",
+            "cache_key=?",
+            "status='failed'",
+        ]
+        parameters: list[Any] = [production_id, stage, cache_key]
+        if error_codes:
+            normalized = [str(code) for code in error_codes if str(code)]
+            if not normalized:
+                return None
+            placeholders = ", ".join("?" for _ in normalized)
+            clauses.append(f"error_code IN ({placeholders})")
+            parameters.extend(normalized)
+        with self.session() as connection:
+            row = connection.execute(
+                "SELECT * FROM stage_attempts WHERE "
+                + " AND ".join(clauses)
+                + " ORDER BY completed_at DESC, rowid DESC LIMIT 1",
+                tuple(parameters),
+            ).fetchone()
+        return self._stage_attempt_dict(row) if row else None
+
     def get_stage_attempt(self, attempt_id: str) -> dict[str, Any] | None:
         with self.session() as connection:
             row = connection.execute(
@@ -1984,6 +2024,12 @@ class StudioDatabase:
                         or not set(requested_stages).issubset(
                             _LOCAL_SAPI_ZERO_COST_STAGES
                         )
+                    ):
+                        continue
+                    if execution_profile == "elevenlabs_tts" and (
+                        estimated_minor <= 0
+                        or "narration" not in requested_stages
+                        or not set(requested_stages).issubset(_ELEVENLABS_TTS_STAGES)
                     ):
                         continue
                     run_core = {

@@ -88,6 +88,10 @@ export interface StageAttempt {
   cacheHit?: boolean;
   provider?: string;
   providerTaskId?: string;
+  /** Provider-reported billable character count (external TTS only). */
+  characterCost?: number;
+  /** Provider-reported USD cost. null means the provider has not finalized it. */
+  actualCostUsd?: number | null;
   actualCost?: number;
   timingSource?: string;
   analysisStatus?: string;
@@ -151,6 +155,10 @@ export interface JobResult {
   durationMs?: number;
   provider?: string;
   providerTaskId?: string;
+  /** Provider-reported billable character count (external TTS only). */
+  characterCost?: number;
+  /** Provider-reported USD cost. null means the provider has not finalized it. */
+  actualCostUsd?: number | null;
   actualCost?: number;
   timingSource?: string;
   analysisStatus?: string;
@@ -178,6 +186,41 @@ export interface LocalNarrationRequest {
   voice?: string;
   rate?: number;
   pronunciations?: PronunciationOverride[];
+}
+
+export interface ExternalVoiceSettings {
+  stability: number;
+  similarityBoost: number;
+  style: number;
+  useSpeakerBoost: boolean;
+  speed: number;
+}
+
+/** Browser-facing request. api.ts converts this to the strict snake_case wire payload. */
+export interface ExternalNarrationRequest {
+  provider: 'elevenlabs';
+  model_id: 'eleven_multilingual_v2';
+  voiceId: string;
+  segments: Array<{ text: string }>;
+  voiceSettings: ExternalVoiceSettings;
+  seed: number | null;
+  confirmBillable: boolean;
+}
+
+export interface ExternalNarrationPayload {
+  provider: 'elevenlabs';
+  model_id: 'eleven_multilingual_v2';
+  voice_id: string;
+  segments: Array<{ text: string }>;
+  voice_settings: {
+    stability: number;
+    similarity_boost: number;
+    style: number;
+    use_speaker_boost: boolean;
+    speed: number;
+  };
+  seed: number | null;
+  confirm_billable: boolean;
 }
 
 export interface LocalAssemblyRequest {
@@ -255,7 +298,7 @@ export interface RerunChanges {
   note: string;
   allowPaidApi: boolean;
   maxCostJpy?: number;
-  executionProfile?: 'local_sapi' | 'default';
+  executionProfile?: 'local_sapi' | 'elevenlabs_tts' | 'default';
 }
 
 export interface RerunPlan {
