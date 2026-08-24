@@ -12,6 +12,8 @@ import type {
   LocalAssemblyCaptionStylePreset,
   LocalAssemblyRequest,
   LocalComfyUiRequest,
+  LocalPipelineRequest,
+  LocalPipelineStageResult,
   LocalTimelineClip,
   LocalTimelineRequest,
   LocalQcRequest,
@@ -620,6 +622,164 @@ export const buildLocalComfyUiPayload = (value: unknown): LocalComfyUiPayload =>
 export const buildLocalComfyUIPayload = buildLocalComfyUiPayload;
 export const toLocalComfyUiPayload = buildLocalComfyUiPayload;
 
+export interface LocalPipelinePayload {
+  workflow_preset: typeof LOCAL_COMFYUI_WORKFLOW_PRESET;
+  prompt: string;
+  /** A decimal string is retained above Number.MAX_SAFE_INTEGER for JSON serialization. */
+  seed: number | string;
+  segments: Array<{ text: string }>;
+  voice?: string;
+  rate: number;
+  pronunciations?: Array<{ source: string; target: string }>;
+  include_captioned: boolean;
+  caption_style_preset: LocalAssemblyCaptionStylePreset;
+  variant: LocalQcVariant;
+}
+
+export interface NormalizedLocalPipelineInput {
+  request: LocalPipelineRequest;
+  payload: LocalPipelinePayload;
+  errors: string[];
+}
+
+const LOCAL_PIPELINE_DEFAULT_CAPTION_STYLE: LocalAssemblyCaptionStylePreset = 'shorts_ja_large_v1';
+const LOCAL_PIPELINE_DEFAULT_VARIANT: LocalQcVariant = 'captioned';
+const LOCAL_PIPELINE_MAX_PRONUNCIATIONS = 100;
+const LOCAL_PIPELINE_MAX_PRONUNCIATION_CHARS = 512;
+
+const localPipelineScript = (source: UnknownRecord): string => {
+  const rawSegments = pick(source, ['segments']);
+  if (Array.isArray(rawSegments)) {
+    return rawSegments.map((segment) => typeof segment === 'string'
+      ? segment
+      : text(pick(asRecord(segment), ['text']), '')).join('\n');
+  }
+  return text(pick(source, ['script', 'narration', 'text']), '');
+};
+
+const localPipelinePronunciations = (
+  source: UnknownRecord,
+): { pronunciations?: Array<{ source: string; target: string }>; errors: string[] } => {
+  const raw = pickIncludingNull(source, ['pronunciations']);
+  if (raw === undefined || raw === null || raw === '') return { errors: [] };
+  if (!Array.isArray(raw)) return { errors: ['発音置換は配列で指定してください。'] };
+  const errors: string[] = [];
+  const pronunciations: Array<{ source: string; target: string }> = [];
+  const seenSources = new Set<string>();
+  if (raw.length > LOCAL_PIPELINE_MAX_PRONUNCIATIONS) {
+    errors.push(`発音置換は${LOCAL_PIPELINE_MAX_PRONUNCIATIONS}件以内にしてください。`);
+  }
+  raw.slice(0, LOCAL_PIPELINE_MAX_PRONUNCIATIONS).forEach((item, index) => {
+    const record = asRecord(item);
+    const sourceText = text(pick(record, ['source']), '').trim();
+    const targetText = text(pick(record, ['target']), '').trim();
+    if (!sourceText || !targetText) {
+      errors.push(`発音置換${index + 1}の表記と読みを入力してください。`);
+      return;
+    }
+    if (sourceText.length > LOCAL_PIPELINE_MAX_PRONUNCIATION_CHARS || targetText.length > LOCAL_PIPELINE_MAX_PRONUNCIATION_CHARS) {
+      errors.push(`発音置換${index + 1}はそれぞれ${LOCAL_PIPELINE_MAX_PRONUNCIATION_CHARS}文字以内にしてください。`);
+    }
+    if (seenSources.has(sourceText)) errors.push(`発音置換の表記「${sourceText}」は重複しています。`);
+    seenSources.add(sourceText);
+    pronunciations.push({ source: sourceText, target: targetText });
+  });
+  return { pronunciations: pronunciations.length > 0 ? pronunciations : undefined, errors };
+};
+
+/** Normalize the complete local-only pipeline form while keeping the wire allowlist closed. */
+export const normalizeLocalPipelineInput = (value: unknown): NormalizedLocalPipelineInput => {
+  const source = asRecord(value);
+  const comfy = normalizeLocalComfyUiInput(pick(source, ['prompt']), pick(source, ['seed']));
+  const rateValue = pickIncludingNull(source, ['rate']);
+  const rate = rateValue === undefined || rateValue === '' ? 0 : number(rateValue);
+  const narration = normalizeNarrationInput(localPipelineScript(source), rate ?? 0);
+  const pronunciationResult = localPipelinePronunciations(source);
+  const includeCaptionedValue = pickIncludingNull(source, ['includeCaptioned', 'include_captioned']);
+  const includeCaptioned = includeCaptionedValue === undefined ? true : includeCaptionedValue === true;
+  const captionStyleValue = pick(source, ['captionStylePreset', 'caption_style_preset']);
+  const captionStylePreset = isLocalAssemblyCaptionStylePreset(captionStyleValue)
+    ? captionStyleValue
+    : captionStyleValue === undefined
+      ? LOCAL_PIPELINE_DEFAULT_CAPTION_STYLE
+      : LOCAL_PIPELINE_DEFAULT_CAPTION_STYLE;
+  const variantValue = pick(source, ['variant']);
+  const variant = localQcVariant(variantValue) ?? LOCAL_PIPELINE_DEFAULT_VARIANT;
+  const errors = [
+    ...comfy.errors,
+    ...narration.errors,
+    ...pronunciationResult.errors,
+  ];
+  if (rateValue !== undefined && rateValue !== '' && rate === undefined) errors.push('読み上げ速度は整数で指定してください。');
+  if (rate !== undefined && (!Number.isInteger(rate) || rate < LOCAL_NARRATION_LIMITS.minRate || rate > LOCAL_NARRATION_LIMITS.maxRate)) {
+    errors.push(`読み上げ速度は整数 ${LOCAL_NARRATION_LIMITS.minRate}〜${LOCAL_NARRATION_LIMITS.maxRate} の範囲で指定してください。`);
+  }
+  if (includeCaptionedValue !== undefined && typeof includeCaptionedValue !== 'boolean') errors.push('字幕付き版の指定はbooleanで指定してください。');
+  if (captionStyleValue !== undefined && !isLocalAssemblyCaptionStylePreset(captionStyleValue)) {
+    errors.push('字幕プリセットはstudio_default_v1またはshorts_ja_large_v1を指定してください。');
+  }
+  if (variantValue !== undefined && !isLocalQcVariant(variantValue)) errors.push('variantはcleanまたはcaptionedを指定してください。');
+  if (!includeCaptioned && variant === 'captioned') errors.push('字幕なし設定ではvariant=cleanを指定してください。');
+  const normalizedRate = rate ?? 0;
+  const segments = narration.segments.map((segment) => ({ text: segment }));
+  const request: LocalPipelineRequest = {
+    workflowPreset: LOCAL_COMFYUI_WORKFLOW_PRESET,
+    prompt: comfy.request.prompt,
+    seed: comfy.request.seed,
+    segments,
+    ...(pronunciationResult.pronunciations ? { pronunciations: pronunciationResult.pronunciations } : {}),
+    rate: normalizedRate,
+    includeCaptioned,
+    captionStylePreset,
+    variant,
+  };
+  const voiceValue = pickIncludingNull(source, ['voice']);
+  if (voiceValue !== undefined && voiceValue !== null && voiceValue !== '') {
+    if (typeof voiceValue !== 'string') errors.push('音声名は文字列で指定してください。');
+    else if (voiceValue.trim().length > 128) errors.push('音声名は128文字以内にしてください。');
+    else request.voice = voiceValue.trim();
+  }
+  const payload: LocalPipelinePayload = {
+    workflow_preset: LOCAL_COMFYUI_WORKFLOW_PRESET,
+    prompt: comfy.payload.prompt,
+    seed: comfy.payload.seed,
+    segments,
+    ...(request.voice ? { voice: request.voice } : {}),
+    rate: normalizedRate,
+    ...(request.pronunciations ? { pronunciations: request.pronunciations } : {}),
+    include_captioned: includeCaptioned,
+    caption_style_preset: captionStylePreset,
+    variant,
+  };
+  return { request, payload, errors };
+};
+
+/** Build the exact local pipeline wire body; invalid drafts never cross the API boundary. */
+export const buildLocalPipelinePayload = (value: unknown): LocalPipelinePayload => {
+  const normalized = normalizeLocalPipelineInput(value);
+  if (normalized.errors.length > 0) throw new TypeError(normalized.errors[0]);
+  return normalized.payload;
+};
+
+export const toLocalPipelinePayload = buildLocalPipelinePayload;
+
+/** Serialize a validated pipeline body without rounding an int64 seed in JavaScript. */
+export const serializeLocalPipelinePayload = (payload: LocalPipelinePayload): string => {
+  const fields = [
+    `"workflow_preset":${JSON.stringify(payload.workflow_preset)}`,
+    `"prompt":${JSON.stringify(payload.prompt)}`,
+    `"seed":${typeof payload.seed === 'string' ? payload.seed : String(payload.seed)}`,
+    `"segments":${JSON.stringify(payload.segments)}`,
+    ...(payload.voice ? [`"voice":${JSON.stringify(payload.voice)}`] : []),
+    `"rate":${String(payload.rate)}`,
+    ...(payload.pronunciations ? [`"pronunciations":${JSON.stringify(payload.pronunciations)}`] : []),
+    `"include_captioned":${payload.include_captioned ? 'true' : 'false'}`,
+    `"caption_style_preset":${JSON.stringify(payload.caption_style_preset)}`,
+    `"variant":${JSON.stringify(payload.variant)}`,
+  ];
+  return `{${fields.join(',')}}`;
+};
+
 export const reorderTimelineClips = <T>(clips: readonly T[], fromIndex: number, toIndex: number): T[] => {
   const output = [...clips];
   if (!Number.isInteger(fromIndex) || !Number.isInteger(toIndex) || fromIndex < 0 || fromIndex >= output.length || toIndex < 0 || toIndex >= output.length || fromIndex === toIndex) return output;
@@ -851,6 +1011,38 @@ export const isLocalComfyUiExecutionActive = (value: unknown): boolean => {
 /** Check every selected-run candidate so a stale terminal local job cannot hide active work. */
 export const isLocalComfyUiExecutionActiveAcross = (values: readonly unknown[]): boolean =>
   values.some((value) => isLocalComfyUiExecutionActive(value));
+
+export const isLocalPipelineJobForSelection = (
+  value: unknown,
+  selection: { productionId?: string; runId?: string },
+): boolean => {
+  const record = asRecord(value);
+  const result = asRecord(pick(record, ['result', 'job_result', 'output']));
+  const payload = asRecord(pick(record, ['payload', 'request', 'meta']));
+  const field = (keys: string[]): unknown => pick(record, keys) ?? pick(payload, keys);
+  const productionId = text(field(['production_id', 'productionId']) ?? pick(result, ['production_id', 'productionId']), '');
+  const runId = text(field(['run_id', 'runId']) ?? pick(result, ['run_id', 'runId']), '');
+  const profile = normalizeStudioStageName(field(['execution_profile', 'executionProfile', 'profile']) ?? pick(result, ['execution_profile', 'executionProfile', 'profile']));
+  const type = normalizeStudioStageName(field(['type', 'kind', 'name', 'stage', 'step']));
+  const pipelineMarked = profile === 'local_pipeline' || type === 'local_pipeline' || type === 'pipeline' || type.startsWith('local_pipeline_');
+  return Boolean(
+    pipelineMarked
+      && (!selection.productionId || productionId === selection.productionId)
+      && (!selection.runId || runId === selection.runId),
+  );
+};
+
+/** True for an in-flight local pipeline job, stage attempt, or nested child result. */
+export const isLocalPipelineExecutionActive = (value: unknown): boolean => {
+  if (isLocalComfyUiExecutionActive(value)) return true;
+  const record = asRecord(value);
+  const result = asRecord(pick(record, ['result', 'job_result', 'output']));
+  const jobs = pick(record, ['jobs', 'stage_jobs', 'child_jobs']) ?? pick(result, ['jobs', 'stage_jobs', 'child_jobs']);
+  return Object.values(asRecord(jobs)).some((item) => isLocalComfyUiExecutionActive(item));
+};
+
+export const isLocalPipelineExecutionActiveAcross = (values: readonly unknown[]): boolean =>
+  values.some((value) => isLocalPipelineExecutionActive(value));
 
 const rawAttemptArtifacts = (value: unknown): unknown[] => {
   const record = asRecord(value);
@@ -1233,6 +1425,36 @@ const normalizeLocalComfyUiMetadata = (
   ) || undefined,
 });
 
+const normalizeLocalPipelineStageResult = (value: unknown, fallbackStage: string): LocalPipelineStageResult => {
+  const record = asRecord(value);
+  const result = asRecord(pick(record, ['result', 'output']));
+  const source = Object.keys(result).length > 0 ? result : record;
+  const artifactValues = items(pick(record, ['artifacts', 'outputs']), ['items', 'artifacts', 'outputs']);
+  const resultArtifactValues = items(pick(result, ['artifacts', 'outputs']), ['items', 'artifacts', 'outputs']);
+  return {
+    stage: normalizeStudioStageName(text(pick(record, ['stage', 'stage_name', 'name', 'type']) ?? pick(result, ['stage', 'stage_name', 'name', 'type']), fallbackStage)),
+    status: normalizeStatus(pick(record, ['status', 'state']) ?? pick(result, ['status', 'state'])),
+    jobId: text(pick(record, ['job_id', 'jobId']) ?? pick(result, ['job_id', 'jobId']), '') || undefined,
+    stageAttemptId: text(pick(record, ['stage_attempt_id', 'stageAttemptId']) ?? pick(result, ['stage_attempt_id', 'stageAttemptId']), '') || undefined,
+    attempt: number(pick(record, ['attempt', 'attempt_number', 'try']) ?? pick(result, ['attempt', 'attempt_number', 'try'])),
+    progress: number(pick(record, ['progress', 'percent', 'percentage']) ?? pick(result, ['progress', 'percent', 'percentage'])),
+    message: text(pick(record, ['message', 'detail', 'error']) ?? pick(result, ['message', 'detail', 'error']), '') || undefined,
+    artifacts: (artifactValues.length > 0 ? artifactValues : resultArtifactValues).map(normalizeArtifact),
+    raw: source,
+  };
+};
+
+const normalizeLocalPipelineJobs = (value: unknown): Record<string, LocalPipelineStageResult> => {
+  const entries: Array<[string, unknown]> = Array.isArray(value)
+    ? value.map((item, index) => [String(index), item])
+    : Object.entries(asRecord(value));
+  return Object.fromEntries(entries.map(([key, item]) => {
+    const fallbackStage = normalizeStudioStageName(key) || `stage_${key}`;
+    const normalized = normalizeLocalPipelineStageResult(item, fallbackStage);
+    return [normalized.stage || fallbackStage, normalized];
+  }));
+};
+
 const normalizeStageAttempt = (value: unknown, index: number): StageAttempt => {
   const record = asRecord(value);
   const stage = text(pick(record, ['stage', 'stage_name', 'name', 'type']), 'narration');
@@ -1279,7 +1501,11 @@ const normalizeJobResult = (value: unknown, outerRecord: UnknownRecord = {}): Jo
   const error = normalizeError(record, normalizeError(result).message ?? '');
   const directRecord = { ...outerRecord, ...record };
   const comfyMetadata = normalizeLocalComfyUiMetadata(directRecord, result);
+  const pipelineJobsValue = pick(record, ['jobs', 'stage_jobs', 'child_jobs']) ?? pick(result, ['jobs', 'stage_jobs', 'child_jobs']);
+  const pipelineJobs = pipelineJobsValue === undefined ? undefined : normalizeLocalPipelineJobs(pipelineJobsValue);
   return {
+    runId: text(pick(directRecord, ['run_id', 'runId']) ?? pick(result, ['run_id', 'runId']), '') || undefined,
+    revisionId: text(pick(directRecord, ['revision_id', 'revisionId']) ?? pick(result, ['revision_id', 'revisionId']), '') || undefined,
     attempt: number(pick(record, ['attempt', 'attempt_number', 'try']) ?? pick(result, ['attempt', 'attempt_number', 'try'])),
     stageAttemptId: text(pick(record, ['stage_attempt_id', 'stageAttemptId']) ?? pick(result, ['stage_attempt_id', 'stageAttemptId']), '') || undefined,
     artifacts: (items(pick(record, ['artifacts', 'outputs']), ['items', 'artifacts', 'outputs']).length > 0
@@ -1290,6 +1516,7 @@ const normalizeJobResult = (value: unknown, outerRecord: UnknownRecord = {}): Jo
       : boolean(pick(record, ['cache_hit', 'cacheHit', 'cached'])),
     durationSeconds: durationSeconds(record) ?? durationSeconds(result),
     ...normalizeQcFields(record, result),
+    jobs: pipelineJobs,
     provider: text(pick(directRecord, ['provider']) ?? pick(result, ['provider']), '') || undefined,
     providerTaskId: text(pick(directRecord, ['provider_task_id', 'providerTaskId']) ?? pick(result, ['provider_task_id', 'providerTaskId']), '') || undefined,
     ...comfyMetadata,
@@ -1309,7 +1536,10 @@ export const normalizeJob = (value: unknown, index = 0): Job => {
   const record = Object.keys(nested).length > 0 ? nested : root;
   const payload = asRecord(pick(record, ['payload', 'request', 'meta']));
   const field = (keys: string[]): unknown => pick(record, keys) ?? pick(payload, keys);
-  const resultValue = pick(record, ['result', 'job_result', 'output']) ?? pick(root, ['result', 'job_result', 'output']);
+  const directResult = pick(record, ['result', 'job_result', 'output']) ?? pick(root, ['result', 'job_result', 'output']);
+  const hasInlinePipelineResult = ['artifacts', 'jobs', 'technical_verdict', 'technicalVerdict', 'revision_id', 'revisionId']
+    .some((key) => record[key] !== undefined);
+  const resultValue = directResult ?? (hasInlinePipelineResult ? record : undefined);
   const result = normalizeJobResult(resultValue, record);
   const error = normalizeError(record, result?.message ?? '');
   const assemblyAttemptId = text(
@@ -1639,6 +1869,18 @@ export const api = {
       {
         method: 'POST',
         body: serializeLocalComfyUiPayload(payload),
+      },
+    );
+    return normalizeJob(value);
+  },
+
+  async executeLocalPipeline(productionId: string, body: LocalPipelineRequest): Promise<Job> {
+    const payload = buildLocalPipelinePayload(body);
+    const value = await request<unknown>(
+      `/api/productions/${encodeURIComponent(productionId)}/execute-local-pipeline`,
+      {
+        method: 'POST',
+        body: serializeLocalPipelinePayload(payload),
       },
     );
     return normalizeJob(value);

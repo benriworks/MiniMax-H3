@@ -659,10 +659,15 @@ class DatabaseMigrationTests(unittest.TestCase):
                     row["name"]
                     for row in connection.execute("PRAGMA table_info(stage_attempts)")
                 }
+                pipeline_claims = connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='local_pipeline_claims'"
+                ).fetchone()
 
             self.assertIn("execution_profile", run_columns)
+            self.assertIn("pipeline_key", run_columns)
             self.assertEqual(schema_version, str(SCHEMA_VERSION))
             self.assertIsNotNone(stage_attempts)
+            self.assertIsNotNone(pipeline_claims)
             self.assertIn("job_id", stage_attempt_columns)
 
 
@@ -1698,6 +1703,347 @@ class ServiceTests(unittest.TestCase):
             {row["created_at"] for row in terminal_events},
             {completed["completed_at"]},
         )
+        self.assertNotIn(secret.encode("utf-8"), self.service.database.path.read_bytes())
+
+    def test_local_media_stages_publish_artifacts_only_at_atomic_completion(self) -> None:
+        created = self.service.create_run(
+            PRODUCTION_ID,
+            {
+                "changes": [{"type": "timeline"}, {"type": "script"}],
+                "execution_profile": "local_sapi",
+            },
+        )
+        run_id = created["run"]["id"]
+        detail = self.service.production_detail(PRODUCTION_ID)
+        assert detail is not None
+        source_video = next(
+            item for item in detail["artifacts"] if item["kind"] == "video"
+        )
+
+        timeline_module = types.ModuleType("tools.studio.timeline")
+        timeline_module.timeline_cache_key = lambda _clips: "1" * 64
+        timeline_module.generate_local_timeline = fake_local_timeline_result
+        timeline_module.validate_local_timeline_outputs = (
+            fake_validate_local_timeline_outputs
+        )
+
+        atomic_complete = self.service.database.complete_job_with_stage_attempt
+        observed: list[tuple[str, str, int]] = []
+
+        def complete_pair(
+            job_id: str,
+            stage_attempt_id: str,
+            public_result: object,
+            artifact_records: object = (),
+        ) -> dict[str, object]:
+            self.assertIsInstance(public_result, dict)
+            assert isinstance(public_result, dict)
+            self.assertEqual(public_result.get("artifacts"), [])
+            self.assertIsInstance(artifact_records, (list, tuple))
+            assert isinstance(artifact_records, (list, tuple))
+            records = tuple(artifact_records)
+            self.assertGreater(len(records), 0)
+            for record in records:
+                self.assertIsInstance(record, dict)
+                assert isinstance(record, dict)
+                with closing(self.service.database.connect()) as connection:
+                    existing = connection.execute(
+                        "SELECT id FROM artifacts WHERE rel_path=?",
+                        (record["rel_path"],),
+                    ).fetchone()
+                self.assertIsNone(existing)
+            observed.append((job_id, stage_attempt_id, len(records)))
+            return atomic_complete(
+                job_id,
+                stage_attempt_id,
+                public_result,
+                records,
+            )
+
+        queued_and_completed: list[tuple[dict[str, object], dict[str, object]]] = []
+        with (
+            mock.patch.dict(sys.modules, {"tools.studio.timeline": timeline_module}),
+            mock.patch("tools.studio.timeline", timeline_module, create=True),
+            mock.patch(
+                "tools.studio.narration.generate_local_narration",
+                side_effect=fake_local_narration_result,
+            ),
+            mock.patch(
+                "tools.studio.assembly.assembly_cache_key", return_value="2" * 64
+            ),
+            mock.patch(
+                "tools.studio.assembly.generate_local_assembly",
+                side_effect=fake_local_assembly_result,
+            ),
+            mock.patch(
+                "tools.studio.assembly.validate_local_assembly_outputs",
+                side_effect=fake_validate_local_assembly_outputs,
+            ),
+            mock.patch("tools.studio.qc.qc_cache_key", return_value="3" * 64),
+            mock.patch(
+                "tools.studio.qc.generate_local_qc", side_effect=fake_local_qc_result
+            ),
+            mock.patch(
+                "tools.studio.qc.validate_local_qc_outputs",
+                side_effect=fake_validate_local_qc_outputs,
+            ),
+            mock.patch.object(
+                self.service.database,
+                "register_studio_artifact",
+                side_effect=AssertionError(
+                    "worker-backed stages must not register artifacts before completion"
+                ),
+            ),
+            mock.patch.object(
+                self.service.database,
+                "complete_job_with_stage_attempt",
+                side_effect=complete_pair,
+            ),
+        ):
+            timeline_job = self.service.execute_local_timeline(
+                run_id,
+                {
+                    "clips": [
+                        {
+                            "video_artifact_id": source_video["id"],
+                            "start_ms": 0,
+                            "end_ms": 125,
+                        }
+                    ]
+                },
+            )
+            timeline = self.service.jobs.wait(timeline_job["id"], timeout=10)
+            assert timeline is not None
+            queued_and_completed.append((timeline_job, timeline))
+
+            narration_job = self.service.execute_local_narration(
+                run_id, {"segments": [{"text": "atomic local narration"}]}
+            )
+            narration = self.service.jobs.wait(narration_job["id"], timeout=10)
+            assert narration is not None
+            queued_and_completed.append((narration_job, narration))
+
+            assembly_job = self.service.execute_local_assembly(
+                run_id,
+                {
+                    "video_artifact_id": source_video["id"],
+                    "narration_attempt_id": narration["result"]["stage_attempt_id"],
+                    "include_captioned": False,
+                },
+            )
+            assembly = self.service.jobs.wait(assembly_job["id"], timeout=10)
+            assert assembly is not None
+            queued_and_completed.append((assembly_job, assembly))
+
+            qc_job = self.service.execute_local_qc(
+                run_id,
+                {
+                    "assembly_attempt_id": assembly["result"]["stage_attempt_id"],
+                    "variant": "clean",
+                },
+            )
+            qc = self.service.jobs.wait(qc_job["id"], timeout=10)
+            assert qc is not None
+            queued_and_completed.append((qc_job, qc))
+
+        self.assertEqual([count for _job, _attempt, count in observed], [4, 4, 3, 3])
+        for queued, completed in queued_and_completed:
+            with self.subTest(kind=queued["kind"]):
+                self.assertEqual(completed["status"], "succeeded", completed)
+                self.assertEqual(
+                    queued["payload"]["stage_attempt_id"],
+                    queued["stage_attempt_id"],
+                )
+                self.assertEqual(
+                    completed["result"]["stage_attempt_id"],
+                    queued["stage_attempt_id"],
+                )
+                attempt = self.service.database.get_stage_attempt(
+                    queued["stage_attempt_id"]
+                )
+                assert attempt is not None
+                self.assertEqual(attempt["status"], "succeeded")
+                self.assertEqual(completed["completed_at"], attempt["completed_at"])
+                self.assertNotIn("stage_attempt_id", attempt["result"])
+                self.assertEqual(
+                    {item["id"] for item in completed["result"]["artifacts"]},
+                    {item["id"] for item in attempt["result"]["artifacts"]},
+                )
+
+    def test_local_media_worker_failures_atomically_fail_linked_pairs(self) -> None:
+        secret = "PRIVATE_LOCAL_WORKER_EXCEPTION_DETAIL"
+        failures: list[
+            tuple[dict[str, object], dict[str, object], str]
+        ] = []
+        atomic_failure = self.service.database.fail_job_with_stage_attempt
+
+        with mock.patch.object(
+            self.service.database,
+            "fail_job_with_stage_attempt",
+            wraps=atomic_failure,
+        ) as fail_pair:
+            narration_run = self.service.create_run(
+                PRODUCTION_ID,
+                {
+                    "changes": [{"type": "script"}],
+                    "execution_profile": "local_sapi",
+                },
+            )["run"]["id"]
+            with mock.patch(
+                "tools.studio.narration.generate_local_narration",
+                side_effect=RuntimeError(secret),
+            ):
+                narration_job = self.service.execute_local_narration(
+                    narration_run,
+                    {"segments": [{"text": "narration failure"}]},
+                )
+                narration_failed = self.service.jobs.wait(
+                    narration_job["id"], timeout=10
+                )
+            assert narration_failed is not None
+            failures.append(
+                (narration_job, narration_failed, "local_narration_failed")
+            )
+
+            timeline_run = self.service.create_run(
+                PRODUCTION_ID,
+                {
+                    "changes": [{"type": "timeline"}],
+                    "execution_profile": "local_sapi",
+                },
+            )["run"]["id"]
+            detail = self.service.production_detail(PRODUCTION_ID)
+            assert detail is not None
+            source_video = next(
+                item for item in detail["artifacts"] if item["kind"] == "video"
+            )
+            timeline_module = types.ModuleType("tools.studio.timeline")
+            timeline_module.timeline_cache_key = lambda _clips: "4" * 64
+            timeline_module.generate_local_timeline = mock.Mock(
+                side_effect=RuntimeError(secret)
+            )
+            timeline_module.validate_local_timeline_outputs = (
+                fake_validate_local_timeline_outputs
+            )
+            with (
+                mock.patch.dict(
+                    sys.modules, {"tools.studio.timeline": timeline_module}
+                ),
+                mock.patch("tools.studio.timeline", timeline_module, create=True),
+            ):
+                timeline_job = self.service.execute_local_timeline(
+                    timeline_run,
+                    {
+                        "clips": [
+                            {
+                                "video_artifact_id": source_video["id"],
+                                "start_ms": 0,
+                                "end_ms": 125,
+                            }
+                        ]
+                    },
+                )
+                timeline_failed = self.service.jobs.wait(
+                    timeline_job["id"], timeout=10
+                )
+            assert timeline_failed is not None
+            failures.append(
+                (
+                    timeline_job,
+                    timeline_failed,
+                    "local_timeline_failed",
+                )
+            )
+
+            assembly_run = self.service.create_run(
+                PRODUCTION_ID,
+                {
+                    "changes": [{"type": "script"}],
+                    "execution_profile": "local_sapi",
+                },
+            )["run"]["id"]
+            with mock.patch(
+                "tools.studio.narration.generate_local_narration",
+                side_effect=fake_local_narration_result,
+            ):
+                narration_job = self.service.execute_local_narration(
+                    assembly_run,
+                    {"segments": [{"text": "assembly prerequisite"}]},
+                )
+                narration = self.service.jobs.wait(narration_job["id"], timeout=10)
+            assert narration is not None
+            self.assertEqual(narration["status"], "succeeded", narration)
+            with (
+                mock.patch(
+                    "tools.studio.assembly.assembly_cache_key", return_value="5" * 64
+                ),
+                mock.patch(
+                    "tools.studio.assembly.generate_local_assembly",
+                    side_effect=RuntimeError(secret),
+                ),
+            ):
+                assembly_job = self.service.execute_local_assembly(
+                    assembly_run,
+                    {
+                        "video_artifact_id": source_video["id"],
+                        "narration_attempt_id": narration["result"][
+                            "stage_attempt_id"
+                        ],
+                        "include_captioned": False,
+                    },
+                )
+                assembly_failed = self.service.jobs.wait(
+                    assembly_job["id"], timeout=10
+                )
+            assert assembly_failed is not None
+            failures.append(
+                (assembly_job, assembly_failed, "local_assembly_failed")
+            )
+
+            qc_run = self.service.create_run(
+                PRODUCTION_ID,
+                {
+                    "changes": [{"type": "assembly"}],
+                    "execution_profile": "local_sapi",
+                },
+            )["run"]["id"]
+            assembly_attempt, _master = create_succeeded_assembly_attempt(
+                self.service, qc_run
+            )
+            with (
+                mock.patch("tools.studio.qc.qc_cache_key", return_value="6" * 64),
+                mock.patch(
+                    "tools.studio.qc.generate_local_qc",
+                    side_effect=RuntimeError(secret),
+                ),
+            ):
+                qc_job = self.service.execute_local_qc(
+                    qc_run,
+                    {
+                        "assembly_attempt_id": assembly_attempt["id"],
+                        "variant": "clean",
+                    },
+                )
+                qc_failed = self.service.jobs.wait(qc_job["id"], timeout=10)
+            assert qc_failed is not None
+            failures.append((qc_job, qc_failed, "local_qc_failed"))
+
+            for queued, completed, expected_code in failures:
+                attempt = self.service.database.get_stage_attempt(
+                    queued["stage_attempt_id"]
+                )
+                assert attempt is not None
+                with self.subTest(kind=queued["kind"]):
+                    self.assertEqual(completed["status"], "failed")
+                    self.assertEqual(attempt["status"], "failed")
+                    self.assertEqual(completed["error"]["code"], expected_code)
+                    self.assertEqual(attempt["error"], completed["error"])
+                    self.assertEqual(completed["completed_at"], attempt["completed_at"])
+                    self.assertEqual(
+                        completed["payload"]["stage_attempt_id"], attempt["id"]
+                    )
+
+        self.assertEqual(fail_pair.call_count, 4)
         self.assertNotIn(secret.encode("utf-8"), self.service.database.path.read_bytes())
 
     def test_zero_cost_run_rejects_cost_approval(self) -> None:
@@ -3317,6 +3663,37 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(status, 202)
         self.assertEqual(json.loads(body), queued)
         execute.assert_called_once_with(run_id, request_body)
+
+    def test_local_pipeline_http_route_forwards_exact_int64_body(self) -> None:
+        request_body = {
+            "workflow_preset": COMFYUI_WORKFLOW_PRESET,
+            "prompt": "A presenter faces the camera.",
+            "seed": 9_223_372_036_854_775_807,
+            "segments": [{"text": "一括生成を開始します。"}],
+            "rate": 0,
+            "include_captioned": True,
+            "caption_style_preset": "shorts_ja_large_v1",
+            "variant": "captioned",
+        }
+        queued = {
+            "id": "job_" + "b" * 32,
+            "kind": "local_pipeline",
+            "status": "queued",
+        }
+        with mock.patch.object(
+            self.server.service,
+            "execute_local_pipeline",
+            return_value=queued,
+        ) as execute:
+            status, _headers, body = self.request(
+                "POST",
+                f"/api/productions/{PRODUCTION_ID}/execute-local-pipeline",
+                body=request_body,
+                headers={"X-Studio-Token": self.token},
+            )
+        self.assertEqual(status, 202)
+        self.assertEqual(json.loads(body), queued)
+        execute.assert_called_once_with(PRODUCTION_ID, request_body)
 
     def test_local_timeline_http_endpoint_records_attempt_and_artifacts(self) -> None:
         created = self.server.service.create_run(

@@ -121,6 +121,58 @@ class JobManagerShutdownTests(unittest.TestCase):
         self.assertEqual(self.manager.wait(default_job["id"], timeout=2)["status"], "succeeded")
         self.assertEqual(self.manager.wait(gpu_job["id"], timeout=2)["status"], "succeeded")
 
+    def test_pipeline_lane_can_wait_without_blocking_child_lanes(self) -> None:
+        pipeline_started = threading.Event()
+        default_started = threading.Event()
+        release = threading.Event()
+
+        def pipeline(_job_id: str) -> dict[str, object]:
+            pipeline_started.set()
+            release.wait(2)
+            return {}
+
+        pipeline_job = self.manager.submit(
+            "local_pipeline", {}, pipeline, lane="pipeline"
+        )
+        self.assertTrue(pipeline_started.wait(2))
+        default_job = self.manager.submit(
+            "local_narration",
+            {},
+            lambda _job_id: (default_started.set() or {}),
+        )
+        self.assertTrue(default_started.wait(2))
+        self.assertEqual(
+            self.manager.wait(default_job["id"], timeout=2)["status"], "succeeded"
+        )
+        release.set()
+        self.assertEqual(
+            self.manager.wait(pipeline_job["id"], timeout=2)["status"], "succeeded"
+        )
+
+    def test_cancel_and_wait_retires_worker_before_returning(self) -> None:
+        started = threading.Event()
+        callback_finished = threading.Event()
+
+        def callback(
+            _job_id: str, context: JobExecutionContext
+        ) -> dict[str, object]:
+            started.set()
+            try:
+                context.wait(5)
+                context.raise_if_cancelled()
+                return {}
+            finally:
+                callback_finished.set()
+
+        job = self.manager.submit("local_narration", {}, callback)
+        self.assertTrue(started.wait(2))
+        completed = self.manager.cancel_and_wait(job["id"], timeout=2)
+        self.assertTrue(callback_finished.is_set())
+        self.assertIsNotNone(completed)
+        assert completed is not None
+        self.assertEqual(completed["status"], "interrupted")
+        self.assertTrue(self.manager._finished[job["id"]].is_set())
+
     def test_invalid_lane_fails_before_persistent_job_creation(self) -> None:
         with mock.patch.object(self.database, "create_job", wraps=self.database.create_job) as create_job:
             with self.assertRaises(ValueError):
@@ -153,6 +205,7 @@ class JobManagerShutdownTests(unittest.TestCase):
         self.manager.shutdown(timeout=2)
         self.assertFalse(self.manager._thread.is_alive())
         self.assertFalse(self.manager._gpu_thread.is_alive())
+        self.assertFalse(self.manager._pipeline_thread.is_alive())
         self.assertEqual(self.manager.wait(default_job["id"], timeout=1)["status"], "interrupted")
         self.assertEqual(self.manager.wait(gpu_job["id"], timeout=1)["status"], "interrupted")
 

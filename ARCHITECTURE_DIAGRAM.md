@@ -27,6 +27,8 @@ flowchart LR
         StudioLauncher["run-studio.ps1"]
         StudioFrontend["studio/<br/>React / Vite source"]
         StudioBackend["tools/studio/<br/>local API / index / audit"]
+        LocalPipelineContract["pipeline.py<br/>schema v4 / exact local payload / canonical key"]
+        LocalPipelineOrchestrator["local_pipeline orchestrator<br/>one immutable parent / five executed stages"]
         StudioComfyContract["comfyui_execution.py<br/>fixed payload / provenance / cache contract"]
         StudioComfyWorker["comfyui.py<br/>loopback adapter / marker resume / cache"]
         NarrationWorker["tools/studio/narration.py<br/>validated SAPI worker / cache"]
@@ -56,10 +58,12 @@ flowchart LR
         HardwareMetrics["Windows CIM / sensor WMI<br/>NVIDIA nvidia-smi"]
         StudioBuild["studio/node_modules + dist"]
         StudioUi["Studio UI<br/>127.0.0.1 only"]
-        StudioDb["outputs/studio/studio.sqlite3<br/>schema v3 / immutable run + job-attempt link"]
+        StudioDb["outputs/studio/studio.sqlite3<br/>schema v4 / immutable run + job-attempt link"]
         StudioEvents["outputs/studio/events<br/>hash-chained JSONL mirror"]
         ExternalSubmissionState["outputs/studio/external-submissions<br/>production/cache ambiguity marker"]
         GpuLane["Studio GPU FIFO lane<br/>single ComfyUI worker"]
+        PipelineLane["Studio local_pipeline lane<br/>one top job / child coordination"]
+        DefaultLane["Studio default child lane<br/>SAPI + FFmpeg FIFO"]
         VideoGenerationOutputs["outputs/studio/runs/.../video_generation<br/>MP4 / workflow / ffprobe / manifest"]
         NarrationOutputs["outputs/studio/runs/.../narration<br/>WAV / SRT / timing / manifest"]
         TimelineOutputs["outputs/studio/runs/.../timeline<br/>preview MP4 / timeline / ffprobe / manifest"]
@@ -152,12 +156,22 @@ flowchart LR
     StudioDb -->|"append"| StudioEvents
     StudioEvents -->|"verified restore<br/>revision / run / cost approval<br/>stage attempt / historical job link<br/>hash-verified Studio artifacts"| StudioDb
     StudioEvents -->|"full-chain health / degraded warning"| StudioBackend
+    StudioBackend -->|"POST /api/productions/{id}/execute-local-pipeline<br/>schema v4 / immutable zero-cost Run"| LocalPipelineContract
+    LocalPipelineContract -->|"canonical pipeline key / exact allowlist"| LocalPipelineOrchestrator
+    LocalPipelineOrchestrator -->|"DB claim / Run + top-job dedupe<br/>same-run retry"| PipelineLane
+    LocalPipelineOrchestrator -->|"parent cancel waits for child jobs"| StudioDb
+    PipelineLane -->|"GPU child"| GpuLane
+    PipelineLane -->|"default children"| DefaultLane
     StudioBackend -->|"local_comfyui / explicit execute<br/>prompt + seed only"| StudioComfyContract
     StudioComfyContract -->|"fixed graph + runtime/model/tool identity"| GpuLane
     StudioApiWorkflow --> StudioComfyContract
     RuntimeLock --> StudioComfyContract
     ModelManifest --> StudioComfyContract
     GpuLane -->|"one job at a time"| StudioComfyWorker
+    DefaultLane -->|"SAPI child"| NarrationWorker
+    DefaultLane -->|"one generated clip / timeline child"| TimelineWorker
+    DefaultLane -->|"assembly child"| AssemblyWorker
+    DefaultLane -->|"technical QC child"| QcWorker
     StudioComfyWorker -->|"GET system_stats + exact official_q4 Dynamic argv<br/>POST prompt / poll history<br/>proxy disabled / redirects rejected"| Comfy
     Comfy -->|"history output bound to submitted prefix"| StudioComfyWorker
     Models -->|"Windows: every-new-POST guarded SHA-256<br/>non-Windows: physical identity cache"| StudioComfyWorker
@@ -214,10 +228,10 @@ flowchart LR
     classDef external fill:#fff3df,stroke:#9a6300,color:#432b00;
     classDef secret fill:#ffe8ee,stroke:#9c284b,color:#481023;
 
-    class Setup,RuntimeLock,Downloader,ModelManifest,Doctor,Launcher,Metrics,LowWorkflow,TurboWorkflow,Q4TurboWorkflow,OfficialQ4Workflow,OfficialQ4TurboWorkflow,StudioApiWorkflow,ApiWrapper,ApiCli,ProductionLedgers,StudioSetup,StudioLauncher,StudioFrontend,StudioBackend,StudioComfyContract,StudioComfyWorker,NarrationWorker,ExternalTtsContract,ElevenLabsWorker,TimelineWorker,AssemblyWorker,QcWorker,SapiHelper,StudioCli,TestVideoOrchestrator tracked;
-    class Venv,Comfy,GgufNode,TurboNode,Models,OfficialWorkflow,Outputs,HardwareMetrics,StudioBuild,StudioUi,StudioDb,StudioEvents,ExternalSubmissionState,GpuLane,VideoGenerationOutputs,NarrationOutputs,TimelineOutputs,AssemblyOutputs,QcOutputs,AuditExports,ProductionArtifacts,WindowsSapi,MediaTools local;
+    class Setup,RuntimeLock,Downloader,ModelManifest,Doctor,Launcher,Metrics,LowWorkflow,TurboWorkflow,Q4TurboWorkflow,OfficialQ4Workflow,OfficialQ4TurboWorkflow,StudioApiWorkflow,ApiWrapper,ApiCli,ProductionLedgers,StudioSetup,StudioLauncher,StudioFrontend,StudioBackend,LocalPipelineContract,LocalPipelineOrchestrator,StudioComfyContract,StudioComfyWorker,NarrationWorker,ExternalTtsContract,ElevenLabsWorker,TimelineWorker,AssemblyWorker,QcWorker,SapiHelper,StudioCli,TestVideoOrchestrator tracked;
+    class Venv,Comfy,GgufNode,TurboNode,Models,OfficialWorkflow,Outputs,HardwareMetrics,StudioBuild,StudioUi,StudioDb,StudioEvents,ExternalSubmissionState,GpuLane,PipelineLane,DefaultLane,VideoGenerationOutputs,NarrationOutputs,TimelineOutputs,AssemblyOutputs,QcOutputs,AuditExports,ProductionArtifacts,WindowsSapi,MediaTools local;
     class GitHub,PackageIndexes,HuggingFace,MiniMaxApi,OutputCdn,ElevenLabsApi external;
     class Env,StudioSecrets secret;
 ```
 
-Local経路のprompt/mediaはloopback ComfyUIへ渡ります。Studioの`local_comfyui`は固定graphと実行環境を照合し、default workerを占有しないGPU FIFO laneから同じComfyUIへ接続します。API経路のprompt/mediaはMiniMaxの外部境界を越えます。Bearer key付きrequestはredirectを拒否し、MP4 CDN downloadにはkeyを付けません。Studioはsession保護されたloopback内で台帳とartifactを索引化します。`test-video` CLIは同じworkspaceをlockし、既存serviceをmain threadから順番に呼んでローカルMP4と監査IDをまとめます。`local_sapi`はWindows System.Speechへ渡し、費用gateとpayload確認を通った`elevenlabs_tts`だけはナレーション本文と固定設定をElevenLabsへ1回送信します。送信前の永続markerは曖昧失敗後の自動再送を止め、ComfyUIでは記録済みprompt IDだけを明示retryでresumeできます。返却audio/alignmentを同じWAV/SRT/timing/manifest契約へ変換した後、ハードカットtimeline、字幕preset付き合成、technical QCはFFmpeg／ffprobeでローカル実行します。ComfyUIのartifact row/version/eventとjob／stage attemptは同一transactionで成功確定します。停止時はjob cancel contextから登録済みsubprocess treeを終了し、停止側が先に確定した場合はDB状態を`interrupted`／`failed(process_interrupted)`へ揃えます。provider task専用tableとStudio起動時の自動resumeはまだありません。
+Local経路のprompt/mediaはloopback ComfyUIへ渡ります。通常の`local_comfyui`は固定graphと実行環境を照合し、default workerを占有しないGPU FIFO laneから同じComfyUIへ接続します。`local_pipeline`は`POST /api/productions/{production_id}/execute-local-pipeline`でschema v4の厳密なbodyを受け、6 requested stage（`video_generation`、`narration`、`captions`、`timeline`、`assembly`、`qc`）を一つのimmutableな0円Runへ束ねます。専用pipeline laneがGPU childとdefault childを協調し、ComfyUI動画生成→SAPI→one-clip timeline→assembly→QCの5 stageを実行します。canonical keyのDB claimがRun/top jobをdedupeし、failed/interruptedは同じRunでretryできます。parent cancelはchild job/processのjoin後にterminalへ確定し、各local stageのjob／attempt／artifactはatomicに公開します。Studio UIは2秒pollingとreload race recoveryで進捗、master artifact、technical QC verdictを再取得します。raw prompt/scriptはSQLite、event、job metadataへ複製しませんが、明示的な`workflow.json`、`timings`、`manifest` artifactにはcontentが含まれ得ます。local pipelineはElevenLabs、MiniMax API、費用承認を使いません。API経路のprompt/mediaはMiniMaxの外部境界を越えます。Bearer key付きrequestはredirectを拒否し、MP4 CDN downloadにはkeyを付けません。Studioはsession保護されたloopback内で台帳とartifactを索引化します。`test-video` CLIは同じworkspaceをlockし、既存serviceをmain threadから順番に呼んでローカルMP4と監査IDをまとめます。費用gateとpayload確認を通った`elevenlabs_tts`だけはナレーション本文と固定設定をElevenLabsへ1回送信します。

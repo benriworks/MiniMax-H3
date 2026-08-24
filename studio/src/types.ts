@@ -46,7 +46,7 @@ export interface ProductionRun {
   finishedAt?: string;
   stages: RunStage[];
   requestedStages: string[];
-  executionProfile?: 'local_sapi' | 'local_comfyui' | string;
+  executionProfile?: 'local_sapi' | 'local_comfyui' | 'local_pipeline' | string;
   stageAttempts: StageAttempt[];
   estimatedCost?: number;
   currency?: string;
@@ -150,6 +150,8 @@ export interface ProductionDetail extends ProductionSummary {
 }
 
 export interface JobResult {
+  runId?: string;
+  revisionId?: string;
   attempt?: number;
   stageAttemptId?: string;
   artifacts: Artifact[];
@@ -169,6 +171,7 @@ export interface JobResult {
   timingSource?: string;
   analysisStatus?: string;
   technicalVerdict?: LocalQcVerdict;
+  jobs?: Record<string, LocalPipelineStageResult>;
   assemblyAttemptId?: string;
   variant?: LocalQcVariant;
   checks?: QcCheck[];
@@ -307,7 +310,7 @@ export interface RerunChanges {
   note: string;
   allowPaidApi: boolean;
   maxCostJpy?: number;
-  executionProfile?: 'local_sapi' | 'local_comfyui' | 'elevenlabs_tts' | 'default';
+  executionProfile?: 'local_sapi' | 'local_comfyui' | 'local_pipeline' | 'elevenlabs_tts' | 'default';
 }
 
 /** Browser-facing request for the pinned local ComfyUI video worker. */
@@ -316,6 +319,32 @@ export interface LocalComfyUiRequest {
   prompt: string;
   /** Decimal text keeps the complete 0..2^63-1 range lossless in the form. */
   seed: string;
+}
+
+export interface LocalPipelineRequest {
+  workflowPreset: string;
+  prompt: string;
+  /** Decimal text keeps the complete 0..2^63-1 range lossless in the form. */
+  seed: string;
+  segments: LocalNarrationSegment[];
+  voice?: string;
+  rate: number;
+  pronunciations?: PronunciationOverride[];
+  includeCaptioned: boolean;
+  captionStylePreset: LocalAssemblyCaptionStylePreset;
+  variant: LocalQcVariant;
+}
+
+export interface LocalPipelineStageResult {
+  stage: string;
+  status: StudioStatus;
+  jobId?: string;
+  stageAttemptId?: string;
+  attempt?: number;
+  progress?: number;
+  message?: string;
+  artifacts: Artifact[];
+  raw: Record<string, unknown>;
 }
 
 export interface RerunPlan {

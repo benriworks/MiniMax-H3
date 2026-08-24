@@ -20,12 +20,16 @@ import {
   isLocalComfyUiJobForSelection,
   isLocalComfyUiExecutionActive,
   isLocalComfyUiExecutionActiveAcross,
+  isLocalPipelineJobForSelection,
+  isLocalPipelineExecutionActive,
+  isLocalPipelineExecutionActiveAcross,
   duplicateTimelineClip,
   moveTimelineClip,
   normalizeLocalTimelineInput,
   normalizeLocalAssemblyInput,
   normalizeLocalQcInput,
   normalizeLocalComfyUiInput,
+  normalizeLocalPipelineInput,
   normalizeNarrationInput,
   normalizeExternalNarrationInput,
   getExternalNarrationGate,
@@ -41,6 +45,8 @@ import type {
   LocalAssemblyCaptionStylePreset,
   LocalAssemblyRequest,
   LocalComfyUiRequest,
+  LocalPipelineRequest,
+  LocalPipelineStageResult,
   LocalTimelineClip,
   LocalTimelineRequest,
   LocalQcRequest,
@@ -57,7 +63,7 @@ import type {
   StudioStatus,
 } from './types';
 
-type DetailTab = 'overview' | 'video' | 'narration' | 'timeline' | 'assembly' | 'qc' | 'artifacts' | 'compare' | 'logs' | 'audit';
+type DetailTab = 'overview' | 'pipeline' | 'video' | 'narration' | 'timeline' | 'assembly' | 'qc' | 'artifacts' | 'compare' | 'logs' | 'audit';
 
 const STATUS_LABEL: Record<StudioStatus, string> = {
   pending: '待機',
@@ -220,6 +226,18 @@ const localAssemblyError = (error: unknown): string => {
     return 'このRunはlocal_sapi実行用ではありません。ローカル音声プロファイルでRunを作成してください。';
   }
   return `ローカル編集・合成に失敗しました：${message}`;
+};
+
+const localPipelineError = (error: unknown): string => {
+  if (error instanceof StudioApiError && error.unsupported) {
+    return 'このStudio backendは一括生成に対応していません。backendを更新してから再試行してください。';
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  const normalized = message.toLowerCase();
+  if (normalized.includes('duplicate') || normalized.includes('already') || normalized.includes('active')) {
+    return `同じ一括生成がすでに実行中です。既存Runの監視を継続してください：${message}`;
+  }
+  return `ローカル一括生成に失敗しました：${message}`;
 };
 
 const localQcError = (error: unknown): string => {
@@ -532,6 +550,7 @@ function ProductionWorkspace({ detail, jobs, providers, onReload }: { detail: Pr
 
   const tabs: { id: DetailTab; label: string; count?: number }[] = [
     { id: 'overview', label: '概要' },
+    { id: 'pipeline', label: '一括生成' },
     { id: 'video', label: '生成映像' },
     { id: 'narration', label: 'ナレーション' },
     { id: 'timeline', label: 'カット編集' },
@@ -582,6 +601,7 @@ function ProductionWorkspace({ detail, jobs, providers, onReload }: { detail: Pr
 
       <div className="tab-content" id="production-tabpanel" role="tabpanel" aria-labelledby={`production-tab-${tab}`}>
         {tab === 'overview' && <Overview detail={detail} latestRun={latestRun} onReload={onReload} />}
+        {tab === 'pipeline' && <LocalPipelinePanel detail={detail} jobs={jobs} onReload={onReload} />}
         {tab === 'video' && <VideoGenerationPanel detail={detail} jobs={jobs} onReload={onReload} />}
         {tab === 'narration' && <NarrationPanel detail={detail} jobs={jobs} providers={providers} onReload={onReload} />}
         {tab === 'timeline' && <TimelinePanel detail={detail} jobs={jobs} onReload={onReload} />}
@@ -661,6 +681,322 @@ function Overview({ detail, latestRun, onReload }: { detail: ProductionDetail; l
             ))}
           </div>
         </section>
+      </aside>
+    </div>
+  );
+}
+
+const LOCAL_PIPELINE_STEPS = [
+  { key: 'video_generation', label: '生成映像' },
+  { key: 'narration', label: 'ナレーション' },
+  { key: 'timeline', label: 'カット編集' },
+  { key: 'assembly', label: '編集・合成' },
+  { key: 'qc', label: '品質検査' },
+] as const;
+
+type LocalPipelineStepKey = typeof LOCAL_PIPELINE_STEPS[number]['key'];
+
+const isTerminalStatus = (status?: StudioStatus): boolean =>
+  status === 'succeeded' || status === 'failed' || status === 'cancelled';
+
+const pipelineJobTimestamp = (job: Job): string =>
+  job.updatedAt
+  ?? job.startedAt
+  ?? (typeof job.raw.updated_at === 'string' ? job.raw.updated_at : undefined)
+  ?? (typeof job.raw.created_at === 'string' ? job.raw.created_at : undefined)
+  ?? '';
+
+const newestPipelineJob = (jobs: Job[]): Job | undefined => [...jobs]
+  .sort((left, right) => pipelineJobTimestamp(right).localeCompare(pipelineJobTimestamp(left)))[0];
+
+const jobBelongsToPipelineRun = (job: Job, runId?: string): boolean => {
+  if (!runId) return true;
+  const rawRunId = typeof job.raw.run_id === 'string' ? job.raw.run_id : typeof job.raw.runId === 'string' ? job.raw.runId : undefined;
+  return job.runId === runId || job.result?.runId === runId || rawRunId === runId;
+};
+
+/** Prefer a newly active child job over a stale terminal submission after reload. */
+const selectLocalPipelineDisplayJob = (localJob: Job | undefined, matchingJobs: Job[], runId?: string): Job | undefined => {
+  const candidates = [localJob, ...matchingJobs]
+    .filter((candidate): candidate is Job => candidate !== undefined)
+    .filter((candidate) => jobBelongsToPipelineRun(candidate, runId))
+    .filter((candidate, index, all) => all.findIndex((item) => item.id === candidate.id) === index);
+  const active = candidates.filter((candidate) => isLocalPipelineExecutionActive(candidate));
+  return newestPipelineJob(active) ?? newestPipelineJob(candidates);
+};
+
+const localPipelineRunIsEligible = (run: ProductionRun): boolean => run.executionProfile === 'local_pipeline';
+
+const localPipelineStageResult = (
+  key: LocalPipelineStepKey,
+  run: ProductionRun | undefined,
+  job: Job | undefined,
+  jobs: Job[],
+): LocalPipelineStageResult | undefined => {
+  const result = job?.result?.jobs;
+  const nested = result ? Object.values(result).find((item) => normalizeRequestedStage(item.stage) === key) : undefined;
+  // The backend's compact result.jobs lineage intentionally contains IDs only;
+  // prefer the richer child-job/stage-attempt status after reload in that case.
+  if (nested && nested.status !== 'unknown') return nested;
+  const child = jobs.find((item) => {
+    const stage = normalizeRequestedStage(item.stage ?? item.type);
+    return jobBelongsToPipelineRun(item, run?.id) && (stage === key || stage.endsWith(`_${key}`));
+  });
+  if (child) {
+    return {
+      stage: key,
+      status: child.status,
+      jobId: child.id,
+      stageAttemptId: child.stageAttemptId,
+      attempt: child.attempt,
+      progress: child.progress,
+      message: child.message,
+      artifacts: child.result?.artifacts ?? [],
+      raw: child.raw,
+    };
+  }
+  const attempt = [...(run?.stageAttempts ?? [])]
+    .filter((item) => normalizeRequestedStage(item.stage) === key)
+    .sort((left, right) => (right.createdAt ?? '').localeCompare(left.createdAt ?? ''))[0];
+  if (!attempt) return undefined;
+  return {
+    stage: key,
+    status: attempt.status,
+    jobId: attempt.jobId,
+    stageAttemptId: attempt.id,
+    attempt: attempt.attempt,
+    progress: undefined,
+    message: attempt.message,
+    artifacts: attempt.artifacts,
+    raw: attempt.raw,
+  };
+};
+
+function LocalPipelinePanel({ detail, jobs, onReload }: { detail: ProductionDetail; jobs: Job[]; onReload: () => Promise<void> }) {
+  const pipelineRuns = useMemo(
+    () => [...detail.runs]
+      .filter(localPipelineRunIsEligible)
+      .sort((left, right) => (right.createdAt ?? '').localeCompare(left.createdAt ?? '')),
+    [detail.runs],
+  );
+  const [prompt, setPrompt] = useState('');
+  const [seed, setSeed] = useState('0');
+  const [script, setScript] = useState('');
+  const [voice, setVoice] = useState('');
+  const [rate, setRate] = useState('0');
+  const [pronunciations, setPronunciations] = useState([{ source: '', target: '' }]);
+  const [includeCaptioned, setIncludeCaptioned] = useState(true);
+  const [captionStylePreset, setCaptionStylePreset] = useState<LocalAssemblyCaptionStylePreset>(RECOMMENDED_LOCAL_ASSEMBLY_CAPTION_STYLE_PRESET);
+  const [variant, setVariant] = useState<LocalQcVariant>('captioned');
+  const [pipelineRunId, setPipelineRunId] = useState('');
+  const [job, setJob] = useState<Job>();
+  const [observedJobs, setObservedJobs] = useState<Job[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+  const pollingRef = useRef(false);
+  const jobRef = useRef<Job | undefined>(undefined);
+  const onReloadRef = useRef(onReload);
+  const reloadedTerminalRun = useRef<string | undefined>(undefined);
+  const [message, setMessage] = useState<{ type: 'error' | 'success' | 'info'; text: string }>();
+
+  useEffect(() => { jobRef.current = job; }, [job]);
+  useEffect(() => { onReloadRef.current = onReload; }, [onReload]);
+  const activePipelineRun = useMemo(() => {
+    const allJobs = [...jobs, ...observedJobs];
+    return pipelineRuns.find((run) => isLocalPipelineExecutionActiveAcross([
+      ...(run.stageAttempts ?? []),
+      ...allJobs.filter((item) => jobBelongsToPipelineRun(item, run.id)),
+    ]));
+  }, [jobs, observedJobs, pipelineRuns]);
+  useEffect(() => {
+    if (!pipelineRunId && (activePipelineRun || pipelineRuns[0])) setPipelineRunId((activePipelineRun ?? pipelineRuns[0]).id);
+    if (pipelineRunId && !pipelineRuns.some((run) => run.id === pipelineRunId) && !job?.result?.runId && !job?.runId) {
+      setPipelineRunId(activePipelineRun?.id ?? pipelineRuns[0]?.id ?? '');
+    }
+  }, [activePipelineRun, job, pipelineRunId, pipelineRuns]);
+
+  const selectedRun = pipelineRuns.find((run) => run.id === pipelineRunId) ?? activePipelineRun ?? pipelineRuns[0];
+  const effectiveRunId = pipelineRunId || selectedRun?.id;
+  const matchingJobs = useMemo(() => {
+    const all = [...jobs, ...observedJobs];
+    return all
+      .filter((item, index, values) => values.findIndex((candidate) => candidate.id === item.id) === index)
+      .filter((item) => isLocalPipelineJobForSelection(item.raw, { productionId: detail.id, runId: effectiveRunId }) || jobBelongsToPipelineRun(item, effectiveRunId));
+  }, [detail.id, effectiveRunId, jobs, observedJobs]);
+  const visibleJob = selectLocalPipelineDisplayJob(job, matchingJobs, effectiveRunId);
+  const stageAttempts = selectedRun?.stageAttempts ?? [];
+  const executionActive = isLocalPipelineExecutionActiveAcross([
+    job,
+    visibleJob,
+    ...stageAttempts,
+    ...matchingJobs,
+  ]);
+  const pipelineStatus = visibleJob?.status ?? selectedRun?.status;
+  const formInput = useMemo(() => ({
+    prompt,
+    seed,
+    script,
+    voice,
+    rate,
+    pronunciations: pronunciations.some((item) => item.source.trim() || item.target.trim()) ? pronunciations : undefined,
+    includeCaptioned,
+    captionStylePreset,
+    variant,
+  }), [captionStylePreset, includeCaptioned, prompt, pronunciations, rate, script, seed, variant, voice]);
+  const normalizedInput = useMemo(() => normalizeLocalPipelineInput(formInput), [formInput]);
+  const validationErrors = normalizedInput.errors;
+  const stageResults = useMemo(
+    () => Object.fromEntries(LOCAL_PIPELINE_STEPS.map((step) => [step.key, localPipelineStageResult(step.key, selectedRun, visibleJob, matchingJobs)])) as Record<LocalPipelineStepKey, LocalPipelineStageResult | undefined>,
+    [matchingJobs, selectedRun, visibleJob],
+  );
+  const finalArtifacts = useMemo(() => {
+    const fromResult = visibleJob?.result?.artifacts ?? [];
+    const fromAttempts = selectedRun?.stageAttempts.flatMap((attempt) => attempt.artifacts) ?? [];
+    const all = [...fromResult, ...fromAttempts];
+    return all.filter((artifact, index) => all.findIndex((candidate) => candidate.id === artifact.id) === index);
+  }, [selectedRun, visibleJob]);
+  const qcAttempt = [...stageAttempts]
+    .filter((attempt) => normalizeRequestedStage(attempt.stage) === 'qc')
+    .sort((left, right) => (right.createdAt ?? '').localeCompare(left.createdAt ?? ''))[0];
+  const technicalVerdict = visibleJob?.result?.technicalVerdict ?? qcAttempt?.technicalVerdict;
+
+  useEffect(() => {
+    if (!effectiveRunId || !executionActive) return undefined;
+    let cancelled = false;
+    const poll = async () => {
+      if (pollingRef.current) return;
+      pollingRef.current = true;
+      try {
+        const nextJobs = await api.jobs();
+        if (cancelled) return;
+        const nextMatching = nextJobs.filter((item) => isLocalPipelineJobForSelection(item.raw, { productionId: detail.id, runId: effectiveRunId }) || jobBelongsToPipelineRun(item, effectiveRunId));
+        setObservedJobs(nextMatching);
+        const next = selectLocalPipelineDisplayJob(jobRef.current, nextMatching, effectiveRunId);
+        if (next) {
+          setJob(next);
+          const nextRunId = next.result?.runId ?? next.runId;
+          if (nextRunId && nextRunId !== pipelineRunId) setPipelineRunId(nextRunId);
+        }
+        await onReloadRef.current().catch(() => undefined);
+      } catch {
+        // The next two-second poll retries; the last known attempt remains visible.
+      } finally {
+        pollingRef.current = false;
+      }
+    };
+    void poll();
+    const timer = window.setInterval(() => { void poll(); }, 2_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [detail.id, effectiveRunId, executionActive, pipelineRunId]);
+
+  useEffect(() => {
+    const terminal = !executionActive && isTerminalStatus(pipelineStatus);
+    const key = visibleJob?.id ?? effectiveRunId;
+    if (!terminal || !key || reloadedTerminalRun.current === key) return;
+    reloadedTerminalRun.current = key;
+    void onReloadRef.current().catch(() => undefined);
+  }, [effectiveRunId, executionActive, pipelineStatus, visibleJob?.id]);
+
+  useEffect(() => {
+    if (!executionActive && isTerminalStatus(pipelineStatus) && !submitting) {
+      setBusy(false);
+    }
+  }, [executionActive, pipelineStatus, submitting]);
+
+  const execute = async () => {
+    if (submittingRef.current || executionActive) return;
+    if (validationErrors.length > 0) {
+      setMessage({ type: 'error', text: validationErrors[0] });
+      return;
+    }
+    submittingRef.current = true;
+    setSubmitting(true);
+    setBusy(true);
+    reloadedTerminalRun.current = undefined;
+    setMessage({ type: 'info', text: 'local_pipelineを登録しています。既存の同一リクエストはbackendのdedupe結果を監視します。' });
+    try {
+      const request: LocalPipelineRequest = normalizedInput.request;
+      const submitted = await api.executeLocalPipeline(detail.id, request);
+      setJob(submitted);
+      setObservedJobs((current) => [submitted, ...current.filter((item) => item.id !== submitted.id)]);
+      const submittedRunId = submitted.result?.runId ?? submitted.runId;
+      if (submittedRunId) setPipelineRunId(submittedRunId);
+      const submittedVerdict = submitted.result?.technicalVerdict;
+      setMessage({
+        type: submitted.status === 'failed' || submittedVerdict === 'fail' ? 'error' : 'success',
+        text: submitted.status === 'failed'
+          ? localPipelineError(submitted.message ?? 'pipeline workerが失敗しました')
+          : submittedVerdict === 'fail'
+            ? 'パイプラインは完了しましたが、技術QCは不合格です。'
+            : `一括生成を登録しました${submittedRunId ? `（Run ${submittedRunId}）` : ''}。5段階の進捗を監視しています。`,
+      });
+      try {
+        await onReload();
+      } catch {
+        setMessage({ type: 'info', text: '一括生成は登録済みです。制作詳細の再読込だけ失敗したため、job監視を継続します。' });
+      }
+      if (isTerminalStatus(submitted.status)) setBusy(false);
+    } catch (error) {
+      setBusy(false);
+      setMessage({ type: 'error', text: localPipelineError(error) });
+      try {
+        await onReload();
+      } catch {
+        // Keep the original API error visible when recovery reload also fails.
+      }
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
+  };
+
+  const updatePronunciation = (index: number, key: 'source' | 'target', value: string) => {
+    setPronunciations((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, [key]: value } : item));
+  };
+  const addPronunciation = () => setPronunciations((current) => [...current, { source: '', target: '' }]);
+  const removePronunciation = (index: number) => setPronunciations((current) => current.length === 1 ? current : current.filter((_, itemIndex) => itemIndex !== index));
+  const formDisabled = submitting || busy || executionActive;
+
+  return (
+    <div className="local-pipeline-grid">
+      <div>
+        <section className="panel local-pipeline-panel">
+          <div className="panel-header"><div><span className="section-kicker">LOCAL PIPELINE</span><h3>一括生成</h3></div><span className="tag">費用 0円</span></div>
+          <p className="panel-lead">生成映像・ナレーション・カット編集・合成・技術QCを、1つのlocal_pipeline Runで順番に実行します。</p>
+          <div className="local-pipeline-policy" role="note"><strong>ローカル専用の固定構成</strong><p>動画ソースはMiniMax H3の約5.17秒です。workflow presetは固定で、モデルパスやendpointは入力できません。外部有料APIは使用しません。</p></div>
+          <label className="field"><span>生成プロンプト</span><textarea rows={7} value={prompt} disabled={formDisabled} onChange={(event) => setPrompt(event.target.value)} placeholder="例：正面を向いた日本人女性が、柔らかな自然光のスタジオで静かに微笑む。フォトリアル、縦長構図。" aria-label="一括生成プロンプト" /></label>
+          <label className="field"><span>seed（0〜2^63−1の整数）</span><input type="text" inputMode="numeric" pattern="[0-9]*" value={seed} disabled={formDisabled} onChange={(event) => setSeed(event.target.value)} aria-label="一括生成seed" /></label>
+          <label className="field"><span>ナレーション台本（1行＝1セグメント）</span><textarea rows={6} value={script} disabled={formDisabled} onChange={(event) => setScript(event.target.value)} placeholder="例：この動画では、生成AIの使い方を紹介します。" aria-label="一括生成ナレーション台本" /></label>
+          <div className="local-pipeline-form-row">
+            <label className="field"><span>音声（任意）</span><input value={voice} disabled={formDisabled} onChange={(event) => setVoice(event.target.value)} placeholder="既定音声" aria-label="一括生成音声" /></label>
+            <label className="field"><span>読み上げ速度</span><input type="number" min={-10} max={10} step={1} value={rate} disabled={formDisabled} onChange={(event) => setRate(event.target.value)} aria-label="一括生成読み上げ速度" /></label>
+          </div>
+          <fieldset className="pronunciation-fieldset"><legend>発音置換（任意）</legend>{pronunciations.map((item, index) => <div className="pronunciation-row" key={index}><input value={item.source} disabled={formDisabled} onChange={(event) => updatePronunciation(index, 'source', event.target.value)} placeholder="表記" aria-label={`一括生成発音置換 ${index + 1} 表記`} /><span aria-hidden="true">→</span><input value={item.target} disabled={formDisabled} onChange={(event) => updatePronunciation(index, 'target', event.target.value)} placeholder="読み" aria-label={`一括生成発音置換 ${index + 1} 読み`} /><button className="button button-ghost" type="button" onClick={() => removePronunciation(index)} disabled={formDisabled || pronunciations.length === 1}>削除</button></div>)}<button className="button button-secondary" type="button" onClick={addPronunciation} disabled={formDisabled}>＋置換を追加</button></fieldset>
+          <label className="toggle-field"><input type="checkbox" checked={includeCaptioned} disabled={formDisabled} onChange={(event) => { const next = event.target.checked; setIncludeCaptioned(next); setVariant(next ? 'captioned' : 'clean'); setCaptionStylePreset(next ? RECOMMENDED_LOCAL_ASSEMBLY_CAPTION_STYLE_PRESET : 'studio_default_v1'); }} /><span><strong>字幕付きmasterを生成</strong><small>オンの場合、字幕付き版をQC対象にします。</small></span></label>
+          <label className="field"><span>字幕プリセット</span><select value={captionStylePreset} disabled={formDisabled || !includeCaptioned} onChange={(event) => { const next = event.target.value; if (next === 'studio_default_v1' || next === 'shorts_ja_large_v1') setCaptionStylePreset(next); }} aria-label="一括生成字幕プリセット"><option value="shorts_ja_large_v1">Shorts向け大字幕（推奨）</option><option value="studio_default_v1">標準字幕</option></select></label>
+          <label className="field"><span>QC対象variant</span><select value={variant} disabled={formDisabled || !includeCaptioned} onChange={(event) => { const next = event.target.value; if (next === 'clean' || next === 'captioned') setVariant(next); }} aria-label="一括生成QC対象variant"><option value="captioned">captioned（字幕付き）</option><option value="clean">clean（字幕なし）</option></select></label>
+          <div className="local-pipeline-summary"><span>Workflow</span><strong className="mono">{LOCAL_COMFYUI_WORKFLOW_PRESET}</strong><span>既存Run</span><strong className="mono">{effectiveRunId ?? '新規作成（dedupe対応）'}</strong></div>
+          {validationErrors.length > 0 && <div className="validation-list" role="status">{validationErrors.map((error) => <div key={error}>・{error}</div>)}</div>}
+          <button className="button button-primary full-button" type="button" onClick={() => void execute()} disabled={formDisabled || validationErrors.length > 0}>{submitting ? '登録中…' : executionActive || busy ? '一括生成を監視中…' : '一括生成を実行'}</button>
+          {message && <div className={`inline-message is-${message.type}`} role="status">{message.text}</div>}
+        </section>
+      </div>
+      <aside>
+        <section className="panel compact-panel local-pipeline-progress-panel" aria-live="polite" aria-busy={executionActive}>
+          <div className="panel-header"><div><span className="section-kicker">PIPELINE PROGRESS</span><h3>5段階の進捗</h3></div>{pipelineStatus ? <StatusBadge status={pipelineStatus} label={executionActive ? '監視中' : jobStatusLabel(pipelineStatus)} /> : <span className="muted">未実行</span>}</div>
+          <ol className="local-pipeline-progress">{LOCAL_PIPELINE_STEPS.map((step, index) => {
+            const item = stageResults[step.key];
+            const status = item?.status ?? (pipelineStatus ? 'pending' : 'unknown');
+            return <li className={`local-pipeline-step step-${status}`} key={step.key}><div className="local-pipeline-step-rail"><span>{index + 1}</span></div><div className="local-pipeline-step-body"><div><strong>{step.label}</strong><StatusBadge status={status} label={item ? jobStatusLabel(status) : '未開始'} /></div>{item?.progress !== undefined && <div className="progress-track" aria-label={`${item.progress}%`}><span style={{ width: `${Math.max(0, Math.min(100, item.progress))}%` }} /></div>}<small>{item?.jobId ? `Job ${item.jobId}` : item?.stageAttemptId ? `Attempt ${item.stageAttemptId}` : 'backendのstage記録を待機中'}</small>{item?.message && <p>{item.message}</p>}</div></li>;
+          })}</ol>
+          <dl className="narration-metrics"><div><dt>Run</dt><dd className="mono">{visibleJob?.result?.runId ?? visibleJob?.runId ?? effectiveRunId ?? '—'}</dd></div><div><dt>Revision</dt><dd className="mono">{visibleJob?.result?.revisionId ?? '—'}</dd></div><div><dt>更新</dt><dd>{formatDate(visibleJob?.updatedAt ?? selectedRun?.finishedAt ?? selectedRun?.startedAt)}</dd></div></dl>
+          {executionActive && <p className="gate-separation-note">監視中です。再読込後も同じRunとchild jobを照合して重複送信を防ぎます。</p>}
+        </section>
+        <section className="panel compact-panel local-pipeline-result-panel"><div className="panel-header"><div><span className="section-kicker">FINAL RESULT</span><h3>最終成果物・QC</h3></div>{technicalVerdict ? <StatusBadge status={technicalVerdict === 'pass' ? 'succeeded' : 'failed'} label={`technical verdict: ${technicalVerdict}`} /> : <span className="muted">判定待ち</span>}</div>{technicalVerdict === 'fail' && <div className="notice notice-warning"><div><strong>技術QCは不合格です</strong><p>ジョブ完了と技術検査合格は別判定です。成果物を確認してから再試行してください。</p></div></div>}{finalArtifacts.length === 0 ? <p className="muted">master artifactはまだありません。</p> : <div className="narration-artifact-list">{finalArtifacts.map((artifact) => <a key={artifact.id} href={artifact.url} target="_blank" rel="noreferrer"><strong>{artifact.name}</strong><span>{artifact.kind} · {formatBytes(artifact.sizeBytes)} ↗</span></a>)}</div>}<p className="gate-separation-note">ここで表示するのは実行・技術結果です。表現、権利、公開可否は別途確認してください。</p></section>
       </aside>
     </div>
   );

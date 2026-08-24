@@ -19,17 +19,19 @@ from .security import (
     sanitize_for_storage,
     sensitive_artifact_path,
     stable_id,
+    validate_identifier,
     workspace_path,
 )
 
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 MAX_EVENT_LINE_BYTES = 2 * 1024 * 1024
 _RUN_EXECUTION_PROFILES = {
     "external",
     "local_sapi",
     "elevenlabs_tts",
     "local_comfyui",
+    "local_pipeline",
 }
 _LOCAL_SAPI_ZERO_COST_STAGES = {
     "narration",
@@ -40,6 +42,14 @@ _LOCAL_SAPI_ZERO_COST_STAGES = {
 }
 _ELEVENLABS_TTS_STAGES = {"narration", "captions", "assembly", "qc"}
 _LOCAL_COMFYUI_ZERO_COST_STAGES = {"video_generation", "timeline", "assembly", "qc"}
+_LOCAL_PIPELINE_ZERO_COST_STAGES = {
+    "narration",
+    "captions",
+    "video_generation",
+    "timeline",
+    "assembly",
+    "qc",
+}
 _DEFAULT_INTERRUPTED_ERROR_CODE = "process_interrupted"
 _DEFAULT_INTERRUPTED_ERROR_MESSAGE = "The Studio process stopped."
 _MAX_RESTORED_STUDIO_ARTIFACT_BYTES = 2 * 1024 * 1024 * 1024
@@ -561,7 +571,18 @@ class StudioDatabase:
                     estimated_cost_minor INTEGER NOT NULL CHECK(estimated_cost_minor >= 0),
                     currency TEXT NOT NULL,
                     execution_profile TEXT NOT NULL DEFAULT 'external',
+                    pipeline_key TEXT,
                     immutable_digest TEXT NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS local_pipeline_claims (
+                    production_id TEXT NOT NULL REFERENCES productions(id),
+                    pipeline_key TEXT NOT NULL,
+                    run_id TEXT NOT NULL UNIQUE REFERENCES runs(id),
+                    revision_id TEXT NOT NULL REFERENCES revisions(id),
+                    active_job_id TEXT REFERENCES jobs(id),
+                    created_at TEXT NOT NULL,
+                    PRIMARY KEY(production_id, pipeline_key)
                 );
 
                 CREATE TABLE IF NOT EXISTS run_approvals (
@@ -676,6 +697,18 @@ class StudioDatabase:
             if "execution_profile" not in run_columns:
                 connection.execute(
                     "ALTER TABLE runs ADD COLUMN execution_profile TEXT NOT NULL DEFAULT 'external'"
+                )
+            if "pipeline_key" not in run_columns:
+                connection.execute("ALTER TABLE runs ADD COLUMN pipeline_key TEXT")
+            pipeline_claim_columns = {
+                row["name"]
+                for row in connection.execute(
+                    "PRAGMA table_info(local_pipeline_claims)"
+                ).fetchall()
+            }
+            if "active_job_id" not in pipeline_claim_columns:
+                connection.execute(
+                    "ALTER TABLE local_pipeline_claims ADD COLUMN active_job_id TEXT REFERENCES jobs(id)"
                 )
             attempt_columns = {
                 row["name"]
@@ -1327,6 +1360,7 @@ class StudioDatabase:
                 "requested_stages": _loads(row["requested_stages_json"], []),
                 "estimated_cost": money_from_minor(estimated, row["currency"]),
                 "execution_profile": row["execution_profile"] or "external",
+                "pipeline_key": row["pipeline_key"],
                 "stage_attempts": self._stage_attempt_dicts(connection, row["id"]),
                 "state": state,
                 "latest_approval": approval,
@@ -1346,7 +1380,26 @@ class StudioDatabase:
         *,
         parent_revision_id: str | None = None,
         execution_profile: str = "external",
+        pipeline_key: str | None = None,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
+        requested_stages = (
+            rerun_plan.get("affected_stages") if isinstance(rerun_plan, dict) else None
+        )
+        if execution_profile not in _RUN_EXECUTION_PROFILES:
+            raise ValueError("execution profile is invalid")
+        if pipeline_key is not None:
+            if (
+                execution_profile != "local_pipeline"
+                or not isinstance(pipeline_key, str)
+                or re.fullmatch(r"[0-9A-F]{64}", pipeline_key) is None
+                or estimated_cost_minor != 0
+                or not isinstance(requested_stages, list)
+                or len(requested_stages) != len(_LOCAL_PIPELINE_ZERO_COST_STAGES)
+                or set(requested_stages) != _LOCAL_PIPELINE_ZERO_COST_STAGES
+            ):
+                raise ValueError("pipeline key is invalid")
+        elif execution_profile == "local_pipeline":
+            raise ValueError("local_pipeline runs require a pipeline key")
         revision_id = f"rev_{uuid.uuid4().hex}"
         run_id = f"run_{uuid.uuid4().hex}"
         timestamp = utc_now()
@@ -1358,6 +1411,36 @@ class StudioDatabase:
             ).fetchone()
             if not production:
                 raise KeyError("production not found")
+            if pipeline_key is not None:
+                claimed = connection.execute(
+                    "SELECT run_id, revision_id FROM local_pipeline_claims "
+                    "WHERE production_id=? AND pipeline_key=?",
+                    (production_id, pipeline_key),
+                ).fetchone()
+                if claimed:
+                    revision_row = connection.execute(
+                        "SELECT * FROM revisions WHERE id=?", (claimed["revision_id"],)
+                    ).fetchone()
+                    run_row = connection.execute(
+                        "SELECT * FROM runs WHERE id=?", (claimed["run_id"],)
+                    ).fetchone()
+                    if revision_row is None or run_row is None:
+                        raise sqlite3.IntegrityError("pipeline claim provenance is missing")
+                    claimed_revision = self._revision_dict(revision_row)
+                    claimed_run = self._run_dict(run_row, connection)
+                    if (
+                        claimed_revision.get("production_id") != production_id
+                        or claimed_run.get("production_id") != production_id
+                        or claimed_run.get("revision_id") != claimed_revision.get("id")
+                        or claimed_run.get("execution_profile") != "local_pipeline"
+                        or claimed_run.get("pipeline_key") != pipeline_key
+                        or claimed_run.get("estimated_cost")
+                        != money_from_minor(0, claimed_run.get("estimated_cost", {}).get("currency", "USD"))
+                        or set(claimed_run.get("requested_stages", []))
+                        != _LOCAL_PIPELINE_ZERO_COST_STAGES
+                    ):
+                        raise sqlite3.IntegrityError("pipeline claim provenance is invalid")
+                    return claimed_revision, claimed_run
             latest = connection.execute(
                 "SELECT id, sequence FROM revisions WHERE production_id=? ORDER BY sequence DESC LIMIT 1",
                 (production_id,),
@@ -1406,10 +1489,12 @@ class StudioDatabase:
                 "currency": currency,
                 "execution_profile": execution_profile,
             }
+            if pipeline_key is not None:
+                run_payload["pipeline_key"] = pipeline_key
             run_digest = hashlib.sha256(canonical_json(run_payload).encode("utf-8")).hexdigest()
             connection.execute(
-                "INSERT INTO runs(id, production_id, revision_id, created_at, requested_stages_json, estimated_cost_minor, currency, execution_profile, immutable_digest) "
-                "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO runs(id, production_id, revision_id, created_at, requested_stages_json, estimated_cost_minor, currency, execution_profile, pipeline_key, immutable_digest) "
+                "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     run_id,
                     production_id,
@@ -1419,9 +1504,16 @@ class StudioDatabase:
                     estimated_cost_minor,
                     currency,
                     execution_profile,
+                    pipeline_key,
                     run_digest,
                 ),
             )
+            if pipeline_key is not None:
+                connection.execute(
+                    "INSERT INTO local_pipeline_claims(production_id, pipeline_key, run_id, revision_id, created_at) "
+                    "VALUES(?, ?, ?, ?, ?)",
+                    (production_id, pipeline_key, run_id, revision_id, timestamp),
+                )
             self._append_event(
                 connection,
                 "production",
@@ -1438,6 +1530,7 @@ class StudioDatabase:
                         "estimated_cost": money_from_minor(estimated_cost_minor, currency),
                         "execution_profile": execution_profile,
                         "immutable_digest": run_digest,
+                        **({"pipeline_key": pipeline_key} if pipeline_key is not None else {}),
                     },
                 },
                 created_at=timestamp,
@@ -1457,6 +1550,7 @@ class StudioDatabase:
                         "estimated_cost": money_from_minor(estimated_cost_minor, currency),
                         "execution_profile": execution_profile,
                         "immutable_digest": run_digest,
+                        **({"pipeline_key": pipeline_key} if pipeline_key is not None else {}),
                     },
                     "requires_cost_approval": estimated_cost_minor > 0,
                 },
@@ -2088,6 +2182,17 @@ class StudioDatabase:
                         )
                     ):
                         continue
+                    pipeline_key = run.get("pipeline_key")
+                    if execution_profile == "local_pipeline":
+                        if (
+                            estimated_minor != 0
+                            or set(requested_stages) != _LOCAL_PIPELINE_ZERO_COST_STAGES
+                            or not isinstance(pipeline_key, str)
+                            or re.fullmatch(r"[0-9A-F]{64}", pipeline_key) is None
+                        ):
+                            continue
+                    elif pipeline_key is not None:
+                        continue
                     run_core = {
                         "id": run["id"],
                         "production_id": run["production_id"],
@@ -2098,6 +2203,8 @@ class StudioDatabase:
                         "currency": currency,
                         "execution_profile": execution_profile,
                     }
+                    if pipeline_key is not None:
+                        run_core["pipeline_key"] = pipeline_key
                     run_digest = hashlib.sha256(canonical_json(run_core).encode("utf-8")).hexdigest()
                     if run_digest != run["immutable_digest"] and execution_profile == "external":
                         # v1 event payloads did not include the profile in the
@@ -2114,8 +2221,8 @@ class StudioDatabase:
                         continue
                     before = connection.total_changes
                     connection.execute(
-                        "INSERT OR IGNORE INTO runs(id, production_id, revision_id, created_at, requested_stages_json, estimated_cost_minor, currency, execution_profile, immutable_digest) "
-                        "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        "INSERT OR IGNORE INTO runs(id, production_id, revision_id, created_at, requested_stages_json, estimated_cost_minor, currency, execution_profile, pipeline_key, immutable_digest) "
+                        "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                         (
                             run["id"],
                             run["production_id"],
@@ -2125,10 +2232,23 @@ class StudioDatabase:
                             estimated_minor,
                             currency,
                             str(run.get("execution_profile") or "external"),
+                            pipeline_key,
                             run_digest,
                         ),
                     )
                     restored["runs"] += int(connection.total_changes > before)
+                    if pipeline_key is not None:
+                        connection.execute(
+                            "INSERT OR IGNORE INTO local_pipeline_claims(production_id, pipeline_key, run_id, revision_id, created_at) "
+                            "VALUES(?, ?, ?, ?, ?)",
+                            (
+                                run["production_id"],
+                                pipeline_key,
+                                run["id"],
+                                run["revision_id"],
+                                run["created_at"],
+                            ),
+                        )
                 except (KeyError, TypeError, ValueError, sqlite3.IntegrityError):
                     continue
 
@@ -2418,6 +2538,128 @@ class StudioDatabase:
         result = self.get_job(job_id)
         assert result is not None
         return result
+
+    def create_or_get_local_pipeline_job(
+        self,
+        *,
+        production_id: str,
+        run_id: str,
+        pipeline_key: str,
+        payload: Any,
+        reuse_succeeded: bool = True,
+    ) -> tuple[dict[str, Any], bool]:
+        """Atomically claim the one top-level job for a pipeline request.
+
+        Active and successful requests are idempotent.  A failed/interrupted
+        top job may be replaced, but the immutable run claim is retained so
+        completed child caches and the same-run ComfyUI marker remain usable.
+        """
+
+        validate_identifier(production_id, label="production id")
+        validate_identifier(run_id, label="run id")
+        if not isinstance(pipeline_key, str) or re.fullmatch(
+            r"[0-9A-F]{64}", pipeline_key
+        ) is None:
+            raise ValueError("invalid pipeline key")
+        if not isinstance(reuse_succeeded, bool):
+            raise ValueError("reuse_succeeded must be a boolean")
+        safe_payload = sanitize_for_storage(payload)
+        if (
+            not isinstance(safe_payload, dict)
+            or safe_payload.get("production_id") != production_id
+            or safe_payload.get("run_id") != run_id
+            or safe_payload.get("pipeline_key") != pipeline_key
+            or safe_payload.get("execution_profile") != "local_pipeline"
+            or not isinstance(safe_payload.get("revision_id"), str)
+        ):
+            raise ValueError("invalid pipeline job payload")
+
+        timestamp = utc_now()
+        with self.transaction() as connection:
+            claim = connection.execute(
+                "SELECT * FROM local_pipeline_claims WHERE production_id=? AND pipeline_key=?",
+                (production_id, pipeline_key),
+            ).fetchone()
+            if (
+                claim is None
+                or claim["run_id"] != run_id
+                or not isinstance(claim["revision_id"], str)
+                or safe_payload.get("revision_id") != claim["revision_id"]
+            ):
+                raise ValueError("pipeline run claim is unavailable")
+            run = connection.execute(
+                "SELECT * FROM runs WHERE id=?", (run_id,)
+            ).fetchone()
+            if (
+                run is None
+                or run["production_id"] != production_id
+                or run["execution_profile"] != "local_pipeline"
+                or run["pipeline_key"] != pipeline_key
+                or run["revision_id"] != claim["revision_id"]
+                or run["estimated_cost_minor"] != 0
+                or set(_loads(run["requested_stages_json"], []))
+                != _LOCAL_PIPELINE_ZERO_COST_STAGES
+            ):
+                raise ValueError("pipeline run claim is invalid")
+
+            active_job_id = claim["active_job_id"]
+            if isinstance(active_job_id, str):
+                existing = connection.execute(
+                    "SELECT * FROM jobs WHERE id=?", (active_job_id,)
+                ).fetchone()
+                if existing is None:
+                    raise sqlite3.IntegrityError("pipeline job claim is missing")
+                existing_payload = _loads(existing["payload_json"], {})
+                existing_result = _loads(existing["result_json"], None)
+                if (
+                    existing["kind"] != "local_pipeline"
+                    or existing["production_id"] != production_id
+                    or existing_payload != safe_payload
+                ):
+                    raise sqlite3.IntegrityError("pipeline job claim is invalid")
+                if existing["status"] in {"queued", "running"} or (
+                    existing["status"] == "succeeded" and reuse_succeeded
+                ):
+                    if existing["status"] == "succeeded" and (
+                        not isinstance(existing_result, dict)
+                        or existing_result.get("production_id") != production_id
+                        or existing_result.get("run_id") != run_id
+                        or existing_result.get("revision_id") != claim["revision_id"]
+                        or existing_result.get("pipeline_key") != pipeline_key
+                        or existing_result.get("execution_profile") != "local_pipeline"
+                        or existing_result.get("technical_verdict") != "pass"
+                    ):
+                        raise sqlite3.IntegrityError(
+                            "pipeline job result provenance is invalid"
+                        )
+                    return self._job_dict(existing), False
+
+            job_id = f"job_{uuid.uuid4().hex}"
+            connection.execute(
+                "INSERT INTO jobs(id, kind, status, production_id, created_at, payload_json) "
+                "VALUES(?, 'local_pipeline', 'queued', ?, ?, ?)",
+                (job_id, production_id, timestamp, _json(safe_payload)),
+            )
+            connection.execute(
+                "UPDATE local_pipeline_claims SET active_job_id=? "
+                "WHERE production_id=? AND pipeline_key=? AND run_id=?",
+                (job_id, production_id, pipeline_key, run_id),
+            )
+            if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                raise sqlite3.IntegrityError("pipeline job claim changed concurrently")
+            self._append_event(
+                connection,
+                "job",
+                job_id,
+                "job.queued",
+                {"kind": "local_pipeline", "production_id": production_id},
+                created_at=timestamp,
+            )
+            row = connection.execute(
+                "SELECT * FROM jobs WHERE id=?", (job_id,)
+            ).fetchone()
+            assert row is not None
+            return self._job_dict(row), True
 
     def complete_job_with_stage_attempt(
         self,
@@ -2823,3 +3065,29 @@ class StudioDatabase:
                 "SELECT * FROM jobs ORDER BY created_at DESC LIMIT ?", (limit,)
             ).fetchall()
         return [self._job_dict(row) for row in rows]
+
+    def find_latest_job_for_run(
+        self, kind: str, production_id: str, run_id: str
+    ) -> dict[str, Any] | None:
+        """Return the newest job of ``kind`` durably bound to one run.
+
+        ``run_id`` lives inside the sanitized immutable job payload, so the
+        final comparison is performed after JSON decoding.  Production and
+        kind predicates keep the scan bounded to the relevant audit stream.
+        """
+
+        validate_identifier(production_id, label="production id")
+        validate_identifier(run_id, label="run id")
+        if not isinstance(kind, str) or not re.fullmatch(r"[a-z][a-z0-9_]{0,63}", kind):
+            raise ValueError("invalid job kind")
+        with self.session() as connection:
+            rows = connection.execute(
+                "SELECT * FROM jobs WHERE kind=? AND production_id=? ORDER BY rowid DESC",
+                (kind, production_id),
+            ).fetchall()
+        for row in rows:
+            job = self._job_dict(row)
+            payload = job.get("payload")
+            if isinstance(payload, dict) and payload.get("run_id") == run_id:
+                return job
+        return None

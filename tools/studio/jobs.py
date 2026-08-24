@@ -89,6 +89,7 @@ _PUBLIC_ERROR_CODES = frozenset(
         "invalid_input_path",
         "invalid_local_assembly_request",
         "invalid_local_narration_request",
+        "invalid_local_pipeline_request",
         "invalid_external_narration_request",
         "invalid_external_tts_request",
         "invalid_local_qc_request",
@@ -113,6 +114,10 @@ _PUBLIC_ERROR_CODES = frozenset(
         "local_ffmpeg_timeout",
         "local_ffmpeg_unavailable",
         "local_narration_failed",
+        "local_pipeline_failed",
+        "local_pipeline_stage_failed",
+        "local_pipeline_timeout",
+        "local_pipeline_unavailable",
         "local_profile_cost_not_allowed",
         "local_profile_stage_not_allowed",
         "local_qc_failed",
@@ -135,6 +140,7 @@ _PUBLIC_ERROR_CODES = frozenset(
         "source_size_invalid",
         "stage_not_requested",
         "timeline_duration_invalid",
+        "technical_qc_failed",
         "trim_out_of_range",
         "integrity_verification_failed",
         "unsupported_media_type",
@@ -454,7 +460,7 @@ def _sha256_file(path: Path) -> str:
 
 
 class JobManager:
-    _LANES = ("default", "gpu")
+    _LANES = ("default", "gpu", "pipeline")
 
     def __init__(self, database: StudioDatabase):
         self.database = database
@@ -486,8 +492,9 @@ class JobManager:
         # the default worker, and expose the GPU worker for diagnostics/tests.
         self._thread = self._threads["default"]
         self._gpu_thread = self._threads["gpu"]
-        self._thread.start()
-        self._gpu_thread.start()
+        self._pipeline_thread = self._threads["pipeline"]
+        for thread in self._threads.values():
+            thread.start()
 
     def submit(
         self,
@@ -538,6 +545,53 @@ class JobManager:
                     event.set()
                 raise
             return job
+
+    def submit_local_pipeline_once(
+        self,
+        *,
+        production_id: str,
+        run_id: str,
+        pipeline_key: str,
+        payload: Any,
+        callback: JobCallable,
+        reuse_succeeded: bool = True,
+    ) -> tuple[dict[str, Any], bool]:
+        """Atomically deduplicate and admit one top-level pipeline worker."""
+
+        work_queue = self._queues["pipeline"]
+        with self._lock:
+            if self._closed:
+                raise JobManagerClosed("Studio background jobs are closed.")
+            job, created = self.database.create_or_get_local_pipeline_job(
+                production_id=production_id,
+                run_id=run_id,
+                pipeline_key=pipeline_key,
+                payload=payload,
+                reuse_succeeded=reuse_succeeded,
+            )
+            if not created:
+                return job, False
+            context = JobExecutionContext(job["id"])
+            self._finished[job["id"]] = threading.Event()
+            self._active[job["id"]] = context
+            try:
+                work_queue.put(_QueuedJob(job["id"], callback, context))
+            except Exception:
+                try:
+                    self.database.update_job(
+                        job["id"],
+                        "failed",
+                        error_code="job_setup_failed",
+                        error_message="The background job could not be prepared.",
+                    )
+                except Exception:
+                    pass
+                self._active.pop(job["id"], None)
+                event = self._finished.get(job["id"])
+                if event:
+                    event.set()
+                raise
+            return job, True
 
     @staticmethod
     def _invoke(
@@ -675,6 +729,48 @@ class JobManager:
             event = self._finished.get(job_id)
         if event:
             event.wait(timeout)
+        return self.database.get_job(job_id)
+
+    def cancel_and_wait(
+        self, job_id: str, *, timeout: float | None = None
+    ) -> dict[str, Any] | None:
+        """Cancel one admitted job and wait for its worker slot to retire.
+
+        A terminal database row alone is insufficient for orchestration: its
+        Python callback or registered subprocess could still be active.  This
+        method publishes cancellation, interrupts the linked job/stage pair,
+        repeatedly terminates descendants, and only returns after the worker
+        has left its ``finally`` block (or an explicit caller timeout elapses).
+        """
+
+        validate_identifier(job_id, label="job id")
+        with self._lock:
+            context = self._active.get(job_id)
+            event = self._finished.get(job_id)
+        if context is not None:
+            context.set()
+            _terminate_context_processes(context)
+        try:
+            self.database.interrupt_job(job_id)
+        except Exception:
+            # Cancellation remains published even if SQLite is temporarily
+            # unavailable; the worker boundary performs its own best-effort
+            # terminal transition.
+            pass
+        if event is None:
+            return self.database.get_job(job_id)
+
+        deadline = None if timeout is None else time.monotonic() + max(0.0, float(timeout))
+        while not event.is_set():
+            if context is not None:
+                _terminate_context_processes(context, deadline=deadline)
+            if deadline is not None:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                event.wait(min(0.1, remaining))
+            else:
+                event.wait(0.1)
         return self.database.get_job(job_id)
 
     def shutdown(self, timeout: float = 5.0) -> None:

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
-    "test": "tsc --ignoreConfig --target ES2022 --module ESNext --moduleResolution Bundler --skipLibCheck --outDir .test-dist src/api.ts src/status.ts src/types.ts && node --test tests/status.test.mjs tests/qc.test.mjs tests/timeline.test.mjs tests/narration.test.mjs tests/external-tts.test.mjs tests/video-generation.test.mjs",
+    "test": "tsc --ignoreConfig --target ES2022 --module ESNext --moduleResolution Bundler --skipLibCheck --outDir .test-dist src/api.ts src/status.ts src/types.ts && node --test tests/status.test.mjs tests/qc.test.mjs tests/timeline.test.mjs tests/narration.test.mjs tests/external-tts.test.mjs tests/video-generation.test.mjs tests/pipeline.test.mjs",
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
