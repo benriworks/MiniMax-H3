@@ -25,8 +25,10 @@ import {
   isProviderTaskResumeAvailable,
   newestProviderTasks,
   isLocalPipelineJobForSelection,
+  isLocalPipelineTopJob,
   isLocalPipelineExecutionActive,
   isLocalPipelineExecutionActiveAcross,
+  isPipelineContinuationActive,
   duplicateTimelineClip,
   moveTimelineClip,
   normalizeLocalTimelineInput,
@@ -58,6 +60,7 @@ import type {
   LocalNarrationRequest,
   ProductionDetail,
   ProductionRun,
+  PipelineContinuationState,
   ProductionSummary,
   ProviderTask,
   ProviderTaskStatus,
@@ -188,6 +191,36 @@ const PROVIDER_TASK_STATUS_LABEL: Record<ProviderTaskStatus, string> = {
 };
 
 const providerTaskStatusLabel = (status: ProviderTaskStatus): string => PROVIDER_TASK_STATUS_LABEL[status];
+
+const PIPELINE_CONTINUATION_STATE_LABEL: Record<PipelineContinuationState, string> = {
+  active: '初回生成を実行中',
+  waiting_provider: 'provider復旧待ち',
+  ready: '継続準備完了',
+  continuing: '後続工程を継続中',
+  succeeded: '自動継続完了',
+  recovery_blocked: '復旧停止',
+  unavailable: '自動継続不可',
+  cancel_requested: 'キャンセル処理中',
+  cancelled: 'キャンセル済み',
+};
+
+const pipelineContinuationStateLabel = (state: PipelineContinuationState): string =>
+  PIPELINE_CONTINUATION_STATE_LABEL[state];
+
+const PIPELINE_CONTINUATION_DESCRIPTION: Record<PipelineContinuationState, string> = {
+  active: '初回の一括生成を実行しています。Studio終了時はprovider taskを保持し、次回起動後に同じRunを復旧します。',
+  waiting_provider: '同じprovider taskの完了を待っています。生成promptは再送信しません。',
+  ready: '復旧済み動画のcheckpointを確定しました。後続工程を同じRunへ自動投入します。',
+  continuing: '指定checkpointを含む検証済みcacheだけを使い、同じRunの後続工程を実行しています。',
+  succeeded: '同じRunの後続工程と技術QCまで完了しました。',
+  recovery_blocked: '安全確認に失敗したため自動継続を停止しました。エラーを確認して明示的に再実行してください。',
+  unavailable: '保護済みrequestを保存できなかったため自動継続できません。必要なら同じ入力を明示的に再実行してください。',
+  cancel_requested: 'provider側のキャンセル確定を待っています。後続工程は自動継続しません。',
+  cancelled: 'キャンセルが確定しました。後続工程は自動継続しません。',
+};
+
+const pipelineContinuationDescription = (state: PipelineContinuationState): string =>
+  PIPELINE_CONTINUATION_DESCRIPTION[state];
 
 const providerTaskNextActionLabel = (action?: string): string | undefined => {
   if (!action) return undefined;
@@ -756,14 +789,15 @@ const jobBelongsToPipelineRun = (job: Job, runId?: string): boolean => {
   return job.runId === runId || job.result?.runId === runId || rawRunId === runId;
 };
 
-/** Prefer a newly active child job over a stale terminal submission after reload. */
+/** Keep the pipeline summary on its true top job; child jobs only drive stage progress. */
 const selectLocalPipelineDisplayJob = (localJob: Job | undefined, matchingJobs: Job[], runId?: string): Job | undefined => {
   const candidates = [localJob, ...matchingJobs]
     .filter((candidate): candidate is Job => candidate !== undefined)
     .filter((candidate) => jobBelongsToPipelineRun(candidate, runId))
     .filter((candidate, index, all) => all.findIndex((item) => item.id === candidate.id) === index);
-  const active = candidates.filter((candidate) => isLocalPipelineExecutionActive(candidate));
-  return newestPipelineJob(active) ?? newestPipelineJob(candidates);
+  const topJobs = candidates.filter(isLocalPipelineTopJob);
+  const active = topJobs.filter((candidate) => isLocalPipelineExecutionActive(candidate));
+  return newestPipelineJob(active) ?? newestPipelineJob(topJobs);
 };
 
 const localPipelineRunIsEligible = (run: ProductionRun): boolean => run.executionProfile === 'local_pipeline';
@@ -847,10 +881,11 @@ function LocalPipelinePanel({ detail, jobs, onReload }: { detail: ProductionDeta
   useEffect(() => { onReloadRef.current = onReload; }, [onReload]);
   const activePipelineRun = useMemo(() => {
     const allJobs = [...jobs, ...observedJobs];
-    return pipelineRuns.find((run) => isLocalPipelineExecutionActiveAcross([
-      ...(run.stageAttempts ?? []),
-      ...allJobs.filter((item) => jobBelongsToPipelineRun(item, run.id)),
-    ]));
+    return pipelineRuns.find((run) => isPipelineContinuationActive(run.pipelineContinuation)
+      || isLocalPipelineExecutionActiveAcross([
+        ...(run.stageAttempts ?? []),
+        ...allJobs.filter((item) => jobBelongsToPipelineRun(item, run.id)),
+      ]));
   }, [jobs, observedJobs, pipelineRuns]);
   useEffect(() => {
     if (!pipelineRunId && (activePipelineRun || pipelineRuns[0])) setPipelineRunId((activePipelineRun ?? pipelineRuns[0]).id);
@@ -870,6 +905,8 @@ function LocalPipelinePanel({ detail, jobs, onReload }: { detail: ProductionDeta
   }, [detail.id, detail.providerTasks, selectedRun]);
   const providerTaskActive = providerTasks.some((task) => isProviderTaskActive(task));
   const providerTaskBlocking = providerTasks.some((task) => isProviderTaskBlocking(task));
+  const pipelineContinuation = selectedRun?.pipelineContinuation;
+  const pipelineContinuationActive = isPipelineContinuationActive(pipelineContinuation);
   const matchingJobs = useMemo(() => {
     const all = [...jobs, ...observedJobs];
     return all
@@ -883,7 +920,7 @@ function LocalPipelinePanel({ detail, jobs, onReload }: { detail: ProductionDeta
     visibleJob,
     ...stageAttempts,
     ...matchingJobs,
-  ]) || providerTaskActive;
+  ]) || providerTaskActive || pipelineContinuationActive;
   const pipelineStatus = visibleJob?.status ?? selectedRun?.status;
   const formInput = useMemo(() => ({
     prompt,
@@ -1028,7 +1065,7 @@ function LocalPipelinePanel({ detail, jobs, onReload }: { detail: ProductionDeta
           ? localComfyUiError(resumed.message ?? (resumed.status === 'cancelled' ? 'provider taskの再照合は中断されました' : 'provider taskの再開に失敗しました'))
           : task.status === 'cancel_requested'
             ? 'キャンセル状態の再照合を登録しました。providerが終了するまで同じtask IDだけを確認します。'
-            : '動画生成taskの再開を登録しました。完了後、同じ一括生成入力を再実行するとキャッシュから後続工程へ進めます。',
+            : '動画生成taskの再開を登録しました。provider完了後は、同じRunの一括生成がキャッシュを検証して後続工程を自動継続します。',
       });
       if (isTerminalStatus(resumed.status)) setBusy(false);
     } catch (error) {
@@ -1073,9 +1110,20 @@ function LocalPipelinePanel({ detail, jobs, onReload }: { detail: ProductionDeta
         </section>
       </div>
       <aside>
-        <ProviderTaskRecoveryCard tasks={providerTasks} resumingTaskId={resumingTaskId} onResume={(task) => void resumeProviderTask(task)} />
+        <ProviderTaskRecoveryCard tasks={providerTasks} resumingTaskId={resumingTaskId} onResume={(task) => void resumeProviderTask(task)} continuesPipeline />
         <section className="panel compact-panel local-pipeline-progress-panel" aria-live="polite" aria-busy={executionActive}>
           <div className="panel-header"><div><span className="section-kicker">PIPELINE PROGRESS</span><h3>5段階の進捗</h3></div>{pipelineStatus ? <StatusBadge status={pipelineStatus} label={executionActive ? '監視中' : jobStatusLabel(pipelineStatus)} /> : <span className="muted">未実行</span>}</div>
+          {pipelineContinuation && <div className="local-pipeline-policy" role="status" aria-live="polite">
+            <strong>Pipeline継続：{pipelineContinuationStateLabel(pipelineContinuation.state)}</strong>
+            <p>{pipelineContinuationDescription(pipelineContinuation.state)}</p>
+            <dl className="narration-metrics">
+              <div><dt>継続Job</dt><dd className="mono">{pipelineContinuation.jobId ?? '—'}</dd></div>
+              <div><dt>復旧元Job</dt><dd className="mono">{pipelineContinuation.sourceJobId ?? '—'}</dd></div>
+              <div><dt>再開回数</dt><dd>{pipelineContinuation.resumeCount ?? 0}</dd></div>
+              <div><dt>更新</dt><dd>{formatDate(pipelineContinuation.updatedAt)}</dd></div>
+            </dl>
+            {pipelineContinuation.error && <p className="provider-task-error">{pipelineContinuation.error.message ?? pipelineContinuation.error.code ?? 'pipeline継続に失敗しました'}{pipelineContinuation.error.code ? ` · ${pipelineContinuation.error.code}` : ''}</p>}
+          </div>}
           <ol className="local-pipeline-progress">{LOCAL_PIPELINE_STEPS.map((step, index) => {
             const item = stageResults[step.key];
             const status = item?.status ?? (pipelineStatus ? 'pending' : 'unknown');
@@ -1083,7 +1131,7 @@ function LocalPipelinePanel({ detail, jobs, onReload }: { detail: ProductionDeta
           })}</ol>
           <dl className="narration-metrics"><div><dt>Run</dt><dd className="mono">{visibleJob?.result?.runId ?? visibleJob?.runId ?? effectiveRunId ?? '—'}</dd></div><div><dt>Revision</dt><dd className="mono">{visibleJob?.result?.revisionId ?? '—'}</dd></div><div><dt>更新</dt><dd>{formatDate(visibleJob?.updatedAt ?? selectedRun?.finishedAt ?? selectedRun?.startedAt)}</dd></div></dl>
           {executionActive && <p className="gate-separation-note">監視中です。再読込後も同じRunとchild jobを照合して重複送信を防ぎます。</p>}
-          {!executionActive && providerTasks.some((task) => task.status === 'succeeded') && <p className="gate-separation-note">動画生成taskの復旧後は、同じ入力で一括生成を再実行すると、動画キャッシュを再利用して後続工程へ進みます。</p>}
+          {!executionActive && providerTasks.some((task) => task.status === 'succeeded') && !pipelineContinuation && <p className="gate-separation-note">動画生成taskの復旧後は、同じRunのpipelineがcacheを検証して後続工程を自動継続します。</p>}
         </section>
         <section className="panel compact-panel local-pipeline-result-panel"><div className="panel-header"><div><span className="section-kicker">FINAL RESULT</span><h3>最終成果物・QC</h3></div>{technicalVerdict ? <StatusBadge status={technicalVerdict === 'pass' ? 'succeeded' : 'failed'} label={`technical verdict: ${technicalVerdict}`} /> : <span className="muted">判定待ち</span>}</div>{technicalVerdict === 'fail' && <div className="notice notice-warning"><div><strong>技術QCは不合格です</strong><p>ジョブ完了と技術検査合格は別判定です。成果物を確認してから再試行してください。</p></div></div>}{finalArtifacts.length === 0 ? <p className="muted">master artifactはまだありません。</p> : <div className="narration-artifact-list">{finalArtifacts.map((artifact) => <a key={artifact.id} href={artifact.url} target="_blank" rel="noreferrer"><strong>{artifact.name}</strong><span>{artifact.kind} · {formatBytes(artifact.sizeBytes)} ↗</span></a>)}</div>}<p className="gate-separation-note">ここで表示するのは実行・技術結果です。表現、権利、公開可否は別途確認してください。</p></section>
       </aside>
@@ -1152,10 +1200,12 @@ function ProviderTaskRecoveryCard({
   tasks,
   resumingTaskId,
   onResume,
+  continuesPipeline = false,
 }: {
   tasks: ProviderTask[];
   resumingTaskId?: string;
   onResume: (task: ProviderTask) => void;
+  continuesPipeline?: boolean;
 }) {
   if (tasks.length === 0) return null;
   return (
@@ -1167,7 +1217,7 @@ function ProviderTaskRecoveryCard({
         <div><span className="section-kicker">PROVIDER RECOVERY</span><h3>Provider task復旧</h3></div>
         <span className="count-chip">{tasks.length}</span>
       </div>
-      <p className="panel-lead">再起動後もprovider taskの重複送信を防ぎ、永続化済みのtaskを同じRunで安全に照合・再開します。prompt本文は表示しません。</p>
+      <p className="panel-lead">再起動後もprovider taskの重複送信を防ぎ、永続化済みのtaskを同じRunで安全に照合・再開します。{continuesPipeline ? 'provider完了後はpipelineの後続工程を自動継続します。' : ''}prompt本文は表示しません。</p>
       <div className="provider-task-recovery-list">
         {tasks.map((task) => {
           const resumeAvailable = isProviderTaskResumeAvailable(task);

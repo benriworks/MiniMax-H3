@@ -12,6 +12,7 @@ import subprocess
 import threading
 import time
 import zipfile
+from bisect import bisect_right
 from dataclasses import dataclass
 from collections.abc import Callable
 from pathlib import Path
@@ -116,6 +117,7 @@ _PUBLIC_ERROR_CODES = frozenset(
         "local_ffmpeg_unavailable",
         "local_narration_failed",
         "local_pipeline_failed",
+        "pipeline_recovered_video_unavailable",
         "local_pipeline_stage_failed",
         "local_pipeline_timeout",
         "local_pipeline_unavailable",
@@ -182,6 +184,10 @@ class JobManagerClosed(RuntimeError):
     """Raised when a request races with Studio shutdown."""
 
 
+class PipelineContinuationFenced(RuntimeError):
+    """Raised when an exact operator cancel blocks continuation admission."""
+
+
 class JobCancelled(RuntimeError):
     """Raised by a cooperative worker after the Studio shutdown signal."""
 
@@ -204,6 +210,7 @@ class JobExecutionContext(threading.Event):
         self._processes: dict[int, object] = {}
         self._baseline_processes: set[int] = set()
         self._preserve_provider_task = False
+        self._operator_cancel_requested = False
         self._provider_task_record_id: str | None = None
 
     def set(self) -> None:
@@ -220,6 +227,7 @@ class JobExecutionContext(threading.Event):
             # request if both race.  Provider adapters may therefore issue
             # their best-effort remote cancellation only for this path.
             self._preserve_provider_task = False
+            self._operator_cancel_requested = True
             super().set()
 
     def set_for_shutdown(self) -> None:
@@ -232,7 +240,11 @@ class JobExecutionContext(threading.Event):
         """
 
         with self._process_lock:
-            self._preserve_provider_task = True
+            # Explicit operator cancellation is monotonic. A later Studio
+            # shutdown must never turn destructive intent back into provider
+            # preservation and automatic continuation.
+            if not self._operator_cancel_requested:
+                self._preserve_provider_task = True
             super().set()
 
     @property
@@ -257,6 +269,7 @@ class JobExecutionContext(threading.Event):
         # preserves the Event contract for existing callers.
         with self._process_lock:
             self._preserve_provider_task = False
+            self._operator_cancel_requested = False
             super().clear()
 
     def raise_if_cancelled(self) -> None:
@@ -415,6 +428,23 @@ def _payload_stage_attempt_id(job: dict[str, Any]) -> str | None:
     return value
 
 
+def _is_claimed_local_pipeline_top(job: dict[str, Any]) -> bool:
+    """Recognize the durable top contract, not merely a lane-test job kind."""
+
+    payload = job.get("payload")
+    return bool(
+        job.get("kind") == "local_pipeline"
+        and isinstance(payload, dict)
+        and payload.get("stage") == "pipeline"
+        and payload.get("execution_profile") == "local_pipeline"
+        and isinstance(payload.get("production_id"), str)
+        and isinstance(payload.get("run_id"), str)
+        and isinstance(payload.get("revision_id"), str)
+        and isinstance(payload.get("pipeline_key"), str)
+        and re.fullmatch(r"[0-9A-F]{64}", payload["pipeline_key"]) is not None
+    )
+
+
 def _terminate_process_tree(pid: int, *, deadline: float | None = None) -> None:
     """Stop one subprocess and all descendants, bounded but not join-only."""
 
@@ -513,12 +543,29 @@ class JobManager:
         self._queue = self._queues["default"]
         self._finished: dict[str, threading.Event] = {}
         self._active: dict[str, JobExecutionContext] = {}
+        # Exact top jobs whose queue admission and immediate DB compensation
+        # both failed.  Retrying only these IDs avoids guessing whether an
+        # unrelated durable queued job belongs to a live worker.
+        self._pending_local_pipeline_admission_aborts: set[str] = set()
+        # Explicit operator cancellation must outlive the in-memory worker
+        # context. A transient SQLite failure can otherwise let the worker
+        # retire first and leave generic shutdown recovery free to re-arm the
+        # exact pipeline generation that the operator already cancelled.
+        self._pending_operator_cancel_job_ids: set[str] = set()
+        self._operator_cancel_retry_cursor: str | None = None
+        # A worker records dequeue ownership under the same lock used by
+        # submission and admission repair.  ``_repairing`` lets a repair win
+        # safely when it reaches an ambiguous queued item first.
+        self._dequeued_job_ids: set[str] = set()
+        self._repairing_local_pipeline_admissions: set[str] = set()
         self._lock = threading.Lock()
         self._closed = False
         self._shutdown_enqueued = False
         self._shutdown_interrupt_started = False
         self._shutdown_interrupt_thread: threading.Thread | None = None
         self._shutdown_interrupt_thread_has_started = False
+        self._shutdown_operator_cancel_blocked = False
+        self._shutdown_complete = False
         self._threads: dict[str, threading.Thread] = {
             lane: threading.Thread(
                 target=self._worker,
@@ -598,6 +645,262 @@ class JobManager:
         with self._lock:
             return job_id in self._active
 
+    def repair_local_pipeline_admissions(self) -> int:
+        """Retry exact failed queue-admission compensations, without guessing."""
+
+        repaired = 0
+        with self._lock:
+            pending = tuple(self._pending_local_pipeline_admission_aborts)[:100]
+        for job_id in pending:
+            with self._lock:
+                if job_id not in self._pending_local_pipeline_admission_aborts:
+                    continue
+                context = self._active.get(job_id)
+                operator_cancel = bool(
+                    job_id in self._pending_operator_cancel_job_ids
+                    or (
+                        context is not None
+                        and context.is_set()
+                        and not context.preserve_provider_task
+                    )
+                )
+                if job_id in self._dequeued_job_ids:
+                    # ``put`` enqueued before raising and the worker won the
+                    # handshake. Its finally block owns active/event cleanup.
+                    self._pending_local_pipeline_admission_aborts.discard(job_id)
+                    continue
+                if job_id in self._repairing_local_pipeline_admissions:
+                    continue
+                self._repairing_local_pipeline_admissions.add(job_id)
+            retire_context = False
+            discard_pending = False
+            admission_aborted = False
+            if operator_cancel:
+                # Cooperate with (or complete after) cancel_and_wait. This
+                # transaction interrupts an active top or fences the exact
+                # admission-aborted ready generation; it never turns operator
+                # intent back into an automatic continuation.
+                try:
+                    cancelled = self.database.interrupt_job(
+                        job_id,
+                        cancel_provider_task=True,
+                        preserve_pipeline_continuation=False,
+                    )
+                except Exception:
+                    cancelled = False
+                    cancel_failed = True
+                else:
+                    cancel_failed = False
+                if not cancel_failed:
+                    try:
+                        current = self.database.get_job(job_id)
+                    except Exception:
+                        current = "read_failed"
+                    current_status = (
+                        current.get("status")
+                        if isinstance(current, dict)
+                        else None
+                    )
+                    if cancelled or current is None or current_status in {
+                        "failed",
+                        "interrupted",
+                        "succeeded",
+                    }:
+                        discard_pending = True
+                        retire_context = True
+                with self._lock:
+                    self._repairing_local_pipeline_admissions.discard(job_id)
+                    if discard_pending:
+                        self._pending_local_pipeline_admission_aborts.discard(
+                            job_id
+                        )
+                        self._pending_operator_cancel_job_ids.discard(job_id)
+                    if retire_context:
+                        self._active.pop(job_id, None)
+                        event = self._finished.get(job_id)
+                        if event:
+                            event.set()
+                continue
+            try:
+                job = self.database.get_job(job_id)
+            except Exception:
+                # A transient read failure is retried on the next scan.
+                job = "read_failed"
+            status = job.get("status") if isinstance(job, dict) else None
+            if job is None or status in {"failed", "interrupted", "succeeded"}:
+                discard_pending = True
+                retire_context = True
+                admission_aborted = bool(
+                    isinstance(job, dict)
+                    and status == "failed"
+                    and (job.get("error") or {}).get("code")
+                    == "job_setup_failed"
+                )
+            elif status == "running":
+                # An enqueue-after-raise worker owns this row. Preserve its
+                # context/event and let the worker finally block retire them.
+                discard_pending = True
+            elif status == "queued":
+                try:
+                    self.database.abort_local_pipeline_job_admission(
+                        job_id,
+                        error_code="job_setup_failed",
+                        error_message="The background job could not be prepared.",
+                    )
+                except Exception:
+                    # The transaction may have committed before an adapter
+                    # raised. Re-read and settle only a proven-safe state.
+                    try:
+                        current = self.database.get_job(job_id)
+                    except Exception:
+                        current = "read_failed"
+                    current_status = (
+                        current.get("status")
+                        if isinstance(current, dict)
+                        else None
+                    )
+                    if current is None or current_status in {
+                        "failed",
+                        "interrupted",
+                        "succeeded",
+                    }:
+                        discard_pending = True
+                        retire_context = True
+                        admission_aborted = bool(
+                            isinstance(current, dict)
+                            and current_status == "failed"
+                            and (current.get("error") or {}).get("code")
+                            == "job_setup_failed"
+                        )
+                    elif current_status == "running":
+                        discard_pending = True
+                else:
+                    discard_pending = True
+                    retire_context = True
+                    admission_aborted = True
+                    repaired += 1
+            # read failures, unknown states, and a still-queued abort failure
+            # retain both the exact pending ID and its context for next scan.
+            late_operator_cancel = False
+            with self._lock:
+                current_context = self._active.get(job_id)
+                late_operator_cancel = bool(
+                    admission_aborted
+                    and (
+                        job_id in self._pending_operator_cancel_job_ids
+                        or (
+                            current_context is not None
+                            and current_context.is_set()
+                            and not current_context.preserve_provider_task
+                        )
+                    )
+                )
+                if not late_operator_cancel:
+                    self._repairing_local_pipeline_admissions.discard(job_id)
+                    if discard_pending:
+                        self._pending_local_pipeline_admission_aborts.discard(job_id)
+                    if retire_context:
+                        self._active.pop(job_id, None)
+                        event = self._finished.get(job_id)
+                        if event:
+                            event.set()
+            if late_operator_cancel:
+                try:
+                    fenced = self.database.interrupt_job(
+                        job_id,
+                        cancel_provider_task=True,
+                        preserve_pipeline_continuation=False,
+                    )
+                except Exception:
+                    fenced = False
+                with self._lock:
+                    self._repairing_local_pipeline_admissions.discard(job_id)
+                    if fenced:
+                        self._pending_local_pipeline_admission_aborts.discard(
+                            job_id
+                        )
+                        self._pending_operator_cancel_job_ids.discard(job_id)
+                        self._active.pop(job_id, None)
+                        event = self._finished.get(job_id)
+                        if event:
+                            event.set()
+        return repaired
+
+    def has_pending_local_pipeline_operator_cancellation(self) -> bool:
+        """Return whether automatic continuation is fenced by operator intent."""
+
+        with self._lock:
+            # Promote any directly-published context intent as a defensive
+            # compatibility path. Normal operator calls add the exact ID in
+            # cancel_and_wait before the worker can retire its context.
+            for job_id in self._pending_local_pipeline_admission_aborts:
+                context = self._active.get(job_id)
+                if (
+                    context is not None
+                    and context.is_set()
+                    and not context.preserve_provider_task
+                ):
+                    self._pending_operator_cancel_job_ids.add(job_id)
+            return bool(self._pending_operator_cancel_job_ids)
+
+    def _settle_operator_cancellation_persistence(
+        self,
+        job_id: str,
+        interrupted: bool,
+    ) -> bool:
+        """Clear one process-local fence only after durable state is settled."""
+
+        if interrupted:
+            with self._lock:
+                self._pending_operator_cancel_job_ids.discard(job_id)
+            return True
+        try:
+            current = self.database.get_job(job_id)
+        except Exception:
+            return False
+        if current is not None and current.get("status") in {"queued", "running"}:
+            return False
+        # A missing or already-terminal row has no live generation left for
+        # this manager to re-arm. The admission-aborted local-pipeline case is
+        # handled idempotently by interrupt_job before reaching this branch.
+        with self._lock:
+            self._pending_operator_cancel_job_ids.discard(job_id)
+        return True
+
+    def retry_pending_operator_cancellations(self, *, limit: int = 100) -> int:
+        """Retry exact durable cancel fences fairly during normal operation."""
+
+        safe_limit = max(1, min(int(limit), 1000))
+        with self._lock:
+            pending = sorted(self._pending_operator_cancel_job_ids)
+            if not pending:
+                self._operator_cancel_retry_cursor = None
+                return 0
+            start = (
+                bisect_right(pending, self._operator_cancel_retry_cursor)
+                if self._operator_cancel_retry_cursor is not None
+                else 0
+            )
+            ordered = pending[start:] + pending[:start]
+            targets = tuple(ordered[:safe_limit])
+            self._operator_cancel_retry_cursor = targets[-1]
+
+        settled = 0
+        for job_id in targets:
+            try:
+                interrupted = self.database.interrupt_job(
+                    job_id,
+                    cancel_provider_task=True,
+                    preserve_pipeline_continuation=False,
+                )
+            except Exception:
+                continue
+            if self._settle_operator_cancellation_persistence(
+                job_id, interrupted
+            ):
+                settled += 1
+        return settled
+
     def submit_local_pipeline_once(
         self,
         *,
@@ -607,6 +910,10 @@ class JobManager:
         payload: Any,
         callback: JobCallable,
         reuse_succeeded: bool = True,
+        expected_continuation_state: str | None = None,
+        expected_continuation_updated_at: str | None = None,
+        expected_source_job_id: str | None = None,
+        expected_source_stage_attempt_id: str | None = None,
     ) -> tuple[dict[str, Any], bool]:
         """Atomically deduplicate and admit one top-level pipeline worker."""
 
@@ -614,14 +921,32 @@ class JobManager:
         with self._lock:
             if self._closed:
                 raise JobManagerClosed("Studio background jobs are closed.")
+            if (
+                expected_continuation_state is not None
+                and self._pending_operator_cancel_job_ids
+            ):
+                # The coordinator's earlier ready scan is only advisory. This
+                # manager-lock check linearizes the actual DB CAS admission
+                # against cancel_and_wait publishing an exact operator fence.
+                raise PipelineContinuationFenced(
+                    "Automatic pipeline continuation is fenced by operator cancellation."
+                )
             job, created = self.database.create_or_get_local_pipeline_job(
                 production_id=production_id,
                 run_id=run_id,
                 pipeline_key=pipeline_key,
                 payload=payload,
                 reuse_succeeded=reuse_succeeded,
+                expected_continuation_state=expected_continuation_state,
+                expected_continuation_updated_at=expected_continuation_updated_at,
+                expected_source_job_id=expected_source_job_id,
+                expected_source_stage_attempt_id=expected_source_stage_attempt_id,
             )
             if not created:
+                # Cross-process ownership is never inferred from this
+                # manager's private map. Startup DB interruption handles
+                # prior-process rows; exact same-process admission failures
+                # are recorded and repaired by the coordinator.
                 return job, False
             context = JobExecutionContext(job["id"])
             self._finished[job["id"]] = threading.Event()
@@ -629,19 +954,21 @@ class JobManager:
             try:
                 work_queue.put(_QueuedJob(job["id"], callback, context))
             except Exception:
+                admission_aborted = False
                 try:
-                    self.database.update_job(
+                    self.database.abort_local_pipeline_job_admission(
                         job["id"],
-                        "failed",
                         error_code="job_setup_failed",
                         error_message="The background job could not be prepared.",
                     )
+                    admission_aborted = True
                 except Exception:
-                    pass
-                self._active.pop(job["id"], None)
-                event = self._finished.get(job["id"])
-                if event:
-                    event.set()
+                    self._pending_local_pipeline_admission_aborts.add(job["id"])
+                if admission_aborted:
+                    self._active.pop(job["id"], None)
+                    event = self._finished.get(job["id"])
+                    if event:
+                        event.set()
                 raise
             return job, True
 
@@ -762,7 +1089,19 @@ class JobManager:
                 work_queue.task_done()
                 return
             job_id, callback, context = item.job_id, item.callback, item.context
+            with self._lock:
+                if (
+                    self._active.get(job_id) is not context
+                    or job_id in self._repairing_local_pipeline_admissions
+                ):
+                    # Submission compensation or its coordinator retry owns
+                    # this queued item. It will retire the context/event.
+                    work_queue.task_done()
+                    continue
+                self._dequeued_job_ids.add(job_id)
+                self._pending_local_pipeline_admission_aborts.discard(job_id)
             atomic_stage_attempt_id: str | None = None
+            is_local_pipeline = False
             try:
                 context.raise_if_cancelled()
                 job = self.database.get_job(job_id)
@@ -770,6 +1109,7 @@ class JobManager:
                     # shutdown() has already moved this queued row to the
                     # terminal interrupted state. Never run it afterwards.
                     continue
+                is_local_pipeline = _is_claimed_local_pipeline_top(job)
                 self.database.update_job(job_id, "running")
                 atomic_stage_attempt_id = _payload_stage_attempt_id(job)
                 if atomic_stage_attempt_id is not None:
@@ -815,11 +1155,14 @@ class JobManager:
                         raise _AtomicStageLinkError()
                     current = self.database.get_job(job_id)
                     if current is not None and current.get("status") == "running":
-                        self.database.update_job(job_id, "succeeded", result=result)
+                        if is_local_pipeline:
+                            self.database.complete_local_pipeline_job(job_id, result)
+                        else:
+                            self.database.update_job(job_id, "succeeded", result=result)
             except JobCancelled:
                 try:
                     preserve_provider_task = context.preserve_provider_task
-                    self.database.interrupt_job(
+                    interrupted = self.database.interrupt_job(
                         job_id,
                         cancel_provider_task=not preserve_provider_task,
                         provider_task_record_id=(
@@ -827,14 +1170,20 @@ class JobManager:
                             if preserve_provider_task
                             else context.provider_task_record_id
                         ),
+                        preserve_pipeline_continuation=preserve_provider_task,
                     )
                 except Exception:
                     pass
+                else:
+                    if not preserve_provider_task:
+                        self._settle_operator_cancellation_persistence(
+                            job_id, interrupted
+                        )
             except Exception as exc:  # The worker boundary must keep later jobs alive.
                 try:
                     if context.is_set():
                         preserve_provider_task = context.preserve_provider_task
-                        self.database.interrupt_job(
+                        interrupted = self.database.interrupt_job(
                             job_id,
                             cancel_provider_task=not preserve_provider_task,
                             provider_task_record_id=(
@@ -842,7 +1191,12 @@ class JobManager:
                                 if preserve_provider_task
                                 else context.provider_task_record_id
                             ),
+                            preserve_pipeline_continuation=preserve_provider_task,
                         )
+                        if not preserve_provider_task:
+                            self._settle_operator_cancellation_persistence(
+                                job_id, interrupted
+                            )
                     else:
                         # Do not persist repr/traceback/request values; only a
                         # bounded, redacted public description from explicitly
@@ -856,6 +1210,12 @@ class JobManager:
                                 error_code=error_code,
                                 error_message=error_message,
                                 provider_task_record_id=context.provider_task_record_id,
+                            )
+                        elif is_local_pipeline:
+                            self.database.fail_local_pipeline_job(
+                                job_id,
+                                error_code=error_code,
+                                error_message=error_message,
                             )
                         else:
                             self.database.update_job(
@@ -871,6 +1231,8 @@ class JobManager:
                     _terminate_context_processes(context)
                 with self._lock:
                     self._active.pop(job_id, None)
+                    self._dequeued_job_ids.discard(job_id)
+                    self._pending_local_pipeline_admission_aborts.discard(job_id)
                     event = self._finished.get(job_id)
                     if event:
                         event.set()
@@ -903,16 +1265,36 @@ class JobManager:
 
         validate_identifier(job_id, label="job id")
         with self._lock:
+            if not preserve_provider_task and self._shutdown_complete:
+                # Completion is published under this same lock. A caller that
+                # arrives later cannot mutate a workspace already released by
+                # StudioService.close().
+                raise JobManagerClosed("Studio background jobs are closed.")
+            if not preserve_provider_task and self._closed:
+                # A destructive request that began while shutdown is still in
+                # progress is accepted, but forces this close attempt to fail.
+                # Its exact ID is persisted by the next shutdown writer before
+                # the workspace boundary can be released.
+                self._shutdown_operator_cancel_blocked = True
             context = self._active.get(job_id)
             event = self._finished.get(job_id)
+            if not preserve_provider_task:
+                # Publish the exact ID under the manager lock before the
+                # worker can remove its context in finally. The ID survives
+                # that retirement until SQLite confirms the cancellation.
+                self._pending_operator_cancel_job_ids.add(job_id)
+            if context is not None:
+                # Linearize cancellation intent with dequeue/admission repair
+                # before either path can commit a contradictory ownership
+                # decision.
+                if preserve_provider_task:
+                    context.set_for_shutdown()
+                else:
+                    context.set()
         if context is not None:
-            if preserve_provider_task:
-                context.set_for_shutdown()
-            else:
-                context.set()
             _terminate_context_processes(context)
         try:
-            self.database.interrupt_job(
+            interrupted = self.database.interrupt_job(
                 job_id,
                 cancel_provider_task=not preserve_provider_task,
                 provider_task_record_id=(
@@ -920,12 +1302,16 @@ class JobManager:
                     if context is not None and not preserve_provider_task
                     else None
                 ),
+                preserve_pipeline_continuation=preserve_provider_task,
             )
         except Exception:
             # Cancellation remains published even if SQLite is temporarily
             # unavailable; the worker boundary performs its own best-effort
             # terminal transition.
             pass
+        else:
+            if not preserve_provider_task:
+                self._settle_operator_cancellation_persistence(job_id, interrupted)
         if event is None:
             return self.database.get_job(job_id)
 
@@ -952,6 +1338,19 @@ class JobManager:
         """
 
         with self._lock:
+            if self._shutdown_complete:
+                return True
+            if (
+                self._shutdown_operator_cancel_blocked
+                and self._shutdown_interrupt_thread is not None
+                and not self._shutdown_interrupt_thread.is_alive()
+            ):
+                # A prior shutdown deliberately retained the workspace after
+                # an operator-cancel fence could not be persisted. A retry is
+                # allowed to start one new DB writer for the same exact IDs.
+                self._shutdown_interrupt_started = False
+                self._shutdown_interrupt_thread = None
+                self._shutdown_interrupt_thread_has_started = False
             if not self._closed:
                 self._closed = True
                 contexts = list(self._active.values())
@@ -964,6 +1363,7 @@ class JobManager:
             interrupt_active_work = not self._shutdown_interrupt_started
             self._shutdown_interrupt_started = True
             if interrupt_active_work:
+                self._shutdown_operator_cancel_blocked = False
                 self._shutdown_interrupt_thread = threading.Thread(
                     target=self._interrupt_active_work_best_effort,
                     name="studio-job-shutdown-db",
@@ -1027,31 +1427,52 @@ class JobManager:
                 _terminate_context_processes(context, deadline=final_deadline)
                 if sweep + 1 < _FINAL_SWEEP_COUNT:
                     time.sleep(_FINAL_SWEEP_DELAY)
-        # Do not let a database busy timeout extend shutdown indefinitely.  A
-        # normal, fast interrupt gets a short chance to finish; a blocked
-        # daemon thread is intentionally left for its own SQLite timeout.
+        # Do not let a database busy timeout extend shutdown indefinitely. The
+        # writer receives only the caller's remaining deadline; if it is still
+        # blocked afterwards the workspace boundary remains deliberately held.
         if interrupt_thread is not None and interrupt_thread.is_alive():
-            interrupt_thread.join(timeout=min(0.1, max(0.0, deadline - time.monotonic())))
+            # The worker lanes often retire immediately, but the SQLite
+            # interruption transaction can still be syncing its durable event
+            # mirror. Give that writer the caller's remaining shutdown budget
+            # instead of an unrelated 100 ms slice. A blocked writer remains
+            # bounded by the original deadline and therefore still keeps the
+            # workspace lock held through the False result below.
+            interrupt_thread.join(timeout=max(0.0, deadline - time.monotonic()))
         # A bounded direct caller may choose to retry later.  StudioService
         # treats False as a hard close failure and therefore retains the
         # system-wide workspace lock until every Python worker and the SQLite
         # interruption writer have actually retired.
         with self._lock:
             interrupt_thread_started = self._shutdown_interrupt_thread_has_started
-        return bool(
-            not any(thread.is_alive() for thread in threads)
-            and (
-                interrupt_thread is None
-                or (
-                    interrupt_thread_started
-                    and not interrupt_thread.is_alive()
+            operator_cancel_blocked = self._shutdown_operator_cancel_blocked
+            operator_cancel_pending = bool(self._pending_operator_cancel_job_ids)
+            completed = bool(
+                not any(thread.is_alive() for thread in threads)
+                and not operator_cancel_blocked
+                and not operator_cancel_pending
+                and (
+                    interrupt_thread is None
+                    or (
+                        interrupt_thread_started
+                        and not interrupt_thread.is_alive()
+                    )
                 )
             )
-        )
+            # Linearize the release boundary with cancel_and_wait. Once True,
+            # a later destructive caller is rejected before publishing an ID.
+            self._shutdown_complete = completed
+        return completed
 
     def _interrupt_active_work_best_effort(self) -> None:
         """Persist the shutdown interruption without blocking process kills."""
 
+        if not self._persist_operator_cancellation_fences():
+            # Do not let generic process interruption convert an explicit
+            # cancel back into a recoverable/ready continuation. shutdown()
+            # returns False and a later close retry starts a fresh DB writer.
+            with self._lock:
+                self._shutdown_operator_cancel_blocked = True
+            return
         try:
             self.database.interrupt_active_work()
         except Exception:
@@ -1059,6 +1480,47 @@ class JobManager:
             # terminal update below; never leave a process tree running merely
             # because the audit mirror/database is temporarily unavailable.
             pass
+
+    def _persist_operator_cancellation_fences(self) -> bool:
+        """Persist every sticky operator intent before generic shutdown work."""
+
+        try:
+            self.repair_local_pipeline_admissions()
+        except Exception:
+            pass
+        with self._lock:
+            active_operator_targets = {
+                job_id
+                for job_id, context in self._active.items()
+                if context.is_set() and not context.preserve_provider_task
+            }
+            # Promote direct context intent and retain the IDs even if their
+            # workers retire while this writer is blocked in SQLite.
+            self._pending_operator_cancel_job_ids.update(active_operator_targets)
+            targets = tuple(self._pending_operator_cancel_job_ids)
+        persisted = True
+        for job_id in targets:
+            try:
+                interrupted = self.database.interrupt_job(
+                    job_id,
+                    cancel_provider_task=True,
+                    preserve_pipeline_continuation=False,
+                )
+            except Exception:
+                persisted = False
+                continue
+            if not self._settle_operator_cancellation_persistence(
+                job_id, interrupted
+            ):
+                persisted = False
+        try:
+            self.repair_local_pipeline_admissions()
+        except Exception:
+            persisted = False
+        return bool(
+            persisted
+            and not self.has_pending_local_pipeline_operator_cancellation()
+        )
 
 
 class AuditExportError(RuntimeError):

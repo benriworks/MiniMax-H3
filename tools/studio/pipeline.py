@@ -255,6 +255,8 @@ def _wait_for_stage(
     pipeline_key: str,
     lineage: dict[str, Any],
     cancel_event: JobExecutionContext,
+    *,
+    video_recovery_checkpoint: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     method = getattr(service, "_execute_local_pipeline_stage", None)
     jobs = getattr(service, "jobs", None)
@@ -285,13 +287,20 @@ def _wait_for_stage(
     queued_attempt_id: str | None = None
     try:
         cancel_event.raise_if_cancelled()
-        queued = method(
-            run_id,
-            stage,
-            payload,
-            pipeline_key=pipeline_key,
-            lineage=lineage,
-        )
+        stage_kwargs: dict[str, Any] = {
+            "pipeline_key": pipeline_key,
+            "lineage": lineage,
+        }
+        if video_recovery_checkpoint is not None:
+            if stage != "video_generation":
+                raise LocalPipelineError(
+                    "The recovered video checkpoint was attached to the wrong stage.",
+                    code="invalid_provenance",
+                )
+            stage_kwargs["video_recovery_checkpoint"] = dict(
+                video_recovery_checkpoint
+            )
+        queued = method(run_id, stage, payload, **stage_kwargs)
         queued_job_id = _job_id(queued)
         queued_attempt_id = _attempt_id(queued)
         validate_identifier(queued_job_id, label="job id")
@@ -316,6 +325,18 @@ def _wait_for_stage(
                 code="invalid_worker_result",
             )
         if record.get("status") != "succeeded":
+            child_error = record.get("error")
+            if (
+                stage == "video_generation"
+                and video_recovery_checkpoint is not None
+                and isinstance(child_error, dict)
+                and child_error.get("code")
+                == "pipeline_recovered_video_unavailable"
+            ):
+                raise LocalPipelineError(
+                    "The recovered video is unavailable for pipeline continuation.",
+                    code="pipeline_recovered_video_unavailable",
+                )
             raise LocalPipelineError(
                 f"The local pipeline stage failed: {stage}.",
                 code="local_pipeline_stage_failed",
@@ -472,6 +493,7 @@ def run_local_pipeline(
     payload: dict[str, Any],
     expected_pipeline_key: str,
     cancel_event: JobExecutionContext,
+    video_recovery_checkpoint: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Execute five existing Studio stages in order on one immutable run."""
 
@@ -482,6 +504,29 @@ def run_local_pipeline(
     except (SecurityError, TypeError, ValueError):
         raise LocalPipelineError("The local pipeline provenance is invalid.", code="invalid_provenance") from None
     normalized = validate_local_pipeline_payload(payload)
+    if video_recovery_checkpoint is not None:
+        if (
+            not isinstance(video_recovery_checkpoint, dict)
+            or set(video_recovery_checkpoint) != {"job_id", "stage_attempt_id"}
+        ):
+            raise LocalPipelineError(
+                "The recovered video checkpoint is invalid.",
+                code="invalid_provenance",
+            )
+        try:
+            validate_identifier(
+                video_recovery_checkpoint["job_id"], label="source job id"
+            )
+            validate_identifier(
+                video_recovery_checkpoint["stage_attempt_id"],
+                label="source stage attempt id",
+            )
+        except (SecurityError, TypeError, ValueError):
+            raise LocalPipelineError(
+                "The recovered video checkpoint is invalid.",
+                code="invalid_provenance",
+            ) from None
+        video_recovery_checkpoint = dict(video_recovery_checkpoint)
     pipeline_key = local_pipeline_key(normalized)
     if pipeline_key != expected_pipeline_key:
         raise LocalPipelineError("The local pipeline request changed before execution.", code="cache_key_mismatch")
@@ -517,6 +562,7 @@ def run_local_pipeline(
         pipeline_key,
         {},
         cancel_event,
+        video_recovery_checkpoint=video_recovery_checkpoint,
     )
     generated = _artifact(video["result"], "generated-video.mp4", kind="video")
     duration_ms = video["result"].get("duration_ms")

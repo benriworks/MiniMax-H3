@@ -24,7 +24,7 @@ from .security import (
 )
 
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 MAX_EVENT_LINE_BYTES = 2 * 1024 * 1024
 _RUN_EXECUTION_PROFILES = {
     "external",
@@ -104,6 +104,29 @@ _PROVIDER_TASK_STATE_TRANSITIONS = {
     "failed": set(),
 }
 _MAX_PROVIDER_REQUEST_CIPHERTEXT_BYTES = 2 * 1024 * 1024
+_MAX_PIPELINE_REQUEST_CIPHERTEXT_BYTES = 2 * 1024 * 1024
+_LOCAL_PIPELINE_CONTINUATION_STATES = {
+    "unavailable",
+    "active",
+    "waiting_provider",
+    "ready",
+    "continuing",
+    "succeeded",
+    "recovery_blocked",
+    "cancel_requested",
+    "cancelled",
+}
+_LOCAL_PIPELINE_CONTINUATION_NEXT_ACTION = {
+    "unavailable": "resubmit",
+    "active": "wait",
+    "waiting_provider": "wait_provider",
+    "ready": "continue",
+    "continuing": "wait",
+    "succeeded": "none",
+    "recovery_blocked": "retry",
+    "cancel_requested": "confirm_cancellation",
+    "cancelled": "none",
+}
 
 
 def _sha256_file(path: Path) -> str:
@@ -644,7 +667,39 @@ class StudioDatabase:
                     run_id TEXT NOT NULL UNIQUE REFERENCES runs(id),
                     revision_id TEXT NOT NULL REFERENCES revisions(id),
                     active_job_id TEXT REFERENCES jobs(id),
+                    state TEXT NOT NULL CHECK(state IN (
+                        'unavailable', 'active', 'waiting_provider', 'ready',
+                        'continuing', 'succeeded', 'recovery_blocked',
+                        'cancel_requested', 'cancelled'
+                    )),
+                    request_protection TEXT NOT NULL CHECK(
+                        request_protection IN ('dpapi-v1', 'none')
+                    ),
+                    request_ciphertext BLOB,
+                    continuation_job_id TEXT REFERENCES jobs(id),
+                    source_job_id TEXT REFERENCES jobs(id),
+                    source_stage_attempt_id TEXT REFERENCES stage_attempts(id),
+                    resume_count INTEGER NOT NULL CHECK(resume_count >= 0),
                     created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    error_code TEXT,
+                    error_message TEXT,
+                    CHECK(
+                        (source_job_id IS NULL AND source_stage_attempt_id IS NULL)
+                        OR
+                        (source_job_id IS NOT NULL AND source_stage_attempt_id IS NOT NULL)
+                    ),
+                    CHECK(
+                        continuation_job_id IS NULL
+                        OR active_job_id=continuation_job_id
+                    ),
+                    CHECK(
+                        (request_protection='none' AND request_ciphertext IS NULL)
+                        OR
+                        (request_protection='dpapi-v1'
+                         AND typeof(request_ciphertext)='blob'
+                         AND length(request_ciphertext) BETWEEN 1 AND 2097152)
+                    ),
                     PRIMARY KEY(production_id, pipeline_key)
                 );
 
@@ -752,7 +807,7 @@ class StudioDatabase:
             )
             # SQLite's CREATE TABLE IF NOT EXISTS does not add columns to an
             # existing database. Keep every incremental change and the schema
-            # version write in one transaction so a failed v5 migration is
+            # version write in one transaction so a failed v6 migration is
             # retried instead of being advertised as complete.
             connection.execute("BEGIN IMMEDIATE")
             try:
@@ -782,6 +837,111 @@ class StudioDatabase:
                 }
                 if "job_id" not in attempt_columns:
                     connection.execute("ALTER TABLE stage_attempts ADD COLUMN job_id TEXT")
+
+                # v6 turns the immutable run claim into a durable continuation
+                # ledger. Rebuild instead of a series of ALTERs so migrated
+                # rows receive the same CHECK and FK invariants as fresh DBs.
+                pipeline_claim_columns = {
+                    row["name"]
+                    for row in connection.execute(
+                        "PRAGMA table_info(local_pipeline_claims)"
+                    ).fetchall()
+                }
+                pipeline_v6_columns = {
+                    "state",
+                    "request_protection",
+                    "request_ciphertext",
+                    "continuation_job_id",
+                    "source_job_id",
+                    "source_stage_attempt_id",
+                    "resume_count",
+                    "updated_at",
+                    "error_code",
+                    "error_message",
+                }
+                if not pipeline_v6_columns.issubset(pipeline_claim_columns):
+                    connection.execute(
+                        "ALTER TABLE local_pipeline_claims RENAME TO local_pipeline_claims_v5"
+                    )
+                    connection.execute(
+                        """
+                        CREATE TABLE local_pipeline_claims (
+                            production_id TEXT NOT NULL REFERENCES productions(id),
+                            pipeline_key TEXT NOT NULL,
+                            run_id TEXT NOT NULL UNIQUE REFERENCES runs(id),
+                            revision_id TEXT NOT NULL REFERENCES revisions(id),
+                            active_job_id TEXT REFERENCES jobs(id),
+                            state TEXT NOT NULL CHECK(state IN (
+                                'unavailable', 'active', 'waiting_provider', 'ready',
+                                'continuing', 'succeeded', 'recovery_blocked',
+                                'cancel_requested', 'cancelled'
+                            )),
+                            request_protection TEXT NOT NULL CHECK(
+                                request_protection IN ('dpapi-v1', 'none')
+                            ),
+                            request_ciphertext BLOB,
+                            continuation_job_id TEXT REFERENCES jobs(id),
+                            source_job_id TEXT REFERENCES jobs(id),
+                            source_stage_attempt_id TEXT REFERENCES stage_attempts(id),
+                            resume_count INTEGER NOT NULL CHECK(resume_count >= 0),
+                            created_at TEXT NOT NULL,
+                            updated_at TEXT NOT NULL,
+                            error_code TEXT,
+                            error_message TEXT,
+                            CHECK(
+                                (source_job_id IS NULL AND source_stage_attempt_id IS NULL)
+                                OR
+                                (source_job_id IS NOT NULL AND source_stage_attempt_id IS NOT NULL)
+                            ),
+                            CHECK(
+                                continuation_job_id IS NULL
+                                OR active_job_id=continuation_job_id
+                            ),
+                            CHECK(
+                                (request_protection='none' AND request_ciphertext IS NULL)
+                                OR
+                                (request_protection='dpapi-v1'
+                                 AND typeof(request_ciphertext)='blob'
+                                 AND length(request_ciphertext) BETWEEN 1 AND 2097152)
+                            ),
+                            PRIMARY KEY(production_id, pipeline_key)
+                        )
+                        """
+                    )
+                    connection.execute(
+                        """
+                        INSERT INTO local_pipeline_claims(
+                            production_id, pipeline_key, run_id, revision_id,
+                            active_job_id, state, request_protection,
+                            request_ciphertext, continuation_job_id,
+                            source_job_id, source_stage_attempt_id, resume_count,
+                            created_at, updated_at, error_code, error_message
+                        )
+                        SELECT production_id, pipeline_key, run_id, revision_id,
+                               active_job_id, 'unavailable', 'none', NULL, NULL,
+                               NULL, NULL, 0, created_at, created_at, NULL, NULL
+                        FROM local_pipeline_claims_v5
+                        """
+                    )
+                    connection.execute("DROP TABLE local_pipeline_claims_v5")
+                connection.execute(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS local_pipeline_claims_active_job_uq "
+                    "ON local_pipeline_claims(active_job_id) WHERE active_job_id IS NOT NULL"
+                )
+                connection.execute(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS local_pipeline_claims_continuation_job_uq "
+                    "ON local_pipeline_claims(continuation_job_id) "
+                    "WHERE continuation_job_id IS NOT NULL"
+                )
+                connection.execute(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS local_pipeline_claims_source_attempt_uq "
+                    "ON local_pipeline_claims(source_stage_attempt_id) "
+                    "WHERE source_stage_attempt_id IS NOT NULL"
+                )
+                connection.execute(
+                    "CREATE INDEX IF NOT EXISTS local_pipeline_claims_state_idx "
+                    "ON local_pipeline_claims(state, updated_at, run_id)"
+                )
 
                 connection.execute(
                     """
@@ -919,7 +1079,12 @@ class StudioDatabase:
         """Fail closed when a prior Studio process ended during active work."""
 
         timestamp = utc_now()
-        counts = {"jobs": 0, "stage_attempts": 0, "provider_tasks": 0}
+        counts = {
+            "jobs": 0,
+            "stage_attempts": 0,
+            "provider_tasks": 0,
+            "pipeline_claims": 0,
+        }
         with self.transaction() as connection:
             active_jobs = connection.execute(
                 "SELECT id, kind, production_id FROM jobs "
@@ -1026,6 +1191,89 @@ class StudioDatabase:
                     },
                     created_at=timestamp,
                 )
+            pipeline_claims = connection.execute(
+                "SELECT * FROM local_pipeline_claims WHERE state IN "
+                "('active', 'waiting_provider', 'continuing', 'cancel_requested') "
+                "ORDER BY created_at, run_id"
+            ).fetchall()
+            for claim in pipeline_claims:
+                pending_provider = connection.execute(
+                    "SELECT 1 FROM provider_tasks WHERE run_id=? "
+                    "AND status NOT IN ('succeeded', 'failed') LIMIT 1",
+                    (claim["run_id"],),
+                ).fetchone()
+                if claim["state"] == "cancel_requested":
+                    next_state = (
+                        "cancel_requested"
+                        if pending_provider is not None
+                        else "cancelled"
+                    )
+                elif pending_provider is not None:
+                    next_state = "waiting_provider"
+                elif (
+                    claim["state"] == "waiting_provider"
+                    and claim["source_stage_attempt_id"] is None
+                ):
+                    next_state = (
+                        "recovery_blocked"
+                        if claim["request_protection"] == "dpapi-v1"
+                        else "unavailable"
+                    )
+                else:
+                    next_state = (
+                        "ready"
+                        if (
+                            claim["request_protection"] == "dpapi-v1"
+                            and claim["source_stage_attempt_id"] is not None
+                        )
+                        else (
+                            "recovery_blocked"
+                            if claim["request_protection"] == "dpapi-v1"
+                            else "unavailable"
+                        )
+                    )
+                clear_private = next_state == "cancelled"
+                if (
+                    next_state == claim["state"]
+                    and claim["continuation_job_id"] is None
+                    and not clear_private
+                ):
+                    continue
+                connection.execute(
+                    "UPDATE local_pipeline_claims SET state=?, continuation_job_id=NULL, "
+                    "request_protection=CASE WHEN ? THEN 'none' ELSE request_protection END, "
+                    "request_ciphertext=CASE WHEN ? THEN NULL ELSE request_ciphertext END, "
+                    "updated_at=?, error_code='process_interrupted', "
+                    "error_message='The previous Studio process stopped.' "
+                    "WHERE production_id=? AND pipeline_key=? AND state=? AND updated_at=?",
+                    (
+                        next_state,
+                        int(clear_private),
+                        int(clear_private),
+                        timestamp,
+                        claim["production_id"],
+                        claim["pipeline_key"],
+                        claim["state"],
+                        claim["updated_at"],
+                    ),
+                )
+                if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                    continue
+                counts["pipeline_claims"] += 1
+                self._append_event(
+                    connection,
+                    "run",
+                    claim["run_id"],
+                    "pipeline.continuation.interrupted",
+                    {
+                        "production_id": claim["production_id"],
+                        "pipeline_key": claim["pipeline_key"],
+                        "previous_state": claim["state"],
+                        "state": next_state,
+                        "error_code": "process_interrupted",
+                    },
+                    created_at=timestamp,
+                )
         return counts
 
     def interrupt_job(
@@ -1034,6 +1282,7 @@ class StudioDatabase:
         *,
         cancel_provider_task: bool = False,
         provider_task_record_id: str | None = None,
+        preserve_pipeline_continuation: bool = False,
     ) -> bool:
         """Atomically interrupt one active job and its explicit provider cancel.
 
@@ -1047,6 +1296,8 @@ class StudioDatabase:
         """
 
         validate_identifier(job_id, label="job id")
+        if not isinstance(preserve_pipeline_continuation, bool):
+            raise ValueError("pipeline continuation preservation must be a boolean")
         if provider_task_record_id is not None:
             self._validate_provider_task_record_id(provider_task_record_id)
             if not cancel_provider_task:
@@ -1057,12 +1308,82 @@ class StudioDatabase:
         timestamp = utc_now()
         with self.transaction() as connection:
             row = connection.execute(
-                "SELECT id, kind, production_id FROM jobs "
-                "WHERE id=? AND status IN ('queued', 'running')",
+                "SELECT id, kind, status, production_id, payload_json, error_code "
+                "FROM jobs WHERE id=?",
                 (job_id,),
             ).fetchone()
             if row is None:
                 return False
+            # Only the claimed top job owns the pipeline cancellation state.
+            # Keep this lookup exact: an internally retired child must never
+            # be mistaken for an operator cancellation of its parent.
+            pipeline_claim = connection.execute(
+                "SELECT * FROM local_pipeline_claims WHERE active_job_id=? LIMIT 1",
+                (job_id,),
+            ).fetchone()
+            if row["status"] not in {"queued", "running"}:
+                # Queue admission or shutdown preservation can move this exact
+                # top to a terminal failed/interrupted row with a ready claim,
+                # then race an operator cancellation already published in
+                # JobManager. Fence that one generation without rewriting the
+                # terminal job. Shutdown preservation deliberately does not
+                # take this destructive path.
+                terminal_ready_cancel_identity = bool(
+                    cancel_provider_task
+                    and not preserve_pipeline_continuation
+                    and row["kind"] == "local_pipeline"
+                    and row["status"] in {"failed", "interrupted"}
+                    and pipeline_claim is not None
+                    and pipeline_claim["continuation_job_id"] is None
+                )
+                if (
+                    terminal_ready_cancel_identity
+                    and pipeline_claim["state"] == "cancelled"
+                ):
+                    return True
+                terminal_ready_cancel = bool(
+                    terminal_ready_cancel_identity
+                    and pipeline_claim["state"] == "ready"
+                )
+                if not terminal_ready_cancel:
+                    return False
+                connection.execute(
+                    "UPDATE local_pipeline_claims SET state='cancelled', "
+                    "continuation_job_id=NULL, request_protection='none', "
+                    "request_ciphertext=NULL, updated_at=?, "
+                    "error_code='pipeline_cancelled', "
+                    "error_message='The pipeline was cancelled by the operator.' "
+                    "WHERE production_id=? AND pipeline_key=? AND active_job_id=? "
+                    "AND state='ready' AND continuation_job_id IS NULL "
+                    "AND updated_at=?",
+                    (
+                        timestamp,
+                        pipeline_claim["production_id"],
+                        pipeline_claim["pipeline_key"],
+                        job_id,
+                        pipeline_claim["updated_at"],
+                    ),
+                )
+                if connection.execute(
+                    "SELECT changes() AS count"
+                ).fetchone()["count"] != 1:
+                    return False
+                self._append_event(
+                    connection,
+                    "run",
+                    pipeline_claim["run_id"],
+                    "pipeline.continuation.cancel_requested",
+                    {
+                        "production_id": pipeline_claim["production_id"],
+                        "pipeline_key": pipeline_claim["pipeline_key"],
+                        "job_id": job_id,
+                        "previous_state": "ready",
+                        "state": "cancelled",
+                        "error_code": "pipeline_cancelled",
+                    },
+                    created_at=timestamp,
+                )
+                return True
             attempts = connection.execute(
                 "SELECT * FROM stage_attempts WHERE job_id=? AND status IN ('queued', 'running') "
                 "ORDER BY created_at, rowid",
@@ -1208,6 +1529,98 @@ class StudioDatabase:
                         "attempt_sequence": provider_task["attempt_sequence"],
                         "status": "cancel_requested",
                         "error_code": "provider_cancel_requested",
+                    },
+                    created_at=timestamp,
+                )
+            # A child can be retired internally after a timeout, provenance
+            # failure, or parent wait error; treating that child interruption
+            # as operator cancellation can strand the top row in ``running``.
+            # The top worker subsequently commits either failure, shutdown
+            # preservation, or explicit cancellation through its own ID.
+            if pipeline_claim is not None and pipeline_claim["state"] not in {
+                "succeeded",
+                "cancelled",
+            }:
+                pending_provider = connection.execute(
+                    "SELECT 1 FROM provider_tasks WHERE run_id=? "
+                    "AND status NOT IN ('succeeded', 'failed') LIMIT 1",
+                    (pipeline_claim["run_id"],),
+                ).fetchone()
+                if preserve_pipeline_continuation:
+                    next_pipeline_state = (
+                        "waiting_provider"
+                        if pending_provider is not None
+                        else (
+                            "ready"
+                            if (
+                                pipeline_claim["request_protection"] == "dpapi-v1"
+                                and pipeline_claim["source_stage_attempt_id"] is not None
+                            )
+                            else (
+                                "recovery_blocked"
+                                if pipeline_claim["request_protection"] == "dpapi-v1"
+                                else "unavailable"
+                            )
+                        )
+                    )
+                    pipeline_error_code = "process_interrupted"
+                    pipeline_error_message = "The Studio process stopped."
+                    clear_private = False
+                else:
+                    next_pipeline_state = (
+                        "cancel_requested"
+                        if pending_provider is not None
+                        else "cancelled"
+                    )
+                    pipeline_error_code = (
+                        "pipeline_cancel_requested"
+                        if pending_provider is not None
+                        else "pipeline_cancelled"
+                    )
+                    pipeline_error_message = "The pipeline was cancelled by the operator."
+                    clear_private = next_pipeline_state == "cancelled"
+                connection.execute(
+                    "UPDATE local_pipeline_claims SET state=?, continuation_job_id=NULL, "
+                    "request_protection=CASE WHEN ? THEN 'none' ELSE request_protection END, "
+                    "request_ciphertext=CASE WHEN ? THEN NULL ELSE request_ciphertext END, "
+                    "updated_at=?, error_code=?, error_message=? "
+                    "WHERE production_id=? AND pipeline_key=? AND state=? AND updated_at=?",
+                    (
+                        next_pipeline_state,
+                        int(clear_private),
+                        int(clear_private),
+                        timestamp,
+                        pipeline_error_code,
+                        pipeline_error_message,
+                        pipeline_claim["production_id"],
+                        pipeline_claim["pipeline_key"],
+                        pipeline_claim["state"],
+                        pipeline_claim["updated_at"],
+                    ),
+                )
+                if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                    raise AtomicCompletionError(
+                        "pipeline continuation changed before interruption",
+                        code="pipeline_continuation_changed",
+                        job_status="interrupted",
+                        stage_status="unknown",
+                    )
+                self._append_event(
+                    connection,
+                    "run",
+                    pipeline_claim["run_id"],
+                    (
+                        "pipeline.continuation.interrupted"
+                        if preserve_pipeline_continuation
+                        else "pipeline.continuation.cancel_requested"
+                    ),
+                    {
+                        "production_id": pipeline_claim["production_id"],
+                        "pipeline_key": pipeline_claim["pipeline_key"],
+                        "job_id": job_id,
+                        "previous_state": pipeline_claim["state"],
+                        "state": next_pipeline_state,
+                        "error_code": pipeline_error_code,
                     },
                     created_at=timestamp,
                 )
@@ -1707,6 +2120,200 @@ class StudioDatabase:
             "created_at": row["created_at"],
         }
 
+    @staticmethod
+    def _local_pipeline_continuation_dict(row: sqlite3.Row) -> dict[str, Any]:
+        """Return the safe continuation projection; protected bytes stay private."""
+
+        state = str(row["state"])
+        raw_ciphertext = row["request_ciphertext"]
+        automatic_recovery_available = bool(
+            isinstance(raw_ciphertext, bytes)
+            and raw_ciphertext
+            and state
+            in {
+                "active",
+                "waiting_provider",
+                "ready",
+                "continuing",
+                "recovery_blocked",
+                "cancel_requested",
+            }
+        )
+        return {
+            "state": state,
+            "automatic": automatic_recovery_available,
+            "resume_count": int(row["resume_count"]),
+            "job_id": row["continuation_job_id"] or row["active_job_id"],
+            "source_job_id": row["source_job_id"],
+            "source_attempt_id": row["source_stage_attempt_id"],
+            "updated_at": row["updated_at"],
+            "next_action": _LOCAL_PIPELINE_CONTINUATION_NEXT_ACTION[state],
+            "error": (
+                {"code": row["error_code"], "message": row["error_message"]}
+                if row["error_code"]
+                else None
+            ),
+        }
+
+    @classmethod
+    def _local_pipeline_continuation_material_dict(
+        cls, row: sqlite3.Row
+    ) -> dict[str, Any]:
+        result = cls._local_pipeline_continuation_dict(row)
+        result.update(
+            {
+                "production_id": row["production_id"],
+                "pipeline_key": row["pipeline_key"],
+                "run_id": row["run_id"],
+                "revision_id": row["revision_id"],
+                "active_job_id": row["active_job_id"],
+                "continuation_job_id": row["continuation_job_id"],
+                "source_stage_attempt_id": row["source_stage_attempt_id"],
+                "created_at": row["created_at"],
+                "request_protection": row["request_protection"],
+                "request_ciphertext": (
+                    bytes(row["request_ciphertext"])
+                    if isinstance(row["request_ciphertext"], bytes)
+                    else None
+                ),
+            }
+        )
+        return result
+
+    @staticmethod
+    def _validate_pipeline_request_material(
+        request_protection: str | None, request_ciphertext: bytes | None
+    ) -> tuple[str, bytes | None]:
+        protection = request_protection or "none"
+        if protection not in {"dpapi-v1", "none"}:
+            raise ValueError("invalid pipeline request protection")
+        if protection == "none":
+            if request_ciphertext is not None:
+                raise ValueError("unprotected pipeline request bytes are not accepted")
+            return protection, None
+        if not isinstance(request_ciphertext, bytes) or not (
+            1 <= len(request_ciphertext) <= _MAX_PIPELINE_REQUEST_CIPHERTEXT_BYTES
+        ):
+            raise ValueError("invalid protected pipeline request")
+        return protection, bytes(request_ciphertext)
+
+    def get_local_pipeline_continuation(
+        self, production_id: str, pipeline_key: str
+    ) -> dict[str, Any] | None:
+        validate_identifier(production_id, label="production id")
+        if not isinstance(pipeline_key, str) or re.fullmatch(
+            r"[0-9A-F]{64}", pipeline_key
+        ) is None:
+            raise ValueError("invalid pipeline key")
+        with self.session() as connection:
+            row = connection.execute(
+                "SELECT * FROM local_pipeline_claims WHERE production_id=? AND pipeline_key=?",
+                (production_id, pipeline_key),
+            ).fetchone()
+        return self._local_pipeline_continuation_dict(row) if row else None
+
+    def get_local_pipeline_continuation_material(
+        self, production_id: str, pipeline_key: str
+    ) -> dict[str, Any] | None:
+        """Return private restart material for in-process orchestration only."""
+
+        validate_identifier(production_id, label="production id")
+        if not isinstance(pipeline_key, str) or re.fullmatch(
+            r"[0-9A-F]{64}", pipeline_key
+        ) is None:
+            raise ValueError("invalid pipeline key")
+        with self.session() as connection:
+            row = connection.execute(
+                "SELECT * FROM local_pipeline_claims WHERE production_id=? AND pipeline_key=?",
+                (production_id, pipeline_key),
+            ).fetchone()
+        if row is None:
+            return None
+        return self._local_pipeline_continuation_material_dict(row)
+
+    def list_ready_local_pipeline_continuation_material(
+        self, *, limit: int = 100
+    ) -> list[dict[str, Any]]:
+        """Return private material for auto-continuations that need admission."""
+
+        safe_limit = max(1, min(int(limit), 1000))
+        with self.session() as connection:
+            rows = connection.execute(
+                "SELECT c.* FROM local_pipeline_claims c "
+                "LEFT JOIN jobs j ON j.id=c.active_job_id "
+                "WHERE c.state='ready' AND c.request_protection='dpapi-v1' "
+                "AND typeof(c.request_ciphertext)='blob' "
+                "AND c.continuation_job_id IS NULL "
+                "AND (j.id IS NULL OR j.status NOT IN ('queued', 'running')) "
+                "ORDER BY c.updated_at, c.run_id LIMIT ?",
+                (safe_limit,),
+            ).fetchall()
+        results: list[dict[str, Any]] = []
+        for row in rows:
+            results.append(self._local_pipeline_continuation_material_dict(row))
+        return results
+
+    def block_local_pipeline_continuation(
+        self,
+        production_id: str,
+        pipeline_key: str,
+        *,
+        expected_updated_at: str,
+        error_code: str,
+        error_message: str,
+    ) -> dict[str, Any] | None:
+        """CAS a ready checkpoint to a safe manual-recovery state."""
+
+        validate_identifier(production_id, label="production id")
+        if not isinstance(pipeline_key, str) or re.fullmatch(
+            r"[0-9A-F]{64}", pipeline_key
+        ) is None:
+            raise ValueError("invalid pipeline key")
+        if not isinstance(expected_updated_at, str) or not expected_updated_at:
+            raise ValueError("expected continuation timestamp is required")
+        safe_code = str(sanitize_for_storage(error_code or "pipeline_recovery_blocked"))[
+            :128
+        ]
+        safe_message = str(sanitize_for_storage(error_message or ""))[:1000] or None
+        timestamp = utc_now()
+        with self.transaction() as connection:
+            connection.execute(
+                "UPDATE local_pipeline_claims SET state='recovery_blocked', "
+                "continuation_job_id=NULL, updated_at=?, error_code=?, error_message=? "
+                "WHERE production_id=? AND pipeline_key=? AND state='ready' "
+                "AND updated_at=? AND continuation_job_id IS NULL",
+                (
+                    timestamp,
+                    safe_code,
+                    safe_message,
+                    production_id,
+                    pipeline_key,
+                    expected_updated_at,
+                ),
+            )
+            if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                return None
+            row = connection.execute(
+                "SELECT * FROM local_pipeline_claims WHERE production_id=? AND pipeline_key=?",
+                (production_id, pipeline_key),
+            ).fetchone()
+            assert row is not None
+            self._append_event(
+                connection,
+                "run",
+                row["run_id"],
+                "pipeline.continuation.recovery_blocked",
+                {
+                    "production_id": production_id,
+                    "pipeline_key": pipeline_key,
+                    "state": "recovery_blocked",
+                    "error_code": safe_code,
+                    "error_message": safe_message,
+                },
+                created_at=timestamp,
+            )
+            return self._local_pipeline_continuation_dict(row)
+
     def _run_dict(self, row: sqlite3.Row, connection: sqlite3.Connection | None = None) -> dict[str, Any]:
         close = connection is None
         connection = connection or self.connect()
@@ -1721,6 +2328,9 @@ class StudioDatabase:
                 state = "awaiting_cost_approval"
             else:
                 state = "ready"
+            pipeline_claim = connection.execute(
+                "SELECT * FROM local_pipeline_claims WHERE run_id=?", (row["id"],)
+            ).fetchone()
             return {
                 "id": row["id"],
                 "production_id": row["production_id"],
@@ -1730,6 +2340,11 @@ class StudioDatabase:
                 "estimated_cost": money_from_minor(estimated, row["currency"]),
                 "execution_profile": row["execution_profile"] or "external",
                 "pipeline_key": row["pipeline_key"],
+                "pipeline_continuation": (
+                    self._local_pipeline_continuation_dict(pipeline_claim)
+                    if pipeline_claim is not None
+                    else None
+                ),
                 "stage_attempts": self._stage_attempt_dicts(connection, row["id"]),
                 "provider_tasks": [
                     self._provider_task_dict(provider_task)
@@ -1758,12 +2373,17 @@ class StudioDatabase:
         parent_revision_id: str | None = None,
         execution_profile: str = "external",
         pipeline_key: str | None = None,
+        pipeline_request_protection: str | None = None,
+        pipeline_request_ciphertext: bytes | None = None,
+        rearm_pipeline_continuation: bool = False,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         requested_stages = (
             rerun_plan.get("affected_stages") if isinstance(rerun_plan, dict) else None
         )
         if execution_profile not in _RUN_EXECUTION_PROFILES:
             raise ValueError("execution profile is invalid")
+        if not isinstance(rearm_pipeline_continuation, bool):
+            raise ValueError("pipeline continuation rearm flag must be a boolean")
         if pipeline_key is not None:
             if (
                 execution_profile != "local_pipeline"
@@ -1775,8 +2395,23 @@ class StudioDatabase:
                 or set(requested_stages) != _LOCAL_PIPELINE_ZERO_COST_STAGES
             ):
                 raise ValueError("pipeline key is invalid")
+            pipeline_protection, pipeline_ciphertext = (
+                self._validate_pipeline_request_material(
+                    pipeline_request_protection, pipeline_request_ciphertext
+                )
+            )
         elif execution_profile == "local_pipeline":
             raise ValueError("local_pipeline runs require a pipeline key")
+        else:
+            if (
+                pipeline_request_protection is not None
+                or pipeline_request_ciphertext is not None
+                or rearm_pipeline_continuation
+            ):
+                raise ValueError(
+                    "pipeline continuation material requires a local_pipeline run"
+                )
+            pipeline_protection, pipeline_ciphertext = "none", None
         revision_id = f"rev_{uuid.uuid4().hex}"
         run_id = f"run_{uuid.uuid4().hex}"
         timestamp = utc_now()
@@ -1790,7 +2425,7 @@ class StudioDatabase:
                 raise KeyError("production not found")
             if pipeline_key is not None:
                 claimed = connection.execute(
-                    "SELECT run_id, revision_id FROM local_pipeline_claims "
+                    "SELECT * FROM local_pipeline_claims "
                     "WHERE production_id=? AND pipeline_key=?",
                     (production_id, pipeline_key),
                 ).fetchone()
@@ -1817,6 +2452,62 @@ class StudioDatabase:
                         != _LOCAL_PIPELINE_ZERO_COST_STAGES
                     ):
                         raise sqlite3.IntegrityError("pipeline claim provenance is invalid")
+                    if rearm_pipeline_continuation:
+                        active_job = (
+                            connection.execute(
+                                "SELECT status FROM jobs WHERE id=?",
+                                (claimed["active_job_id"],),
+                            ).fetchone()
+                            if claimed["active_job_id"] is not None
+                            else None
+                        )
+                        # A duplicate HTTP request must never rewind a live
+                        # provider/top owner. Explicit rearm applies only after
+                        # the previous owner is terminal or absent.
+                        if active_job is None or active_job["status"] not in {
+                            "queued",
+                            "running",
+                        }:
+                            next_state = (
+                                "active"
+                                if pipeline_protection == "dpapi-v1"
+                                else "unavailable"
+                            )
+                            connection.execute(
+                                "UPDATE local_pipeline_claims SET state=?, "
+                                "request_protection=?, request_ciphertext=?, "
+                                "continuation_job_id=NULL, updated_at=?, "
+                                "error_code=NULL, error_message=NULL "
+                                "WHERE production_id=? AND pipeline_key=? AND run_id=?",
+                                (
+                                    next_state,
+                                    pipeline_protection,
+                                    pipeline_ciphertext,
+                                    timestamp,
+                                    production_id,
+                                    pipeline_key,
+                                    claimed["run_id"],
+                                ),
+                            )
+                            if connection.execute(
+                                "SELECT changes() AS count"
+                            ).fetchone()["count"] != 1:
+                                raise sqlite3.IntegrityError(
+                                    "pipeline continuation changed concurrently"
+                                )
+                            self._append_event(
+                                connection,
+                                "run",
+                                claimed["run_id"],
+                                "pipeline.continuation.armed",
+                                {
+                                    "production_id": production_id,
+                                    "pipeline_key": pipeline_key,
+                                    "state": next_state,
+                                },
+                                created_at=timestamp,
+                            )
+                            claimed_run = self._run_dict(run_row, connection)
                     return claimed_revision, claimed_run
             latest = connection.execute(
                 "SELECT id, sequence FROM revisions WHERE production_id=? ORDER BY sequence DESC LIMIT 1",
@@ -1887,9 +2578,27 @@ class StudioDatabase:
             )
             if pipeline_key is not None:
                 connection.execute(
-                    "INSERT INTO local_pipeline_claims(production_id, pipeline_key, run_id, revision_id, created_at) "
-                    "VALUES(?, ?, ?, ?, ?)",
-                    (production_id, pipeline_key, run_id, revision_id, timestamp),
+                    "INSERT INTO local_pipeline_claims("
+                    "production_id, pipeline_key, run_id, revision_id, active_job_id, "
+                    "state, request_protection, request_ciphertext, continuation_job_id, "
+                    "source_job_id, source_stage_attempt_id, resume_count, created_at, "
+                    "updated_at, error_code, error_message) "
+                    "VALUES(?, ?, ?, ?, NULL, ?, ?, ?, NULL, NULL, NULL, 0, ?, ?, NULL, NULL)",
+                    (
+                        production_id,
+                        pipeline_key,
+                        run_id,
+                        revision_id,
+                        (
+                            "active"
+                            if pipeline_protection == "dpapi-v1"
+                            else "unavailable"
+                        ),
+                        pipeline_protection,
+                        pipeline_ciphertext,
+                        timestamp,
+                        timestamp,
+                    ),
                 )
             self._append_event(
                 connection,
@@ -2106,6 +2815,256 @@ class StudioDatabase:
             raise ValueError("provider task execution pair is invalid")
         return attempt, job
 
+    @staticmethod
+    def _mark_pipeline_waiting_provider(
+        connection: sqlite3.Connection,
+        *,
+        run_id: str,
+        provider_job_id: str,
+        timestamp: str,
+    ) -> sqlite3.Row | None:
+        claim = connection.execute(
+            "SELECT * FROM local_pipeline_claims WHERE run_id=?", (run_id,)
+        ).fetchone()
+        if claim is None:
+            return None
+        if claim["state"] in {"succeeded", "cancel_requested", "cancelled"}:
+            raise AtomicCompletionError(
+                "pipeline continuation no longer accepts provider work",
+                code="pipeline_continuation_not_active",
+                job_status=None,
+                stage_status=claim["state"],
+            )
+        if claim["state"] != "waiting_provider":
+            connection.execute(
+                "UPDATE local_pipeline_claims SET state='waiting_provider', "
+                "updated_at=?, error_code=NULL, error_message=NULL "
+                "WHERE production_id=? AND pipeline_key=? AND run_id=? "
+                "AND state=? AND updated_at=?",
+                (
+                    timestamp,
+                    claim["production_id"],
+                    claim["pipeline_key"],
+                    run_id,
+                    claim["state"],
+                    claim["updated_at"],
+                ),
+            )
+            if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                raise AtomicCompletionError(
+                    "pipeline continuation changed before provider claim",
+                    code="pipeline_continuation_changed",
+                    job_status=None,
+                    stage_status="unknown",
+                )
+            StudioDatabase._append_event(
+                connection,
+                "run",
+                run_id,
+                "pipeline.continuation.waiting_provider",
+                {
+                    "production_id": claim["production_id"],
+                    "pipeline_key": claim["pipeline_key"],
+                    "provider_job_id": provider_job_id,
+                    "state": "waiting_provider",
+                },
+                created_at=timestamp,
+            )
+        return connection.execute(
+            "SELECT * FROM local_pipeline_claims WHERE run_id=?", (run_id,)
+        ).fetchone()
+
+    @staticmethod
+    def _checkpoint_pipeline_video_completion(
+        connection: sqlite3.Connection,
+        *,
+        run_id: str,
+        production_id: str,
+        source_job_id: str,
+        source_stage_attempt_id: str,
+        timestamp: str,
+    ) -> sqlite3.Row | None:
+        claim = connection.execute(
+            "SELECT * FROM local_pipeline_claims WHERE run_id=?", (run_id,)
+        ).fetchone()
+        if claim is None:
+            return None
+        if claim["production_id"] != production_id:
+            raise sqlite3.IntegrityError("pipeline checkpoint production is invalid")
+        top_job = (
+            connection.execute(
+                "SELECT * FROM jobs WHERE id=?", (claim["active_job_id"],)
+            ).fetchone()
+            if claim["active_job_id"] is not None
+            else None
+        )
+        top_payload = _loads(top_job["payload_json"], {}) if top_job is not None else None
+        top_is_active = bool(
+            top_job is not None
+            and top_job["kind"] == "local_pipeline"
+            and top_job["production_id"] == production_id
+            and top_job["status"] in {"queued", "running"}
+            and isinstance(top_payload, dict)
+            and top_payload.get("run_id") == run_id
+            and top_payload.get("pipeline_key") == claim["pipeline_key"]
+        )
+        if claim["state"] in {"succeeded", "cancel_requested", "cancelled"}:
+            next_state = claim["state"]
+        elif top_is_active:
+            next_state = (
+                "continuing"
+                if claim["continuation_job_id"] == claim["active_job_id"]
+                else "active"
+            )
+        else:
+            next_state = (
+                "ready"
+                if claim["request_protection"] == "dpapi-v1"
+                else "unavailable"
+            )
+        connection.execute(
+            "UPDATE local_pipeline_claims SET state=?, source_job_id=?, "
+            "source_stage_attempt_id=?, updated_at=?, "
+            "error_code=CASE WHEN state IN ('cancel_requested', 'cancelled') "
+            "THEN error_code ELSE NULL END, "
+            "error_message=CASE WHEN state IN ('cancel_requested', 'cancelled') "
+            "THEN error_message ELSE NULL END "
+            "WHERE production_id=? AND pipeline_key=? AND run_id=? "
+            "AND state=? AND updated_at=?",
+            (
+                next_state,
+                source_job_id,
+                source_stage_attempt_id,
+                timestamp,
+                production_id,
+                claim["pipeline_key"],
+                run_id,
+                claim["state"],
+                claim["updated_at"],
+            ),
+        )
+        if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+            raise AtomicCompletionError(
+                "pipeline continuation changed before video checkpoint",
+                code="pipeline_continuation_changed",
+                job_status=(top_job["status"] if top_job is not None else None),
+                stage_status="unknown",
+            )
+        StudioDatabase._append_event(
+            connection,
+            "run",
+            run_id,
+            "pipeline.continuation.video_checkpointed",
+            {
+                "production_id": production_id,
+                "pipeline_key": claim["pipeline_key"],
+                "source_job_id": source_job_id,
+                "source_attempt_id": source_stage_attempt_id,
+                "state": next_state,
+            },
+            created_at=timestamp,
+        )
+        return connection.execute(
+            "SELECT * FROM local_pipeline_claims WHERE run_id=?", (run_id,)
+        ).fetchone()
+
+    @staticmethod
+    def _finalize_pipeline_provider_terminal(
+        connection: sqlite3.Connection,
+        *,
+        run_id: str,
+        provider_task_record_id: str,
+        provider_status: str,
+        timestamp: str,
+        error_code: str | None,
+        error_message: str | None,
+    ) -> sqlite3.Row | None:
+        """Close a waiting/cancelled pipeline after a definite provider outcome."""
+
+        if provider_status not in {"succeeded", "failed"}:
+            return None
+        claim = connection.execute(
+            "SELECT * FROM local_pipeline_claims WHERE run_id=?", (run_id,)
+        ).fetchone()
+        if claim is None:
+            return None
+        pending_provider = connection.execute(
+            "SELECT 1 FROM provider_tasks WHERE run_id=? "
+            "AND status NOT IN ('succeeded', 'failed') LIMIT 1",
+            (run_id,),
+        ).fetchone()
+        top_job = (
+            connection.execute(
+                "SELECT status FROM jobs WHERE id=?", (claim["active_job_id"],)
+            ).fetchone()
+            if claim["active_job_id"] is not None
+            else None
+        )
+        top_is_active = bool(
+            top_job is not None and top_job["status"] in {"queued", "running"}
+        )
+        if claim["state"] == "cancel_requested" and pending_provider is None:
+            next_state = "cancelled"
+            clear_private = True
+        elif (
+            provider_status == "failed"
+            and claim["state"] == "waiting_provider"
+            and pending_provider is None
+            and not top_is_active
+        ):
+            next_state = (
+                "recovery_blocked"
+                if claim["request_protection"] == "dpapi-v1"
+                else "unavailable"
+            )
+            clear_private = False
+        else:
+            return claim
+        connection.execute(
+            "UPDATE local_pipeline_claims SET state=?, continuation_job_id=NULL, "
+            "request_protection=CASE WHEN ? THEN 'none' ELSE request_protection END, "
+            "request_ciphertext=CASE WHEN ? THEN NULL ELSE request_ciphertext END, "
+            "updated_at=?, error_code=?, error_message=? "
+            "WHERE production_id=? AND pipeline_key=? AND state=? AND updated_at=?",
+            (
+                next_state,
+                int(clear_private),
+                int(clear_private),
+                timestamp,
+                error_code,
+                error_message,
+                claim["production_id"],
+                claim["pipeline_key"],
+                claim["state"],
+                claim["updated_at"],
+            ),
+        )
+        if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+            raise AtomicCompletionError(
+                "pipeline continuation changed before provider terminal state",
+                code="pipeline_continuation_changed",
+                job_status=(top_job["status"] if top_job is not None else None),
+                stage_status="unknown",
+            )
+        StudioDatabase._append_event(
+            connection,
+            "run",
+            run_id,
+            "pipeline.continuation.provider_terminal",
+            {
+                "production_id": claim["production_id"],
+                "pipeline_key": claim["pipeline_key"],
+                "state": next_state,
+                "provider_task_record_id": provider_task_record_id,
+                "provider_status": provider_status,
+                "error_code": error_code,
+            },
+            created_at=timestamp,
+        )
+        return connection.execute(
+            "SELECT * FROM local_pipeline_claims WHERE run_id=?", (run_id,)
+        ).fetchone()
+
     def create_or_get_provider_task(
         self,
         *,
@@ -2230,6 +3189,12 @@ class StudioDatabase:
                     existing["current_stage_attempt_id"] == current_stage_attempt_id
                     and existing["current_job_id"] == current_job_id
                 ):
+                    self._mark_pipeline_waiting_provider(
+                        connection,
+                        run_id=run_id,
+                        provider_job_id=current_job_id,
+                        timestamp=timestamp,
+                    )
                     return self._provider_task_dict(existing), False
                 else:
                     if (
@@ -2269,6 +3234,12 @@ class StudioDatabase:
                 "SELECT * FROM provider_tasks WHERE id=?", (record_id,)
             ).fetchone()
             assert row is not None
+            self._mark_pipeline_waiting_provider(
+                connection,
+                run_id=run_id,
+                provider_job_id=current_job_id,
+                timestamp=timestamp,
+            )
             self._append_event(
                 connection,
                 "run",
@@ -2463,6 +3434,12 @@ class StudioDatabase:
                 "SELECT * FROM provider_tasks WHERE id=?", (provider_task_record_id,)
             ).fetchone()
             assert updated is not None
+            self._mark_pipeline_waiting_provider(
+                connection,
+                run_id=updated["run_id"],
+                provider_job_id=current_job_id,
+                timestamp=timestamp,
+            )
             self._append_event(
                 connection,
                 "run",
@@ -2763,6 +3740,16 @@ class StudioDatabase:
                 "SELECT * FROM provider_tasks WHERE id=?", (provider_task_record_id,)
             ).fetchone()
             assert updated is not None
+            if status == "failed":
+                self._finalize_pipeline_provider_terminal(
+                    connection,
+                    run_id=updated["run_id"],
+                    provider_task_record_id=updated["id"],
+                    provider_status="failed",
+                    timestamp=timestamp,
+                    error_code=effective_code,
+                    error_message=effective_message,
+                )
             self._append_event(
                 connection,
                 "run",
@@ -3426,13 +4413,19 @@ class StudioDatabase:
                     restored["runs"] += int(connection.total_changes > before)
                     if pipeline_key is not None:
                         connection.execute(
-                            "INSERT OR IGNORE INTO local_pipeline_claims(production_id, pipeline_key, run_id, revision_id, created_at) "
-                            "VALUES(?, ?, ?, ?, ?)",
+                            "INSERT OR IGNORE INTO local_pipeline_claims("
+                            "production_id, pipeline_key, run_id, revision_id, active_job_id, "
+                            "state, request_protection, request_ciphertext, continuation_job_id, "
+                            "source_job_id, source_stage_attempt_id, resume_count, created_at, "
+                            "updated_at, error_code, error_message) "
+                            "VALUES(?, ?, ?, ?, NULL, 'unavailable', 'none', NULL, NULL, "
+                            "NULL, NULL, 0, ?, ?, NULL, NULL)",
                             (
                                 run["production_id"],
                                 pipeline_key,
                                 run["id"],
                                 run["revision_id"],
+                                run["created_at"],
                                 run["created_at"],
                             ),
                         )
@@ -3734,6 +4727,10 @@ class StudioDatabase:
         pipeline_key: str,
         payload: Any,
         reuse_succeeded: bool = True,
+        expected_continuation_state: str | None = None,
+        expected_continuation_updated_at: str | None = None,
+        expected_source_job_id: str | None = None,
+        expected_source_stage_attempt_id: str | None = None,
     ) -> tuple[dict[str, Any], bool]:
         """Atomically claim the one top-level job for a pipeline request.
 
@@ -3750,6 +4747,20 @@ class StudioDatabase:
             raise ValueError("invalid pipeline key")
         if not isinstance(reuse_succeeded, bool):
             raise ValueError("reuse_succeeded must be a boolean")
+        has_expected_checkpoint = expected_continuation_state is not None
+        if has_expected_checkpoint != (expected_continuation_updated_at is not None):
+            raise ValueError("continuation state and timestamp must be supplied together")
+        if has_expected_checkpoint and expected_continuation_state != "ready":
+            raise ValueError("only a ready continuation checkpoint can be claimed")
+        if (expected_source_job_id is None) != (
+            expected_source_stage_attempt_id is None
+        ):
+            raise ValueError("continuation source job and attempt must be supplied together")
+        if expected_source_job_id is not None:
+            validate_identifier(expected_source_job_id, label="source job id")
+            validate_identifier(
+                expected_source_stage_attempt_id or "", label="source stage attempt id"
+            )
         safe_payload = sanitize_for_storage(payload)
         if (
             not isinstance(safe_payload, dict)
@@ -3821,6 +4832,66 @@ class StudioDatabase:
                         )
                     return self._job_dict(existing), False
 
+            if has_expected_checkpoint and (
+                claim["state"] != expected_continuation_state
+                or claim["updated_at"] != expected_continuation_updated_at
+                or claim["source_job_id"] != expected_source_job_id
+                or claim["source_stage_attempt_id"]
+                != expected_source_stage_attempt_id
+                or claim["continuation_job_id"] is not None
+            ):
+                raise AtomicCompletionError(
+                    "pipeline continuation checkpoint changed",
+                    code="pipeline_continuation_changed",
+                    job_status=(existing["status"] if active_job_id and existing else None),
+                    stage_status=claim["state"],
+                )
+            if claim["state"] in {
+                "waiting_provider",
+                "continuing",
+                "cancel_requested",
+                "cancelled",
+            }:
+                raise AtomicCompletionError(
+                    "pipeline continuation is not admissible",
+                    code="pipeline_continuation_not_ready",
+                    job_status=(existing["status"] if active_job_id and existing else None),
+                    stage_status=claim["state"],
+                )
+            is_continuation = bool(
+                claim["state"] == "ready" or has_expected_checkpoint
+            )
+            if is_continuation and claim["source_job_id"] is not None:
+                source_job = connection.execute(
+                    "SELECT * FROM jobs WHERE id=?", (claim["source_job_id"],)
+                ).fetchone()
+                source_attempt = connection.execute(
+                    "SELECT * FROM stage_attempts WHERE id=?",
+                    (claim["source_stage_attempt_id"],),
+                ).fetchone()
+                source_result = (
+                    _loads(source_job["result_json"], None)
+                    if source_job is not None
+                    else None
+                )
+                if (
+                    source_job is None
+                    or source_attempt is None
+                    or source_job["kind"] != "local_video_generation"
+                    or source_job["status"] != "succeeded"
+                    or source_job["production_id"] != production_id
+                    or source_attempt["job_id"] != source_job["id"]
+                    or source_attempt["run_id"] != run_id
+                    or source_attempt["production_id"] != production_id
+                    or source_attempt["stage"] != "video_generation"
+                    or source_attempt["status"] != "succeeded"
+                    or not isinstance(source_result, dict)
+                    or source_result.get("stage_attempt_id") != source_attempt["id"]
+                ):
+                    raise sqlite3.IntegrityError(
+                        "pipeline continuation source provenance is invalid"
+                    )
+
             job_id = f"job_{uuid.uuid4().hex}"
             connection.execute(
                 "INSERT INTO jobs(id, kind, status, production_id, created_at, payload_json) "
@@ -3828,9 +4899,35 @@ class StudioDatabase:
                 (job_id, production_id, timestamp, _json(safe_payload)),
             )
             connection.execute(
-                "UPDATE local_pipeline_claims SET active_job_id=? "
-                "WHERE production_id=? AND pipeline_key=? AND run_id=?",
-                (job_id, production_id, pipeline_key, run_id),
+                "UPDATE local_pipeline_claims SET active_job_id=?, state=?, "
+                "continuation_job_id=?, resume_count=resume_count+?, updated_at=?, "
+                "error_code=NULL, error_message=NULL "
+                "WHERE production_id=? AND pipeline_key=? AND run_id=? "
+                "AND state=? AND updated_at=? AND source_job_id IS ? "
+                "AND source_stage_attempt_id IS ? AND continuation_job_id IS ?",
+                (
+                    job_id,
+                    (
+                        "continuing"
+                        if is_continuation
+                        else (
+                            "active"
+                            if claim["request_protection"] == "dpapi-v1"
+                            else "unavailable"
+                        )
+                    ),
+                    job_id if is_continuation else None,
+                    int(is_continuation),
+                    timestamp,
+                    production_id,
+                    pipeline_key,
+                    run_id,
+                    claim["state"],
+                    claim["updated_at"],
+                    claim["source_job_id"],
+                    claim["source_stage_attempt_id"],
+                    claim["continuation_job_id"],
+                ),
             )
             if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
                 raise sqlite3.IntegrityError("pipeline job claim changed concurrently")
@@ -3847,6 +4944,475 @@ class StudioDatabase:
             ).fetchone()
             assert row is not None
             return self._job_dict(row), True
+
+    def abort_local_pipeline_job_admission(
+        self,
+        job_id: str,
+        *,
+        error_code: str = "job_setup_failed",
+        error_message: str = "The background job could not be prepared.",
+    ) -> dict[str, Any]:
+        """Fail one unqueued top job and atomically release its checkpoint."""
+
+        validate_identifier(job_id, label="job id")
+        safe_code = str(sanitize_for_storage(error_code or "job_setup_failed"))[:128]
+        safe_message = str(sanitize_for_storage(error_message or ""))[:1000] or None
+        timestamp = utc_now()
+        with self.transaction() as connection:
+            job = connection.execute(
+                "SELECT * FROM jobs WHERE id=?", (job_id,)
+            ).fetchone()
+            claim = connection.execute(
+                "SELECT * FROM local_pipeline_claims WHERE active_job_id=?", (job_id,)
+            ).fetchone()
+            if job is None:
+                raise KeyError("job not found")
+            if claim is None or job["kind"] != "local_pipeline":
+                raise ValueError("pipeline job claim is unavailable")
+            if job["status"] == "failed" and job["error_code"] == safe_code:
+                return {
+                    "job": self._job_dict(job),
+                    "pipeline_continuation": self._local_pipeline_continuation_dict(
+                        claim
+                    ),
+                }
+            if job["status"] != "queued" or claim["state"] not in {
+                "active",
+                "continuing",
+                "unavailable",
+            }:
+                raise AtomicCompletionError(
+                    "pipeline admission is no longer queued",
+                    code="atomic_failure_not_active",
+                    job_status=job["status"],
+                    stage_status=claim["state"],
+                )
+            connection.execute(
+                "UPDATE jobs SET status='failed', completed_at=?, result_json=NULL, "
+                "error_code=?, error_message=? WHERE id=? AND status='queued'",
+                (timestamp, safe_code, safe_message, job_id),
+            )
+            if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                raise AtomicCompletionError(
+                    "pipeline job changed before admission abort",
+                    code="atomic_failure_not_active",
+                    job_status="unknown",
+                    stage_status=claim["state"],
+                )
+            next_state = (
+                "ready"
+                if claim["request_protection"] == "dpapi-v1"
+                else "unavailable"
+            )
+            connection.execute(
+                "UPDATE local_pipeline_claims SET state=?, continuation_job_id=NULL, "
+                "updated_at=?, error_code=?, error_message=? "
+                "WHERE production_id=? AND pipeline_key=? AND active_job_id=? "
+                "AND state=? AND updated_at=?",
+                (
+                    next_state,
+                    timestamp,
+                    safe_code,
+                    safe_message,
+                    claim["production_id"],
+                    claim["pipeline_key"],
+                    job_id,
+                    claim["state"],
+                    claim["updated_at"],
+                ),
+            )
+            if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                raise AtomicCompletionError(
+                    "pipeline continuation changed before admission abort",
+                    code="pipeline_continuation_changed",
+                    job_status="failed",
+                    stage_status="unknown",
+                )
+            self._append_event(
+                connection,
+                "job",
+                job_id,
+                "job.failed",
+                {"result": None, "error_code": safe_code, "error_message": safe_message},
+                created_at=timestamp,
+            )
+            self._append_event(
+                connection,
+                "run",
+                claim["run_id"],
+                "pipeline.continuation.admission_aborted",
+                {
+                    "production_id": claim["production_id"],
+                    "pipeline_key": claim["pipeline_key"],
+                    "job_id": job_id,
+                    "state": next_state,
+                    "error_code": safe_code,
+                },
+                created_at=timestamp,
+            )
+            updated_job = connection.execute(
+                "SELECT * FROM jobs WHERE id=?", (job_id,)
+            ).fetchone()
+            updated_claim = connection.execute(
+                "SELECT * FROM local_pipeline_claims WHERE production_id=? AND pipeline_key=?",
+                (claim["production_id"], claim["pipeline_key"]),
+            ).fetchone()
+            assert updated_job is not None and updated_claim is not None
+            return {
+                "job": self._job_dict(updated_job),
+                "pipeline_continuation": self._local_pipeline_continuation_dict(
+                    updated_claim
+                ),
+            }
+
+    def repair_orphaned_local_pipeline_continuation(
+        self,
+        production_id: str,
+        pipeline_key: str,
+        *,
+        expected_updated_at: str,
+    ) -> dict[str, Any] | None:
+        """Repair an active ledger whose top job no longer has an owner."""
+
+        validate_identifier(production_id, label="production id")
+        if not isinstance(pipeline_key, str) or re.fullmatch(
+            r"[0-9A-F]{64}", pipeline_key
+        ) is None:
+            raise ValueError("invalid pipeline key")
+        if not isinstance(expected_updated_at, str) or not expected_updated_at:
+            raise ValueError("expected continuation timestamp is required")
+        timestamp = utc_now()
+        with self.transaction() as connection:
+            claim = connection.execute(
+                "SELECT * FROM local_pipeline_claims WHERE production_id=? AND pipeline_key=?",
+                (production_id, pipeline_key),
+            ).fetchone()
+            if claim is None:
+                return None
+            if claim["updated_at"] != expected_updated_at or claim["state"] not in {
+                "active",
+                "continuing",
+                "waiting_provider",
+            }:
+                return None
+            owner = (
+                connection.execute(
+                    "SELECT status FROM jobs WHERE id=?", (claim["active_job_id"],)
+                ).fetchone()
+                if claim["active_job_id"] is not None
+                else None
+            )
+            if owner is not None and owner["status"] in {"queued", "running"}:
+                return None
+            provider = connection.execute(
+                "SELECT 1 FROM provider_tasks WHERE run_id=? "
+                "AND status NOT IN ('succeeded', 'failed') LIMIT 1",
+                (claim["run_id"],),
+            ).fetchone()
+            if provider is not None:
+                next_state = "waiting_provider"
+            elif (
+                claim["request_protection"] == "dpapi-v1"
+                and claim["source_stage_attempt_id"] is not None
+            ):
+                next_state = "ready"
+            elif claim["request_protection"] == "dpapi-v1":
+                next_state = "recovery_blocked"
+            else:
+                next_state = "unavailable"
+            connection.execute(
+                "UPDATE local_pipeline_claims SET state=?, continuation_job_id=NULL, "
+                "updated_at=?, error_code='process_interrupted', "
+                "error_message='The previous Studio process stopped.' "
+                "WHERE production_id=? AND pipeline_key=? AND updated_at=? AND state=?",
+                (
+                    next_state,
+                    timestamp,
+                    production_id,
+                    pipeline_key,
+                    expected_updated_at,
+                    claim["state"],
+                ),
+            )
+            if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                return None
+            updated = connection.execute(
+                "SELECT * FROM local_pipeline_claims WHERE production_id=? AND pipeline_key=?",
+                (production_id, pipeline_key),
+            ).fetchone()
+            assert updated is not None
+            self._append_event(
+                connection,
+                "run",
+                claim["run_id"],
+                "pipeline.continuation.orphan_repaired",
+                {
+                    "production_id": production_id,
+                    "pipeline_key": pipeline_key,
+                    "state": next_state,
+                    "previous_state": claim["state"],
+                    "error_code": "process_interrupted",
+                },
+                created_at=timestamp,
+            )
+            return self._local_pipeline_continuation_dict(updated)
+
+    def complete_local_pipeline_job(
+        self, job_id: str, result: Any
+    ) -> dict[str, Any]:
+        """Atomically publish top success and terminalize its continuation."""
+
+        validate_identifier(job_id, label="job id")
+        safe_result = sanitize_for_storage(result)
+        if not isinstance(safe_result, dict):
+            raise ValueError("pipeline result must be an object")
+        timestamp = utc_now()
+        with self.transaction() as connection:
+            job = connection.execute(
+                "SELECT * FROM jobs WHERE id=?", (job_id,)
+            ).fetchone()
+            claim = connection.execute(
+                "SELECT * FROM local_pipeline_claims WHERE active_job_id=?", (job_id,)
+            ).fetchone()
+            if job is None:
+                raise KeyError("job not found")
+            if claim is None or job["kind"] != "local_pipeline":
+                raise ValueError("pipeline job claim is unavailable")
+            payload = _loads(job["payload_json"], {})
+            if (
+                not isinstance(payload, dict)
+                or payload.get("production_id") != claim["production_id"]
+                or payload.get("run_id") != claim["run_id"]
+                or payload.get("revision_id") != claim["revision_id"]
+                or payload.get("pipeline_key") != claim["pipeline_key"]
+                or safe_result.get("production_id") != claim["production_id"]
+                or safe_result.get("run_id") != claim["run_id"]
+                or safe_result.get("revision_id") != claim["revision_id"]
+                or safe_result.get("pipeline_key") != claim["pipeline_key"]
+                or safe_result.get("execution_profile") != "local_pipeline"
+                or safe_result.get("technical_verdict") != "pass"
+            ):
+                raise ValueError("pipeline result provenance is invalid")
+            if job["status"] == "succeeded" and claim["state"] == "succeeded":
+                return {
+                    "committed": False,
+                    "job": self._job_dict(job),
+                    "pipeline_continuation": self._local_pipeline_continuation_dict(
+                        claim
+                    ),
+                }
+            if job["status"] != "running" or claim["state"] not in {
+                "active",
+                "continuing",
+                "ready",
+                "unavailable",
+            }:
+                raise AtomicCompletionError(
+                    "pipeline completion requires an active top job",
+                    code="atomic_completion_not_active",
+                    job_status=job["status"],
+                    stage_status=claim["state"],
+                )
+            connection.execute(
+                "UPDATE jobs SET status='succeeded', completed_at=?, result_json=?, "
+                "error_code=NULL, error_message=NULL WHERE id=? AND status='running'",
+                (timestamp, _json(safe_result), job_id),
+            )
+            if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                raise AtomicCompletionError(
+                    "pipeline job stopped before completion",
+                    code="atomic_completion_not_active",
+                    job_status="unknown",
+                    stage_status=claim["state"],
+                )
+            connection.execute(
+                "UPDATE local_pipeline_claims SET state='succeeded', "
+                "request_protection='none', request_ciphertext=NULL, updated_at=?, "
+                "error_code=NULL, error_message=NULL "
+                "WHERE production_id=? AND pipeline_key=? AND active_job_id=? "
+                "AND state=? AND updated_at=?",
+                (
+                    timestamp,
+                    claim["production_id"],
+                    claim["pipeline_key"],
+                    job_id,
+                    claim["state"],
+                    claim["updated_at"],
+                ),
+            )
+            if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                raise AtomicCompletionError(
+                    "pipeline continuation changed before completion",
+                    code="pipeline_continuation_changed",
+                    job_status="succeeded",
+                    stage_status="unknown",
+                )
+            self._append_event(
+                connection,
+                "job",
+                job_id,
+                "job.succeeded",
+                {"result": safe_result, "error_code": None, "error_message": None},
+                created_at=timestamp,
+            )
+            self._append_event(
+                connection,
+                "run",
+                claim["run_id"],
+                "pipeline.continuation.succeeded",
+                {
+                    "production_id": claim["production_id"],
+                    "pipeline_key": claim["pipeline_key"],
+                    "job_id": job_id,
+                    "state": "succeeded",
+                },
+                created_at=timestamp,
+            )
+            updated_job = connection.execute(
+                "SELECT * FROM jobs WHERE id=?", (job_id,)
+            ).fetchone()
+            updated_claim = connection.execute(
+                "SELECT * FROM local_pipeline_claims WHERE production_id=? AND pipeline_key=?",
+                (claim["production_id"], claim["pipeline_key"]),
+            ).fetchone()
+            assert updated_job is not None and updated_claim is not None
+            return {
+                "committed": True,
+                "job": self._job_dict(updated_job),
+                "pipeline_continuation": self._local_pipeline_continuation_dict(
+                    updated_claim
+                ),
+            }
+
+    def fail_local_pipeline_job(
+        self,
+        job_id: str,
+        *,
+        error_code: str,
+        error_message: str,
+    ) -> dict[str, Any]:
+        """Atomically fail a top job without losing recoverable provider work."""
+
+        validate_identifier(job_id, label="job id")
+        safe_code = str(sanitize_for_storage(error_code or "pipeline_failed"))[:128]
+        safe_message = str(sanitize_for_storage(error_message or ""))[:1000] or None
+        timestamp = utc_now()
+        with self.transaction() as connection:
+            job = connection.execute(
+                "SELECT * FROM jobs WHERE id=?", (job_id,)
+            ).fetchone()
+            claim = connection.execute(
+                "SELECT * FROM local_pipeline_claims WHERE active_job_id=?", (job_id,)
+            ).fetchone()
+            if job is None:
+                raise KeyError("job not found")
+            if claim is None or job["kind"] != "local_pipeline":
+                raise ValueError("pipeline job claim is unavailable")
+            if job["status"] == "failed" and job["error_code"] == safe_code:
+                return {
+                    "committed": False,
+                    "job": self._job_dict(job),
+                    "pipeline_continuation": self._local_pipeline_continuation_dict(
+                        claim
+                    ),
+                }
+            if job["status"] not in {"queued", "running"} or claim["state"] in {
+                "succeeded",
+                "cancelled",
+            }:
+                raise AtomicCompletionError(
+                    "pipeline failure requires an active top job",
+                    code="atomic_failure_not_active",
+                    job_status=job["status"],
+                    stage_status=claim["state"],
+                )
+            connection.execute(
+                "UPDATE jobs SET status='failed', completed_at=?, result_json=NULL, "
+                "error_code=?, error_message=? WHERE id=? AND status IN ('queued', 'running')",
+                (timestamp, safe_code, safe_message, job_id),
+            )
+            if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                raise AtomicCompletionError(
+                    "pipeline job stopped before failure commit",
+                    code="atomic_failure_not_active",
+                    job_status="unknown",
+                    stage_status=claim["state"],
+                )
+            provider_pending = connection.execute(
+                "SELECT 1 FROM provider_tasks WHERE run_id=? "
+                "AND status NOT IN ('succeeded', 'failed') LIMIT 1",
+                (claim["run_id"],),
+            ).fetchone()
+            next_state = (
+                "waiting_provider"
+                if provider_pending is not None
+                else (
+                    "recovery_blocked"
+                    if claim["request_protection"] == "dpapi-v1"
+                    else "unavailable"
+                )
+            )
+            connection.execute(
+                "UPDATE local_pipeline_claims SET state=?, continuation_job_id=NULL, "
+                "updated_at=?, error_code=?, error_message=? "
+                "WHERE production_id=? AND pipeline_key=? AND active_job_id=? "
+                "AND state=? AND updated_at=?",
+                (
+                    next_state,
+                    timestamp,
+                    safe_code,
+                    safe_message,
+                    claim["production_id"],
+                    claim["pipeline_key"],
+                    job_id,
+                    claim["state"],
+                    claim["updated_at"],
+                ),
+            )
+            if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                raise AtomicCompletionError(
+                    "pipeline continuation changed before failure commit",
+                    code="pipeline_continuation_changed",
+                    job_status="failed",
+                    stage_status="unknown",
+                )
+            self._append_event(
+                connection,
+                "job",
+                job_id,
+                "job.failed",
+                {"result": None, "error_code": safe_code, "error_message": safe_message},
+                created_at=timestamp,
+            )
+            self._append_event(
+                connection,
+                "run",
+                claim["run_id"],
+                "pipeline.continuation.failed",
+                {
+                    "production_id": claim["production_id"],
+                    "pipeline_key": claim["pipeline_key"],
+                    "job_id": job_id,
+                    "state": next_state,
+                    "error_code": safe_code,
+                },
+                created_at=timestamp,
+            )
+            updated_job = connection.execute(
+                "SELECT * FROM jobs WHERE id=?", (job_id,)
+            ).fetchone()
+            updated_claim = connection.execute(
+                "SELECT * FROM local_pipeline_claims WHERE production_id=? AND pipeline_key=?",
+                (claim["production_id"], claim["pipeline_key"]),
+            ).fetchone()
+            assert updated_job is not None and updated_claim is not None
+            return {
+                "committed": True,
+                "job": self._job_dict(updated_job),
+                "pipeline_continuation": self._local_pipeline_continuation_dict(
+                    updated_claim
+                ),
+            }
 
     def create_or_get_local_video_generation_job(
         self,
@@ -4410,6 +5976,27 @@ class StudioDatabase:
                         job_status="succeeded",
                         stage_status="succeeded",
                     )
+                self._finalize_pipeline_provider_terminal(
+                    connection,
+                    run_id=attempt["run_id"],
+                    provider_task_record_id=provider_task["id"],
+                    provider_status="succeeded",
+                    timestamp=timestamp,
+                    error_code=None,
+                    error_message=None,
+                )
+
+            if attempt["stage"] == "video_generation":
+                if job["kind"] != "local_video_generation":
+                    raise ValueError("pipeline video checkpoint job kind is invalid")
+                self._checkpoint_pipeline_video_completion(
+                    connection,
+                    run_id=attempt["run_id"],
+                    production_id=attempt["production_id"],
+                    source_job_id=job_id,
+                    source_stage_attempt_id=stage_attempt_id,
+                    timestamp=timestamp,
+                )
 
             self._append_event(
                 connection,
@@ -4643,6 +6230,16 @@ class StudioDatabase:
                         code="atomic_failure_not_active",
                         job_status="failed",
                         stage_status="failed",
+                    )
+                if provider_failure_status == "failed":
+                    self._finalize_pipeline_provider_terminal(
+                        connection,
+                        run_id=attempt["run_id"],
+                        provider_task_record_id=provider_task["id"],
+                        provider_status="failed",
+                        timestamp=timestamp,
+                        error_code=safe_code,
+                        error_message=safe_message,
                     )
 
             if not pair_already_terminal:

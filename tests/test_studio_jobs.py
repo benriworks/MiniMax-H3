@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+import sqlite3
 import sys
 import tempfile
 import threading
@@ -149,6 +150,193 @@ class JobManagerShutdownTests(unittest.TestCase):
             self.manager.wait(pipeline_job["id"], timeout=2)["status"], "succeeded"
         )
 
+    def test_pipeline_admission_repair_only_retries_exact_safe_queued_jobs(self) -> None:
+        statuses = {
+            "job_queued_success": "queued",
+            "job_queued_retry": "queued",
+            "job_running": "running",
+            "job_failed": "failed",
+            "job_interrupted": "interrupted",
+            "job_succeeded": "succeeded",
+            "job_unknown": "future_state",
+        }
+        pending = set(statuses) | {"job_missing", "job_read_error"}
+        self.manager._pending_local_pipeline_admission_aborts.update(pending)
+
+        def get_job(job_id: str) -> dict[str, str] | None:
+            if job_id == "job_read_error":
+                raise sqlite3.OperationalError("transient read fixture")
+            status = statuses.get(job_id)
+            return {"id": job_id, "status": status} if status is not None else None
+
+        def abort(job_id: str, **_kwargs: object) -> dict[str, object]:
+            if job_id == "job_queued_retry":
+                raise sqlite3.OperationalError("transient abort fixture")
+            return {}
+
+        with (
+            mock.patch.object(self.database, "get_job", side_effect=get_job),
+            mock.patch.object(
+                self.database,
+                "abort_local_pipeline_job_admission",
+                side_effect=abort,
+            ) as abort_call,
+        ):
+            repaired = self.manager.repair_local_pipeline_admissions()
+
+        self.assertEqual(repaired, 1)
+        self.assertEqual(
+            self.manager._pending_local_pipeline_admission_aborts,
+            {"job_queued_retry", "job_unknown", "job_read_error"},
+        )
+        self.assertEqual(
+            {call.args[0] for call in abort_call.call_args_list},
+            {"job_queued_success", "job_queued_retry"},
+        )
+
+    def test_pipeline_operator_cancel_fence_retries_transient_database_failure(
+        self,
+    ) -> None:
+        job_id = "job_operator_cancel_retry"
+        context = JobExecutionContext(job_id)
+        context.set()
+        self.manager._active[job_id] = context
+        self.manager._finished[job_id] = threading.Event()
+        self.manager._pending_local_pipeline_admission_aborts.add(job_id)
+
+        with mock.patch.object(
+            self.database,
+            "interrupt_job",
+            side_effect=sqlite3.OperationalError("transient cancel fixture"),
+        ):
+            self.assertEqual(self.manager.repair_local_pipeline_admissions(), 0)
+
+        self.assertTrue(
+            self.manager.has_pending_local_pipeline_operator_cancellation()
+        )
+        self.assertIn(job_id, self.manager._active)
+        self.assertFalse(self.manager._finished[job_id].is_set())
+
+        with (
+            mock.patch.object(self.database, "interrupt_job", return_value=True),
+            mock.patch.object(
+                self.database,
+                "get_job",
+                return_value={"id": job_id, "status": "interrupted"},
+            ),
+        ):
+            self.assertEqual(self.manager.repair_local_pipeline_admissions(), 0)
+
+        self.assertFalse(
+            self.manager.has_pending_local_pipeline_operator_cancellation()
+        )
+        self.assertNotIn(job_id, self.manager._active)
+        self.assertTrue(self.manager._finished[job_id].is_set())
+
+    def test_operator_cancel_retry_batch_rotates_after_failures(self) -> None:
+        pending = {"job_cancel_a", "job_cancel_b", "job_cancel_c"}
+        self.manager._pending_operator_cancel_job_ids.update(pending)
+
+        with mock.patch.object(
+            self.database,
+            "interrupt_job",
+            side_effect=sqlite3.OperationalError("transient retry fixture"),
+        ) as interrupt:
+            self.assertEqual(
+                self.manager.retry_pending_operator_cancellations(limit=1), 0
+            )
+            self.assertEqual(
+                self.manager.retry_pending_operator_cancellations(limit=1), 0
+            )
+            self.assertEqual(
+                self.manager.retry_pending_operator_cancellations(limit=1), 0
+            )
+
+        self.assertEqual(
+            [call.args[0] for call in interrupt.call_args_list],
+            ["job_cancel_a", "job_cancel_b", "job_cancel_c"],
+        )
+        self.assertEqual(self.manager._pending_operator_cancel_job_ids, pending)
+
+    def test_shutdown_retries_before_releasing_sticky_operator_cancel(self) -> None:
+        job_id = "job_shutdown_cancel_retry"
+        context = JobExecutionContext(job_id)
+        context.set()
+        self.manager._active[job_id] = context
+        self.manager._finished[job_id] = threading.Event()
+        self.manager._pending_local_pipeline_admission_aborts.add(job_id)
+
+        with mock.patch.object(
+            self.database,
+            "interrupt_job",
+            side_effect=sqlite3.OperationalError("shutdown cancel fixture"),
+        ):
+            self.assertFalse(self.manager.shutdown(timeout=2))
+
+        self.assertTrue(self.manager._shutdown_operator_cancel_blocked)
+        self.assertIn(job_id, self.manager._active)
+        self.assertFalse(self.manager._finished[job_id].is_set())
+
+        with mock.patch.object(self.database, "interrupt_job", return_value=True):
+            self.assertTrue(self.manager.shutdown(timeout=2))
+
+        self.assertFalse(self.manager._shutdown_operator_cancel_blocked)
+        self.assertNotIn(job_id, self.manager._active)
+        self.assertTrue(self.manager._finished[job_id].is_set())
+
+    def test_shutdown_fences_late_destructive_cancel_publication(self) -> None:
+        writer_started = threading.Event()
+        release_writer = threading.Event()
+        shutdown_results: list[bool] = []
+
+        def pause_writer() -> bool:
+            writer_started.set()
+            if not release_writer.wait(5):
+                raise AssertionError("shutdown writer fixture was not released")
+            return True
+
+        shutdown_thread = threading.Thread(
+            target=lambda: shutdown_results.append(self.manager.shutdown(timeout=5)),
+            name="late-cancel-shutdown",
+        )
+        try:
+            with (
+                mock.patch.object(
+                    self.manager,
+                    "_persist_operator_cancellation_fences",
+                    side_effect=pause_writer,
+                ),
+                mock.patch.object(
+                    self.database,
+                    "interrupt_job",
+                    side_effect=sqlite3.OperationalError(
+                        "late shutdown cancel fixture"
+                    ),
+                ),
+            ):
+                shutdown_thread.start()
+                self.assertTrue(writer_started.wait(3))
+                self.assertIsNone(
+                    self.manager.cancel_and_wait("job_late_cancel", timeout=0)
+                )
+                self.assertIn(
+                    "job_late_cancel",
+                    self.manager._pending_operator_cancel_job_ids,
+                )
+                release_writer.set()
+                shutdown_thread.join(timeout=5)
+        finally:
+            release_writer.set()
+            shutdown_thread.join(timeout=5)
+
+        self.assertFalse(shutdown_thread.is_alive())
+        self.assertEqual(shutdown_results, [False])
+        self.assertTrue(self.manager._shutdown_operator_cancel_blocked)
+        self.assertTrue(self.manager.shutdown(timeout=2))
+        self.assertEqual(self.manager._pending_operator_cancel_job_ids, set())
+        with self.assertRaises(JobManagerClosed):
+            self.manager.cancel_and_wait("job_after_shutdown", timeout=0)
+
     def test_cancel_and_wait_retires_worker_before_returning(self) -> None:
         started = threading.Event()
         callback_finished = threading.Event()
@@ -228,6 +416,55 @@ class JobManagerShutdownTests(unittest.TestCase):
         self.assertTrue(self.manager.shutdown(timeout=2))
         self.assertFalse(self.manager._thread.is_alive())
 
+    def test_shutdown_uses_remaining_deadline_to_drain_database_writer(self) -> None:
+        writer_started = threading.Event()
+        release_writer = threading.Event()
+        original_interrupt = self.database.interrupt_active_work
+
+        def delayed_interrupt() -> dict[str, int]:
+            writer_started.set()
+            release_writer.wait(1)
+            return original_interrupt()
+
+        timer = threading.Timer(0.2, release_writer.set)
+        timer.start()
+        try:
+            with mock.patch.object(
+                self.database,
+                "interrupt_active_work",
+                side_effect=delayed_interrupt,
+            ):
+                self.assertTrue(self.manager.shutdown(timeout=1))
+            self.assertTrue(writer_started.is_set())
+            self.assertFalse(self.manager._shutdown_interrupt_thread.is_alive())
+        finally:
+            release_writer.set()
+            timer.cancel()
+
+    def test_shutdown_retains_failure_until_database_writer_drains(self) -> None:
+        writer_started = threading.Event()
+        release_writer = threading.Event()
+        original_interrupt = self.database.interrupt_active_work
+
+        def blocked_interrupt() -> dict[str, int]:
+            writer_started.set()
+            release_writer.wait(1)
+            return original_interrupt()
+
+        try:
+            with mock.patch.object(
+                self.database,
+                "interrupt_active_work",
+                side_effect=blocked_interrupt,
+            ):
+                self.assertFalse(self.manager.shutdown(timeout=0.05))
+                self.assertTrue(writer_started.is_set())
+                self.assertTrue(self.manager._shutdown_interrupt_thread.is_alive())
+                release_writer.set()
+                self.assertTrue(self.manager.shutdown(timeout=1))
+        finally:
+            release_writer.set()
+
     def test_shutdown_terminates_registered_process_before_worker_join(self) -> None:
         started = threading.Event()
         process_holder: dict[str, subprocess.Popen[bytes]] = {}
@@ -286,6 +523,19 @@ class JobManagerShutdownTests(unittest.TestCase):
                 context.register_process(process)
         terminate.assert_called_once_with(54321)
         self.assertEqual(context.process_pids(), set())
+
+    def test_operator_cancel_intent_is_sticky_across_shutdown_orderings(self) -> None:
+        cancel_then_shutdown = JobExecutionContext("job_cancel_then_shutdown")
+        cancel_then_shutdown.set()
+        cancel_then_shutdown.set_for_shutdown()
+        self.assertTrue(cancel_then_shutdown.is_set())
+        self.assertFalse(cancel_then_shutdown.preserve_provider_task)
+
+        shutdown_then_cancel = JobExecutionContext("job_shutdown_then_cancel")
+        shutdown_then_cancel.set_for_shutdown()
+        self.assertTrue(shutdown_then_cancel.preserve_provider_task)
+        shutdown_then_cancel.set()
+        self.assertFalse(shutdown_then_cancel.preserve_provider_task)
 
     def test_windows_taskkill_nonzero_uses_fallback(self) -> None:
         with (

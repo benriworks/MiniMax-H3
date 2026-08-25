@@ -73,6 +73,73 @@ test('local ComfyUI job selection is constrained to the selected run and video s
   }, selection), false);
 });
 
+test('local pipeline continuation normalizes the safe public projection and locks active states', () => {
+  const run = api.normalizeRun({
+    id: 'run-pipeline',
+    requested_stages: ['video_generation', 'narration', 'timeline', 'assembly', 'qc'],
+    pipeline_continuation: {
+      state: 'continuing',
+      automatic: true,
+      resume_count: 2,
+      job_id: 'job-continuation',
+      source_job_id: 'job-top-failed',
+      source_attempt_id: 'attempt-video',
+      updated_at: '2026-08-25T00:10:00Z',
+      error: null,
+      prompt: 'must not become a typed continuation field',
+    },
+  });
+  assert.deepEqual(run.pipelineContinuation, {
+    state: 'continuing',
+    automatic: true,
+    resumeCount: 2,
+    jobId: 'job-continuation',
+    sourceJobId: 'job-top-failed',
+    sourceAttemptId: 'attempt-video',
+    updatedAt: '2026-08-25T00:10:00Z',
+    error: null,
+    raw: {
+      state: 'continuing',
+      automatic: true,
+      error: null,
+      resume_count: 2,
+      job_id: 'job-continuation',
+      source_job_id: 'job-top-failed',
+      source_attempt_id: 'attempt-video',
+      updated_at: '2026-08-25T00:10:00Z',
+    },
+  });
+  assert.equal(api.isPipelineContinuationActive(run.pipelineContinuation), true);
+  assert.equal(api.isPipelineContinuationActive({ state: 'active' }), true);
+  assert.equal(api.isPipelineContinuationActive({ state: 'waiting_provider' }), true);
+  assert.equal(api.isPipelineContinuationActive({ state: 'ready' }), true);
+  assert.equal(api.isPipelineContinuationActive({ state: 'cancel_requested' }), true);
+  assert.equal(api.isPipelineContinuationActive({ state: 'succeeded' }), false);
+  assert.equal(api.isPipelineContinuationActive({ state: 'recovery_blocked' }), false);
+  assert.equal(api.isPipelineContinuationActive({ state: 'unavailable' }), false);
+  assert.equal(run.pipelineContinuation.raw.prompt, undefined);
+
+  assert.equal(api.normalizePipelineContinuation({ state: 'active', automatic: true }).state, 'active');
+  assert.equal(api.normalizePipelineContinuation({ state: 'unavailable', automatic: false }).state, 'unavailable');
+
+  const invalid = api.normalizePipelineContinuation({
+    state: 'unexpected-state',
+    error: { code: 'continuation_failed', message: 'manual review', prompt: 'private' },
+  });
+  assert.equal(invalid.state, 'recovery_blocked');
+  assert.deepEqual(invalid.error, { code: 'continuation_failed', message: 'manual review' });
+  assert.equal(invalid.raw.prompt, undefined);
+});
+
+test('local pipeline top-job helper excludes video and reconciliation children', () => {
+  assert.equal(api.isLocalPipelineTopJob({ kind: 'local_pipeline', stage: 'pipeline' }), true);
+  assert.equal(api.isLocalPipelineTopJob({ type: 'local_pipeline', payload: { stage: 'pipeline' } }), true);
+  assert.equal(api.isLocalPipelineTopJob({ type: 'pipeline', raw: { kind: 'local_pipeline' } }), true);
+  assert.equal(api.isLocalPipelineTopJob({ kind: 'local_video_generation', stage: 'video_generation' }), false);
+  assert.equal(api.isLocalPipelineTopJob({ kind: 'provider_cancellation_reconciliation' }), false);
+  assert.equal(api.isLocalPipelineTopJob({ stage: 'pipeline', execution_profile: 'local_pipeline' }), false);
+});
+
 test('reload normalization retains nested ComfyUI stage metadata in typed fields', () => {
   const run = api.normalizeRun({
     id: 'run-video',

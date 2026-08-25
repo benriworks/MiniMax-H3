@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import hashlib
+import sqlite3
 import threading
+import time
 import unittest
 from pathlib import Path
 from typing import Any
@@ -10,7 +12,7 @@ from unittest import mock
 from tools.studio.assembly_execution import (
     CAPTION_STYLE_PRESET_SHORTS_JA_LARGE_V1,
 )
-from tools.studio.comfyui_execution import COMFYUI_WORKFLOW_PRESET
+from tools.studio.comfyui_execution import COMFYUI_WORKFLOW_PRESET, ComfyUIError
 from tools.studio.comfyui_execution import (
     COMFYUI_WORKFLOW_FILE_BYTES,
     COMFYUI_WORKFLOW_FILE_SHA256,
@@ -262,6 +264,7 @@ class _FakeService:
         self.jobs = _FakeJobs()
         self.order: list[str] = []
         self.lineages: dict[str, dict[str, Any]] = {}
+        self.video_recovery_checkpoints: list[dict[str, str]] = []
         self.narration_duration = narration_duration
 
     def _execute_local_pipeline_stage(
@@ -272,12 +275,19 @@ class _FakeService:
         *,
         pipeline_key: str,
         lineage: dict[str, Any],
+        video_recovery_checkpoint: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         del payload
         if run_id != RUN_ID or pipeline_key != self.key:
             raise AssertionError("pipeline provenance changed")
         self.order.append(stage)
         self.lineages[stage] = lineage
+        if video_recovery_checkpoint is not None:
+            if stage != "video_generation":
+                raise AssertionError("video checkpoint reached a non-video stage")
+            self.video_recovery_checkpoints.append(
+                dict(video_recovery_checkpoint)
+            )
         index = len(self.order)
         job_id = f"job_{index:032x}"
         attempt_id = f"attempt_{index:032x}"
@@ -386,6 +396,85 @@ class LocalPipelineContractTests(unittest.TestCase):
         self.assertEqual(result["technical_verdict"], "pass")
         self.assertEqual(len(result["artifacts"]), 4)
 
+    def test_video_recovery_checkpoint_reaches_only_the_video_stage(self) -> None:
+        payload = _payload(seed=420)
+        service = _FakeService(payload)
+        checkpoint = {
+            "job_id": "job_" + "a" * 32,
+            "stage_attempt_id": "attempt_" + "b" * 32,
+        }
+        run_local_pipeline(
+            service,
+            production_id=PRODUCTION_ID,
+            run_id=RUN_ID,
+            revision_id=REVISION_ID,
+            payload=payload,
+            expected_pipeline_key=service.key,
+            cancel_event=JobExecutionContext("job_" + "c" * 32),
+            video_recovery_checkpoint=checkpoint,
+        )
+        self.assertEqual(service.video_recovery_checkpoints, [checkpoint])
+
+    def test_video_recovery_error_is_translated_without_leaking_other_errors(self) -> None:
+        payload = _payload(seed=422)
+        checkpoint = {
+            "job_id": "job_" + "d" * 32,
+            "stage_attempt_id": "attempt_" + "e" * 32,
+        }
+        for child_error_code, expected_top_code in (
+            (
+                "pipeline_recovered_video_unavailable",
+                "pipeline_recovered_video_unavailable",
+            ),
+            ("untrusted_child_detail", "local_pipeline_stage_failed"),
+        ):
+            with self.subTest(child_error_code=child_error_code):
+                service = _FakeService(payload)
+
+                def failed_video(
+                    run_id: str,
+                    stage: str,
+                    _body: dict[str, Any],
+                    *,
+                    pipeline_key: str,
+                    lineage: dict[str, Any],
+                    video_recovery_checkpoint: dict[str, str] | None = None,
+                ) -> dict[str, Any]:
+                    del lineage
+                    self.assertEqual(run_id, RUN_ID)
+                    self.assertEqual(stage, "video_generation")
+                    self.assertEqual(pipeline_key, service.key)
+                    self.assertEqual(video_recovery_checkpoint, checkpoint)
+                    job_id = "job_" + "1" * 32
+                    attempt_id = "attempt_" + "2" * 32
+                    service.jobs.records[job_id] = {
+                        "id": job_id,
+                        "status": "failed",
+                        "error": {
+                            "code": child_error_code,
+                            "message": "must not be forwarded",
+                        },
+                    }
+                    return {
+                        "id": job_id,
+                        "status": "queued",
+                        "stage_attempt_id": attempt_id,
+                    }
+
+                service._execute_local_pipeline_stage = failed_video  # type: ignore[method-assign]
+                with self.assertRaises(LocalPipelineError) as raised:
+                    run_local_pipeline(
+                        service,
+                        production_id=PRODUCTION_ID,
+                        run_id=RUN_ID,
+                        revision_id=REVISION_ID,
+                        payload=payload,
+                        expected_pipeline_key=service.key,
+                        cancel_event=JobExecutionContext("job_" + "f" * 32),
+                        video_recovery_checkpoint=checkpoint,
+                    )
+                self.assertEqual(raised.exception.error_code, expected_top_code)
+
     def test_shutdown_intent_is_propagated_to_current_child(self) -> None:
         payload = _payload(seed=421)
         service = _FakeService(payload)
@@ -438,6 +527,15 @@ class LocalPipelineServiceTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.service.close()
         self.fixture.close()
+
+    @staticmethod
+    def _wait_until(predicate: Any, *, timeout: float = 5.0) -> bool:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if predicate():
+                return True
+            time.sleep(0.02)
+        return bool(predicate())
 
     @staticmethod
     def _request(*, prompt: str, script: str, seed: int = 7) -> dict[str, Any]:
@@ -1118,6 +1216,1295 @@ class LocalPipelineServiceTests(unittest.TestCase):
         self.assertNotIn(prompt.encode("utf-8"), self.service.database.path.read_bytes())
         self.assertNotIn(script.encode("utf-8"), self.service.database.path.read_bytes())
 
+    def test_video_checkpoint_is_bound_to_exact_source_and_worker_cache_fence(
+        self,
+    ) -> None:
+        body = self._request(
+            prompt="checkpoint-bound portrait",
+            script="復旧済み動画を再利用します。",
+            seed=741,
+        )
+        payload = validate_local_pipeline_payload(body)
+        pipeline_key = local_pipeline_key(payload)
+        run = {
+            "id": "run_" + "7" * 32,
+            "production_id": FIXTURE_PRODUCTION_ID,
+            "revision_id": "rev_" + "8" * 32,
+            "execution_profile": "local_pipeline",
+            "pipeline_key": pipeline_key,
+            "requested_stages": [
+                "narration",
+                "captions",
+                "video_generation",
+                "timeline",
+                "assembly",
+                "qc",
+            ],
+            "estimated_cost": {"amount": "0.00", "currency": "USD"},
+        }
+        source_job_id = "job_" + "7" * 32
+        source_attempt_id = "attempt_" + "8" * 32
+        source_result = {
+            "cache_key": PIPELINE_COMFY_CACHE_KEY,
+            "cache_hit": False,
+            "artifacts": [],
+        }
+        source_attempt = {
+            "id": source_attempt_id,
+            "job_id": source_job_id,
+            "run_id": run["id"],
+            "production_id": FIXTURE_PRODUCTION_ID,
+            "stage": "video_generation",
+            "status": "succeeded",
+            "cache_key": PIPELINE_COMFY_CACHE_KEY,
+            "payload": {
+                "execution_profile": "local_pipeline",
+                "cache_key": PIPELINE_COMFY_CACHE_KEY,
+                "pipeline_key": pipeline_key,
+                "pipeline_lineage": {},
+            },
+            "result": source_result,
+        }
+        source_job = {
+            "id": source_job_id,
+            "kind": "local_video_generation",
+            "production_id": FIXTURE_PRODUCTION_ID,
+            "status": "succeeded",
+            "payload": {
+                "run_id": run["id"],
+                "production_id": FIXTURE_PRODUCTION_ID,
+                "stage": "video_generation",
+                "execution_profile": "local_pipeline",
+                "cache_key": PIPELINE_COMFY_CACHE_KEY,
+                "pipeline_key": pipeline_key,
+                "pipeline_lineage": {},
+                "stage_attempt_id": source_attempt_id,
+            },
+            "result": {"stage_attempt_id": source_attempt_id, **source_result},
+        }
+        checkpoint = {
+            "job_id": source_job_id,
+            "stage_attempt_id": source_attempt_id,
+        }
+        captured: dict[str, Any] = {}
+
+        def submit_once(**kwargs: Any) -> tuple[dict[str, Any], bool]:
+            captured.update(kwargs)
+            callback = kwargs["callback_factory"]("attempt_" + "9" * 32)
+            callback(
+                "job_" + "9" * 32,
+                JobExecutionContext("job_" + "9" * 32),
+            )
+            return {"id": "job_" + "9" * 32, "status": "queued"}, True
+
+        with (
+            mock.patch.object(self.service.database, "get_run", return_value=run),
+            mock.patch.object(
+                self.service.database,
+                "get_stage_attempt",
+                return_value=source_attempt,
+            ),
+            mock.patch.object(
+                self.service.database, "get_job", return_value=source_job
+            ),
+            mock.patch.object(
+                self.service,
+                "_resolve_comfyui_execution_inputs",
+                return_value=_comfyui_inputs(),
+            ),
+            mock.patch.object(
+                self.service.jobs,
+                "submit_local_video_generation_once",
+                side_effect=submit_once,
+            ) as submit,
+            mock.patch.object(
+                self.service, "_execute_local_video_generation"
+            ) as worker,
+        ):
+            queued = self.service.execute_local_video_generation(
+                run["id"],
+                {
+                    "workflow_preset": payload["workflow_preset"],
+                    "prompt": payload["prompt"],
+                    "seed": payload["seed"],
+                },
+                _pipeline_capability=self.service._pipeline_capability,
+                _pipeline_key=pipeline_key,
+                _pipeline_lineage={},
+                _pipeline_video_recovery_checkpoint=checkpoint,
+            )
+
+        self.assertEqual(queued["id"], "job_" + "9" * 32)
+        self.assertTrue(submit.called)
+        self.assertEqual(
+            captured["attempt_payload"]["video_recovery_checkpoint"], checkpoint
+        )
+        self.assertEqual(
+            captured["job_payload"]["video_recovery_checkpoint"], checkpoint
+        )
+        self.assertEqual(
+            worker.call_args.kwargs["required_cache_source_attempt_id"],
+            source_attempt_id,
+        )
+
+        wrong_run_attempt = {**source_attempt, "run_id": "run_" + "0" * 32}
+        with (
+            mock.patch.object(self.service.database, "get_run", return_value=run),
+            mock.patch.object(
+                self.service.database,
+                "get_stage_attempt",
+                return_value=wrong_run_attempt,
+            ),
+            mock.patch.object(
+                self.service.database, "get_job", return_value=source_job
+            ),
+            mock.patch.object(
+                self.service,
+                "_resolve_comfyui_execution_inputs",
+                return_value=_comfyui_inputs(),
+            ),
+            mock.patch.object(
+                self.service.jobs, "submit_local_video_generation_once"
+            ) as rejected_submit,
+        ):
+            with self.assertRaises(RequestValidationError) as raised:
+                self.service.execute_local_video_generation(
+                    run["id"],
+                    {
+                        "workflow_preset": payload["workflow_preset"],
+                        "prompt": payload["prompt"],
+                        "seed": payload["seed"],
+                    },
+                    _pipeline_capability=self.service._pipeline_capability,
+                    _pipeline_key=pipeline_key,
+                    _pipeline_lineage={},
+                    _pipeline_video_recovery_checkpoint=checkpoint,
+                )
+        self.assertEqual(raised.exception.code, "invalid_provenance")
+        rejected_submit.assert_not_called()
+
+    def test_cache_only_video_miss_never_reaches_provider_or_marker(self) -> None:
+        required_source_attempt_id = "attempt_" + "a" * 32
+        payload = validate_local_pipeline_payload(
+            self._request(
+                prompt="cache-only fail closed portrait",
+                script="キャッシュがなければ停止します。",
+                seed=742,
+            )
+        )
+        inputs = _comfyui_inputs()
+        with (
+            mock.patch.object(self.service.database, "update_stage_attempt"),
+            mock.patch.object(
+                self.service,
+                "_cached_local_comfyui_result",
+                return_value=None,
+            ) as cached,
+            mock.patch.object(
+                self.service.database, "list_provider_tasks"
+            ) as list_provider_tasks,
+            mock.patch.object(
+                self.service.database, "create_or_get_provider_task"
+            ) as create_provider_task,
+            mock.patch(
+                "tools.studio.comfyui.recover_comfyui_prompt_id"
+            ) as recover_marker,
+            mock.patch("tools.studio.comfyui.generate_comfyui_video") as generate,
+        ):
+            with self.assertRaises(ComfyUIError) as raised:
+                self.service._execute_local_video_generation(
+                    "attempt_" + "b" * 32,
+                    "run_" + "c" * 32,
+                    FIXTURE_PRODUCTION_ID,
+                    {
+                        "workflow_preset": payload["workflow_preset"],
+                        "prompt": payload["prompt"],
+                        "seed": payload["seed"],
+                    },
+                    inputs,
+                    required_cache_source_attempt_id=required_source_attempt_id,
+                )
+
+        self.assertEqual(
+            raised.exception.error_code,
+            "pipeline_recovered_video_unavailable",
+        )
+        self.assertEqual(
+            cached.call_args.kwargs["required_source_attempt_id"],
+            required_source_attempt_id,
+        )
+        list_provider_tasks.assert_not_called()
+        create_provider_task.assert_not_called()
+        recover_marker.assert_not_called()
+        generate.assert_not_called()
+
+    def test_required_video_source_must_be_in_the_cache_chain(self) -> None:
+        previous_attempt_id = "attempt_" + "c" * 32
+        previous = {
+            "id": previous_attempt_id,
+            "run_id": "run_" + "d" * 32,
+            "production_id": FIXTURE_PRODUCTION_ID,
+            "stage": "video_generation",
+            "status": "succeeded",
+            "cache_key": PIPELINE_COMFY_CACHE_KEY,
+            "result": {"cache_hit": False, "artifacts": []},
+        }
+        with (
+            mock.patch.object(
+                self.service.database,
+                "find_successful_stage_attempt",
+                return_value=previous,
+            ),
+            mock.patch(
+                "tools.studio.comfyui.validate_comfyui_outputs"
+            ) as validate_outputs,
+        ):
+            cached = self.service._cached_local_comfyui_result(
+                FIXTURE_PRODUCTION_ID,
+                {
+                    "workflow_preset": COMFYUI_WORKFLOW_PRESET,
+                    "prompt": "required source chain",
+                    "seed": 743,
+                },
+                _comfyui_inputs(),
+                required_source_attempt_id="attempt_" + "e" * 32,
+            )
+        self.assertIsNone(cached)
+        validate_outputs.assert_not_called()
+
+    def test_interrupted_pipeline_automatically_continues_same_run_once(self) -> None:
+        prompt = "PRIVATE_AUTO_CONTINUE_PROMPT_5c1b"
+        script = "復旧後に同じRunで後続工程を自動継続します。"
+        body = self._request(prompt=prompt, script=script, seed=744)
+        pipeline_key = local_pipeline_key(validate_local_pipeline_payload(body))
+        first_started = threading.Event()
+        continued = threading.Event()
+        source: dict[str, str] = {}
+        checkpoints: list[dict[str, str] | None] = []
+        call_count = 0
+
+        def orchestrate(
+            _service: StudioService, **kwargs: Any
+        ) -> dict[str, Any]:
+            nonlocal call_count
+            call_count += 1
+            checkpoints.append(kwargs.get("video_recovery_checkpoint"))
+            if call_count == 1:
+                child = self._registered_pipeline_child(
+                    run_id=kwargs["run_id"],
+                    pipeline_key=kwargs["expected_pipeline_key"],
+                    stage="video_generation",
+                    kind="local_video_generation",
+                    cache_key="A" * 64,
+                    artifacts=[],
+                    lineage={},
+                    result_fields={"duration_ms": 5_167},
+                )
+                source.update(child)
+                first_started.set()
+                cancel_event = kwargs["cancel_event"]
+                while not cancel_event.wait(0.02):
+                    pass
+                cancel_event.raise_if_cancelled()
+            continued.set()
+            return self._success(**kwargs)
+
+        def protect(value: bytes, **_kwargs: Any) -> bytes:
+            return b"PIPELINE-DPAPI-TEST\0" + value[::-1]
+
+        def unprotect(value: bytes) -> bytes:
+            prefix = b"PIPELINE-DPAPI-TEST\0"
+            if not value.startswith(prefix):
+                raise OSError("invalid protected value")
+            return value[len(prefix) :][::-1]
+
+        with (
+            mock.patch("tools.studio.service.dpapi_available", return_value=True),
+            mock.patch(
+                "tools.studio.service.protect_private_data", side_effect=protect
+            ),
+            mock.patch(
+                "tools.studio.service.unprotect_private_data", side_effect=unprotect
+            ),
+            mock.patch(
+                "tools.studio.service.run_local_pipeline", side_effect=orchestrate
+            ),
+        ):
+            first = self.service.execute_local_pipeline(
+                FIXTURE_PRODUCTION_ID, body
+            )
+            self.assertTrue(first_started.wait(3))
+            interrupted = self.service.jobs.cancel_and_wait(
+                first["id"], timeout=5, preserve_provider_task=True
+            )
+            assert interrupted is not None
+            self.assertEqual(interrupted["status"], "interrupted")
+            duplicate_responses: list[dict[str, Any]] = []
+            duplicate_errors: list[BaseException] = []
+
+            def resubmit() -> None:
+                try:
+                    duplicate_responses.append(
+                        self.service.execute_local_pipeline(
+                            FIXTURE_PRODUCTION_ID, body
+                        )
+                    )
+                except BaseException as exc:  # pragma: no cover - asserted below
+                    duplicate_errors.append(exc)
+
+            submitters = [threading.Thread(target=resubmit) for _ in range(8)]
+            for submitter in submitters:
+                submitter.start()
+            self.service._pipeline_continuation_wake.set()
+            for submitter in submitters:
+                submitter.join(timeout=5)
+            self.assertFalse(any(submitter.is_alive() for submitter in submitters))
+            self.assertEqual(duplicate_errors, [])
+            self.assertEqual(len(duplicate_responses), 8)
+            self.assertEqual(
+                len({response["id"] for response in duplicate_responses}), 1
+            )
+            self.assertNotEqual(duplicate_responses[0]["id"], first["id"])
+            self.assertTrue(continued.wait(5))
+
+            def completed_continuation() -> bool:
+                tops = [
+                    job
+                    for job in self.service.database.list_jobs(limit=200)
+                    if job.get("kind") == "local_pipeline"
+                ]
+                return len(tops) == 2 and any(
+                    job.get("id") != first["id"]
+                    and job.get("status") == "succeeded"
+                    for job in tops
+                )
+
+            self.assertTrue(self._wait_until(completed_continuation, timeout=10))
+
+        tops = [
+            job
+            for job in self.service.database.list_jobs(limit=200)
+            if job.get("kind") == "local_pipeline"
+        ]
+        self.assertEqual(len(tops), 2)
+        self.assertEqual({job["payload"]["run_id"] for job in tops}, {first["run_id"]})
+        self.assertEqual(checkpoints[0], None)
+        self.assertEqual(
+            checkpoints[1],
+            {
+                "job_id": source["job_id"],
+                "stage_attempt_id": source["stage_attempt_id"],
+            },
+        )
+        claim = self.service.database.get_local_pipeline_continuation(
+            FIXTURE_PRODUCTION_ID, pipeline_key
+        )
+        assert claim is not None
+        self.assertEqual(claim["state"], "succeeded")
+        self.assertEqual(claim["resume_count"], 1)
+        self.assertEqual(call_count, 2)
+        persisted = self.service.database.path.read_bytes()
+        self.assertNotIn(prompt.encode("utf-8"), persisted)
+        self.assertNotIn(script.encode("utf-8"), persisted)
+
+    def test_operator_cancel_never_queues_pipeline_continuation(self) -> None:
+        body = self._request(
+            prompt="operator cancel continuation fence",
+            script="キャンセル後は自動継続しません。",
+            seed=745,
+        )
+        pipeline_key = local_pipeline_key(validate_local_pipeline_payload(body))
+        first_started = threading.Event()
+        call_count = 0
+
+        def orchestrate(
+            _service: StudioService, **kwargs: Any
+        ) -> dict[str, Any]:
+            nonlocal call_count
+            call_count += 1
+            self._registered_pipeline_child(
+                run_id=kwargs["run_id"],
+                pipeline_key=kwargs["expected_pipeline_key"],
+                stage="video_generation",
+                kind="local_video_generation",
+                cache_key="B" * 64,
+                artifacts=[],
+                lineage={},
+                result_fields={"duration_ms": 5_167},
+            )
+            first_started.set()
+            cancel_event = kwargs["cancel_event"]
+            while not cancel_event.wait(0.02):
+                pass
+            cancel_event.raise_if_cancelled()
+
+        with (
+            mock.patch("tools.studio.service.dpapi_available", return_value=True),
+            mock.patch(
+                "tools.studio.service.protect_private_data",
+                side_effect=lambda value, **_kwargs: b"TEST\0" + value[::-1],
+            ),
+            mock.patch(
+                "tools.studio.service.unprotect_private_data",
+                side_effect=lambda value: value[5:][::-1],
+            ),
+            mock.patch(
+                "tools.studio.service.run_local_pipeline", side_effect=orchestrate
+            ),
+        ):
+            first = self.service.execute_local_pipeline(
+                FIXTURE_PRODUCTION_ID, body
+            )
+            self.assertTrue(first_started.wait(3))
+            cancelled = self.service.jobs.cancel_and_wait(first["id"], timeout=5)
+            assert cancelled is not None
+            self.assertEqual(cancelled["status"], "interrupted")
+            self.service._pipeline_continuation_wake.set()
+            self.assertTrue(
+                self._wait_until(
+                    lambda: (
+                        self.service.database.get_local_pipeline_continuation(
+                            FIXTURE_PRODUCTION_ID, pipeline_key
+                        )
+                        or {}
+                    ).get("state")
+                    == "cancelled",
+                    timeout=3,
+                )
+            )
+            time.sleep(0.1)
+
+        tops = [
+            job
+            for job in self.service.database.list_jobs(limit=100)
+            if job.get("kind") == "local_pipeline"
+        ]
+        self.assertEqual(len(tops), 1)
+        self.assertEqual(call_count, 1)
+
+    def test_operator_cancel_survives_worker_retirement_and_database_outage(
+        self,
+    ) -> None:
+        body = self._request(
+            prompt="operator cancel durable fence portrait",
+            script="DB障害中でもキャンセル意図を失いません。",
+            seed=751,
+        )
+        pipeline_key = local_pipeline_key(validate_local_pipeline_payload(body))
+        started = threading.Event()
+
+        def orchestrate(
+            _service: StudioService, **kwargs: Any
+        ) -> dict[str, Any]:
+            context = kwargs["cancel_event"]
+            started.set()
+            context.wait(5)
+            context.raise_if_cancelled()
+            raise AssertionError("operator cancellation fixture was not cancelled")
+
+        with (
+            mock.patch("tools.studio.service.dpapi_available", return_value=True),
+            mock.patch(
+                "tools.studio.service.protect_private_data",
+                side_effect=lambda value, **_kwargs: b"CANCEL-FENCE\0" + value[::-1],
+            ),
+            mock.patch(
+                "tools.studio.service.run_local_pipeline", side_effect=orchestrate
+            ),
+        ):
+            top = self.service.execute_local_pipeline(FIXTURE_PRODUCTION_ID, body)
+            self.assertTrue(started.wait(3))
+            with (
+                mock.patch.object(
+                    self.service.database,
+                    "interrupt_job",
+                    side_effect=sqlite3.OperationalError(
+                        "transient operator cancel fixture"
+                    ),
+                ),
+                mock.patch.object(
+                    self.service.database,
+                    "interrupt_active_work",
+                    wraps=self.service.database.interrupt_active_work,
+                ) as generic_interrupt,
+            ):
+                cancelled = self.service.jobs.cancel_and_wait(top["id"], timeout=5)
+                assert cancelled is not None
+                self.assertEqual(cancelled["status"], "running")
+                self.assertFalse(self.service.jobs.is_admitted(top["id"]))
+                self.assertTrue(self.service.jobs._finished[top["id"]].is_set())
+                self.assertIn(
+                    top["id"], self.service.jobs._pending_operator_cancel_job_ids
+                )
+                self.assertTrue(
+                    self.service.jobs.has_pending_local_pipeline_operator_cancellation()
+                )
+
+                with self.assertRaisesRegex(RuntimeError, "workspace lock retained"):
+                    self.service.close()
+                generic_interrupt.assert_not_called()
+
+            before_retry = (
+                self.service.database.get_local_pipeline_continuation_material(
+                    FIXTURE_PRODUCTION_ID, pipeline_key
+                )
+            )
+            assert before_retry is not None
+            self.assertEqual(before_retry["state"], "active")
+            self.assertEqual(before_retry["request_protection"], "dpapi-v1")
+            self.assertIsInstance(before_retry["request_ciphertext"], bytes)
+
+            self.service.close()
+
+        settled = self.service.database.get_local_pipeline_continuation_material(
+            FIXTURE_PRODUCTION_ID, pipeline_key
+        )
+        assert settled is not None
+        self.assertEqual(settled["state"], "cancelled")
+        self.assertEqual(settled["request_protection"], "none")
+        self.assertIsNone(settled["request_ciphertext"])
+        self.assertNotIn(
+            top["id"], self.service.jobs._pending_operator_cancel_job_ids
+        )
+        tops = [
+            job
+            for job in self.service.database.list_jobs(limit=100)
+            if job.get("kind") == "local_pipeline"
+        ]
+        self.assertEqual([job["id"] for job in tops], [top["id"]])
+
+    def test_coordinator_retries_cancel_after_worker_retires(self) -> None:
+        body = self._request(
+            prompt="operator cancel coordinator retry portrait",
+            script="DB復旧後は終了操作なしでキャンセルを確定します。",
+            seed=752,
+        )
+        pipeline_key = local_pipeline_key(validate_local_pipeline_payload(body))
+        started = threading.Event()
+
+        def orchestrate(
+            _service: StudioService, **kwargs: Any
+        ) -> dict[str, Any]:
+            context = kwargs["cancel_event"]
+            started.set()
+            context.wait(5)
+            context.raise_if_cancelled()
+            raise AssertionError("coordinator retry fixture was not cancelled")
+
+        with (
+            mock.patch("tools.studio.service.dpapi_available", return_value=True),
+            mock.patch(
+                "tools.studio.service.protect_private_data",
+                side_effect=lambda value, **_kwargs: b"CANCEL-RETRY\0" + value[::-1],
+            ),
+            mock.patch(
+                "tools.studio.service.run_local_pipeline", side_effect=orchestrate
+            ),
+        ):
+            top = self.service.execute_local_pipeline(FIXTURE_PRODUCTION_ID, body)
+            self.assertTrue(started.wait(3))
+            with mock.patch.object(
+                self.service.database,
+                "interrupt_job",
+                side_effect=sqlite3.OperationalError("transient cancel retry fixture"),
+            ):
+                cancelled = self.service.jobs.cancel_and_wait(top["id"], timeout=5)
+                assert cancelled is not None
+                self.assertEqual(cancelled["status"], "running")
+                self.assertFalse(self.service.jobs.is_admitted(top["id"]))
+                self.assertIn(
+                    top["id"], self.service.jobs._pending_operator_cancel_job_ids
+                )
+
+            self.service._pipeline_continuation_wake.set()
+            self.assertTrue(
+                self._wait_until(
+                    lambda: (
+                        (
+                            self.service.database.get_local_pipeline_continuation(
+                                FIXTURE_PRODUCTION_ID, pipeline_key
+                            )
+                            or {}
+                        ).get("state")
+                        == "cancelled"
+                        and top["id"]
+                        not in self.service.jobs._pending_operator_cancel_job_ids
+                    ),
+                    timeout=5,
+                )
+            )
+
+        settled = self.service.database.get_local_pipeline_continuation_material(
+            FIXTURE_PRODUCTION_ID, pipeline_key
+        )
+        assert settled is not None
+        self.assertEqual(settled["request_protection"], "none")
+        self.assertIsNone(settled["request_ciphertext"])
+        self.assertNotIn(
+            top["id"], self.service.jobs._pending_operator_cancel_job_ids
+        )
+        tops = [
+            job
+            for job in self.service.database.list_jobs(limit=100)
+            if job.get("kind") == "local_pipeline"
+        ]
+        self.assertEqual([job["id"] for job in tops], [top["id"]])
+
+    def test_cancel_fence_linearizes_with_ready_continuation_admission(self) -> None:
+        body = self._request(
+            prompt="operator cancel ready admission race portrait",
+            script="一覧取得後の競合でも新しいTopを投入しません。",
+            seed=753,
+        )
+        pipeline_key = local_pipeline_key(validate_local_pipeline_payload(body))
+        first_started = threading.Event()
+        ready_listed = threading.Event()
+        release_ready_list = threading.Event()
+        continuation_submit_finished = threading.Event()
+        call_count = 0
+        original_list_ready = (
+            self.service.database.list_ready_local_pipeline_continuation_material
+        )
+        original_submit = self.service.jobs.submit_local_pipeline_once
+
+        def orchestrate(
+            _service: StudioService, **kwargs: Any
+        ) -> dict[str, Any]:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                self._registered_pipeline_child(
+                    run_id=kwargs["run_id"],
+                    pipeline_key=kwargs["expected_pipeline_key"],
+                    stage="video_generation",
+                    kind="local_video_generation",
+                    cache_key="7" * 64,
+                    artifacts=[],
+                    lineage={},
+                    result_fields={"duration_ms": 5_167},
+                )
+                first_started.set()
+                context = kwargs["cancel_event"]
+                context.wait(5)
+                context.raise_if_cancelled()
+            return self._success(**kwargs)
+
+        def pause_after_ready_list(*, limit: int = 100) -> list[dict[str, Any]]:
+            pending = original_list_ready(limit=limit)
+            if pending and not ready_listed.is_set():
+                ready_listed.set()
+                if not release_ready_list.wait(5):
+                    raise AssertionError("ready-list race fixture was not released")
+            return pending
+
+        def observe_continuation_submit(**kwargs: Any) -> tuple[dict[str, Any], bool]:
+            try:
+                return original_submit(**kwargs)
+            finally:
+                if kwargs.get("expected_continuation_state") == "ready":
+                    continuation_submit_finished.set()
+
+        try:
+            with (
+                mock.patch("tools.studio.service.dpapi_available", return_value=True),
+                mock.patch(
+                    "tools.studio.service.protect_private_data",
+                    side_effect=lambda value, **_kwargs: b"READY-RACE\0" + value[::-1],
+                ),
+                mock.patch(
+                    "tools.studio.service.unprotect_private_data",
+                    side_effect=lambda value: value[len(b"READY-RACE\0") :][::-1],
+                ),
+                mock.patch(
+                    "tools.studio.service.run_local_pipeline",
+                    side_effect=orchestrate,
+                ),
+                mock.patch.object(
+                    self.service.database,
+                    "list_ready_local_pipeline_continuation_material",
+                    side_effect=pause_after_ready_list,
+                ),
+            ):
+                first = self.service.execute_local_pipeline(
+                    FIXTURE_PRODUCTION_ID, body
+                )
+                self.assertTrue(first_started.wait(3))
+                interrupted = self.service.jobs.cancel_and_wait(
+                    first["id"], timeout=5, preserve_provider_task=True
+                )
+                assert interrupted is not None
+                self.assertEqual(interrupted["status"], "interrupted")
+                self.service._pipeline_continuation_wake.set()
+                self.assertTrue(ready_listed.wait(5))
+
+                with (
+                    mock.patch.object(
+                        self.service.database,
+                        "interrupt_job",
+                        side_effect=sqlite3.OperationalError(
+                            "ready admission cancel fixture"
+                        ),
+                    ),
+                    mock.patch.object(
+                        self.service.jobs,
+                        "submit_local_pipeline_once",
+                        side_effect=observe_continuation_submit,
+                    ),
+                ):
+                    cancelled = self.service.jobs.cancel_and_wait(
+                        first["id"], timeout=5
+                    )
+                    assert cancelled is not None
+                    self.assertEqual(cancelled["status"], "interrupted")
+                    self.assertIn(
+                        first["id"],
+                        self.service.jobs._pending_operator_cancel_job_ids,
+                    )
+                    release_ready_list.set()
+                    self.assertTrue(continuation_submit_finished.wait(5))
+                    tops = [
+                        job
+                        for job in self.service.database.list_jobs(limit=100)
+                        if job.get("kind") == "local_pipeline"
+                    ]
+                    self.assertEqual([job["id"] for job in tops], [first["id"]])
+
+                self.service._pipeline_continuation_wake.set()
+                self.assertTrue(
+                    self._wait_until(
+                        lambda: (
+                            (
+                                self.service.database.get_local_pipeline_continuation(
+                                    FIXTURE_PRODUCTION_ID, pipeline_key
+                                )
+                                or {}
+                            ).get("state")
+                            == "cancelled"
+                            and first["id"]
+                            not in self.service.jobs._pending_operator_cancel_job_ids
+                        ),
+                        timeout=5,
+                    )
+                )
+        finally:
+            release_ready_list.set()
+
+        material = self.service.database.get_local_pipeline_continuation_material(
+            FIXTURE_PRODUCTION_ID, pipeline_key
+        )
+        assert material is not None
+        self.assertEqual(material["state"], "cancelled")
+        self.assertEqual(material["request_protection"], "none")
+        self.assertIsNone(material["request_ciphertext"])
+        self.assertEqual(call_count, 1)
+
+    def test_restart_scans_ready_pipeline_without_user_resubmission(self) -> None:
+        body = self._request(
+            prompt="restart continuation scan portrait",
+            script="再起動後も入力を再送せず継続します。",
+            seed=747,
+        )
+        first_started = threading.Event()
+        restart_ready = threading.Event()
+        continued = threading.Event()
+        call_count = 0
+
+        def orchestrate(
+            _service: StudioService, **kwargs: Any
+        ) -> dict[str, Any]:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                self._registered_pipeline_child(
+                    run_id=kwargs["run_id"],
+                    pipeline_key=kwargs["expected_pipeline_key"],
+                    stage="video_generation",
+                    kind="local_video_generation",
+                    cache_key="D" * 64,
+                    artifacts=[],
+                    lineage={},
+                    result_fields={"duration_ms": 5_167},
+                )
+                first_started.set()
+                cancel_event = kwargs["cancel_event"]
+                while not cancel_event.wait(0.02):
+                    pass
+                cancel_event.raise_if_cancelled()
+            self.assertTrue(restart_ready.wait(5))
+            continued.set()
+            return self._success(**kwargs)
+
+        def protect(value: bytes, **_kwargs: Any) -> bytes:
+            return b"RESTART-TEST\0" + value[::-1]
+
+        def unprotect(value: bytes) -> bytes:
+            prefix = b"RESTART-TEST\0"
+            if not value.startswith(prefix):
+                raise OSError("invalid restart material")
+            return value[len(prefix) :][::-1]
+
+        with (
+            mock.patch("tools.studio.service.dpapi_available", return_value=True),
+            mock.patch(
+                "tools.studio.service.protect_private_data", side_effect=protect
+            ),
+            mock.patch(
+                "tools.studio.service.unprotect_private_data", side_effect=unprotect
+            ),
+            mock.patch(
+                "tools.studio.service.run_local_pipeline", side_effect=orchestrate
+            ),
+        ):
+            first = self.service.execute_local_pipeline(
+                FIXTURE_PRODUCTION_ID, body
+            )
+            self.assertTrue(first_started.wait(3))
+            self.service.close()
+            interrupted = self.service.database.get_job(first["id"])
+            assert interrupted is not None
+            self.assertEqual(interrupted["status"], "interrupted")
+
+            restarted = StudioService(self.fixture.root)
+            self.service = restarted
+            restart_ready.set()
+            restarted._pipeline_continuation_wake.set()
+            self.assertTrue(continued.wait(5))
+
+            def continuation_finished() -> bool:
+                tops = [
+                    job
+                    for job in restarted.database.list_jobs(limit=200)
+                    if job.get("kind") == "local_pipeline"
+                ]
+                return len(tops) == 2 and any(
+                    job.get("id") != first["id"]
+                    and job.get("status") == "succeeded"
+                    for job in tops
+                )
+
+            self.assertTrue(self._wait_until(continuation_finished, timeout=10))
+
+        tops = [
+            job
+            for job in self.service.database.list_jobs(limit=200)
+            if job.get("kind") == "local_pipeline"
+        ]
+        self.assertEqual(len(tops), 2)
+        self.assertEqual({job["payload"]["run_id"] for job in tops}, {first["run_id"]})
+        self.assertEqual(call_count, 2)
+
+    def test_pipeline_queue_and_compensation_failure_self_heal_from_protected_input(
+        self,
+    ) -> None:
+        body = self._request(
+            prompt="queue admission retry portrait",
+            script="キュー投入失敗後も安全に再試行します。",
+            seed=748,
+        )
+        pipeline_key = local_pipeline_key(validate_local_pipeline_payload(body))
+        pipeline_queue = self.service.jobs._queues["pipeline"]
+        original_put = pipeline_queue.put
+        original_abort = self.service.database.abort_local_pipeline_job_admission
+        put_count = 0
+        abort_count = 0
+        checkpoints: list[dict[str, str] | None] = []
+
+        def flaky_put(value: Any) -> None:
+            nonlocal put_count
+            put_count += 1
+            if put_count == 1:
+                raise RuntimeError("simulated queue admission failure")
+            original_put(value)
+
+        def flaky_abort(*args: Any, **kwargs: Any) -> dict[str, Any]:
+            nonlocal abort_count
+            abort_count += 1
+            if abort_count == 1:
+                raise sqlite3.OperationalError("simulated compensation failure")
+            return original_abort(*args, **kwargs)
+
+        def succeed(_service: StudioService, **kwargs: Any) -> dict[str, Any]:
+            checkpoints.append(kwargs.get("video_recovery_checkpoint"))
+            return self._success(**kwargs)
+
+        def protect(value: bytes, **_kwargs: Any) -> bytes:
+            return b"QUEUE-RETRY\0" + value[::-1]
+
+        def unprotect(value: bytes) -> bytes:
+            prefix = b"QUEUE-RETRY\0"
+            if not value.startswith(prefix):
+                raise OSError("invalid queue retry material")
+            return value[len(prefix) :][::-1]
+
+        with (
+            mock.patch("tools.studio.service.dpapi_available", return_value=True),
+            mock.patch(
+                "tools.studio.service.protect_private_data", side_effect=protect
+            ),
+            mock.patch(
+                "tools.studio.service.unprotect_private_data", side_effect=unprotect
+            ),
+            mock.patch(
+                "tools.studio.service.run_local_pipeline", side_effect=succeed
+            ),
+            mock.patch.object(pipeline_queue, "put", side_effect=flaky_put),
+            mock.patch.object(
+                self.service.database,
+                "abort_local_pipeline_job_admission",
+                side_effect=flaky_abort,
+            ),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "queue admission"):
+                self.service.execute_local_pipeline(FIXTURE_PRODUCTION_ID, body)
+            self.service._pipeline_continuation_wake.set()
+
+            def retry_succeeded() -> bool:
+                claim = self.service.database.get_local_pipeline_continuation(
+                    FIXTURE_PRODUCTION_ID, pipeline_key
+                )
+                return isinstance(claim, dict) and claim.get("state") == "succeeded"
+
+            self.assertTrue(self._wait_until(retry_succeeded, timeout=10))
+
+        tops = [
+            job
+            for job in self.service.database.list_jobs(limit=100)
+            if job.get("kind") == "local_pipeline"
+        ]
+        self.assertEqual(len(tops), 2)
+        self.assertEqual(
+            {job["status"] for job in tops}, {"failed", "succeeded"}
+        )
+        failed_top = next(job for job in tops if job["status"] == "failed")
+        self.assertEqual(failed_top["error"]["code"], "job_setup_failed")
+        self.assertNotIn(failed_top["id"], self.service.jobs._active)
+        self.assertTrue(
+            self.service.jobs._finished[failed_top["id"]].is_set()
+        )
+        self.assertGreaterEqual(abort_count, 2)
+        self.assertEqual(
+            self.service.jobs._pending_local_pipeline_admission_aborts, set()
+        )
+        self.assertEqual(checkpoints, [None])
+        claim = self.service.database.get_local_pipeline_continuation(
+            FIXTURE_PRODUCTION_ID, pipeline_key
+        )
+        assert claim is not None
+        self.assertEqual(claim["resume_count"], 1)
+        persisted = self.service.database.path.read_bytes()
+        self.assertNotIn(body["prompt"].encode("utf-8"), persisted)
+        self.assertNotIn(body["segments"][0]["text"].encode("utf-8"), persisted)
+
+    def test_enqueue_after_raise_retains_live_pipeline_worker_ownership(self) -> None:
+        body = self._request(
+            prompt="enqueue ambiguity ownership portrait",
+            script="投入後の例外でも実行中ジョブを見失いません。",
+            seed=749,
+        )
+        pipeline_key = local_pipeline_key(validate_local_pipeline_payload(body))
+        pipeline_queue = self.service.jobs._queues["pipeline"]
+        original_put = pipeline_queue.put
+        worker_started = threading.Event()
+        worker_stopped = threading.Event()
+
+        def enqueue_then_raise(value: Any) -> None:
+            original_put(value)
+            raise RuntimeError("simulated post-enqueue failure")
+
+        def orchestrate(_service: StudioService, **kwargs: Any) -> dict[str, Any]:
+            context = kwargs["cancel_event"]
+            worker_started.set()
+            try:
+                context.wait(5)
+                context.raise_if_cancelled()
+            finally:
+                worker_stopped.set()
+            raise AssertionError("enqueue ambiguity fixture was not cancelled")
+
+        with (
+            mock.patch("tools.studio.service.dpapi_available", return_value=True),
+            mock.patch(
+                "tools.studio.service.protect_private_data",
+                side_effect=lambda value, **_kwargs: b"ENQUEUE-TEST\0" + value[::-1],
+            ),
+            mock.patch(
+                "tools.studio.service.run_local_pipeline", side_effect=orchestrate
+            ),
+            mock.patch.object(pipeline_queue, "put", side_effect=enqueue_then_raise),
+            mock.patch.object(
+                self.service.database,
+                "abort_local_pipeline_job_admission",
+                side_effect=sqlite3.OperationalError("abort lost to worker fixture"),
+            ),
+            mock.patch.object(
+                self.service.jobs,
+                "repair_local_pipeline_admissions",
+                return_value=0,
+            ),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "post-enqueue"):
+                self.service.execute_local_pipeline(FIXTURE_PRODUCTION_ID, body)
+            tops = [
+                job
+                for job in self.service.database.list_jobs(limit=100)
+                if job.get("kind") == "local_pipeline"
+            ]
+            self.assertEqual(len(tops), 1)
+            top = tops[0]
+            self.assertTrue(worker_started.wait(3))
+            self.assertIn(top["id"], self.service.jobs._active)
+            self.assertFalse(self.service.jobs._finished[top["id"]].is_set())
+
+            completed = self.service.jobs.cancel_and_wait(top["id"], timeout=5)
+
+        assert completed is not None
+        self.assertTrue(worker_stopped.is_set())
+        self.assertEqual(completed["status"], "interrupted")
+        self.assertNotIn(top["id"], self.service.jobs._active)
+        self.assertTrue(self.service.jobs._finished[top["id"]].is_set())
+        self.assertNotIn(
+            top["id"],
+            self.service.jobs._pending_local_pipeline_admission_aborts,
+        )
+        claim = self.service.database.get_local_pipeline_continuation(
+            FIXTURE_PRODUCTION_ID, pipeline_key
+        )
+        assert claim is not None
+        self.assertEqual(claim["state"], "cancelled")
+
+    def test_operator_cancel_wins_admission_repair_commit_race(self) -> None:
+        body = self._request(
+            prompt="operator cancel admission race portrait",
+            script="補償と競合してもキャンセルを優先します。",
+            seed=750,
+        )
+        pipeline_key = local_pipeline_key(validate_local_pipeline_payload(body))
+        pipeline_queue = self.service.jobs._queues["pipeline"]
+        self.service._pipeline_continuation_stop.set()
+        self.service._pipeline_continuation_wake.set()
+        self.service._pipeline_continuation_thread.join(timeout=3)
+        self.assertFalse(self.service._pipeline_continuation_thread.is_alive())
+
+        with (
+            mock.patch("tools.studio.service.dpapi_available", return_value=True),
+            mock.patch(
+                "tools.studio.service.protect_private_data",
+                side_effect=lambda value, **_kwargs: b"CANCEL-RACE\0" + value[::-1],
+            ),
+            mock.patch.object(
+                pipeline_queue,
+                "put",
+                side_effect=RuntimeError("simulated pre-enqueue failure"),
+            ),
+            mock.patch.object(
+                self.service.database,
+                "abort_local_pipeline_job_admission",
+                side_effect=sqlite3.OperationalError("initial compensation failure"),
+            ),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "pre-enqueue"):
+                self.service.execute_local_pipeline(FIXTURE_PRODUCTION_ID, body)
+
+        tops = [
+            job
+            for job in self.service.database.list_jobs(limit=100)
+            if job.get("kind") == "local_pipeline"
+        ]
+        self.assertEqual(len(tops), 1)
+        top = tops[0]
+        self.assertEqual(top["status"], "queued")
+        self.assertIn(
+            top["id"], self.service.jobs._pending_local_pipeline_admission_aborts
+        )
+
+        abort_committed = threading.Event()
+        release_abort = threading.Event()
+        cancel_db_started = threading.Event()
+        release_cancel_db = threading.Event()
+        repair_results: list[int] = []
+        cancel_results: list[dict[str, Any] | None] = []
+        original_abort = self.service.database.abort_local_pipeline_job_admission
+        original_interrupt = self.service.database.interrupt_job
+
+        def pause_after_abort_commit(*args: Any, **kwargs: Any) -> dict[str, Any]:
+            result = original_abort(*args, **kwargs)
+            abort_committed.set()
+            if not release_abort.wait(5):
+                raise AssertionError("admission repair fixture was not released")
+            return result
+
+        def delay_cancel_thread_interrupt(*args: Any, **kwargs: Any) -> bool:
+            if threading.current_thread().name == "pipeline-admission-cancel":
+                cancel_db_started.set()
+                if not release_cancel_db.wait(5):
+                    raise AssertionError("operator cancel DB fixture was not released")
+            return original_interrupt(*args, **kwargs)
+
+        repair_thread = threading.Thread(
+            target=lambda: repair_results.append(
+                self.service.jobs.repair_local_pipeline_admissions()
+            ),
+            name="pipeline-admission-repair",
+        )
+        cancel_thread = threading.Thread(
+            target=lambda: cancel_results.append(
+                self.service.jobs.cancel_and_wait(top["id"], timeout=5)
+            ),
+            name="pipeline-admission-cancel",
+        )
+        try:
+            with (
+                mock.patch.object(
+                    self.service.database,
+                    "abort_local_pipeline_job_admission",
+                    side_effect=pause_after_abort_commit,
+                ),
+                mock.patch.object(
+                    self.service.database,
+                    "interrupt_job",
+                    side_effect=delay_cancel_thread_interrupt,
+                ),
+            ):
+                repair_thread.start()
+                self.assertTrue(abort_committed.wait(3))
+                cancel_thread.start()
+                self.assertTrue(cancel_db_started.wait(3))
+                release_abort.set()
+                self.assertTrue(
+                    self._wait_until(
+                        lambda: (
+                            self.service.database.get_local_pipeline_continuation(
+                                FIXTURE_PRODUCTION_ID, pipeline_key
+                            )
+                            or {}
+                        ).get("state")
+                        == "cancelled",
+                        timeout=3,
+                    )
+                )
+                repair_thread.join(timeout=5)
+                self.assertFalse(repair_thread.is_alive())
+                release_cancel_db.set()
+                cancel_thread.join(timeout=5)
+        finally:
+            release_abort.set()
+            release_cancel_db.set()
+            repair_thread.join(timeout=5)
+            cancel_thread.join(timeout=5)
+
+        self.assertFalse(repair_thread.is_alive())
+        self.assertFalse(cancel_thread.is_alive())
+        self.assertEqual(repair_results, [1])
+        self.assertEqual(len(cancel_results), 1)
+        assert cancel_results[0] is not None
+        self.assertEqual(cancel_results[0]["status"], "failed")
+        material = self.service.database.get_local_pipeline_continuation_material(
+            FIXTURE_PRODUCTION_ID, pipeline_key
+        )
+        assert material is not None
+        self.assertEqual(material["state"], "cancelled")
+        self.assertEqual(material["request_protection"], "none")
+        self.assertIsNone(material["request_ciphertext"])
+        self.assertEqual(
+            [
+                job
+                for job in self.service.database.list_jobs(limit=100)
+                if job.get("kind") == "local_pipeline"
+            ],
+            [cancel_results[0]],
+        )
+        self.assertEqual(
+            self.service.jobs._pending_local_pipeline_admission_aborts, set()
+        )
+        self.assertEqual(
+            self.service.jobs._repairing_local_pipeline_admissions, set()
+        )
+        self.assertEqual(self.service.jobs._dequeued_job_ids, set())
+
+    def test_tampered_continuation_payload_blocks_without_new_top(self) -> None:
+        body = self._request(
+            prompt="PRIVATE_TAMPERED_CONTINUATION_PROMPT_0091",
+            script="暗号文が壊れていれば停止します。",
+            seed=746,
+        )
+        pipeline_key = local_pipeline_key(validate_local_pipeline_payload(body))
+        first_started = threading.Event()
+        call_count = 0
+
+        def orchestrate(
+            _service: StudioService, **kwargs: Any
+        ) -> dict[str, Any]:
+            nonlocal call_count
+            call_count += 1
+            self._registered_pipeline_child(
+                run_id=kwargs["run_id"],
+                pipeline_key=kwargs["expected_pipeline_key"],
+                stage="video_generation",
+                kind="local_video_generation",
+                cache_key="C" * 64,
+                artifacts=[],
+                lineage={},
+                result_fields={"duration_ms": 5_167},
+            )
+            first_started.set()
+            cancel_event = kwargs["cancel_event"]
+            while not cancel_event.wait(0.02):
+                pass
+            cancel_event.raise_if_cancelled()
+
+        with (
+            mock.patch("tools.studio.service.dpapi_available", return_value=True),
+            mock.patch(
+                "tools.studio.service.protect_private_data",
+                side_effect=lambda value, **_kwargs: b"CORRUPT\0" + value[::-1],
+            ),
+            mock.patch(
+                "tools.studio.service.unprotect_private_data",
+                side_effect=OSError("simulated DPAPI failure"),
+            ),
+            mock.patch(
+                "tools.studio.service.run_local_pipeline", side_effect=orchestrate
+            ),
+        ):
+            first = self.service.execute_local_pipeline(
+                FIXTURE_PRODUCTION_ID, body
+            )
+            self.assertTrue(first_started.wait(3))
+            interrupted = self.service.jobs.cancel_and_wait(
+                first["id"], timeout=5, preserve_provider_task=True
+            )
+            assert interrupted is not None
+            self.assertEqual(interrupted["status"], "interrupted")
+            self.service._pipeline_continuation_wake.set()
+            self.assertTrue(
+                self._wait_until(
+                    lambda: (
+                        self.service.database.get_local_pipeline_continuation(
+                            FIXTURE_PRODUCTION_ID, pipeline_key
+                        )
+                        or {}
+                    ).get("state")
+                    == "recovery_blocked",
+                    timeout=5,
+                )
+            )
+
+        tops = [
+            job
+            for job in self.service.database.list_jobs(limit=100)
+            if job.get("kind") == "local_pipeline"
+        ]
+        self.assertEqual(len(tops), 1)
+        self.assertEqual(call_count, 1)
+        claim = self.service.database.get_local_pipeline_continuation(
+            FIXTURE_PRODUCTION_ID, pipeline_key
+        )
+        assert claim is not None
+        self.assertEqual(
+            (claim.get("error") or {}).get("code"),
+            "pipeline_resume_payload_invalid",
+        )
+
     def test_incomplete_top_result_fails_closed(self) -> None:
         mutations = {
             "missing_child_job": lambda result: result["jobs"].pop("qc"),
@@ -1292,6 +2679,96 @@ class LocalPipelineServiceTests(unittest.TestCase):
         self.assertEqual(
             [(attempt["stage"], attempt["status"]) for attempt in run["stage_attempts"]],
             [("video_generation", "failed")],
+        )
+
+    def test_child_timeout_fails_top_without_cancelling_pipeline_claim(self) -> None:
+        body = self._request(prompt="timeout portrait", script="失敗を記録します。")
+        child_started = threading.Event()
+        child_ids: list[str] = []
+
+        def queue_child(
+            run_id: str,
+            stage: str,
+            _body: dict[str, Any],
+            *,
+            pipeline_key: str,
+            lineage: dict[str, Any],
+        ) -> dict[str, Any]:
+            self.assertEqual(stage, "video_generation")
+            self.assertEqual(lineage, {})
+            attempt = self.service.database.create_stage_attempt(
+                run_id,
+                stage,
+                "D" * 64,
+                {
+                    "execution_profile": "local_pipeline",
+                    "pipeline_key": pipeline_key,
+                },
+            )
+
+            def child(
+                _job_id: str, context: JobExecutionContext
+            ) -> AtomicStageCompletion:
+                self.service.database.update_stage_attempt(attempt["id"], "running")
+                child_started.set()
+                context.wait(5)
+                context.raise_if_cancelled()
+                return AtomicStageCompletion(attempt["id"], {"cache_hit": False})
+
+            job = self.service.jobs.submit(
+                "local_video_generation",
+                {
+                    "run_id": run_id,
+                    "production_id": FIXTURE_PRODUCTION_ID,
+                    "stage": stage,
+                    "execution_profile": "local_pipeline",
+                    "pipeline_key": pipeline_key,
+                    "stage_attempt_id": attempt["id"],
+                },
+                child,
+                production_id=FIXTURE_PRODUCTION_ID,
+                before_enqueue=lambda created: self.service.database.link_stage_attempt_job(
+                    attempt["id"], created["id"]
+                ),
+                lane="gpu",
+            )
+            child_ids.append(job["id"])
+            return {**job, "stage_attempt_id": attempt["id"]}
+
+        with (
+            mock.patch.object(
+                self.service, "_execute_local_pipeline_stage", side_effect=queue_child
+            ),
+            mock.patch.dict(
+                "tools.studio.pipeline._STAGE_TIMEOUT_SECONDS",
+                {"video_generation": 0.05},
+            ),
+        ):
+            top = self.service.execute_local_pipeline(FIXTURE_PRODUCTION_ID, body)
+            self.assertTrue(child_started.wait(5))
+            completed = self.service.jobs.wait(top["id"], timeout=4)
+
+        assert completed is not None
+        self.assertEqual(completed["status"], "failed")
+        self.assertEqual(completed["error"]["code"], "local_pipeline_timeout")
+        self.assertEqual(len(child_ids), 1)
+        child = self.service.database.get_job(child_ids[0])
+        assert child is not None
+        self.assertEqual(child["status"], "interrupted")
+        run = self.service.database.get_run(top["run_id"])
+        assert run is not None
+        continuation = run["pipeline_continuation"]
+        self.assertNotIn(
+            continuation["state"], {"cancel_requested", "cancelled"}
+        )
+        self.assertEqual(continuation["state"], "recovery_blocked")
+        self.assertFalse(
+            any(
+                job["status"] == "running"
+                and isinstance(job.get("payload"), dict)
+                and job["payload"].get("run_id") == top["run_id"]
+                for job in self.service.database.list_jobs(limit=200)
+            )
         )
 
 

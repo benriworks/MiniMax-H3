@@ -22,6 +22,8 @@ import type {
   LocalNarrationRequest,
   ProductionDetail,
   ProductionRun,
+  PipelineContinuation,
+  PipelineContinuationState,
   ProductionSummary,
   ProviderTask,
   ProviderTaskStatus,
@@ -1338,6 +1340,89 @@ const PROVIDER_TASK_STATUSES = new Set<ProviderTaskStatus>([
   'cancel_requested',
 ]);
 
+const PIPELINE_CONTINUATION_STATES = new Set<PipelineContinuationState>([
+  'active',
+  'waiting_provider',
+  'ready',
+  'continuing',
+  'succeeded',
+  'recovery_blocked',
+  'unavailable',
+  'cancel_requested',
+  'cancelled',
+]);
+const PIPELINE_CONTINUATION_ACTIVE_STATES = new Set<PipelineContinuationState>([
+  'active',
+  'waiting_provider',
+  'ready',
+  'continuing',
+  'cancel_requested',
+]);
+
+const normalizePipelineContinuationState = (value: unknown): PipelineContinuationState => {
+  const normalized = text(value, '').toLowerCase().replaceAll('-', '_').replaceAll(' ', '_');
+  return PIPELINE_CONTINUATION_STATES.has(normalized as PipelineContinuationState)
+    ? normalized as PipelineContinuationState
+    : 'recovery_blocked';
+};
+
+const normalizePipelineContinuationError = (
+  value: unknown,
+): PipelineContinuation['error'] => {
+  if (value === null) return null;
+  const record = asRecord(value);
+  const code = text(pick(record, ['code', 'error_code', 'errorCode']), '') || undefined;
+  const message = text(pick(record, ['message', 'detail', 'error_message', 'errorMessage']), '') || undefined;
+  return code || message ? { code, message } : null;
+};
+
+export const normalizePipelineContinuation = (value: unknown): PipelineContinuation | undefined => {
+  const record = asRecord(value);
+  if (Object.keys(record).length === 0) return undefined;
+  const errorValue = pickIncludingNull(record, ['error']);
+  const state = normalizePipelineContinuationState(pick(record, ['state', 'status']));
+  const automatic = boolean(pick(record, ['automatic']), false);
+  const resumeCount = number(pick(record, ['resume_count', 'resumeCount']));
+  const jobId = text(pick(record, ['job_id', 'jobId']), '') || undefined;
+  const sourceJobId = text(pick(record, ['source_job_id', 'sourceJobId']), '') || undefined;
+  const sourceAttemptId = text(pick(record, ['source_attempt_id', 'sourceAttemptId']), '') || undefined;
+  const updatedAt = text(pick(record, ['updated_at', 'updatedAt']), '') || undefined;
+  const error = normalizePipelineContinuationError(errorValue);
+  const safeRaw: Record<string, unknown> = { state, automatic, error };
+  if (resumeCount !== undefined) safeRaw.resume_count = resumeCount;
+  if (jobId !== undefined) safeRaw.job_id = jobId;
+  if (sourceJobId !== undefined) safeRaw.source_job_id = sourceJobId;
+  if (sourceAttemptId !== undefined) safeRaw.source_attempt_id = sourceAttemptId;
+  if (updatedAt !== undefined) safeRaw.updated_at = updatedAt;
+  return {
+    state,
+    automatic,
+    resumeCount,
+    jobId,
+    sourceJobId,
+    sourceAttemptId,
+    updatedAt,
+    error,
+    raw: safeRaw,
+  };
+};
+
+/** States in which the backend may still advance the same immutable Run. */
+export const isPipelineContinuationActive = (value: unknown): boolean => {
+  const record = asRecord(value);
+  const state = normalizePipelineContinuationState(pick(record, ['state', 'status']));
+  return PIPELINE_CONTINUATION_ACTIVE_STATES.has(state);
+};
+
+/** Only a true local_pipeline top job may represent the pipeline summary. */
+export const isLocalPipelineTopJob = (value: unknown): boolean => {
+  const record = asRecord(value);
+  const raw = asRecord(pick(record, ['raw']));
+  const payload = asRecord(pick(record, ['payload', 'request', 'meta']) ?? pick(raw, ['payload', 'request', 'meta']));
+  return [record, raw, payload].some((source) => ['kind', 'type']
+    .some((key) => normalizeStudioStageName(source[key]) === 'local_pipeline'));
+};
+
 const normalizeProviderTaskStatus = (value: unknown): ProviderTaskStatus => {
   const normalized = text(value, '').toLowerCase().replaceAll('-', '_').replaceAll(' ', '_');
   return PROVIDER_TASK_STATUSES.has(normalized as ProviderTaskStatus)
@@ -1459,6 +1544,9 @@ export const normalizeRun = (value: unknown, index: number): ProductionRun => {
     executionProfile: text(pick(record, ['execution_profile', 'executionProfile', 'profile']), '') || undefined,
     stageAttempts: items(pick(record, ['stage_attempts', 'stageAttempts', 'attempts']), ['items', 'stage_attempts', 'stageAttempts', 'attempts']).map(normalizeStageAttempt),
     providerTasks: normalizeProviderTasks(pick(record, ['provider_tasks', 'providerTasks'])),
+    pipelineContinuation: normalizePipelineContinuation(
+      pick(record, ['pipeline_continuation', 'pipelineContinuation']),
+    ),
     estimatedCost: number(pick(estimatedCost, ['amount', 'value'])),
     currency: text(pick(estimatedCost, ['currency']), '') || undefined,
     latestApproval: latestApprovalValue ? normalizeApproval(latestApprovalValue, index) : undefined,

@@ -36,6 +36,35 @@ export interface RunStage {
   progress?: number;
 }
 
+export type PipelineContinuationState =
+  | 'active'
+  | 'waiting_provider'
+  | 'ready'
+  | 'continuing'
+  | 'succeeded'
+  | 'recovery_blocked'
+  | 'unavailable'
+  | 'cancel_requested'
+  | 'cancelled';
+
+export interface PipelineContinuationError {
+  code?: string;
+  message?: string;
+}
+
+/** Safe public projection for automatic local-pipeline continuation. */
+export interface PipelineContinuation {
+  state: PipelineContinuationState;
+  automatic: boolean;
+  resumeCount?: number;
+  jobId?: string;
+  sourceJobId?: string;
+  sourceAttemptId?: string;
+  updatedAt?: string;
+  error: PipelineContinuationError | null;
+  raw: Record<string, unknown>;
+}
+
 export interface ProductionRun {
   id: string;
   status: StudioStatus;
@@ -49,6 +78,7 @@ export interface ProductionRun {
   executionProfile?: 'local_sapi' | 'local_comfyui' | 'local_pipeline' | string;
   stageAttempts: StageAttempt[];
   providerTasks?: ProviderTask[];
+  pipelineContinuation?: PipelineContinuation;
   estimatedCost?: number;
   currency?: string;
   latestApproval?: Approval;

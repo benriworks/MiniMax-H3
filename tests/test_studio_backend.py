@@ -666,6 +666,12 @@ class DatabaseMigrationTests(unittest.TestCase):
                 pipeline_claims = connection.execute(
                     "SELECT name FROM sqlite_master WHERE type='table' AND name='local_pipeline_claims'"
                 ).fetchone()
+                pipeline_claim_columns = {
+                    row["name"]
+                    for row in connection.execute(
+                        "PRAGMA table_info(local_pipeline_claims)"
+                    )
+                }
                 provider_tasks = connection.execute(
                     "SELECT name FROM sqlite_master WHERE type='table' AND name='provider_tasks'"
                 ).fetchone()
@@ -683,6 +689,20 @@ class DatabaseMigrationTests(unittest.TestCase):
             self.assertEqual(schema_version, str(SCHEMA_VERSION))
             self.assertIsNotNone(stage_attempts)
             self.assertIsNotNone(pipeline_claims)
+            self.assertTrue(
+                {
+                    "state",
+                    "request_protection",
+                    "request_ciphertext",
+                    "continuation_job_id",
+                    "source_job_id",
+                    "source_stage_attempt_id",
+                    "resume_count",
+                    "updated_at",
+                    "error_code",
+                    "error_message",
+                }.issubset(pipeline_claim_columns)
+            )
             self.assertIn("job_id", stage_attempt_columns)
             self.assertIsNotNone(provider_tasks)
             self.assertTrue(
@@ -727,7 +747,7 @@ class DatabaseMigrationTests(unittest.TestCase):
                 ).fetchone()[0]
             self.assertEqual(version, "999")
 
-    def test_v5_migration_rolls_back_schema_and_version_together(self) -> None:
+    def test_v6_migration_rolls_back_schema_and_version_together(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             workspace = Path(temporary).resolve()
             database_path = workspace / "studio.sqlite3"
@@ -739,9 +759,9 @@ class DatabaseMigrationTests(unittest.TestCase):
                         value TEXT NOT NULL
                     );
                     INSERT INTO schema_meta(key, value) VALUES('schema_version', '1');
-                    CREATE TRIGGER reject_schema_v5
+                    CREATE TRIGGER reject_schema_v6
                     BEFORE UPDATE OF value ON schema_meta
-                    WHEN NEW.key='schema_version' AND NEW.value='5'
+                    WHEN NEW.key='schema_version' AND NEW.value='6'
                     BEGIN
                         SELECT RAISE(ABORT, 'test migration rollback');
                     END;
@@ -774,6 +794,864 @@ class DatabaseMigrationTests(unittest.TestCase):
             self.assertEqual(version, "1")
             self.assertNotIn("execution_profile", run_columns)
             self.assertIsNone(provider_tasks)
+
+    def test_v5_pipeline_claim_row_migrates_to_unavailable_ledger(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary).resolve()
+            database_path = workspace / "studio.sqlite3"
+            database = StudioDatabase(database_path, workspace=workspace)
+            database.index_production(
+                {
+                    "id": PRODUCTION_ID,
+                    "title": "v5 pipeline claim migration",
+                    "status": "test",
+                    "technical_status": None,
+                    "creative_status": None,
+                    "public_release_status": None,
+                    "source_rel": None,
+                    "output_rel": None,
+                },
+                [],
+            )
+            stages = [
+                "video_generation",
+                "narration",
+                "captions",
+                "timeline",
+                "assembly",
+                "qc",
+            ]
+            revision, run = database.create_revision_and_run(
+                PRODUCTION_ID,
+                [{"type": "local_pipeline"}],
+                {"affected_stages": stages},
+                0,
+                "USD",
+                execution_profile="local_pipeline",
+                pipeline_key="4" * 64,
+            )
+            job, created = database.create_or_get_local_pipeline_job(
+                production_id=PRODUCTION_ID,
+                run_id=str(run["id"]),
+                pipeline_key="4" * 64,
+                payload={
+                    "production_id": PRODUCTION_ID,
+                    "revision_id": revision["id"],
+                    "run_id": run["id"],
+                    "pipeline_key": "4" * 64,
+                    "execution_profile": "local_pipeline",
+                },
+            )
+            self.assertTrue(created)
+            with closing(sqlite3.connect(database_path)) as connection:
+                connection.execute("PRAGMA foreign_keys=OFF")
+                connection.executescript(
+                    """
+                    CREATE TABLE local_pipeline_claims_v5 (
+                        production_id TEXT NOT NULL,
+                        pipeline_key TEXT NOT NULL,
+                        run_id TEXT NOT NULL UNIQUE,
+                        revision_id TEXT NOT NULL,
+                        active_job_id TEXT,
+                        created_at TEXT NOT NULL,
+                        PRIMARY KEY(production_id, pipeline_key)
+                    );
+                    INSERT INTO local_pipeline_claims_v5
+                    SELECT production_id, pipeline_key, run_id, revision_id,
+                           active_job_id, created_at
+                    FROM local_pipeline_claims;
+                    DROP TABLE local_pipeline_claims;
+                    ALTER TABLE local_pipeline_claims_v5 RENAME TO local_pipeline_claims;
+                    UPDATE schema_meta SET value='5' WHERE key='schema_version';
+                    """
+                )
+
+            migrated = StudioDatabase(database_path, workspace=workspace)
+            claim = migrated.get_local_pipeline_continuation(
+                PRODUCTION_ID, "4" * 64
+            )
+            material = migrated.get_local_pipeline_continuation_material(
+                PRODUCTION_ID, "4" * 64
+            )
+            self.assertIsNotNone(claim)
+            self.assertIsNotNone(material)
+            assert claim is not None and material is not None
+            self.assertEqual(claim["state"], "unavailable")
+            self.assertFalse(claim["automatic"])
+            self.assertEqual(claim["job_id"], job["id"])
+            self.assertEqual(claim["resume_count"], 0)
+            self.assertEqual(material["request_protection"], "none")
+            self.assertIsNone(material["request_ciphertext"])
+            with migrated.session() as connection:
+                self.assertEqual(
+                    connection.execute(
+                        "SELECT value FROM schema_meta WHERE key='schema_version'"
+                    ).fetchone()["value"],
+                    str(SCHEMA_VERSION),
+                )
+
+
+class LocalPipelineContinuationDatabaseTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.fixture = WorkspaceFixture()
+        self.database = StudioDatabase(
+            self.fixture.root / "outputs" / "studio" / "pipeline-ledger.sqlite3",
+            workspace=self.fixture.root,
+        )
+        self.database.index_production(
+            {
+                "id": PRODUCTION_ID,
+                "title": "Pipeline continuation database tests",
+                "status": "test",
+                "technical_status": None,
+                "creative_status": None,
+                "public_release_status": None,
+                "source_rel": None,
+                "output_rel": None,
+            },
+            [],
+        )
+
+    def tearDown(self) -> None:
+        self.fixture.close()
+
+    @staticmethod
+    def _plan() -> dict[str, object]:
+        return {
+            "affected_stages": [
+                "video_generation",
+                "narration",
+                "captions",
+                "timeline",
+                "assembly",
+                "qc",
+            ]
+        }
+
+    def _run(
+        self,
+        *,
+        pipeline_key: str = "A" * 64,
+        ciphertext: bytes = b"encrypted-pipeline-request",
+    ) -> tuple[dict[str, object], dict[str, object]]:
+        return self.database.create_revision_and_run(
+            PRODUCTION_ID,
+            [{"type": "local_pipeline"}],
+            self._plan(),
+            0,
+            "USD",
+            execution_profile="local_pipeline",
+            pipeline_key=pipeline_key,
+            pipeline_request_protection="dpapi-v1",
+            pipeline_request_ciphertext=ciphertext,
+        )
+
+    @staticmethod
+    def _top_payload(
+        revision: dict[str, object], run: dict[str, object], pipeline_key: str
+    ) -> dict[str, object]:
+        return {
+            "production_id": PRODUCTION_ID,
+            "revision_id": revision["id"],
+            "run_id": run["id"],
+            "pipeline_key": pipeline_key,
+            "execution_profile": "local_pipeline",
+            "script_sha256": "B" * 64,
+            "prompt_sha256": "C" * 64,
+        }
+
+    def _top(
+        self,
+        revision: dict[str, object],
+        run: dict[str, object],
+        pipeline_key: str,
+        *,
+        running: bool = False,
+        **checkpoint: object,
+    ) -> tuple[dict[str, object], bool]:
+        job, created = self.database.create_or_get_local_pipeline_job(
+            production_id=PRODUCTION_ID,
+            run_id=str(run["id"]),
+            pipeline_key=pipeline_key,
+            payload=self._top_payload(revision, run, pipeline_key),
+            **checkpoint,
+        )
+        if running and created:
+            self.database.update_job(str(job["id"]), "running")
+            current = self.database.get_job(str(job["id"]))
+            assert current is not None
+            job = current
+        return job, created
+
+    def _video_pair(
+        self, run_id: str, cache_key: str, *, running: bool = True
+    ) -> tuple[dict[str, object], dict[str, object]]:
+        attempt = self.database.create_stage_attempt(
+            run_id,
+            "video_generation",
+            cache_key,
+            {"execution_profile": "local_pipeline", "cache_key": cache_key},
+        )
+        job = self.database.create_job(
+            "local_video_generation",
+            {
+                "run_id": run_id,
+                "production_id": PRODUCTION_ID,
+                "stage": "video_generation",
+                "execution_profile": "local_pipeline",
+                "cache_key": cache_key,
+                "stage_attempt_id": attempt["id"],
+            },
+            production_id=PRODUCTION_ID,
+        )
+        self.database.link_stage_attempt_job(str(attempt["id"]), str(job["id"]))
+        if running:
+            self.database.update_job(str(job["id"]), "running")
+            self.database.update_stage_attempt(str(attempt["id"]), "running")
+        return job, attempt
+
+    def test_public_projection_is_safe_and_private_material_is_explicit(self) -> None:
+        pipeline_key = "A" * 64
+        private_bytes = b"encrypted-private-pipeline-prompt-and-script"
+        _revision, run = self._run(
+            pipeline_key=pipeline_key, ciphertext=private_bytes
+        )
+
+        public = self.database.get_local_pipeline_continuation(
+            PRODUCTION_ID, pipeline_key
+        )
+        material = self.database.get_local_pipeline_continuation_material(
+            PRODUCTION_ID, pipeline_key
+        )
+        run_public = self.database.get_run(str(run["id"]))
+
+        assert public is not None and material is not None and run_public is not None
+        self.assertEqual(public["state"], "active")
+        self.assertTrue(public["automatic"])
+        self.assertEqual(run_public["pipeline_continuation"], public)
+        self.assertNotIn("request_protection", public)
+        self.assertNotIn("request_ciphertext", public)
+        self.assertNotIn("pipeline_key", public)
+        self.assertNotIn("run_id", public)
+        self.assertEqual(material["request_protection"], "dpapi-v1")
+        self.assertEqual(material["request_ciphertext"], private_bytes)
+        self.assertNotIn(private_bytes.decode(), json.dumps(run_public))
+        with closing(self.database.connect()) as connection:
+            event_payloads = "\n".join(
+                row["payload_json"]
+                for row in connection.execute("SELECT payload_json FROM events")
+            )
+        self.assertNotIn(private_bytes.decode(), event_payloads)
+
+    def test_admission_abort_releases_ready_checkpoint_and_retry_cas_is_single_winner(
+        self,
+    ) -> None:
+        pipeline_key = "D" * 64
+        revision, run = self._run(pipeline_key=pipeline_key)
+        first, created = self._top(revision, run, pipeline_key)
+        self.assertTrue(created)
+
+        aborted = self.database.abort_local_pipeline_job_admission(str(first["id"]))
+        checkpoint = aborted["pipeline_continuation"]
+        self.assertEqual(aborted["job"]["status"], "failed")
+        self.assertEqual(checkpoint["state"], "ready")
+        ready = self.database.list_ready_local_pipeline_continuation_material()
+        self.assertEqual([item["run_id"] for item in ready], [run["id"]])
+
+        second, created = self._top(
+            revision,
+            run,
+            pipeline_key,
+            expected_continuation_state="ready",
+            expected_continuation_updated_at=checkpoint["updated_at"],
+            expected_source_job_id=None,
+            expected_source_stage_attempt_id=None,
+        )
+        self.assertTrue(created)
+        current = self.database.get_local_pipeline_continuation(
+            PRODUCTION_ID, pipeline_key
+        )
+        assert current is not None
+        self.assertEqual(current["state"], "continuing")
+        self.assertEqual(current["resume_count"], 1)
+        self.assertEqual(current["job_id"], second["id"])
+        loser, loser_created = self._top(
+            revision,
+            run,
+            pipeline_key,
+            expected_continuation_state="ready",
+            expected_continuation_updated_at=checkpoint["updated_at"],
+            expected_source_job_id=None,
+            expected_source_stage_attempt_id=None,
+        )
+        self.assertFalse(loser_created)
+        self.assertEqual(loser["id"], second["id"])
+
+    def test_operator_cancel_fences_exact_admission_aborted_ready_generation(
+        self,
+    ) -> None:
+        pipeline_key = "0" * 64
+        revision, run = self._run(pipeline_key=pipeline_key)
+        top, created = self._top(revision, run, pipeline_key)
+        self.assertTrue(created)
+        aborted = self.database.abort_local_pipeline_job_admission(str(top["id"]))
+        self.assertEqual(aborted["pipeline_continuation"]["state"], "ready")
+
+        self.assertTrue(
+            self.database.interrupt_job(
+                str(top["id"]),
+                cancel_provider_task=True,
+                preserve_pipeline_continuation=False,
+            )
+        )
+        cancelled = self.database.get_local_pipeline_continuation_material(
+            PRODUCTION_ID, pipeline_key
+        )
+        assert cancelled is not None
+        self.assertEqual(cancelled["state"], "cancelled")
+        self.assertEqual(cancelled["request_protection"], "none")
+        self.assertIsNone(cancelled["request_ciphertext"])
+
+        preserve_key = "1" * 64
+        preserve_revision, preserve_run = self._run(pipeline_key=preserve_key)
+        preserve_top, preserve_created = self._top(
+            preserve_revision, preserve_run, preserve_key
+        )
+        self.assertTrue(preserve_created)
+        self.database.abort_local_pipeline_job_admission(str(preserve_top["id"]))
+        self.assertFalse(
+            self.database.interrupt_job(
+                str(preserve_top["id"]),
+                cancel_provider_task=False,
+                preserve_pipeline_continuation=True,
+            )
+        )
+        preserved = self.database.get_local_pipeline_continuation_material(
+            PRODUCTION_ID, preserve_key
+        )
+        assert preserved is not None
+        self.assertEqual(preserved["state"], "ready")
+        self.assertEqual(
+            preserved["request_ciphertext"], b"encrypted-pipeline-request"
+        )
+
+    def test_provider_checkpoint_only_becomes_ready_after_old_top_is_interrupted(
+        self,
+    ) -> None:
+        pipeline_key = "E" * 64
+        revision, run = self._run(pipeline_key=pipeline_key)
+        top, _created = self._top(revision, run, pipeline_key, running=True)
+        cache_key = "F" * 64
+        child, attempt = self._video_pair(str(run["id"]), cache_key)
+        provider_task, _created = self.database.create_or_get_provider_task(
+            production_id=PRODUCTION_ID,
+            run_id=str(run["id"]),
+            origin_stage_attempt_id=str(attempt["id"]),
+            current_stage_attempt_id=str(attempt["id"]),
+            current_job_id=str(child["id"]),
+            cache_key=cache_key,
+            payload_digest="1" * 64,
+            prepared_provider_task_id="11111111-1111-4111-8111-111111111111",
+            request_protection="dpapi-v1",
+            request_ciphertext=b"provider-request",
+        )
+        self.assertEqual(
+            self.database.get_local_pipeline_continuation(PRODUCTION_ID, pipeline_key)[
+                "state"
+            ],
+            "waiting_provider",
+        )
+        self.database.record_provider_submission(
+            str(provider_task["id"]), str(provider_task["provider_task_id"])
+        )
+        self.database.complete_job_with_stage_attempt(
+            str(child["id"]),
+            str(attempt["id"]),
+            {
+                "artifacts": [],
+                "cache_key": cache_key,
+                "cache_hit": False,
+                "provider": "comfyui",
+                "provider_task_id": provider_task["provider_task_id"],
+                "actual_cost": 0,
+                "timing_source": "ffprobe",
+            },
+            provider_task_record_id=str(provider_task["id"]),
+        )
+        active = self.database.get_local_pipeline_continuation(
+            PRODUCTION_ID, pipeline_key
+        )
+        assert active is not None
+        self.assertEqual(active["state"], "active")
+        self.assertEqual(active["source_job_id"], child["id"])
+        self.assertEqual(active["source_attempt_id"], attempt["id"])
+
+        self.assertTrue(
+            self.database.interrupt_job(
+                str(top["id"]), preserve_pipeline_continuation=True
+            )
+        )
+        ready = self.database.get_local_pipeline_continuation(
+            PRODUCTION_ID, pipeline_key
+        )
+        assert ready is not None
+        self.assertEqual(ready["state"], "ready")
+        self.assertEqual(ready["source_attempt_id"], attempt["id"])
+        continued, continued_created = self._top(
+            revision,
+            run,
+            pipeline_key,
+            expected_continuation_state="ready",
+            expected_continuation_updated_at=ready["updated_at"],
+            expected_source_job_id=str(child["id"]),
+            expected_source_stage_attempt_id=str(attempt["id"]),
+        )
+        self.assertTrue(continued_created)
+        current = self.database.get_local_pipeline_continuation(
+            PRODUCTION_ID, pipeline_key
+        )
+        assert current is not None
+        self.assertEqual(current["state"], "continuing")
+        self.assertEqual(current["job_id"], continued["id"])
+
+    def test_top_terminal_transitions_and_blocking_are_atomic(self) -> None:
+        pipeline_key = "2" * 64
+        revision, run = self._run(pipeline_key=pipeline_key)
+        top, _created = self._top(revision, run, pipeline_key, running=True)
+        failed = self.database.fail_local_pipeline_job(
+            str(top["id"]), error_code="local_pipeline_failed", error_message="safe"
+        )
+        self.assertEqual(failed["job"]["status"], "failed")
+        self.assertEqual(
+            failed["pipeline_continuation"]["state"], "recovery_blocked"
+        )
+        _revision, _run = self.database.create_revision_and_run(
+            PRODUCTION_ID,
+            [{"type": "local_pipeline"}],
+            self._plan(),
+            0,
+            "USD",
+            execution_profile="local_pipeline",
+            pipeline_key=pipeline_key,
+            pipeline_request_protection="dpapi-v1",
+            pipeline_request_ciphertext=b"replacement-encrypted-request",
+            rearm_pipeline_continuation=True,
+        )
+        retry, created = self._top(revision, run, pipeline_key, running=True)
+        self.assertTrue(created)
+        result = {
+            "production_id": PRODUCTION_ID,
+            "revision_id": revision["id"],
+            "run_id": run["id"],
+            "pipeline_key": pipeline_key,
+            "execution_profile": "local_pipeline",
+            "technical_verdict": "pass",
+        }
+        completed = self.database.complete_local_pipeline_job(str(retry["id"]), result)
+        self.assertTrue(completed["committed"])
+        self.assertEqual(completed["pipeline_continuation"]["state"], "succeeded")
+        material = self.database.get_local_pipeline_continuation_material(
+            PRODUCTION_ID, pipeline_key
+        )
+        assert material is not None
+        self.assertIsNone(material["request_ciphertext"])
+        self.assertEqual(material["request_protection"], "none")
+
+    def test_restart_provider_recovery_success_atomically_readies_old_top(self) -> None:
+        pipeline_key = "5" * 64
+        revision, run = self._run(pipeline_key=pipeline_key)
+        top, _created = self._top(revision, run, pipeline_key, running=True)
+        cache_key = "6" * 64
+        child, attempt = self._video_pair(str(run["id"]), cache_key)
+        provider_task, _created = self.database.create_or_get_provider_task(
+            production_id=PRODUCTION_ID,
+            run_id=str(run["id"]),
+            origin_stage_attempt_id=str(attempt["id"]),
+            current_stage_attempt_id=str(attempt["id"]),
+            current_job_id=str(child["id"]),
+            cache_key=cache_key,
+            payload_digest="7" * 64,
+            prepared_provider_task_id="77777777-7777-4777-8777-777777777777",
+            request_protection="dpapi-v1",
+            request_ciphertext=b"provider-recovery-request",
+        )
+        self.database.record_provider_submission(
+            str(provider_task["id"]), str(provider_task["provider_task_id"])
+        )
+
+        counts = self.database.interrupt_active_work()
+        self.assertGreaterEqual(counts["jobs"], 2)
+        self.assertEqual(counts["provider_tasks"], 1)
+        waiting = self.database.get_local_pipeline_continuation(
+            PRODUCTION_ID, pipeline_key
+        )
+        pending = self.database.get_provider_task(str(provider_task["id"]))
+        assert waiting is not None and pending is not None
+        self.assertEqual(self.database.get_job(str(top["id"]))["status"], "interrupted")
+        self.assertEqual(waiting["state"], "waiting_provider")
+        self.assertEqual(pending["status"], "submitted")
+        self.assertIsNone(pending["current_job_id"])
+
+        recovery_job, recovery_attempt = self._video_pair(
+            str(run["id"]), cache_key, running=False
+        )
+        claimed = self.database.claim_provider_task_recovery(
+            str(provider_task["id"]),
+            expected_updated_at=str(pending["updated_at"]),
+            current_stage_attempt_id=str(recovery_attempt["id"]),
+            current_job_id=str(recovery_job["id"]),
+        )
+        self.assertIsNotNone(claimed)
+        self.database.update_job(str(recovery_job["id"]), "running")
+        self.database.update_stage_attempt(str(recovery_attempt["id"]), "running")
+        self.database.complete_job_with_stage_attempt(
+            str(recovery_job["id"]),
+            str(recovery_attempt["id"]),
+            {
+                "artifacts": [],
+                "cache_key": cache_key,
+                "cache_hit": False,
+                "provider": "comfyui",
+                "provider_task_id": provider_task["provider_task_id"],
+                "actual_cost": 0,
+                "timing_source": "ffprobe",
+            },
+            provider_task_record_id=str(provider_task["id"]),
+        )
+        ready = self.database.get_local_pipeline_continuation(
+            PRODUCTION_ID, pipeline_key
+        )
+        assert ready is not None
+        self.assertEqual(ready["state"], "ready")
+        self.assertEqual(ready["source_job_id"], recovery_job["id"])
+        self.assertEqual(ready["source_attempt_id"], recovery_attempt["id"])
+        self.assertEqual(
+            [item["run_id"] for item in self.database.list_ready_local_pipeline_continuation_material()],
+            [run["id"]],
+        )
+
+    def test_child_cancel_preserves_claim_until_top_operator_cancel(self) -> None:
+        pipeline_key = "8" * 64
+        revision, run = self._run(pipeline_key=pipeline_key)
+        top, _created = self._top(revision, run, pipeline_key, running=True)
+        cache_key = "9" * 64
+        child, attempt = self._video_pair(str(run["id"]), cache_key)
+        provider_task, _created = self.database.create_or_get_provider_task(
+            production_id=PRODUCTION_ID,
+            run_id=str(run["id"]),
+            origin_stage_attempt_id=str(attempt["id"]),
+            current_stage_attempt_id=str(attempt["id"]),
+            current_job_id=str(child["id"]),
+            cache_key=cache_key,
+            payload_digest="0" * 64,
+            prepared_provider_task_id="99999999-9999-4999-8999-999999999999",
+            request_protection="dpapi-v1",
+            request_ciphertext=b"provider-cancel-request",
+        )
+        self.database.record_provider_submission(
+            str(provider_task["id"]), str(provider_task["provider_task_id"])
+        )
+        before_child_cancel = self.database.get_local_pipeline_continuation_material(
+            PRODUCTION_ID, pipeline_key
+        )
+        assert before_child_cancel is not None
+        self.assertTrue(
+            self.database.interrupt_job(
+                str(child["id"]),
+                cancel_provider_task=True,
+                provider_task_record_id=str(provider_task["id"]),
+                preserve_pipeline_continuation=False,
+            )
+        )
+        requested = self.database.get_local_pipeline_continuation_material(
+            PRODUCTION_ID, pipeline_key
+        )
+        assert requested is not None
+        self.assertEqual(requested["state"], before_child_cancel["state"])
+        self.assertEqual(requested["updated_at"], before_child_cancel["updated_at"])
+        self.assertNotIn(requested["state"], {"cancel_requested", "cancelled"})
+        self.assertEqual(
+            requested["request_ciphertext"], b"encrypted-pipeline-request"
+        )
+        provider_after_child = self.database.get_provider_task(str(provider_task["id"]))
+        assert provider_after_child is not None
+        self.assertEqual(provider_after_child["status"], "cancel_requested")
+
+        self.assertTrue(
+            self.database.interrupt_job(
+                str(top["id"]),
+                cancel_provider_task=True,
+                preserve_pipeline_continuation=False,
+            )
+        )
+        requested = self.database.get_local_pipeline_continuation_material(
+            PRODUCTION_ID, pipeline_key
+        )
+        assert requested is not None
+        self.assertEqual(requested["state"], "cancel_requested")
+        self.assertEqual(
+            requested["request_ciphertext"], b"encrypted-pipeline-request"
+        )
+
+        self.database.mark_provider_task_state(
+            str(provider_task["id"]),
+            "failed",
+            error_code="comfyui_cancelled",
+            error_message="Provider task is no longer active.",
+        )
+        cancelled = self.database.get_local_pipeline_continuation_material(
+            PRODUCTION_ID, pipeline_key
+        )
+        assert cancelled is not None
+        self.assertEqual(cancelled["state"], "cancelled")
+        self.assertIsNone(cancelled["request_ciphertext"])
+        self.assertEqual(cancelled["request_protection"], "none")
+
+    def test_provider_success_after_top_cancel_stays_cancelled_and_clears_request(self) -> None:
+        pipeline_key = "A" * 64
+        revision, run = self._run(pipeline_key=pipeline_key)
+        top, _created = self._top(revision, run, pipeline_key, running=True)
+        cache_key = "B" * 64
+        child, attempt = self._video_pair(str(run["id"]), cache_key)
+        provider_task, _created = self.database.create_or_get_provider_task(
+            production_id=PRODUCTION_ID,
+            run_id=str(run["id"]),
+            origin_stage_attempt_id=str(attempt["id"]),
+            current_stage_attempt_id=str(attempt["id"]),
+            current_job_id=str(child["id"]),
+            cache_key=cache_key,
+            payload_digest="C" * 64,
+            prepared_provider_task_id="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            request_protection="dpapi-v1",
+            request_ciphertext=b"provider-success-after-cancel",
+        )
+        self.database.record_provider_submission(
+            str(provider_task["id"]), str(provider_task["provider_task_id"])
+        )
+        self.database.interrupt_job(
+            str(top["id"]),
+            cancel_provider_task=True,
+            preserve_pipeline_continuation=False,
+        )
+        requested = self.database.get_local_pipeline_continuation_material(
+            PRODUCTION_ID, pipeline_key
+        )
+        assert requested is not None
+        self.assertEqual(requested["state"], "cancel_requested")
+
+        self.database.complete_job_with_stage_attempt(
+            str(child["id"]),
+            str(attempt["id"]),
+            {
+                "artifacts": [],
+                "cache_key": cache_key,
+                "cache_hit": False,
+                "provider": "comfyui",
+                "provider_task_id": provider_task["provider_task_id"],
+                "actual_cost": 0,
+                "timing_source": "ffprobe",
+            },
+            provider_task_record_id=str(provider_task["id"]),
+        )
+        cancelled = self.database.get_local_pipeline_continuation_material(
+            PRODUCTION_ID, pipeline_key
+        )
+        assert cancelled is not None
+        self.assertEqual(cancelled["state"], "cancelled")
+        self.assertIsNone(cancelled["request_ciphertext"])
+        self.assertEqual(cancelled["request_protection"], "none")
+        self.assertEqual(cancelled["source_job_id"], child["id"])
+        self.assertEqual(cancelled["source_stage_attempt_id"], attempt["id"])
+
+    def test_definite_provider_failure_after_recovery_unblocks_waiting_ledger(self) -> None:
+        pipeline_key = "D" * 64
+        revision, run = self._run(pipeline_key=pipeline_key)
+        self._top(revision, run, pipeline_key, running=True)
+        cache_key = "E" * 64
+        child, attempt = self._video_pair(str(run["id"]), cache_key)
+        provider_task, _created = self.database.create_or_get_provider_task(
+            production_id=PRODUCTION_ID,
+            run_id=str(run["id"]),
+            origin_stage_attempt_id=str(attempt["id"]),
+            current_stage_attempt_id=str(attempt["id"]),
+            current_job_id=str(child["id"]),
+            cache_key=cache_key,
+            payload_digest="F" * 64,
+            prepared_provider_task_id="dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+            request_protection="dpapi-v1",
+            request_ciphertext=b"provider-definite-failure",
+        )
+        self.database.record_provider_submission(
+            str(provider_task["id"]), str(provider_task["provider_task_id"])
+        )
+        self.database.interrupt_active_work()
+        pending = self.database.get_provider_task(str(provider_task["id"]))
+        assert pending is not None
+        recovery_job, recovery_attempt = self._video_pair(
+            str(run["id"]), cache_key, running=False
+        )
+        claimed = self.database.claim_provider_task_recovery(
+            str(provider_task["id"]),
+            expected_updated_at=str(pending["updated_at"]),
+            current_stage_attempt_id=str(recovery_attempt["id"]),
+            current_job_id=str(recovery_job["id"]),
+        )
+        self.assertIsNotNone(claimed)
+        self.database.update_job(str(recovery_job["id"]), "running")
+        self.database.update_stage_attempt(str(recovery_attempt["id"]), "running")
+
+        failed = self.database.fail_job_with_stage_attempt(
+            str(recovery_job["id"]),
+            str(recovery_attempt["id"]),
+            error_code="comfyui_generation_failed",
+            error_message="Provider reported a definite failure.",
+            provider_task_record_id=str(provider_task["id"]),
+        )
+        continuation = self.database.get_local_pipeline_continuation_material(
+            PRODUCTION_ID, pipeline_key
+        )
+        assert continuation is not None
+        self.assertTrue(failed["committed"])
+        self.assertEqual(failed["provider_task"]["status"], "failed")
+        self.assertEqual(continuation["state"], "recovery_blocked")
+        self.assertEqual(
+            continuation["request_ciphertext"], b"encrypted-pipeline-request"
+        )
+        self.assertEqual(
+            {
+                failed["job"]["completed_at"],
+                failed["stage_attempt"]["completed_at"],
+                failed["provider_task"]["completed_at"],
+                continuation["updated_at"],
+            },
+            {failed["job"]["completed_at"]},
+        )
+
+    def test_video_checkpoint_event_failure_rolls_back_provider_stage_job_and_claim(
+        self,
+    ) -> None:
+        pipeline_key = "1" * 64
+        revision, run = self._run(pipeline_key=pipeline_key)
+        self._top(revision, run, pipeline_key, running=True)
+        cache_key = "2" * 64
+        child, attempt = self._video_pair(str(run["id"]), cache_key)
+        provider_task, _created = self.database.create_or_get_provider_task(
+            production_id=PRODUCTION_ID,
+            run_id=str(run["id"]),
+            origin_stage_attempt_id=str(attempt["id"]),
+            current_stage_attempt_id=str(attempt["id"]),
+            current_job_id=str(child["id"]),
+            cache_key=cache_key,
+            payload_digest="3" * 64,
+            prepared_provider_task_id="22222222-2222-4222-8222-222222222222",
+            request_protection="dpapi-v1",
+            request_ciphertext=b"provider-rollback-request",
+        )
+        self.database.record_provider_submission(
+            str(provider_task["id"]), str(provider_task["provider_task_id"])
+        )
+        with closing(self.database.connect()) as connection:
+            connection.execute(
+                "CREATE TRIGGER reject_pipeline_video_checkpoint "
+                "BEFORE INSERT ON events "
+                "WHEN NEW.event_type='pipeline.continuation.video_checkpointed' "
+                "BEGIN SELECT RAISE(ABORT, 'test pipeline checkpoint rollback'); END"
+            )
+
+        with self.assertRaisesRegex(sqlite3.IntegrityError, "checkpoint rollback"):
+            self.database.complete_job_with_stage_attempt(
+                str(child["id"]),
+                str(attempt["id"]),
+                {
+                    "artifacts": [],
+                    "cache_key": cache_key,
+                    "cache_hit": False,
+                    "provider": "comfyui",
+                    "provider_task_id": provider_task["provider_task_id"],
+                    "actual_cost": 0,
+                    "timing_source": "ffprobe",
+                },
+                provider_task_record_id=str(provider_task["id"]),
+            )
+        current_job = self.database.get_job(str(child["id"]))
+        current_attempt = self.database.get_stage_attempt(str(attempt["id"]))
+        current_provider = self.database.get_provider_task(str(provider_task["id"]))
+        current_claim = self.database.get_local_pipeline_continuation(
+            PRODUCTION_ID, pipeline_key
+        )
+        assert (
+            current_job is not None
+            and current_attempt is not None
+            and current_provider is not None
+            and current_claim is not None
+        )
+        self.assertEqual(current_job["status"], "running")
+        self.assertEqual(current_attempt["status"], "running")
+        self.assertEqual(current_provider["status"], "submitted")
+        self.assertEqual(current_claim["state"], "waiting_provider")
+        self.assertIsNone(current_claim["source_job_id"])
+        self.assertIsNone(current_claim["source_attempt_id"])
+
+    def test_top_success_event_failure_rolls_back_job_claim_and_private_material(self) -> None:
+        pipeline_key = "4" * 64
+        revision, run = self._run(pipeline_key=pipeline_key)
+        top, _created = self._top(revision, run, pipeline_key, running=True)
+        result = {
+            "production_id": PRODUCTION_ID,
+            "revision_id": revision["id"],
+            "run_id": run["id"],
+            "pipeline_key": pipeline_key,
+            "execution_profile": "local_pipeline",
+            "technical_verdict": "pass",
+        }
+        with closing(self.database.connect()) as connection:
+            connection.execute(
+                "CREATE TRIGGER reject_pipeline_top_success "
+                "BEFORE INSERT ON events "
+                "WHEN NEW.event_type='pipeline.continuation.succeeded' "
+                "BEGIN SELECT RAISE(ABORT, 'test pipeline success rollback'); END"
+            )
+        with self.assertRaisesRegex(sqlite3.IntegrityError, "success rollback"):
+            self.database.complete_local_pipeline_job(str(top["id"]), result)
+        current_job = self.database.get_job(str(top["id"]))
+        material = self.database.get_local_pipeline_continuation_material(
+            PRODUCTION_ID, pipeline_key
+        )
+        assert current_job is not None and material is not None
+        self.assertEqual(current_job["status"], "running")
+        self.assertEqual(material["state"], "active")
+        self.assertEqual(
+            material["request_ciphertext"], b"encrypted-pipeline-request"
+        )
+
+    def test_ready_decryption_failure_is_cas_blocked_without_exposing_text(self) -> None:
+        pipeline_key = "3" * 64
+        revision, run = self._run(pipeline_key=pipeline_key)
+        top, _created = self._top(revision, run, pipeline_key)
+        self.database.abort_local_pipeline_job_admission(str(top["id"]))
+        ready = self.database.get_local_pipeline_continuation(
+            PRODUCTION_ID, pipeline_key
+        )
+        assert ready is not None
+        blocked = self.database.block_local_pipeline_continuation(
+            PRODUCTION_ID,
+            pipeline_key,
+            expected_updated_at=str(ready["updated_at"]),
+            error_code="pipeline_request_decryption_failed",
+            error_message="Protected request could not be opened.",
+        )
+        self.assertIsNotNone(blocked)
+        assert blocked is not None
+        self.assertEqual(blocked["state"], "recovery_blocked")
+        self.assertIsNone(
+            self.database.block_local_pipeline_continuation(
+                PRODUCTION_ID,
+                pipeline_key,
+                expected_updated_at=str(ready["updated_at"]),
+                error_code="pipeline_request_decryption_failed",
+                error_message="Protected request could not be opened.",
+            )
+        )
 
 
 class ProviderTaskDatabaseTests(unittest.TestCase):

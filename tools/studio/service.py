@@ -212,6 +212,7 @@ _MAX_LOCAL_TIMELINE_CLIPS = 32
 _MAX_LOCAL_TIMELINE_INPUT_BYTES = 4 * 1024 * 1024 * 1024
 _MAX_LOCAL_TIMELINE_VIDEO_BYTES = 2 * 1024 * 1024 * 1024
 _SERVICE_JOB_SHUTDOWN_TIMEOUT_SECONDS = 5.0
+_PIPELINE_CONTINUATION_SCAN_SECONDS = 1.0
 _EXTERNAL_NARRATION_STAGE = "narration"
 _EXTERNAL_NARRATION_PROVIDER = "elevenlabs"
 _EXTERNAL_AMBIGUOUS_ERROR_CODES = frozenset(
@@ -488,6 +489,8 @@ class StudioService:
         self._provider_recovery_state_lock = threading.Lock()
         self._provider_recovery_stop = threading.Event()
         self._provider_recovery_done = threading.Event()
+        self._pipeline_continuation_stop = threading.Event()
+        self._pipeline_continuation_wake = threading.Event()
         recoverable = self.database.list_recoverable_provider_tasks(limit=100)
         self._startup_provider_recovery: dict[str, Any] = {
             "found": len(recoverable),
@@ -507,6 +510,15 @@ class StudioService:
             self._provider_recovery_thread.start()
         else:
             self._provider_recovery_done.set()
+        # This coordinator only claims durable ``ready`` checkpoints and
+        # enqueues a new top job.  It never waits for the GPU/default lanes,
+        # so provider recovery and downstream execution cannot deadlock it.
+        self._pipeline_continuation_thread = threading.Thread(
+            target=self._run_pipeline_continuation_coordinator,
+            name="studio-pipeline-continuation",
+            daemon=True,
+        )
+        self._pipeline_continuation_thread.start()
 
     def _complete_local_stage(
         self,
@@ -551,7 +563,15 @@ class StudioService:
         )
 
     def close(self) -> None:
+        self._pipeline_continuation_stop.set()
+        self._pipeline_continuation_wake.set()
         self._provider_recovery_stop.set()
+        continuation_thread = self._pipeline_continuation_thread
+        if (
+            continuation_thread.is_alive()
+            and continuation_thread is not threading.current_thread()
+        ):
+            continuation_thread.join()
         recovery_thread = self._provider_recovery_thread
         if (
             recovery_thread is not None
@@ -578,6 +598,67 @@ class StudioService:
         with self._provider_recovery_state_lock:
             return dict(self._startup_provider_recovery)
 
+    def _run_pipeline_continuation_coordinator(self) -> None:
+        """Claim durable ready checkpoints without waiting on worker lanes."""
+
+        while not self._pipeline_continuation_stop.is_set():
+            # A queue adapter can fail after the durable top claim commits.
+            # If its immediate DB compensation also fails transiently, retry
+            # only the exact IDs recorded by this JobManager.  A successful
+            # repair becomes ``ready`` and is consumed later in this cycle.
+            try:
+                self.jobs.repair_local_pipeline_admissions()
+            except Exception:
+                # A transient DB read/write error keeps the exact repair set;
+                # the next coordinator scan retries it.
+                pass
+            try:
+                self.jobs.retry_pending_operator_cancellations()
+            except Exception:
+                # Exact operator intent remains process-local until a later
+                # scan confirms its durable cancelled/cancel_requested state.
+                pass
+            if self.jobs.has_pending_local_pipeline_operator_cancellation():
+                # Never consume any ready generation while an exact operator
+                # cancellation fence is waiting for a transient DB retry.
+                pending = []
+            else:
+                try:
+                    pending = self.database.list_ready_local_pipeline_continuation_material(
+                        limit=100
+                    )
+                except Exception:
+                    pending = []
+            for material in pending:
+                if self._pipeline_continuation_stop.is_set():
+                    break
+                try:
+                    self._resume_local_pipeline_continuation(material)
+                except RequestValidationError as exc:
+                    # Protected material or its durable lineage is unusable.
+                    # Close only the exact ready generation; never persist the
+                    # decrypted request or an arbitrary exception string.
+                    try:
+                        self.database.block_local_pipeline_continuation(
+                            str(material.get("production_id", "")),
+                            str(material.get("pipeline_key", "")),
+                            expected_updated_at=str(material.get("updated_at", "")),
+                            error_code=exc.code,
+                            error_message=(
+                                "The protected pipeline continuation could not be verified."
+                            ),
+                        )
+                    except Exception:
+                        pass
+                except Exception:
+                    # CAS loss, a transient SQLite error, or a manager-close
+                    # race is retried from durable state on the next scan.
+                    pass
+            self._pipeline_continuation_wake.wait(
+                _PIPELINE_CONTINUATION_SCAN_SECONDS
+            )
+            self._pipeline_continuation_wake.clear()
+
     def health(self) -> dict[str, Any]:
         mirror = self.database.event_mirror_health()
         return {
@@ -593,6 +674,10 @@ class StudioService:
             "time": utc_now(),
             "event_mirror": mirror,
             "provider_task_recovery": self._provider_recovery_snapshot(),
+            "pipeline_continuation": {
+                "automatic": dpapi_available(),
+                "coordinator_running": self._pipeline_continuation_thread.is_alive(),
+            },
         }
 
     def providers_status(self) -> dict[str, Any]:
@@ -602,6 +687,11 @@ class StudioService:
             "comfyui_restart_recovery": {
                 "automatic": dpapi_available(),
                 **self._provider_recovery_snapshot(),
+            },
+            "local_pipeline_continuation": {
+                "automatic": dpapi_available(),
+                "coordinator_running": self._pipeline_continuation_thread.is_alive(),
+                "scan_interval_seconds": _PIPELINE_CONTINUATION_SCAN_SECONDS,
             },
         }
 
@@ -851,6 +941,136 @@ class StudioService:
                 code="invalid_provenance",
             )
         return attempt
+
+    def _verified_pipeline_video_recovery_checkpoint(
+        self,
+        run: dict[str, Any],
+        pipeline_key: str,
+        cache_key: str,
+        checkpoint: Any,
+    ) -> dict[str, str]:
+        """Verify one successful same-run video source for cache-only replay.
+
+        A normal pipeline video attempt is already bound by ``pipeline_key``
+        and an empty video lineage.  A restart-recovery attempt predates that
+        normal lineage hop, so it is accepted only when its exact provider-task
+        owner is terminal-successful.  In both cases the new continuation
+        creates a fresh, normally lineage-bound video child; this checkpoint is
+        only the required source of its verified cache hit.
+        """
+
+        if (
+            not isinstance(checkpoint, dict)
+            or set(checkpoint) != {"job_id", "stage_attempt_id"}
+        ):
+            raise RequestValidationError(
+                "The recovered video checkpoint is invalid.",
+                code="invalid_provenance",
+            )
+        source_job_id = checkpoint.get("job_id")
+        source_attempt_id = checkpoint.get("stage_attempt_id")
+        try:
+            validate_identifier(source_job_id, label="source job id")
+            validate_identifier(
+                source_attempt_id, label="source stage attempt id"
+            )
+        except (SecurityError, TypeError, ValueError):
+            raise RequestValidationError(
+                "The recovered video checkpoint is invalid.",
+                code="invalid_provenance",
+            ) from None
+
+        attempt = self.database.get_stage_attempt(source_attempt_id)
+        job = self.database.get_job(source_job_id)
+        attempt_payload = attempt.get("payload") if isinstance(attempt, dict) else None
+        attempt_result = attempt.get("result") if isinstance(attempt, dict) else None
+        job_payload = job.get("payload") if isinstance(job, dict) else None
+        job_result = job.get("result") if isinstance(job, dict) else None
+        if (
+            not isinstance(attempt, dict)
+            or attempt.get("id") != source_attempt_id
+            or attempt.get("job_id") != source_job_id
+            or attempt.get("run_id") != run["id"]
+            or attempt.get("production_id") != run["production_id"]
+            or attempt.get("stage") != _LOCAL_VIDEO_GENERATION_STAGE
+            or attempt.get("status") != "succeeded"
+            or attempt.get("cache_key") != cache_key
+            or not isinstance(attempt_payload, dict)
+            or attempt_payload.get("execution_profile") != LOCAL_PIPELINE_PROFILE
+            or attempt_payload.get("cache_key") != cache_key
+            or not isinstance(attempt_result, dict)
+            or attempt_result.get("cache_key") != cache_key
+            or not isinstance(attempt_result.get("cache_hit"), bool)
+            or not isinstance(job, dict)
+            or job.get("id") != source_job_id
+            or job.get("kind") != "local_video_generation"
+            or job.get("production_id") != run["production_id"]
+            or job.get("status") != "succeeded"
+            or not isinstance(job_payload, dict)
+            or job_payload.get("run_id") != run["id"]
+            or job_payload.get("production_id") != run["production_id"]
+            or job_payload.get("stage") != _LOCAL_VIDEO_GENERATION_STAGE
+            or job_payload.get("execution_profile") != LOCAL_PIPELINE_PROFILE
+            or job_payload.get("cache_key") != cache_key
+            or job_payload.get("stage_attempt_id") != source_attempt_id
+            or not isinstance(job_result, dict)
+            or job_result.get("stage_attempt_id") != source_attempt_id
+            or {
+                key: value
+                for key, value in job_result.items()
+                if key != "stage_attempt_id"
+            }
+            != attempt_result
+        ):
+            raise RequestValidationError(
+                "The recovered video checkpoint could not be verified.",
+                code="invalid_provenance",
+            )
+
+        pipeline_bound = bool(
+            attempt_payload.get("pipeline_key") == pipeline_key
+            and attempt_payload.get("pipeline_lineage") == {}
+            and job_payload.get("pipeline_key") == pipeline_key
+            and job_payload.get("pipeline_lineage") == {}
+        )
+        recovery_record_id = job_payload.get("provider_task_record_id")
+        restart_recovery_bound = bool(
+            attempt_payload.get("restart_recovery") is True
+            and job_payload.get("restart_recovery") is True
+            and isinstance(recovery_record_id, str)
+            and attempt_payload.get("provider_task_record_id")
+            == recovery_record_id
+        )
+        if restart_recovery_bound:
+            try:
+                validate_identifier(
+                    recovery_record_id, label="provider task record id"
+                )
+                provider_task = self.database.get_provider_task(recovery_record_id)
+            except (SecurityError, TypeError, ValueError):
+                provider_task = None
+            restart_recovery_bound = bool(
+                isinstance(provider_task, dict)
+                and provider_task.get("status") == "succeeded"
+                and provider_task.get("production_id") == run["production_id"]
+                and provider_task.get("run_id") == run["id"]
+                and provider_task.get("stage") == _LOCAL_VIDEO_GENERATION_STAGE
+                and provider_task.get("cache_key") == cache_key
+                and provider_task.get("current_stage_attempt_id")
+                == source_attempt_id
+                and provider_task.get("current_job_id") == source_job_id
+                and provider_task.get("provider_task_id")
+                == attempt_result.get("provider_task_id")
+            )
+        if not pipeline_bound and not restart_recovery_bound:
+            raise RequestValidationError(
+                "The recovered video checkpoint lineage is invalid.",
+                code="invalid_provenance",
+            )
+        return {
+            "job_id": source_job_id,
+            "stage_attempt_id": source_attempt_id,
+        }
 
     def _verified_pipeline_artifact(
         self,
@@ -1402,7 +1622,13 @@ class StudioService:
         *,
         pipeline_key: str,
         lineage: dict[str, Any],
+        video_recovery_checkpoint: dict[str, str] | None = None,
     ) -> dict[str, Any]:
+        if video_recovery_checkpoint is not None and stage != _LOCAL_VIDEO_GENERATION_STAGE:
+            raise RequestValidationError(
+                "The recovered video checkpoint was attached to the wrong stage.",
+                code="invalid_provenance",
+            )
         run = self._pipeline_run(run_id, pipeline_key)
         lineage_audit = self._validate_pipeline_child_lineage(
             run, stage, body, pipeline_key, lineage
@@ -1420,13 +1646,284 @@ class StudioService:
                 "The local pipeline stage is not supported.",
                 code="local_profile_stage_not_allowed",
             )
-        return method(
-            run_id,
-            body,
-            _pipeline_capability=self._pipeline_capability,
-            _pipeline_key=pipeline_key,
-            _pipeline_lineage=lineage_audit,
+        internal_kwargs: dict[str, Any] = {
+            "_pipeline_capability": self._pipeline_capability,
+            "_pipeline_key": pipeline_key,
+            "_pipeline_lineage": lineage_audit,
+        }
+        if video_recovery_checkpoint is not None:
+            internal_kwargs["_pipeline_video_recovery_checkpoint"] = dict(
+                video_recovery_checkpoint
+            )
+        return method(run_id, body, **internal_kwargs)
+
+    def _protect_local_pipeline_continuation_payload(
+        self, payload: dict[str, Any], pipeline_key: str
+    ) -> tuple[str, bytes | None]:
+        """Protect the complete normalized request without a plaintext fallback."""
+
+        plaintext = canonical_json(
+            {
+                "version": 1,
+                "pipeline_key": pipeline_key,
+                "payload": payload,
+            }
+        ).encode("utf-8")
+        if not dpapi_available():
+            return "none", None
+        try:
+            return (
+                "dpapi-v1",
+                protect_private_data(
+                    plaintext,
+                    description="MiniMaxH3 Studio local pipeline continuation",
+                ),
+            )
+        except (OSError, ValueError, SecretStorageUnavailable):
+            return "none", None
+        finally:
+            plaintext = b""
+
+    def _read_local_pipeline_continuation_payload(
+        self, material: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Decrypt and bind one private continuation request to its claim."""
+
+        ciphertext = material.get("request_ciphertext")
+        if material.get("request_protection") != "dpapi-v1" or not isinstance(
+            ciphertext, bytes
+        ):
+            raise RequestValidationError(
+                "The pipeline continuation has no protected request.",
+                code="pipeline_resume_payload_unavailable",
+            )
+        try:
+            plaintext = unprotect_private_data(ciphertext)
+            raw = json.loads(plaintext.decode("utf-8"))
+            if (
+                not isinstance(raw, dict)
+                or raw.get("version") != 1
+                or set(raw) != {"version", "pipeline_key", "payload"}
+                or not isinstance(raw.get("payload"), dict)
+            ):
+                raise ValueError("payload")
+            payload = validate_local_pipeline_payload(raw["payload"])
+            pipeline_key = local_pipeline_key(payload)
+        except (
+            OSError,
+            ValueError,
+            UnicodeError,
+            json.JSONDecodeError,
+            LocalPipelineValidationError,
+            SecretStorageUnavailable,
+        ) as exc:
+            raise RequestValidationError(
+                "The protected pipeline continuation could not be verified.",
+                code="pipeline_resume_payload_invalid",
+            ) from exc
+        finally:
+            if "plaintext" in locals():
+                plaintext = b""
+        if (
+            raw.get("pipeline_key") != pipeline_key
+            or material.get("pipeline_key") != pipeline_key
+        ):
+            raise RequestValidationError(
+                "The protected pipeline continuation does not match its run.",
+                code="pipeline_resume_payload_invalid",
+            )
+        return payload
+
+    @staticmethod
+    def _local_pipeline_job_response(
+        job: dict[str, Any],
+        *,
+        run_id: str,
+        revision_id: str,
+        pipeline_key: str,
+        created: bool,
+    ) -> dict[str, Any]:
+        return {
+            **job,
+            "run_id": run_id,
+            "revision_id": revision_id,
+            "pipeline_key": pipeline_key,
+            "deduplicated": not created,
+        }
+
+    def _submit_local_pipeline_top(
+        self,
+        *,
+        production_id: str,
+        revision: dict[str, Any],
+        run: dict[str, Any],
+        payload: dict[str, Any],
+        pipeline_key: str,
+        audit: dict[str, Any],
+        reuse_succeeded: bool,
+        continuation_material: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Enqueue one normal top, optionally fenced to an exact video cache."""
+
+        checkpoint: dict[str, str] | None = None
+        continuation_kwargs: dict[str, Any] = {}
+        if continuation_material is not None:
+            source_job_id = continuation_material.get("source_job_id")
+            source_attempt_id = continuation_material.get(
+                "source_stage_attempt_id"
+            )
+            updated_at = continuation_material.get("updated_at")
+            if (
+                continuation_material.get("state") != "ready"
+                or not isinstance(updated_at, str)
+                or (source_job_id is None) != (source_attempt_id is None)
+                or (
+                    source_job_id is not None
+                    and not isinstance(source_job_id, str)
+                )
+                or (
+                    source_attempt_id is not None
+                    and not isinstance(source_attempt_id, str)
+                )
+            ):
+                raise RequestValidationError(
+                    "The pipeline continuation checkpoint is invalid.",
+                    code="invalid_provenance",
+                )
+            if isinstance(source_job_id, str) and isinstance(
+                source_attempt_id, str
+            ):
+                checkpoint = {
+                    "job_id": source_job_id,
+                    "stage_attempt_id": source_attempt_id,
+                }
+            continuation_kwargs = {
+                "expected_continuation_state": "ready",
+                "expected_continuation_updated_at": updated_at,
+                "expected_source_job_id": source_job_id,
+                "expected_source_stage_attempt_id": source_attempt_id,
+            }
+
+        job_payload = {
+            "production_id": production_id,
+            "run_id": run["id"],
+            "revision_id": revision["id"],
+            "stage": "pipeline",
+            **audit,
+        }
+
+        def execute(
+            _job_id: str, cancel_event: JobExecutionContext
+        ) -> dict[str, Any]:
+            result = run_local_pipeline(
+                self,
+                production_id=production_id,
+                run_id=run["id"],
+                revision_id=revision["id"],
+                payload=payload,
+                expected_pipeline_key=pipeline_key,
+                cancel_event=cancel_event,
+                video_recovery_checkpoint=checkpoint,
+            )
+            cancel_event.raise_if_cancelled()
+            return self._validated_local_pipeline_result(
+                result,
+                run=run,
+                revision=revision,
+                pipeline_key=pipeline_key,
+                payload=payload,
+            )
+
+        job, created = self.jobs.submit_local_pipeline_once(
+            production_id=production_id,
+            run_id=run["id"],
+            pipeline_key=pipeline_key,
+            payload=job_payload,
+            callback=execute,
+            reuse_succeeded=reuse_succeeded,
+            **continuation_kwargs,
         )
+        return self._local_pipeline_job_response(
+            job,
+            run_id=run["id"],
+            revision_id=revision["id"],
+            pipeline_key=pipeline_key,
+            created=created,
+        )
+
+    def _resume_local_pipeline_continuation(
+        self, observed_material: dict[str, Any]
+    ) -> dict[str, Any] | None:
+        """CAS one ready checkpoint into a new top job; never wait for it."""
+
+        production_id = observed_material.get("production_id")
+        pipeline_key = observed_material.get("pipeline_key")
+        try:
+            validate_identifier(production_id, label="production id")
+        except (SecurityError, TypeError, ValueError):
+            raise RequestValidationError(
+                "The pipeline continuation claim is invalid.",
+                code="invalid_provenance",
+            ) from None
+        if not isinstance(pipeline_key, str) or re.fullmatch(
+            r"[0-9A-F]{64}", pipeline_key
+        ) is None:
+            raise RequestValidationError(
+                "The pipeline continuation key is invalid.",
+                code="invalid_provenance",
+            )
+        with self._pipeline_submit_lock:
+            if self._pipeline_continuation_stop.is_set():
+                return None
+            material = self.database.get_local_pipeline_continuation_material(
+                production_id, pipeline_key
+            )
+            if (
+                not isinstance(material, dict)
+                or material.get("state") != "ready"
+                or material.get("updated_at") != observed_material.get("updated_at")
+            ):
+                return None
+            payload = self._read_local_pipeline_continuation_payload(material)
+            run_id = material.get("run_id")
+            revision_id = material.get("revision_id")
+            try:
+                validate_identifier(run_id, label="run id")
+                validate_identifier(revision_id, label="revision id")
+            except (SecurityError, TypeError, ValueError):
+                raise RequestValidationError(
+                    "The pipeline continuation provenance is invalid.",
+                    code="invalid_provenance",
+                ) from None
+            run = self.database.get_run(run_id)
+            if (
+                not isinstance(run, dict)
+                or run.get("production_id") != production_id
+                or run.get("revision_id") != revision_id
+                or run.get("execution_profile") != LOCAL_PIPELINE_PROFILE
+                or run.get("pipeline_key") != pipeline_key
+                or set(run.get("requested_stages", []))
+                != _LOCAL_PIPELINE_ZERO_COST_STAGES
+                or run.get("estimated_cost", {}).get("amount") != "0.00"
+            ):
+                raise RequestValidationError(
+                    "The pipeline continuation run is invalid.",
+                    code="invalid_provenance",
+                )
+            revision = {"id": revision_id}
+            audit = local_pipeline_audit_payload(
+                payload, pipeline_key=pipeline_key
+            )
+            return self._submit_local_pipeline_top(
+                production_id=production_id,
+                revision=revision,
+                run=run,
+                payload=payload,
+                pipeline_key=pipeline_key,
+                audit=audit,
+                reuse_succeeded=False,
+                continuation_material=material,
+            )
 
     def execute_local_pipeline(
         self, production_id: str, body: dict[str, Any]
@@ -1456,6 +1953,9 @@ class StudioService:
                 "The local pipeline plan is invalid.",
                 code="local_profile_stage_not_allowed",
             )
+        request_protection, request_ciphertext = (
+            self._protect_local_pipeline_continuation_payload(payload, pipeline_key)
+        )
         with self._pipeline_submit_lock:
             revision, run = self.database.create_revision_and_run(
                 production_id,
@@ -1465,61 +1965,77 @@ class StudioService:
                 "USD",
                 execution_profile=LOCAL_PIPELINE_PROFILE,
                 pipeline_key=pipeline_key,
+                pipeline_request_protection=request_protection,
+                pipeline_request_ciphertext=request_ciphertext,
             )
-            job_payload = {
-                "production_id": production_id,
-                "run_id": run["id"],
-                "revision_id": revision["id"],
-                "stage": "pipeline",
-                **audit,
-            }
             latest = self.database.find_latest_job_for_run(
                 LOCAL_PIPELINE_JOB_KIND, production_id, run["id"]
             )
-            reuse_succeeded = not (
+            reusable_success = bool(
                 isinstance(latest, dict)
                 and latest.get("status") == "succeeded"
-                and not self._reusable_succeeded_pipeline_job(
+                and self._reusable_succeeded_pipeline_job(
                     latest, run, revision, pipeline_key, payload
                 )
             )
-
-            def execute(
-                _job_id: str, cancel_event: JobExecutionContext
-            ) -> dict[str, Any]:
-                result = run_local_pipeline(
-                    self,
-                    production_id=production_id,
+            continuation = run.get("pipeline_continuation")
+            continuation_state = (
+                continuation.get("state")
+                if isinstance(continuation, dict)
+                else None
+            )
+            if continuation_state in {"waiting_provider", "cancel_requested"}:
+                if not isinstance(latest, dict):
+                    raise RequestValidationError(
+                        "The pipeline continuation owner is unavailable.",
+                        code="local_pipeline_unavailable",
+                    )
+                return self._local_pipeline_job_response(
+                    latest,
                     run_id=run["id"],
                     revision_id=revision["id"],
-                    payload=payload,
-                    expected_pipeline_key=pipeline_key,
-                    cancel_event=cancel_event,
-                )
-                cancel_event.raise_if_cancelled()
-                return self._validated_local_pipeline_result(
-                    result,
-                    run=run,
-                    revision=revision,
                     pipeline_key=pipeline_key,
-                    payload=payload,
+                    created=False,
                 )
 
-            job, created = self.jobs.submit_local_pipeline_once(
+            continuation_material = None
+            if continuation_state == "ready":
+                continuation_material = (
+                    self.database.get_local_pipeline_continuation_material(
+                        production_id, pipeline_key
+                    )
+                )
+            elif (
+                isinstance(latest, dict)
+                and latest.get("status") not in {"queued", "running"}
+                and not reusable_success
+            ):
+                # An explicit user resubmission may re-arm a failed, blocked,
+                # cancelled, or unavailable request. A ready checkpoint is
+                # never rewound; it is consumed through the cache-only fence.
+                revision, run = self.database.create_revision_and_run(
+                    production_id,
+                    changes,
+                    plan,
+                    0,
+                    "USD",
+                    execution_profile=LOCAL_PIPELINE_PROFILE,
+                    pipeline_key=pipeline_key,
+                    pipeline_request_protection=request_protection,
+                    pipeline_request_ciphertext=request_ciphertext,
+                    rearm_pipeline_continuation=True,
+                )
+
+            return self._submit_local_pipeline_top(
                 production_id=production_id,
-                run_id=run["id"],
+                revision=revision,
+                run=run,
+                payload=payload,
                 pipeline_key=pipeline_key,
-                payload=job_payload,
-                callback=execute,
-                reuse_succeeded=reuse_succeeded,
+                audit=audit,
+                reuse_succeeded=reusable_success,
+                continuation_material=continuation_material,
             )
-        return {
-            **job,
-            "run_id": run["id"],
-            "revision_id": revision["id"],
-            "pipeline_key": pipeline_key,
-            "deduplicated": not created,
-        }
 
     def _protect_comfyui_resume_payload(
         self, payload: dict[str, Any]
@@ -2471,10 +2987,19 @@ class StudioService:
         payload: dict[str, Any],
         inputs: dict[str, Any],
         cancel_event: JobExecutionContext | None = None,
+        *,
+        required_source_attempt_id: str | None = None,
     ) -> dict[str, Any] | None:
         """Recheck a production-wide successful cache inside the GPU lane."""
 
         cache_key = inputs["cache_key"]
+        if required_source_attempt_id is not None:
+            try:
+                validate_identifier(
+                    required_source_attempt_id, label="source stage attempt id"
+                )
+            except (SecurityError, TypeError, ValueError):
+                return None
         previous = self.database.find_successful_stage_attempt(
             production_id, _LOCAL_VIDEO_GENERATION_STAGE, cache_key
         )
@@ -2507,6 +3032,12 @@ class StudioService:
             visited_attempt_ids.add(source_id)
             chain.append(linked)
             source_attempt = linked
+
+        if (
+            required_source_attempt_id is not None
+            and required_source_attempt_id not in visited_attempt_ids
+        ):
+            return None
 
         prior_result = previous["result"]
         prior_artifacts = prior_result.get("artifacts")
@@ -2664,8 +3195,17 @@ class StudioService:
         cancel_event: JobExecutionContext | None = None,
         *,
         provider_task_record_id: str | None = None,
+        required_cache_source_attempt_id: str | None = None,
     ) -> dict[str, Any] | AtomicStageCompletion:
         _raise_if_cancelled(cancel_event)
+        if (
+            provider_task_record_id is not None
+            and required_cache_source_attempt_id is not None
+        ):
+            raise ComfyUIError(
+                "A provider recovery worker cannot enter pipeline cache-only mode.",
+                code="invalid_provenance",
+            )
         active_provider_task_record_id = provider_task_record_id
         try:
             self.database.update_stage_attempt(attempt_id, "running")
@@ -2683,10 +3223,23 @@ class StudioService:
             # atomically completes that provider task with this new attempt.
             if active_provider_task_record_id is None:
                 cached = self._cached_local_comfyui_result(
-                    production_id, payload, inputs, cancel_event
+                    production_id,
+                    payload,
+                    inputs,
+                    cancel_event,
+                    required_source_attempt_id=required_cache_source_attempt_id,
                 )
                 if cached is not None:
                     return _stage_completion_result(attempt_id, cached, cancel_event)
+                if required_cache_source_attempt_id is not None:
+                    # Continuation is authorized to consume exactly one
+                    # verified cache lineage, never to create/reset a provider
+                    # task or submit a replacement prompt.  Keep this fence
+                    # before payload-digest/provider/marker handling below.
+                    raise ComfyUIError(
+                        "The recovered video is unavailable for pipeline continuation.",
+                        code="pipeline_recovered_video_unavailable",
+                    )
             payload_digest = comfyui_payload_digest(payload)
             attempt = self.database.get_stage_attempt(attempt_id)
             if attempt is None or not isinstance(attempt.get("job_id"), str):
@@ -2983,6 +3536,7 @@ class StudioService:
         _pipeline_capability: object | None = None,
         _pipeline_key: str | None = None,
         _pipeline_lineage: dict[str, Any] | None = None,
+        _pipeline_video_recovery_checkpoint: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         """Queue one pinned, zero-cost MiniMax H3 ComfyUI generation."""
 
@@ -2998,6 +3552,15 @@ class StudioService:
         pipeline_metadata = self._pipeline_child_metadata(
             run, _pipeline_capability, _pipeline_key, _pipeline_lineage
         )
+        if _pipeline_video_recovery_checkpoint is not None and (
+            run.get("execution_profile") != LOCAL_PIPELINE_PROFILE
+            or _pipeline_capability is not self._pipeline_capability
+            or _pipeline_key != run.get("pipeline_key")
+        ):
+            raise RequestValidationError(
+                "The recovered video checkpoint is not accepted for this run.",
+                code="invalid_provenance",
+            )
         requested_stages = run.get("requested_stages")
         if (
             not isinstance(requested_stages, list)
@@ -3019,6 +3582,16 @@ class StudioService:
                 "The ComfyUI worker returned an invalid cache key.",
                 code="invalid_worker_result",
             )
+        verified_video_recovery_checkpoint = None
+        if _pipeline_video_recovery_checkpoint is not None:
+            verified_video_recovery_checkpoint = (
+                self._verified_pipeline_video_recovery_checkpoint(
+                    run,
+                    str(_pipeline_key),
+                    cache_key,
+                    _pipeline_video_recovery_checkpoint,
+                )
+            )
         audit = comfyui_audit_payload(
             payload,
             workflow=inputs["workflow_record"],
@@ -3033,6 +3606,11 @@ class StudioService:
             "provider_payload_digest": payload_digest,
             **audit,
             **pipeline_metadata,
+            **(
+                {"video_recovery_checkpoint": verified_video_recovery_checkpoint}
+                if verified_video_recovery_checkpoint is not None
+                else {}
+            ),
         }
         job_payload = {
             "run_id": run_id,
@@ -3043,6 +3621,11 @@ class StudioService:
             "provider_payload_digest": payload_digest,
             **audit,
             **pipeline_metadata,
+            **(
+                {"video_recovery_checkpoint": verified_video_recovery_checkpoint}
+                if verified_video_recovery_checkpoint is not None
+                else {}
+            ),
         }
         with self._local_video_submit_lock:
             job, created = self.jobs.submit_local_video_generation_once(
@@ -3060,6 +3643,13 @@ class StudioService:
                         payload,
                         inputs,
                         cancel_event,
+                        required_cache_source_attempt_id=(
+                            verified_video_recovery_checkpoint[
+                                "stage_attempt_id"
+                            ]
+                            if verified_video_recovery_checkpoint is not None
+                            else None
+                        ),
                     )
                 ),
             )
