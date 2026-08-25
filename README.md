@@ -9,7 +9,8 @@
 > [productions/README.md](productions/README.md)、ローカル制作Studioの操作・実装境界は
 > [STUDIO_MVP_JA.md](STUDIO_MVP_JA.md) に分離しています。StudioはWindows SAPIナレーションに加え、
 > 費用承認済みRunからElevenLabs Multilingual v2の文字時刻付き外部TTSを明示実行できます。成功cacheと曖昧送信markerで再課金を抑止し、
-> 固定した公式INT8＋Q4 workflowのComfyUI動画生成を専用GPU FIFO laneで実行できます。生成映像はprompt本文を公開結果へ複製せず、workflow、ffprobe、manifestとともに監査可能なartifactとして保存します。
+> 固定した公式INT8＋Q4 workflowのComfyUI動画生成を専用GPU FIFO laneで実行できます。生成映像はprompt本文を公開結果へ複製せず、workflow、ffprobe、manifestとともに監査可能なartifactとして保存します。長時間生成はprovider taskをschema v5へ永続化し、Studio再起動後も同じComfyUI taskを重複POSTせず新しいattemptで照合・回収します。起動時の外部照合はbackgroundで行うためHTTP起動を待たせず、同一生成要求もSQLiteの永続claimで1つのjobへ集約します。
+> 明示cancelはdurableな`cancel_requested`として確定し、同じUUIDへのGETとtargeted cancelだけで再照合して生成用`POST /prompt`を再送しません。Studio終了時は未解析HTTPだけを遮断し、解析済みhandler、provider recovery、worker、SQLite writerがすべてdrainした場合だけsystem-wide workspace lockを解放します。
 > 登録済み動画のハードカット編集preview、Shorts向け大字幕presetを含むFFmpeg音声・字幕合成、完成masterのtechnical QCはローカル実行します。
 > `tools.studio.cli test-video`は、このローカル4工程を1コマンドで直列実行し、MP4、工程ID、cache利用、成果物hash、QC判定をまとめて返します。
 > 通常low-VRAM workflowの20-step品質実行は自動受入では未検証です。Q2 TurboはQ3 GGUFの4-stepスモークと0.4MP・5秒・8-step jobまで完走確認済みです。

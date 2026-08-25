@@ -69,6 +69,7 @@ _PUBLIC_ERROR_CODES = frozenset(
         "comfyui_failed",
         "comfyui_generation_failed",
         "comfyui_request_rejected",
+        "comfyui_submission_persistence_failed",
         "comfyui_submission_unknown",
         "comfyui_timeout",
         "cost_approval_not_required",
@@ -202,6 +203,8 @@ class JobExecutionContext(threading.Event):
         self._process_lock = threading.Lock()
         self._processes: dict[int, object] = {}
         self._baseline_processes: set[int] = set()
+        self._preserve_provider_task = False
+        self._provider_task_record_id: str | None = None
 
     def set(self) -> None:
         """Publish cancellation under the same lock as process admission.
@@ -213,12 +216,47 @@ class JobExecutionContext(threading.Event):
         """
 
         with self._process_lock:
+            # An explicit cancellation supersedes a prior shutdown/suspend
+            # request if both race.  Provider adapters may therefore issue
+            # their best-effort remote cancellation only for this path.
+            self._preserve_provider_task = False
             super().set()
+
+    def set_for_shutdown(self) -> None:
+        """Stop local polling while leaving a durable provider task alive.
+
+        Studio shutdown is not an operator request to discard a multi-hour
+        ComfyUI render.  The next process can bind a new job/attempt to the
+        persisted provider task and resume history polling without another
+        expensive POST.
+        """
+
+        with self._process_lock:
+            self._preserve_provider_task = True
+            super().set()
+
+    @property
+    def preserve_provider_task(self) -> bool:
+        with self._process_lock:
+            return self._preserve_provider_task
+
+    def set_provider_task_record_id(self, provider_task_record_id: str) -> None:
+        validate_identifier(provider_task_record_id, label="provider task record id")
+        with self._process_lock:
+            if self._provider_task_record_id not in {None, provider_task_record_id}:
+                raise ValueError("provider task record changed")
+            self._provider_task_record_id = provider_task_record_id
+
+    @property
+    def provider_task_record_id(self) -> str | None:
+        with self._process_lock:
+            return self._provider_task_record_id
 
     def clear(self) -> None:
         # Event.clear() is not used by JobManager, but keeping it lock-safe
         # preserves the Event contract for existing callers.
         with self._process_lock:
+            self._preserve_provider_task = False
             super().clear()
 
     def raise_if_cancelled(self) -> None:
@@ -479,6 +517,8 @@ class JobManager:
         self._closed = False
         self._shutdown_enqueued = False
         self._shutdown_interrupt_started = False
+        self._shutdown_interrupt_thread: threading.Thread | None = None
+        self._shutdown_interrupt_thread_has_started = False
         self._threads: dict[str, threading.Thread] = {
             lane: threading.Thread(
                 target=self._worker,
@@ -504,6 +544,7 @@ class JobManager:
         *,
         production_id: str | None = None,
         before_enqueue: Callable[[dict[str, Any]], None] | None = None,
+        admission_failure: Callable[[dict[str, Any]], None] | None = None,
         lane: str = "default",
     ) -> dict[str, Any]:
         # Validate before acquiring the admission lock or creating a durable
@@ -528,15 +569,19 @@ class JobManager:
                 work_queue.put(_QueuedJob(job["id"], callback, context))
             except Exception:
                 # Persist setup failure and never expose an unlinked queued
-                # worker. The caller remains responsible for failing its
-                # stage attempt.
+                # worker. Provider recovery callers supply one exact atomic
+                # compensation for provider/job/attempt; ordinary jobs retain
+                # the historical job-only setup failure behavior.
                 try:
-                    self.database.update_job(
-                        job["id"],
-                        "failed",
-                        error_code="job_setup_failed",
-                        error_message="The background job could not be prepared.",
-                    )
+                    if admission_failure is not None:
+                        admission_failure(job)
+                    else:
+                        self.database.update_job(
+                            job["id"],
+                            "failed",
+                            error_code="job_setup_failed",
+                            error_message="The background job could not be prepared.",
+                        )
                 except Exception:
                     pass
                 self._active.pop(job["id"], None)
@@ -545,6 +590,13 @@ class JobManager:
                     event.set()
                 raise
             return job
+
+    def is_admitted(self, job_id: str) -> bool:
+        """Return whether this manager still owns an in-memory queue/context."""
+
+        validate_identifier(job_id, label="job id")
+        with self._lock:
+            return job_id in self._active
 
     def submit_local_pipeline_once(
         self,
@@ -581,6 +633,86 @@ class JobManager:
                     self.database.update_job(
                         job["id"],
                         "failed",
+                        error_code="job_setup_failed",
+                        error_message="The background job could not be prepared.",
+                    )
+                except Exception:
+                    pass
+                self._active.pop(job["id"], None)
+                event = self._finished.get(job["id"])
+                if event:
+                    event.set()
+                raise
+            return job, True
+
+    def submit_local_video_generation_once(
+        self,
+        *,
+        production_id: str,
+        run_id: str,
+        cache_key: str,
+        payload_digest: str,
+        attempt_payload: Any,
+        job_payload: Any,
+        callback_factory: Callable[[str], JobCallable],
+    ) -> tuple[dict[str, Any], bool]:
+        """Atomically claim and admit one active direct ComfyUI request."""
+
+        work_queue = self._queues["gpu"]
+        with self._lock:
+            if self._closed:
+                raise JobManagerClosed("Studio background jobs are closed.")
+            job, created = self.database.create_or_get_local_video_generation_job(
+                production_id=production_id,
+                run_id=run_id,
+                cache_key=cache_key,
+                payload_digest=payload_digest,
+                attempt_payload=attempt_payload,
+                job_payload=job_payload,
+            )
+            if not created:
+                existing_attempt_id = job.get("stage_attempt_id")
+                # A prior callback/queue admission can fail after its durable
+                # claim was created.  If the compensating transaction also
+                # encountered a transient SQLite failure, that queued row has
+                # no in-memory queue owner.  Never return such an orphan as a
+                # successful dedupe: retire the exact pair and obtain fresh
+                # IDs inside this same manager admission lock.
+                if (
+                    job.get("status") == "queued"
+                    and job["id"] not in self._active
+                    and isinstance(existing_attempt_id, str)
+                ):
+                    self.database.abort_local_video_generation_admission(
+                        job["id"],
+                        existing_attempt_id,
+                        error_code="job_setup_failed",
+                        error_message="The background job could not be prepared.",
+                    )
+                    job, created = self.database.create_or_get_local_video_generation_job(
+                        production_id=production_id,
+                        run_id=run_id,
+                        cache_key=cache_key,
+                        payload_digest=payload_digest,
+                        attempt_payload=attempt_payload,
+                        job_payload=job_payload,
+                    )
+                if not created:
+                    return job, False
+            attempt_id = job.get("stage_attempt_id")
+            if not isinstance(attempt_id, str):
+                raise ValueError("local video generation attempt is unavailable")
+            context = JobExecutionContext(job["id"])
+            self._finished[job["id"]] = threading.Event()
+            self._active[job["id"]] = context
+            try:
+                callback = callback_factory(attempt_id)
+                work_queue.put(_QueuedJob(job["id"], callback, context))
+            except Exception:
+                try:
+                    self.database.abort_local_video_generation_admission(
+                        job["id"],
+                        attempt_id,
                         error_code="job_setup_failed",
                         error_message="The background job could not be prepared.",
                     )
@@ -673,6 +805,7 @@ class JobManager:
                         result.stage_attempt_id,
                         result.public_result,
                         result.artifact_records,
+                        provider_task_record_id=result.provider_task_record_id,
                     )
                 else:
                     if atomic_stage_attempt_id is not None:
@@ -685,13 +818,31 @@ class JobManager:
                         self.database.update_job(job_id, "succeeded", result=result)
             except JobCancelled:
                 try:
-                    self.database.interrupt_job(job_id)
+                    preserve_provider_task = context.preserve_provider_task
+                    self.database.interrupt_job(
+                        job_id,
+                        cancel_provider_task=not preserve_provider_task,
+                        provider_task_record_id=(
+                            None
+                            if preserve_provider_task
+                            else context.provider_task_record_id
+                        ),
+                    )
                 except Exception:
                     pass
             except Exception as exc:  # The worker boundary must keep later jobs alive.
                 try:
                     if context.is_set():
-                        self.database.interrupt_job(job_id)
+                        preserve_provider_task = context.preserve_provider_task
+                        self.database.interrupt_job(
+                            job_id,
+                            cancel_provider_task=not preserve_provider_task,
+                            provider_task_record_id=(
+                                None
+                                if preserve_provider_task
+                                else context.provider_task_record_id
+                            ),
+                        )
                     else:
                         # Do not persist repr/traceback/request values; only a
                         # bounded, redacted public description from explicitly
@@ -704,6 +855,7 @@ class JobManager:
                                 atomic_stage_attempt_id,
                                 error_code=error_code,
                                 error_message=error_message,
+                                provider_task_record_id=context.provider_task_record_id,
                             )
                         else:
                             self.database.update_job(
@@ -732,7 +884,11 @@ class JobManager:
         return self.database.get_job(job_id)
 
     def cancel_and_wait(
-        self, job_id: str, *, timeout: float | None = None
+        self,
+        job_id: str,
+        *,
+        timeout: float | None = None,
+        preserve_provider_task: bool = False,
     ) -> dict[str, Any] | None:
         """Cancel one admitted job and wait for its worker slot to retire.
 
@@ -741,6 +897,8 @@ class JobManager:
         method publishes cancellation, interrupts the linked job/stage pair,
         repeatedly terminates descendants, and only returns after the worker
         has left its ``finally`` block (or an explicit caller timeout elapses).
+        Parent-pipeline shutdown may preserve a durable remote provider task;
+        operator cancellation keeps the default destructive intent.
         """
 
         validate_identifier(job_id, label="job id")
@@ -748,10 +906,21 @@ class JobManager:
             context = self._active.get(job_id)
             event = self._finished.get(job_id)
         if context is not None:
-            context.set()
+            if preserve_provider_task:
+                context.set_for_shutdown()
+            else:
+                context.set()
             _terminate_context_processes(context)
         try:
-            self.database.interrupt_job(job_id)
+            self.database.interrupt_job(
+                job_id,
+                cancel_provider_task=not preserve_provider_task,
+                provider_task_record_id=(
+                    context.provider_task_record_id
+                    if context is not None and not preserve_provider_task
+                    else None
+                ),
+            )
         except Exception:
             # Cancellation remains published even if SQLite is temporarily
             # unavailable; the worker boundary performs its own best-effort
@@ -773,7 +942,7 @@ class JobManager:
                 event.wait(0.1)
         return self.database.get_job(job_id)
 
-    def shutdown(self, timeout: float = 5.0) -> None:
+    def shutdown(self, timeout: float = 5.0) -> bool:
         """Cancel active work, terminate child trees, then drain the worker.
 
         ``join(timeout)`` alone leaves FFmpeg/SAPI descendants alive. The
@@ -787,13 +956,23 @@ class JobManager:
                 self._closed = True
                 contexts = list(self._active.values())
                 for context in contexts:
-                    context.set()
+                    context.set_for_shutdown()
             else:
                 contexts = list(self._active.values())
             enqueue_sentinel = not self._shutdown_enqueued
             self._shutdown_enqueued = True
             interrupt_active_work = not self._shutdown_interrupt_started
             self._shutdown_interrupt_started = True
+            if interrupt_active_work:
+                self._shutdown_interrupt_thread = threading.Thread(
+                    target=self._interrupt_active_work_best_effort,
+                    name="studio-job-shutdown-db",
+                    daemon=True,
+                )
+                # Publish the thread identity before starting it so a
+                # concurrent/retried shutdown can never lose the DB writer
+                # that must drain before the workspace lock is released.
+            interrupt_thread = self._shutdown_interrupt_thread
 
         wait_seconds = max(0.0, float(timeout))
         deadline = time.monotonic() + wait_seconds
@@ -807,14 +986,24 @@ class JobManager:
                 initial_deadline = time.monotonic() + _PROCESS_WAIT_TIMEOUT
             _terminate_context_processes(context, deadline=initial_deadline)
 
-        interrupt_thread: threading.Thread | None = None
-        if interrupt_active_work:
-            interrupt_thread = threading.Thread(
-                target=self._interrupt_active_work_best_effort,
-                name="studio-job-shutdown-db",
-                daemon=True,
-            )
-            interrupt_thread.start()
+        # Process termination always precedes a potentially blocked SQLite
+        # writer.  The thread object was already published above; concurrent
+        # shutdown callers treat its not-yet-started state as undrained rather
+        # than releasing the workspace boundary early.
+        if interrupt_active_work and interrupt_thread is not None:
+            try:
+                interrupt_thread.start()
+            except BaseException:
+                with self._lock:
+                    self._shutdown_interrupt_started = False
+                    self._shutdown_interrupt_thread = None
+                    self._shutdown_interrupt_thread_has_started = False
+                    if enqueue_sentinel:
+                        self._shutdown_enqueued = False
+                raise
+            with self._lock:
+                self._shutdown_interrupt_thread_has_started = True
+
         if enqueue_sentinel:
             for work_queue in self._queues.values():
                 work_queue.put(None)
@@ -843,6 +1032,22 @@ class JobManager:
         # daemon thread is intentionally left for its own SQLite timeout.
         if interrupt_thread is not None and interrupt_thread.is_alive():
             interrupt_thread.join(timeout=min(0.1, max(0.0, deadline - time.monotonic())))
+        # A bounded direct caller may choose to retry later.  StudioService
+        # treats False as a hard close failure and therefore retains the
+        # system-wide workspace lock until every Python worker and the SQLite
+        # interruption writer have actually retired.
+        with self._lock:
+            interrupt_thread_started = self._shutdown_interrupt_thread_has_started
+        return bool(
+            not any(thread.is_alive() for thread in threads)
+            and (
+                interrupt_thread is None
+                or (
+                    interrupt_thread_started
+                    and not interrupt_thread.is_alive()
+                )
+            )
+        )
 
     def _interrupt_active_work_best_effort(self) -> None:
         """Persist the shutdown interruption without blocking process kills."""

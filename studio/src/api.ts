@@ -23,6 +23,8 @@ import type {
   ProductionDetail,
   ProductionRun,
   ProductionSummary,
+  ProviderTask,
+  ProviderTaskStatus,
   ProviderStatus,
   RerunChanges,
   RerunPlan,
@@ -1325,6 +1327,118 @@ const normalizeStage = (value: unknown, index: number): RunStage => {
   };
 };
 
+const PROVIDER_TASK_STATUSES = new Set<ProviderTaskStatus>([
+  'prepared',
+  'submitted',
+  'recovering',
+  'succeeded',
+  'failed',
+  'ambiguous',
+  'recovery_blocked',
+  'cancel_requested',
+]);
+
+const normalizeProviderTaskStatus = (value: unknown): ProviderTaskStatus => {
+  const normalized = text(value, '').toLowerCase().replaceAll('-', '_').replaceAll(' ', '_');
+  return PROVIDER_TASK_STATUSES.has(normalized as ProviderTaskStatus)
+    ? normalized as ProviderTaskStatus
+    : 'recovery_blocked';
+};
+
+const normalizeProviderTaskError = (value: unknown, record: UnknownRecord): ProviderTask['error'] => {
+  const nested = asRecord(value);
+  const code = text(
+    pick(record, ['error_code', 'errorCode']) ?? pick(nested, ['code', 'error_code', 'errorCode']),
+    '',
+  ) || undefined;
+  const message = text(
+    pick(record, ['error_message', 'errorMessage']) ?? pick(nested, ['message', 'detail']),
+    '',
+  ) || (typeof value === 'string' ? value : undefined);
+  return code || message ? { code, message } : undefined;
+};
+
+export const normalizeProviderTask = (value: unknown, index = 0): ProviderTask => {
+  const record = asRecord(value);
+  return {
+    id: text(pick(record, ['id', 'provider_task_record_id', 'providerTaskRecordId']), `provider-task-${index}`),
+    provider: text(pick(record, ['provider']), 'comfyui'),
+    productionId: text(pick(record, ['production_id', 'productionId']), '') || undefined,
+    runId: text(pick(record, ['run_id', 'runId']), '') || undefined,
+    stage: text(pick(record, ['stage']), '') || undefined,
+    status: normalizeProviderTaskStatus(pick(record, ['status', 'state'])),
+    providerTaskId: text(pick(record, ['provider_task_id', 'providerTaskId']), '') || undefined,
+    attemptSequence: number(pick(record, ['attempt_sequence', 'attemptSequence'])),
+    activeStageAttemptId: text(pick(record, ['active_stage_attempt_id', 'activeStageAttemptId', 'current_stage_attempt_id', 'currentStageAttemptId']), '') || undefined,
+    activeJobId: text(pick(record, ['active_job_id', 'activeJobId', 'current_job_id', 'currentJobId']), '') || undefined,
+    recoveryCount: number(pick(record, ['recovery_count', 'recoveryCount'])),
+    automaticRecoveryAvailable: boolean(pick(record, ['automatic_recovery_available', 'automaticRecoveryAvailable']), false),
+    duplicateSubmissionBlocked: boolean(pick(record, ['duplicate_submission_blocked', 'duplicateSubmissionBlocked']), false),
+    resumable: boolean(pick(record, ['resumable']), false),
+    nextAction: text(pick(record, ['next_action', 'nextAction']), '') || undefined,
+    createdAt: text(pick(record, ['created_at', 'createdAt']), '') || undefined,
+    updatedAt: text(pick(record, ['updated_at', 'updatedAt']), '') || undefined,
+    checkedAt: text(pick(record, ['last_observed_at', 'lastObservedAt', 'checked_at', 'checkedAt']), '') || undefined,
+    error: normalizeProviderTaskError(pick(record, ['error']), record),
+    raw: record,
+  };
+};
+
+const normalizeProviderTasks = (value: unknown): ProviderTask[] =>
+  items(value, ['items', 'provider_tasks', 'providerTasks']).map(normalizeProviderTask);
+
+const rawProviderTaskStatus = (value: unknown): ProviderTaskStatus =>
+  normalizeProviderTaskStatus(pick(asRecord(value), ['status', 'state']));
+
+/** Provider states where another provider operation may still be in flight. */
+export const isProviderTaskActive = (value: unknown): boolean =>
+  new Set<ProviderTaskStatus>(['prepared', 'submitted', 'recovering', 'cancel_requested']).has(rawProviderTaskStatus(value));
+
+/** Fail closed when recovery or duplicate-submission protection is reported. */
+export const isProviderTaskBlocking = (value: unknown): boolean => {
+  const record = asRecord(value);
+  const status = rawProviderTaskStatus(value);
+  return isProviderTaskActive(value)
+    || status === 'ambiguous'
+    || status === 'recovery_blocked'
+    || boolean(pick(record, ['duplicate_submission_blocked', 'duplicateSubmissionBlocked']), false)
+    || boolean(pick(record, ['automatic_recovery_available', 'automaticRecoveryAvailable']), false)
+    || boolean(pick(record, ['resumable']), false);
+};
+
+/** Only backend-authorized recovery actions can expose the resume button. */
+export const isProviderTaskResumeAvailable = (value: unknown): boolean => {
+  const record = asRecord(value);
+  const status = rawProviderTaskStatus(value);
+  const activeJobId = text(
+    pick(record, ['active_job_id', 'activeJobId', 'current_job_id', 'currentJobId']),
+    '',
+  );
+  if (activeJobId || !new Set<ProviderTaskStatus>(['prepared', 'submitted', 'ambiguous', 'recovery_blocked', 'cancel_requested']).has(status)) {
+    return false;
+  }
+  return boolean(pick(record, ['resumable']), false)
+    || boolean(pick(record, ['automatic_recovery_available', 'automaticRecoveryAvailable']), false);
+};
+
+/**
+ * Return the newest timestamp available for provider-task observation.
+ *
+ * A provider GET updates last_observed_at without necessarily changing the
+ * task state, so observation time must take precedence over state/update time
+ * when the UI orders recovery records.
+ */
+export const providerTaskTimestamp = (task: ProviderTask): string =>
+  task.checkedAt ?? task.updatedAt ?? task.createdAt ?? '';
+
+/** Keep the newest observable timestamp first, then use attempt order as a tie-breaker. */
+export const newestProviderTasks = (tasks: ProviderTask[]): ProviderTask[] => [...tasks]
+  .sort((left, right) => {
+    const timestampDelta = providerTaskTimestamp(right).localeCompare(providerTaskTimestamp(left));
+    const sequenceDelta = (right.attemptSequence ?? 0) - (left.attemptSequence ?? 0);
+    return timestampDelta || sequenceDelta;
+  });
+
 export const normalizeRun = (value: unknown, index: number): ProductionRun => {
   const record = asRecord(value);
   const requestedStageValue = pick(record, ['requested_stages', 'requestedStages', 'stages', 'steps', 'pipeline']);
@@ -1344,6 +1458,7 @@ export const normalizeRun = (value: unknown, index: number): ProductionRun => {
     requestedStages,
     executionProfile: text(pick(record, ['execution_profile', 'executionProfile', 'profile']), '') || undefined,
     stageAttempts: items(pick(record, ['stage_attempts', 'stageAttempts', 'attempts']), ['items', 'stage_attempts', 'stageAttempts', 'attempts']).map(normalizeStageAttempt),
+    providerTasks: normalizeProviderTasks(pick(record, ['provider_tasks', 'providerTasks'])),
     estimatedCost: number(pick(estimatedCost, ['amount', 'value'])),
     currency: text(pick(estimatedCost, ['currency']), '') || undefined,
     latestApproval: latestApprovalValue ? normalizeApproval(latestApprovalValue, index) : undefined,
@@ -1760,6 +1875,7 @@ export const api = {
       events: items(section('events'), ['items', 'events', 'logs']).map(normalizeEvent),
       approvals,
       costs,
+      providerTasks: normalizeProviderTasks(section('provider_tasks') ?? section('providerTasks')),
       specification: asRecord(pick(root, ['specification', 'spec', 'production_spec'])),
     };
   },
@@ -1870,6 +1986,14 @@ export const api = {
         method: 'POST',
         body: serializeLocalComfyUiPayload(payload),
       },
+    );
+    return normalizeJob(value);
+  },
+
+  async resumeProviderTask(providerTaskId: string): Promise<Job> {
+    const value = await post<unknown>(
+      `/api/provider-tasks/${encodeURIComponent(providerTaskId)}/resume`,
+      {},
     );
     return normalizeJob(value);
   },

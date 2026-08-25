@@ -144,3 +144,155 @@ test('reloaded pending and running ComfyUI records remain execution-active', () 
     { id: 'terminal-attempt', status: 'succeeded' },
   ]), false);
 });
+
+test('provider task normalization exposes recovery metadata without prompt text', () => {
+  const run = api.normalizeRun({
+    id: 'run-video',
+    requested_stages: ['video_generation'],
+    provider_tasks: [{
+      id: 'provider-task-1',
+      provider: 'comfyui',
+      production_id: 'production-1',
+      run_id: 'run-video',
+      stage: 'video_generation',
+      status: 'recovering',
+      provider_task_id: 'comfy-prompt-1',
+      attempt_sequence: 2,
+      active_stage_attempt_id: 'attempt-video-2',
+      active_job_id: 'job-video-2',
+      recovery_count: 1,
+      automatic_recovery_available: true,
+      duplicate_submission_blocked: true,
+      resumable: true,
+      next_action: 'resume',
+      created_at: '2026-08-24T23:58:00Z',
+      updated_at: '2026-08-24T23:59:00Z',
+      last_observed_at: '2026-08-25T00:00:00Z',
+      error: { code: 'process_interrupted', message: 'ComfyUIの状態を確認しています' },
+    }],
+  }, 0);
+  const task = run.providerTasks[0];
+  assert.equal(task.id, 'provider-task-1');
+  assert.equal(task.productionId, 'production-1');
+  assert.equal(task.runId, 'run-video');
+  assert.equal(task.status, 'recovering');
+  assert.equal(task.providerTaskId, 'comfy-prompt-1');
+  assert.equal(task.attemptSequence, 2);
+  assert.equal(task.activeStageAttemptId, 'attempt-video-2');
+  assert.equal(task.activeJobId, 'job-video-2');
+  assert.equal(task.recoveryCount, 1);
+  assert.equal(task.automaticRecoveryAvailable, true);
+  assert.equal(task.duplicateSubmissionBlocked, true);
+  assert.equal(task.resumable, true);
+  assert.equal(task.createdAt, '2026-08-24T23:58:00Z');
+  assert.equal(task.updatedAt, '2026-08-24T23:59:00Z');
+  assert.equal(task.checkedAt, '2026-08-25T00:00:00Z');
+  assert.deepEqual(task.error, { code: 'process_interrupted', message: 'ComfyUIの状態を確認しています' });
+  assert.equal(task.raw.prompt, undefined);
+  assert.equal(api.isProviderTaskActive(task), true);
+  assert.equal(api.isProviderTaskBlocking(task), true);
+  assert.equal(api.isProviderTaskResumeAvailable(task), false);
+});
+
+test('provider task timestamps normalize backend fields and order by last observation first', () => {
+  const task = api.normalizeProviderTask({
+    id: 'provider-task-timestamps',
+    attempt_sequence: 3,
+    created_at: '2026-08-25T00:00:00Z',
+    updated_at: '2026-08-25T00:01:00Z',
+    last_observed_at: '2026-08-25T00:02:00Z',
+    checked_at: '2026-08-24T23:59:00Z',
+  });
+  assert.equal(task.createdAt, '2026-08-25T00:00:00Z');
+  assert.equal(task.updatedAt, '2026-08-25T00:01:00Z');
+  assert.equal(task.checkedAt, '2026-08-25T00:02:00Z');
+  assert.equal(api.providerTaskTimestamp(task), '2026-08-25T00:02:00Z');
+
+  const observed = { id: 'observed', attemptSequence: 1, checkedAt: '2026-08-25T00:03:00Z', updatedAt: '2026-08-25T00:01:00Z', createdAt: '2026-08-25T00:00:00Z' };
+  const updated = { id: 'updated', attemptSequence: 1, updatedAt: '2026-08-25T00:02:00Z', createdAt: '2026-08-25T00:00:00Z' };
+  const created = { id: 'created', attemptSequence: 1, createdAt: '2026-08-25T00:01:00Z' };
+  assert.deepEqual(api.newestProviderTasks([created, updated, observed]).map((item) => item.id), ['observed', 'updated', 'created']);
+
+  const newerAttempt = { id: 'newer-attempt', attemptSequence: 2, checkedAt: '2026-08-24T00:00:00Z' };
+  assert.equal(api.newestProviderTasks([observed, newerAttempt])[0].id, 'observed');
+});
+
+test('provider task timestamp helper falls back from observed to updated to created time', () => {
+  assert.equal(api.providerTaskTimestamp({ id: 'checked', checkedAt: '2026-08-25T00:03:00Z', updatedAt: '2026-08-25T00:02:00Z', createdAt: '2026-08-25T00:01:00Z' }), '2026-08-25T00:03:00Z');
+  assert.equal(api.providerTaskTimestamp({ id: 'updated', updatedAt: '2026-08-25T00:02:00Z', createdAt: '2026-08-25T00:01:00Z' }), '2026-08-25T00:02:00Z');
+  assert.equal(api.providerTaskTimestamp({ id: 'created', createdAt: '2026-08-25T00:01:00Z' }), '2026-08-25T00:01:00Z');
+  assert.equal(api.providerTaskTimestamp({ id: 'empty' }), '');
+});
+
+test('provider task safety helpers fail closed for ambiguous and unknown states', () => {
+  const ambiguous = api.normalizeProviderTask({
+    id: 'provider-task-ambiguous',
+    status: 'ambiguous',
+    duplicate_submission_blocked: true,
+    automatic_recovery_available: true,
+    next_action: 'inspect',
+  });
+  assert.equal(api.isProviderTaskActive(ambiguous), false);
+  assert.equal(api.isProviderTaskBlocking(ambiguous), true);
+  assert.equal(api.isProviderTaskResumeAvailable(ambiguous), true);
+
+  const invalid = api.normalizeProviderTask({ id: 'provider-task-invalid', status: 'unexpected-provider-state' });
+  assert.equal(invalid.status, 'recovery_blocked');
+  assert.equal(api.isProviderTaskActive(invalid), false);
+  assert.equal(api.isProviderTaskBlocking(invalid), true);
+  assert.equal(api.isProviderTaskResumeAvailable(invalid), false);
+
+  const recoveryBlocked = api.normalizeProviderTask({ id: 'provider-task-blocked', status: 'recovery_blocked', resumable: true });
+  assert.equal(api.isProviderTaskBlocking(recoveryBlocked), true);
+  assert.equal(api.isProviderTaskResumeAvailable(recoveryBlocked), true);
+
+  const submittedWithoutOwner = api.normalizeProviderTask({ id: 'provider-task-submitted', status: 'submitted', resumable: true });
+  assert.equal(api.isProviderTaskResumeAvailable(submittedWithoutOwner), true);
+
+  const cancelRequested = api.normalizeProviderTask({
+    id: 'provider-task-cancel-requested',
+    status: 'cancel_requested',
+    resumable: true,
+    duplicate_submission_blocked: true,
+  });
+  assert.equal(api.isProviderTaskActive(cancelRequested), true);
+  assert.equal(api.isProviderTaskBlocking(cancelRequested), true);
+  assert.equal(api.isProviderTaskResumeAvailable(cancelRequested), true);
+
+  const interruptedReconciliation = api.normalizeJob({
+    id: 'job-cancel-reconciliation',
+    kind: 'provider_cancellation_reconciliation',
+    status: 'cancel_requested',
+  });
+  assert.equal(interruptedReconciliation.status, 'cancelled');
+
+  const succeeded = api.normalizeProviderTask({ id: 'provider-task-succeeded', status: 'succeeded', resumable: true });
+  assert.equal(api.isProviderTaskActive(succeeded), false);
+  assert.equal(api.isProviderTaskResumeAvailable(succeeded), false);
+});
+
+test('provider task resume sends an exact empty JSON object to the backend', async () => {
+  const originalFetch = globalThis.fetch;
+  let seen;
+  globalThis.fetch = async (input, init = {}) => {
+    seen = { input: String(input), method: init.method, body: init.body, contentType: init.headers?.['Content-Type'] };
+    return {
+      ok: true,
+      status: 202,
+      json: async () => ({ id: 'job-resumed', status: 'running', stage: 'video_generation' }),
+    };
+  };
+  try {
+    const resumed = await api.api.resumeProviderTask('provider-task/1');
+    assert.deepEqual(seen, {
+      input: '/api/provider-tasks/provider-task%2F1/resume',
+      method: 'POST',
+      body: '{}',
+      contentType: 'application/json',
+    });
+    assert.equal(resumed.id, 'job-resumed');
+    assert.equal(resumed.status, 'running');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

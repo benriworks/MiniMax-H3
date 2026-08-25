@@ -27,10 +27,13 @@ flowchart LR
         StudioLauncher["run-studio.ps1"]
         StudioFrontend["studio/<br/>React / Vite source"]
         StudioBackend["tools/studio/<br/>local API / index / audit"]
+        HttpLifecycle["server.py HTTP lifecycle<br/>Connection: close / parse-phase interruption<br/>parsed handler drain"]
+        ShutdownGate["service.py + jobs.py shutdown gate<br/>provider recovery / worker lanes / DB writer"]
+        ProviderRecovery["service.py startup recovery<br/>background scan / bounded observe"]
         LocalPipelineContract["pipeline.py<br/>schema v4 / exact local payload / canonical key"]
         LocalPipelineOrchestrator["local_pipeline orchestrator<br/>one immutable parent / five executed stages"]
         StudioComfyContract["comfyui_execution.py<br/>fixed payload / provenance / cache contract"]
-        StudioComfyWorker["comfyui.py<br/>loopback adapter / marker resume / cache"]
+        StudioComfyWorker["comfyui.py<br/>pre-issued UUID / observe / resume / targeted cancel / cache"]
         NarrationWorker["tools/studio/narration.py<br/>validated SAPI worker / cache"]
         ExternalTtsContract["external_tts_execution.py<br/>strict payload / cache / result contract"]
         ElevenLabsWorker["elevenlabs.py<br/>bounded with-timestamps adapter / cache"]
@@ -58,7 +61,10 @@ flowchart LR
         HardwareMetrics["Windows CIM / sensor WMI<br/>NVIDIA nvidia-smi"]
         StudioBuild["studio/node_modules + dist"]
         StudioUi["Studio UI<br/>127.0.0.1 only"]
-        StudioDb["outputs/studio/studio.sqlite3<br/>schema v4 / immutable run + job-attempt link"]
+        StudioDb["outputs/studio/studio.sqlite3<br/>schema v5 / immutable run + job-attempt link"]
+        WorkspaceLock["system-wide workspace lock<br/>held until full drain, retry, or process exit"]
+        VideoClaims["local_video_generation_claims<br/>Run + cache + payload digest<br/>one active job"]
+        ProviderTasks["provider_tasks ledger<br/>state + CAS owner / exact-once submission<br/>cancel_requested fence / DPAPI restart payload"]
         StudioEvents["outputs/studio/events<br/>hash-chained JSONL mirror"]
         ExternalSubmissionState["outputs/studio/external-submissions<br/>production/cache ambiguity marker"]
         GpuLane["Studio GPU FIFO lane<br/>single ComfyUI worker"]
@@ -147,12 +153,28 @@ flowchart LR
     StudioFrontend --> StudioSetup
     StudioSetup --> StudioBuild
     Operator --> StudioLauncher
-    StudioLauncher -->|"python -m tools.studio.server"| StudioBackend
+    StudioLauncher -->|"python -m tools.studio.server"| HttpLifecycle
+    StudioLauncher -->|"acquire before service construction"| WorkspaceLock
+    HttpLifecycle -->|"parsed request"| StudioBackend
+    HttpLifecycle -->|"shutdown: interrupt parse sockets<br/>drain parsed handlers"| ShutdownGate
+    StudioBackend -->|"drain provider recovery<br/>worker lanes + DB interrupt writer"| ShutdownGate
+    ShutdownGate -->|"all drained: release"| WorkspaceLock
+    ShutdownGate -->|"timeout/failure: retain"| WorkspaceLock
     StudioBuild -->|"normal: static dist<br/>Dev: Vite"| StudioUi
-    StudioUi -->|"GET: loopback Host<br/>POST: cookie/session + Origin"| StudioBackend
+    StudioUi -->|"GET: loopback Host<br/>POST: cookie/session + Origin"| HttpLifecycle
     ProductionLedgers -->|"read / refresh index"| StudioBackend
     ProductionArtifacts -->|"registered artifacts only"| StudioBackend
     StudioBackend -->|"atomic artifact + job + stage<br/>terminal transaction"| StudioDb
+    StudioBackend -->|"prepared UUID / startup scan<br/>public state / manual resume"| ProviderTasks
+    StudioBackend -->|"start without provider I/O"| ProviderRecovery
+    ProviderRecovery -->|"bounded exact-ID observation"| ProviderTasks
+    ProviderRecovery -->|"exact GET + targeted cancel<br/>never generation POST for known/cancelled task"| Comfy
+    StudioBackend -->|"atomic identical-request claim"| VideoClaims
+    VideoClaims -->|"single winner queues"| GpuLane
+    VideoClaims --> StudioDb
+    ProviderTasks -->|"same Run / append recovery attempt<br/>single CAS winner"| GpuLane
+    ProviderTasks -->|"provider + job + attempt + artifacts<br/>atomic terminal state"| StudioDb
+    ProviderTasks -->|"explicit cancel: job + attempt + fence<br/>one atomic timestamp"| StudioDb
     StudioDb -->|"append"| StudioEvents
     StudioEvents -->|"verified restore<br/>revision / run / cost approval<br/>stage attempt / historical job link<br/>hash-verified Studio artifacts"| StudioDb
     StudioEvents -->|"full-chain health / degraded warning"| StudioBackend
@@ -172,11 +194,11 @@ flowchart LR
     DefaultLane -->|"one generated clip / timeline child"| TimelineWorker
     DefaultLane -->|"assembly child"| AssemblyWorker
     DefaultLane -->|"technical QC child"| QcWorker
-    StudioComfyWorker -->|"GET system_stats + exact official_q4 Dynamic argv<br/>POST prompt / poll history<br/>proxy disabled / redirects rejected"| Comfy
+    StudioComfyWorker -->|"new task: POST prompt with pre-issued ID<br/>known/cancel task: exact GET + targeted cancel only<br/>proxy and redirects rejected"| Comfy
     Comfy -->|"history output bound to submitted prefix"| StudioComfyWorker
     Models -->|"Windows: every-new-POST guarded SHA-256<br/>non-Windows: physical identity cache"| StudioComfyWorker
     StudioComfyWorker -->|"ffprobe / verified MP4"| MediaTools
-    StudioComfyWorker -->|"production/cache marker<br/>prompt ID then explicit same-run resume"| ExternalSubmissionState
+    StudioComfyWorker -->|"production/cache marker fsync<br/>pre-issued prompt ID before POST<br/>terminal failure fsync before DB"| ExternalSubmissionState
     StudioComfyWorker -->|"atomic publish + SHA-256"| VideoGenerationOutputs
     VideoGenerationOutputs -->|"4 artifacts registered only with terminal success"| StudioBackend
     StudioBackend -->|"local_sapi / explicit execute<br/>persist job-attempt link before queue"| NarrationWorker
@@ -228,10 +250,14 @@ flowchart LR
     classDef external fill:#fff3df,stroke:#9a6300,color:#432b00;
     classDef secret fill:#ffe8ee,stroke:#9c284b,color:#481023;
 
-    class Setup,RuntimeLock,Downloader,ModelManifest,Doctor,Launcher,Metrics,LowWorkflow,TurboWorkflow,Q4TurboWorkflow,OfficialQ4Workflow,OfficialQ4TurboWorkflow,StudioApiWorkflow,ApiWrapper,ApiCli,ProductionLedgers,StudioSetup,StudioLauncher,StudioFrontend,StudioBackend,LocalPipelineContract,LocalPipelineOrchestrator,StudioComfyContract,StudioComfyWorker,NarrationWorker,ExternalTtsContract,ElevenLabsWorker,TimelineWorker,AssemblyWorker,QcWorker,SapiHelper,StudioCli,TestVideoOrchestrator tracked;
-    class Venv,Comfy,GgufNode,TurboNode,Models,OfficialWorkflow,Outputs,HardwareMetrics,StudioBuild,StudioUi,StudioDb,StudioEvents,ExternalSubmissionState,GpuLane,PipelineLane,DefaultLane,VideoGenerationOutputs,NarrationOutputs,TimelineOutputs,AssemblyOutputs,QcOutputs,AuditExports,ProductionArtifacts,WindowsSapi,MediaTools local;
+    class Setup,RuntimeLock,Downloader,ModelManifest,Doctor,Launcher,Metrics,LowWorkflow,TurboWorkflow,Q4TurboWorkflow,OfficialQ4Workflow,OfficialQ4TurboWorkflow,StudioApiWorkflow,ApiWrapper,ApiCli,ProductionLedgers,StudioSetup,StudioLauncher,StudioFrontend,StudioBackend,HttpLifecycle,ShutdownGate,ProviderRecovery,LocalPipelineContract,LocalPipelineOrchestrator,StudioComfyContract,StudioComfyWorker,NarrationWorker,ExternalTtsContract,ElevenLabsWorker,TimelineWorker,AssemblyWorker,QcWorker,SapiHelper,StudioCli,TestVideoOrchestrator tracked;
+    class Venv,Comfy,GgufNode,TurboNode,Models,OfficialWorkflow,Outputs,HardwareMetrics,StudioBuild,StudioUi,StudioDb,VideoClaims,ProviderTasks,StudioEvents,ExternalSubmissionState,GpuLane,PipelineLane,DefaultLane,VideoGenerationOutputs,NarrationOutputs,TimelineOutputs,AssemblyOutputs,QcOutputs,AuditExports,ProductionArtifacts,WindowsSapi,MediaTools local;
     class GitHub,PackageIndexes,HuggingFace,MiniMaxApi,OutputCdn,ElevenLabsApi external;
     class Env,StudioSecrets secret;
 ```
 
-Local経路のprompt/mediaはloopback ComfyUIへ渡ります。通常の`local_comfyui`は固定graphと実行環境を照合し、default workerを占有しないGPU FIFO laneから同じComfyUIへ接続します。`local_pipeline`は`POST /api/productions/{production_id}/execute-local-pipeline`でschema v4の厳密なbodyを受け、6 requested stage（`video_generation`、`narration`、`captions`、`timeline`、`assembly`、`qc`）を一つのimmutableな0円Runへ束ねます。専用pipeline laneがGPU childとdefault childを協調し、ComfyUI動画生成→SAPI→one-clip timeline→assembly→QCの5 stageを実行します。canonical keyのDB claimがRun/top jobをdedupeし、failed/interruptedは同じRunでretryできます。parent cancelはchild job/processのjoin後にterminalへ確定し、各local stageのjob／attempt／artifactはatomicに公開します。Studio UIは2秒pollingとreload race recoveryで進捗、master artifact、technical QC verdictを再取得します。raw prompt/scriptはSQLite、event、job metadataへ複製しませんが、明示的な`workflow.json`、`timings`、`manifest` artifactにはcontentが含まれ得ます。local pipelineはElevenLabs、MiniMax API、費用承認を使いません。API経路のprompt/mediaはMiniMaxの外部境界を越えます。Bearer key付きrequestはredirectを拒否し、MP4 CDN downloadにはkeyを付けません。Studioはsession保護されたloopback内で台帳とartifactを索引化します。`test-video` CLIは同じworkspaceをlockし、既存serviceをmain threadから順番に呼んでローカルMP4と監査IDをまとめます。費用gateとpayload確認を通った`elevenlabs_tts`だけはナレーション本文と固定設定をElevenLabsへ1回送信します。
+HTTP終了境界は`HttpLifecycle`と`ShutdownGate`に分けています。全responseを`Connection: close`にし、終了時は未解析socketだけを遮断して解析済みservice処理をdrainします。provider recovery、worker lane、SQLite interruption writerがすべて終了した場合だけworkspace lockを解放し、timeout／例外時は再試行またはprocess終了までlockを保持します。
+
+明示cancelはjob／attemptの中断と`provider_tasks.cancel_requested`を同じSQLite transaction・同じ時刻で確定します。その後のstartup／manual再照合は同じUUIDへのGETとtargeted cancelだけを使い、生成用`POST /prompt`を再送しません。未送信はlocal terminalへ確定し、running／404／一時的な照合不能はfenceを保持します。
+
+Local経路のprompt/mediaはloopback ComfyUIへ渡ります。通常の`local_comfyui`は固定graphと実行環境を照合し、default workerを占有しないGPU FIFO laneから同じComfyUIへ接続します。schema v5の`local_video_generation_claims`が同一Run／cache／payloadのactive requestを1 jobへ集約し、`provider_tasks`はComfyUI UUID、state、origin/current attempt、CAS owner、DPAPI暗号化restart payloadを保持します。UUIDはmarkerとDBへ先に永続化してから`POST /prompt`へ渡し、応答ID完全一致を要求します。terminal provider failureはmarkerへ先にfsyncします。Studio再起動はHTTP起動を妨げないbackground coordinatorが担当し、旧job/attemptを復活させず失敗履歴として残し、同じRunへ新attempt/jobを追記して`GET /api/jobs/{id}`とhistory/cacheを照合します。既知taskは再POSTせず、404、旧IDなしmarker、runtime不一致は手動確認へfail closedにします。通常終了はprovider生成を継続し、明示cancelだけが対象jobのcancel endpointを呼びます。UIは公開stateだけを2秒pollingし、実照合時刻と状態だけをstatus-only live regionで通知し、手動resumeも同じtaskへ限定します。`local_pipeline`は`POST /api/productions/{production_id}/execute-local-pipeline`でrequest schema v4の厳密なbodyを受け、6 requested stage（`video_generation`、`narration`、`captions`、`timeline`、`assembly`、`qc`）を一つのimmutableな0円Runへ束ねます。専用pipeline laneがGPU childとdefault childを協調し、ComfyUI動画生成→SAPI→one-clip timeline→assembly→QCの5 stageを実行します。canonical keyのDB claimがRun/top jobをdedupeし、failed/interruptedは同じRunでretryできます。parent cancelはchild job/processのjoin後にterminalへ確定し、Studio通常終了はComfyUI childをsuspendして次回復旧へ残します。各local stageのjob／attempt／artifactはatomicに公開します。復旧した動画の後続pipelineは同じ入力を再実行して検証済みcacheから続けます。raw prompt/scriptはSQLite、event、job metadataへ複製しませんが、ComfyUI再開payloadだけは現在のWindowsユーザー用DPAPI暗号文としてSQLiteへ保存され、terminal成功／確定失敗で消去されます。明示的な`workflow.json`、`timings`、`manifest` artifactにはcontentが含まれ得ます。local pipelineはElevenLabs、MiniMax API、費用承認を使いません。API経路のprompt/mediaはMiniMaxの外部境界を越えます。Bearer key付きrequestはredirectを拒否し、MP4 CDN downloadにはkeyを付けません。Studioはsession保護されたloopback内で台帳とartifactを索引化します。`test-video` CLIは同じworkspaceをlockし、既存serviceをmain threadから順番に呼んでローカルMP4と監査IDをまとめます。費用gateとpayload確認を通った`elevenlabs_tts`だけはナレーション本文と固定設定をElevenLabsへ1回送信します。

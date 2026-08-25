@@ -166,6 +166,16 @@ class ComfyUISubmissionUnknown(ComfyUIError):
         )
 
 
+class ComfyUISubmissionPersistenceError(ComfyUIError):
+    """The exact accepted provider ID is durable, but its DB callback failed."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "The accepted ComfyUI task requires restart reconciliation; duplicate submission is blocked.",
+            code="comfyui_submission_persistence_failed",
+        )
+
+
 class ComfyUIProviderError(ComfyUIError):
     pass
 
@@ -642,6 +652,7 @@ __all__ = [
     "ComfyUIError",
     "ComfyUIMediaError",
     "ComfyUIProviderError",
+    "ComfyUISubmissionPersistenceError",
     "ComfyUISubmissionUnknown",
     "ComfyUIValidationError",
     "comfyui_audit_payload",

@@ -20,6 +20,10 @@ import {
   isLocalComfyUiJobForSelection,
   isLocalComfyUiExecutionActive,
   isLocalComfyUiExecutionActiveAcross,
+  isProviderTaskActive,
+  isProviderTaskBlocking,
+  isProviderTaskResumeAvailable,
+  newestProviderTasks,
   isLocalPipelineJobForSelection,
   isLocalPipelineExecutionActive,
   isLocalPipelineExecutionActiveAcross,
@@ -55,6 +59,8 @@ import type {
   ProductionDetail,
   ProductionRun,
   ProductionSummary,
+  ProviderTask,
+  ProviderTaskStatus,
   ProviderStatus,
   RerunChanges,
   RerunPlan,
@@ -167,6 +173,39 @@ const jobStatusLabel = (status: StudioStatus): string => {
   if (status === 'succeeded') return '完了';
   if (status === 'failed') return '失敗';
   return STATUS_LABEL[status];
+};
+
+const PROVIDER_TASK_STATUS_LABEL: Record<ProviderTaskStatus, string> = {
+  prepared: '照合準備中',
+  submitted: 'provider実行中',
+  recovering: '復旧中',
+  succeeded: 'provider完了',
+  failed: '失敗',
+  ambiguous: '状態不明',
+  recovery_blocked: '復旧停止',
+  cancel_requested: 'キャンセル待ち',
+  unknown: '状態不明',
+};
+
+const providerTaskStatusLabel = (status: ProviderTaskStatus): string => PROVIDER_TASK_STATUS_LABEL[status];
+
+const providerTaskNextActionLabel = (action?: string): string | undefined => {
+  if (!action) return undefined;
+  const labels: Record<string, string> = {
+    submit: '永続化済みtaskを安全に送信できます',
+    wait: '復旧処理の完了を待っています',
+    none: '追加操作は不要です',
+    poll: '状態を監視中',
+    inspect: '状態を再照合してください',
+    resume: '同じtaskを再開できます',
+    recover: '成果物を回収できます',
+    retry: '再試行できます',
+    reconcile: '手動でprovider状態を確認してください',
+    retry_with_matching_request: '同じ暗号化済み入力で再開できます',
+    confirm_cancellation: 'provider側の停止状態を確認してください',
+    manual_review: '手動確認が必要です',
+  };
+  return labels[action] ?? action;
 };
 
 const localNarrationError = (error: unknown): string => {
@@ -356,7 +395,9 @@ function App() {
     try {
       setDetail(await api.production(id));
     } catch (loadError) {
-      setDetail(undefined);
+      // Keep the last known detail mounted during a polling failure so an
+      // active provider task does not reset the form or recovery controls.
+      setDetail((current) => current?.id === id ? current : undefined);
       setDetailError(loadError instanceof Error ? loadError.message : '制作情報を取得できませんでした');
     } finally {
       setDetailLoading(false);
@@ -495,9 +536,9 @@ function App() {
         <main className="workspace">
           {error && productions.length > 0 && <ErrorNotice message={error} onRetry={() => void loadDashboard()} />}
           {!selectedId && !loading && <EmptyState title="制作を選択してください" description="左の一覧から確認する制作を選択します。" />}
-          {selectedId && detailLoading && <LoadingState label="制作記録を読み込み中" />}
-          {selectedId && detailError && !detailLoading && <ErrorNotice message={detailError} onRetry={() => void loadDetail(selectedId)} />}
-          {detail && !detailLoading && (
+          {selectedId && detailLoading && !detail && <LoadingState label="制作記録を読み込み中" />}
+          {selectedId && detailError && !detailLoading && !detail && <ErrorNotice message={detailError} onRetry={() => void loadDetail(selectedId)} />}
+          {detail && (!detailLoading || detail.id === selectedId) && (
             <ProductionWorkspace
               detail={detail}
               jobs={jobs.filter((job) => job.productionId === detail.id)}
@@ -793,7 +834,9 @@ function LocalPipelinePanel({ detail, jobs, onReload }: { detail: ProductionDeta
   const [observedJobs, setObservedJobs] = useState<Job[]>([]);
   const [busy, setBusy] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [resumingTaskId, setResumingTaskId] = useState<string>();
   const submittingRef = useRef(false);
+  const resumingRef = useRef(false);
   const pollingRef = useRef(false);
   const jobRef = useRef<Job | undefined>(undefined);
   const onReloadRef = useRef(onReload);
@@ -818,6 +861,15 @@ function LocalPipelinePanel({ detail, jobs, onReload }: { detail: ProductionDeta
 
   const selectedRun = pipelineRuns.find((run) => run.id === pipelineRunId) ?? activePipelineRun ?? pipelineRuns[0];
   const effectiveRunId = pipelineRunId || selectedRun?.id;
+  const providerTasks = useMemo(() => {
+    if (!selectedRun) return [];
+    const candidates = [...(selectedRun.providerTasks ?? []), ...(detail.providerTasks ?? [])]
+      .filter((task) => providerTaskBelongsToVideoRun(task, detail.id, selectedRun.id));
+    const unique = candidates.filter((task, index, all) => all.findIndex((item) => item.id === task.id) === index);
+    return newestProviderTasks(unique);
+  }, [detail.id, detail.providerTasks, selectedRun]);
+  const providerTaskActive = providerTasks.some((task) => isProviderTaskActive(task));
+  const providerTaskBlocking = providerTasks.some((task) => isProviderTaskBlocking(task));
   const matchingJobs = useMemo(() => {
     const all = [...jobs, ...observedJobs];
     return all
@@ -831,7 +883,7 @@ function LocalPipelinePanel({ detail, jobs, onReload }: { detail: ProductionDeta
     visibleJob,
     ...stageAttempts,
     ...matchingJobs,
-  ]);
+  ]) || providerTaskActive;
   const pipelineStatus = visibleJob?.status ?? selectedRun?.status;
   const formInput = useMemo(() => ({
     prompt,
@@ -862,7 +914,7 @@ function LocalPipelinePanel({ detail, jobs, onReload }: { detail: ProductionDeta
   const technicalVerdict = visibleJob?.result?.technicalVerdict ?? qcAttempt?.technicalVerdict;
 
   useEffect(() => {
-    if (!effectiveRunId || !executionActive) return undefined;
+    if (!effectiveRunId || (!executionActive && !providerTaskActive)) return undefined;
     let cancelled = false;
     const poll = async () => {
       if (pollingRef.current) return;
@@ -891,7 +943,7 @@ function LocalPipelinePanel({ detail, jobs, onReload }: { detail: ProductionDeta
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [detail.id, effectiveRunId, executionActive, pipelineRunId]);
+  }, [detail.id, effectiveRunId, executionActive, pipelineRunId, providerTaskActive]);
 
   useEffect(() => {
     const terminal = !executionActive && isTerminalStatus(pipelineStatus);
@@ -908,7 +960,7 @@ function LocalPipelinePanel({ detail, jobs, onReload }: { detail: ProductionDeta
   }, [executionActive, pipelineStatus, submitting]);
 
   const execute = async () => {
-    if (submittingRef.current || executionActive) return;
+    if (submittingRef.current || resumingRef.current || executionActive || providerTaskBlocking) return;
     if (validationErrors.length > 0) {
       setMessage({ type: 'error', text: validationErrors[0] });
       return;
@@ -954,12 +1006,47 @@ function LocalPipelinePanel({ detail, jobs, onReload }: { detail: ProductionDeta
     }
   };
 
+  const resumeProviderTask = async (task: ProviderTask) => {
+    if (resumingRef.current || submittingRef.current || !isProviderTaskResumeAvailable(task)) return;
+    resumingRef.current = true;
+    setResumingTaskId(task.id);
+    setBusy(true);
+    setMessage({
+      type: 'info',
+      text: task.status === 'cancel_requested'
+        ? 'キャンセル要求済みtaskの状態を再照合しています。生成promptの再送信は行いません。'
+        : '一括生成内の同じprovider taskを照合・再開しています。重複送信は行いません。',
+    });
+    try {
+      const resumed = await api.resumeProviderTask(task.id);
+      setObservedJobs((current) => [resumed, ...current.filter((item) => item.id !== resumed.id)]);
+      await onReload().catch(() => undefined);
+      const resumeFailed = resumed.status === 'failed' || resumed.status === 'cancelled';
+      setMessage({
+        type: resumeFailed ? 'error' : 'success',
+        text: resumeFailed
+          ? localComfyUiError(resumed.message ?? (resumed.status === 'cancelled' ? 'provider taskの再照合は中断されました' : 'provider taskの再開に失敗しました'))
+          : task.status === 'cancel_requested'
+            ? 'キャンセル状態の再照合を登録しました。providerが終了するまで同じtask IDだけを確認します。'
+            : '動画生成taskの再開を登録しました。完了後、同じ一括生成入力を再実行するとキャッシュから後続工程へ進めます。',
+      });
+      if (isTerminalStatus(resumed.status)) setBusy(false);
+    } catch (error) {
+      setBusy(false);
+      setMessage({ type: 'error', text: localComfyUiError(error) });
+      await onReload().catch(() => undefined);
+    } finally {
+      resumingRef.current = false;
+      setResumingTaskId(undefined);
+    }
+  };
+
   const updatePronunciation = (index: number, key: 'source' | 'target', value: string) => {
     setPronunciations((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, [key]: value } : item));
   };
   const addPronunciation = () => setPronunciations((current) => [...current, { source: '', target: '' }]);
   const removePronunciation = (index: number) => setPronunciations((current) => current.length === 1 ? current : current.filter((_, itemIndex) => itemIndex !== index));
-  const formDisabled = submitting || busy || executionActive;
+  const formDisabled = submitting || busy || executionActive || providerTaskBlocking || resumingTaskId !== undefined;
 
   return (
     <div className="local-pipeline-grid">
@@ -981,11 +1068,12 @@ function LocalPipelinePanel({ detail, jobs, onReload }: { detail: ProductionDeta
           <label className="field"><span>QC対象variant</span><select value={variant} disabled={formDisabled || !includeCaptioned} onChange={(event) => { const next = event.target.value; if (next === 'clean' || next === 'captioned') setVariant(next); }} aria-label="一括生成QC対象variant"><option value="captioned">captioned（字幕付き）</option><option value="clean">clean（字幕なし）</option></select></label>
           <div className="local-pipeline-summary"><span>Workflow</span><strong className="mono">{LOCAL_COMFYUI_WORKFLOW_PRESET}</strong><span>既存Run</span><strong className="mono">{effectiveRunId ?? '新規作成（dedupe対応）'}</strong></div>
           {validationErrors.length > 0 && <div className="validation-list" role="status">{validationErrors.map((error) => <div key={error}>・{error}</div>)}</div>}
-          <button className="button button-primary full-button" type="button" onClick={() => void execute()} disabled={formDisabled || validationErrors.length > 0}>{submitting ? '登録中…' : executionActive || busy ? '一括生成を監視中…' : '一括生成を実行'}</button>
+          <button className="button button-primary full-button" type="button" onClick={() => void execute()} disabled={formDisabled || validationErrors.length > 0}>{submitting ? '登録中…' : providerTaskBlocking ? 'provider task確認中…' : executionActive || busy ? '一括生成を監視中…' : '一括生成を実行'}</button>
           {message && <div className={`inline-message is-${message.type}`} role="status">{message.text}</div>}
         </section>
       </div>
       <aside>
+        <ProviderTaskRecoveryCard tasks={providerTasks} resumingTaskId={resumingTaskId} onResume={(task) => void resumeProviderTask(task)} />
         <section className="panel compact-panel local-pipeline-progress-panel" aria-live="polite" aria-busy={executionActive}>
           <div className="panel-header"><div><span className="section-kicker">PIPELINE PROGRESS</span><h3>5段階の進捗</h3></div>{pipelineStatus ? <StatusBadge status={pipelineStatus} label={executionActive ? '監視中' : jobStatusLabel(pipelineStatus)} /> : <span className="muted">未実行</span>}</div>
           <ol className="local-pipeline-progress">{LOCAL_PIPELINE_STEPS.map((step, index) => {
@@ -995,6 +1083,7 @@ function LocalPipelinePanel({ detail, jobs, onReload }: { detail: ProductionDeta
           })}</ol>
           <dl className="narration-metrics"><div><dt>Run</dt><dd className="mono">{visibleJob?.result?.runId ?? visibleJob?.runId ?? effectiveRunId ?? '—'}</dd></div><div><dt>Revision</dt><dd className="mono">{visibleJob?.result?.revisionId ?? '—'}</dd></div><div><dt>更新</dt><dd>{formatDate(visibleJob?.updatedAt ?? selectedRun?.finishedAt ?? selectedRun?.startedAt)}</dd></div></dl>
           {executionActive && <p className="gate-separation-note">監視中です。再読込後も同じRunとchild jobを照合して重複送信を防ぎます。</p>}
+          {!executionActive && providerTasks.some((task) => task.status === 'succeeded') && <p className="gate-separation-note">動画生成taskの復旧後は、同じ入力で一括生成を再実行すると、動画キャッシュを再利用して後続工程へ進みます。</p>}
         </section>
         <section className="panel compact-panel local-pipeline-result-panel"><div className="panel-header"><div><span className="section-kicker">FINAL RESULT</span><h3>最終成果物・QC</h3></div>{technicalVerdict ? <StatusBadge status={technicalVerdict === 'pass' ? 'succeeded' : 'failed'} label={`technical verdict: ${technicalVerdict}`} /> : <span className="muted">判定待ち</span>}</div>{technicalVerdict === 'fail' && <div className="notice notice-warning"><div><strong>技術QCは不合格です</strong><p>ジョブ完了と技術検査合格は別判定です。成果物を確認してから再試行してください。</p></div></div>}{finalArtifacts.length === 0 ? <p className="muted">master artifactはまだありません。</p> : <div className="narration-artifact-list">{finalArtifacts.map((artifact) => <a key={artifact.id} href={artifact.url} target="_blank" rel="noreferrer"><strong>{artifact.name}</strong><span>{artifact.kind} · {formatBytes(artifact.sizeBytes)} ↗</span></a>)}</div>}<p className="gate-separation-note">ここで表示するのは実行・技術結果です。表現、権利、公開可否は別途確認してください。</p></section>
       </aside>
@@ -1051,6 +1140,76 @@ const selectLocalComfyUiDisplayJob = (
     ?? newestLocalComfyUiJob(candidates);
 };
 
+const providerTaskBelongsToVideoRun = (task: ProviderTask, productionId: string, runId: string): boolean => {
+  const stage = task.stage ? normalizeRequestedStage(task.stage) : '';
+  return task.provider.toLowerCase() === 'comfyui'
+    && (!task.productionId || task.productionId === productionId)
+    && (!task.runId || task.runId === runId)
+    && (!stage || stage === 'video_generation' || stage === 'video');
+};
+
+function ProviderTaskRecoveryCard({
+  tasks,
+  resumingTaskId,
+  onResume,
+}: {
+  tasks: ProviderTask[];
+  resumingTaskId?: string;
+  onResume: (task: ProviderTask) => void;
+}) {
+  if (tasks.length === 0) return null;
+  return (
+    <section className="panel compact-panel provider-task-recovery-card">
+      <p className="sr-only" aria-live="polite">
+        {tasks.map((task) => `${task.id}:${providerTaskStatusLabel(task.status)}`).join('、')}
+      </p>
+      <div className="panel-header">
+        <div><span className="section-kicker">PROVIDER RECOVERY</span><h3>Provider task復旧</h3></div>
+        <span className="count-chip">{tasks.length}</span>
+      </div>
+      <p className="panel-lead">再起動後もprovider taskの重複送信を防ぎ、永続化済みのtaskを同じRunで安全に照合・再開します。prompt本文は表示しません。</p>
+      <div className="provider-task-recovery-list">
+        {tasks.map((task) => {
+          const resumeAvailable = isProviderTaskResumeAvailable(task);
+          const blocking = isProviderTaskBlocking(task);
+          return (
+            <article className={`provider-task-recovery-row is-${task.status}`} key={task.id}>
+              <div className="provider-task-recovery-heading">
+                <div>
+                  <strong>{providerTaskStatusLabel(task.status)}</strong>
+                  <small className="mono">{task.id}</small>
+                </div>
+                <span className={`provider-task-badge is-${task.status}`}>
+                  <span className="status-dot" aria-hidden="true" />
+                  {providerTaskStatusLabel(task.status)}
+                </span>
+              </div>
+              <dl className="provider-task-recovery-metrics">
+                <div><dt>Provider task ID</dt><dd className="mono">{task.providerTaskId ?? '未確定'}</dd></div>
+                <div><dt>試行</dt><dd>{task.attemptSequence ?? '—'}</dd></div>
+                <div><dt>復旧回数</dt><dd>{task.recoveryCount ?? 0}</dd></div>
+                <div><dt>作成</dt><dd>{task.createdAt ? formatDate(task.createdAt) : '—'}</dd></div>
+                <div><dt>状態更新</dt><dd>{task.updatedAt ? formatDate(task.updatedAt) : '—'}</dd></div>
+                <div><dt>Provider最終照合</dt><dd>{task.checkedAt ? formatDate(task.checkedAt) : '未照合'}</dd></div>
+              </dl>
+              {task.error && <p className="provider-task-error">{task.error.message ?? task.error.code ?? 'provider taskの確認に失敗しました'}{task.error.code ? ` · ${task.error.code}` : ''}</p>}
+              {providerTaskNextActionLabel(task.nextAction) && <p className="provider-task-next-action">{providerTaskNextActionLabel(task.nextAction)}</p>}
+              <div className="provider-task-recovery-footer">
+                <span>{task.duplicateSubmissionBlocked ? '重複送信をブロック中' : blocking ? '実行状態を保持中' : '通常操作可能'}</span>
+                {resumeAvailable && <button className="button button-secondary" type="button" onClick={() => onResume(task)} disabled={resumingTaskId !== undefined}>
+                  {resumingTaskId === task.id
+                    ? task.status === 'cancel_requested' ? '再照合中…' : '再開中…'
+                    : task.status === 'cancel_requested' ? 'キャンセル状態を再照合' : '同じtaskを再開'}
+                </button>}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function VideoGenerationPanel({ detail, jobs, onReload }: { detail: ProductionDetail; jobs: Job[]; onReload: () => Promise<void> }) {
   const eligibleRuns = useMemo(
     () => [...detail.runs]
@@ -1065,6 +1224,11 @@ function VideoGenerationPanel({ detail, jobs, onReload }: { detail: ProductionDe
   const [busy, setBusy] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
+  const [resumingTaskId, setResumingTaskId] = useState<string>();
+  const resumingRef = useRef(false);
+  const pollingRef = useRef(false);
+  const onReloadRef = useRef(onReload);
+  onReloadRef.current = onReload;
   const [message, setMessage] = useState<{ type: 'error' | 'success' | 'info'; text: string }>();
   const reloadedTerminalJob = useRef<string | undefined>(undefined);
 
@@ -1080,6 +1244,21 @@ function VideoGenerationPanel({ detail, jobs, onReload }: { detail: ProductionDe
   const currentAttempt = [...(selectedRun?.stageAttempts ?? [])]
     .filter((attempt) => normalizeRequestedStage(attempt.stage) === 'video_generation')
     .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))[0];
+  const selectedRunRef = useRef<ProductionRun | undefined>(selectedRun);
+  const currentAttemptRef = useRef<StageAttempt | undefined>(currentAttempt);
+  const jobRef = useRef<Job | undefined>(job);
+  selectedRunRef.current = selectedRun;
+  currentAttemptRef.current = currentAttempt;
+  jobRef.current = job;
+  const providerTasks = useMemo(() => {
+    if (!selectedRun) return [];
+    const candidates = [...(selectedRun.providerTasks ?? []), ...(detail.providerTasks ?? [])]
+      .filter((task) => providerTaskBelongsToVideoRun(task, detail.id, selectedRun.id));
+    const unique = candidates.filter((task, index, all) => all.findIndex((item) => item.id === task.id) === index);
+    return newestProviderTasks(unique);
+  }, [detail.id, detail.providerTasks, selectedRun]);
+  const providerTaskActive = providerTasks.some((task) => isProviderTaskActive(task));
+  const providerTaskBlocking = providerTasks.some((task) => isProviderTaskBlocking(task));
   const matchingJobs = selectedRun
     ? jobs.filter((item) => isLocalComfyUiJobForSelection(item, { runId: selectedRun.id }))
     : [];
@@ -1093,25 +1272,44 @@ function VideoGenerationPanel({ detail, jobs, onReload }: { detail: ProductionDe
     localJobForRun,
     currentAttempt,
     ...matchingJobs,
-  ]);
+  ]) || providerTaskActive;
   const isTerminal = executionStatus === 'succeeded' || executionStatus === 'failed' || executionStatus === 'cancelled';
   const normalizedInput = useMemo(() => normalizeLocalComfyUiInput(prompt, seed), [prompt, seed]);
   const validationErrors = normalizedInput.errors;
 
   useEffect(() => {
-    if (!selectedRun || !executionActive || isTerminal) {
-      if (isTerminal && !submitting) setBusy(false);
+    const runId = selectedRun?.id;
+    if (!runId || (!executionActive && !providerTaskActive)) {
+      if (isTerminal && !submitting && !providerTaskActive) setBusy(false);
       return;
     }
-    const timer = window.setInterval(() => {
-      void api.jobs().then((nextJobs) => {
-        const nextMatchingJobs = nextJobs.filter((item) => isLocalComfyUiJobForSelection(item, { runId: selectedRun.id }));
-        const next = selectLocalComfyUiDisplayJob(job, currentAttempt, nextMatchingJobs, selectedRun.id);
-        setJob(next);
-      }).catch(() => undefined);
-    }, 2_000);
+    let cancelled = false;
+    const poll = async () => {
+      if (pollingRef.current) return;
+      pollingRef.current = true;
+      try {
+        const nextJobs = await api.jobs();
+        if (cancelled) return;
+        const latestRun = selectedRunRef.current;
+        if (!latestRun || latestRun.id !== runId) return;
+        const nextMatchingJobs = nextJobs.filter((item) => isLocalComfyUiJobForSelection(item, { runId }));
+        const next = selectLocalComfyUiDisplayJob(jobRef.current, currentAttemptRef.current, nextMatchingJobs, runId);
+        if (next) {
+          jobRef.current = next;
+          setJob(next);
+        }
+        // Provider-task state is returned by production detail, not /api/jobs.
+        await onReloadRef.current().catch(() => undefined);
+      } catch {
+        // The next two-second poll retries; the last known attempt remains visible.
+      } finally {
+        pollingRef.current = false;
+      }
+    };
+    void poll();
+    const timer = window.setInterval(() => { void poll(); }, 2_000);
     return () => window.clearInterval(timer);
-  }, [currentAttempt, executionActive, isTerminal, job, selectedRun, submitting]);
+  }, [executionActive, isTerminal, providerTaskActive, selectedRun?.id, submitting]);
 
   useEffect(() => {
     if (!visibleJob || !isTerminal || reloadedTerminalJob.current === visibleJob.id) return;
@@ -1120,7 +1318,7 @@ function VideoGenerationPanel({ detail, jobs, onReload }: { detail: ProductionDe
   }, [isTerminal, onReload, visibleJob]);
 
   const execute = async () => {
-    if (submittingRef.current) return;
+    if (submittingRef.current || resumingRef.current || executionActive || providerTaskBlocking) return;
     if (!selectedRun) {
       setMessage({ type: 'error', text: 'video_generation工程を含むlocal_comfyui Runを選択してください。' });
       return;
@@ -1160,29 +1358,65 @@ function VideoGenerationPanel({ detail, jobs, onReload }: { detail: ProductionDe
     }
   };
 
+  const resumeProviderTask = async (task: ProviderTask) => {
+    if (resumingRef.current || submittingRef.current || !isProviderTaskResumeAvailable(task)) return;
+    resumingRef.current = true;
+    setResumingTaskId(task.id);
+    setBusy(true);
+    setMessage({
+      type: 'info',
+      text: task.status === 'cancel_requested'
+        ? 'キャンセル要求済みtaskの状態を再照合しています。生成promptの再送信は行いません。'
+        : '同じprovider taskを安全に照合・再開しています。重複送信は行いません。',
+    });
+    try {
+      const resumed = await api.resumeProviderTask(task.id);
+      setJob(resumed);
+      await onReload().catch(() => undefined);
+      const resumeFailed = resumed.status === 'failed' || resumed.status === 'cancelled';
+      setMessage({
+        type: resumeFailed ? 'error' : 'success',
+        text: resumeFailed
+          ? localComfyUiError(resumed.message ?? (resumed.status === 'cancelled' ? 'provider taskの再照合は中断されました' : 'provider taskの再開に失敗しました'))
+          : task.status === 'cancel_requested'
+            ? 'キャンセル状態の再照合を登録しました。同じtask IDを監視します。'
+            : 'provider taskの再開を登録しました。状態を監視しています。',
+      });
+      if (resumed.status === 'succeeded' || resumed.status === 'failed' || resumed.status === 'cancelled') setBusy(false);
+    } catch (error) {
+      setBusy(false);
+      setMessage({ type: 'error', text: localComfyUiError(error) });
+    } finally {
+      resumingRef.current = false;
+      setResumingTaskId(undefined);
+    }
+  };
+
   if (eligibleRuns.length === 0) {
     return <section className="panel video-generation-panel"><div className="panel-header"><div><span className="section-kicker">LOCAL COMFYUI</span><h3>生成映像</h3></div></div><EmptyState title="local_comfyuiの動画生成Runがありません" description="概要の再調整で生成映像（video）を選択し、local_comfyuiプロファイルのRunを作成してください。" /></section>;
   }
 
   const resultArtifacts = visibleJob?.result?.artifacts ?? currentAttempt?.artifacts ?? [];
+  const formLocked = busy || submitting || executionActive || providerTaskBlocking || resumingTaskId !== undefined;
   return (
     <div className="timeline-grid">
       <div>
         <section className="panel video-generation-panel">
           <div className="panel-header"><div><span className="section-kicker">LOCAL COMFYUI</span><h3>生成映像</h3></div><span className="tag">費用 0円</span></div>
           <p className="panel-lead">固定済みのMiniMax H3 workflow presetで、プロンプトとseedだけを指定してローカル生成します。workflow JSON、モデルパス、endpointは画面から入力できません。</p>
-          <label className="field"><span>対象Run（video_generation工程を要求したRun）</span><select value={selectedRunId} disabled={busy || submitting || executionActive} onChange={(event) => { setSelectedRunId(event.target.value); setJob(undefined); setMessage(undefined); }} aria-label="生成映像対象Run">
+          <label className="field"><span>対象Run（video_generation工程を要求したRun）</span><select value={selectedRunId} disabled={formLocked} onChange={(event) => { setSelectedRunId(event.target.value); setJob(undefined); setMessage(undefined); }} aria-label="生成映像対象Run">
             {eligibleRuns.map((run) => <option key={run.id} value={run.id}>{run.label} · {run.id} · {run.executionProfile}</option>)}
           </select></label>
           <div className="timeline-run-summary"><span>Run ID</span><strong className="mono">{selectedRun?.id}</strong><span>Workflow</span><strong className="mono">{LOCAL_COMFYUI_WORKFLOW_PRESET}</strong></div>
-          <label className="field"><span>生成プロンプト</span><textarea rows={8} value={prompt} disabled={busy || submitting || executionActive} onChange={(event) => setPrompt(event.target.value)} placeholder="例：正面を向いた日本人女性が、柔らかい自然光のスタジオで静かに微笑む。フォトリアル、縦長構図。" aria-label="生成プロンプト" /></label>
-          <label className="field"><span>seed（0〜2^63−1の整数）</span><input type="text" inputMode="numeric" pattern="[0-9]*" value={seed} disabled={busy || submitting || executionActive} onChange={(event) => setSeed(event.target.value)} aria-label="生成seed" /></label>
+          <label className="field"><span>生成プロンプト</span><textarea rows={8} value={prompt} disabled={formLocked} onChange={(event) => setPrompt(event.target.value)} placeholder="例：正面を向いた日本人女性が、柔らかい自然光のスタジオで静かに微笑む。フォトリアル、縦長構図。" aria-label="生成プロンプト" /></label>
+          <label className="field"><span>seed（0〜2^63−1の整数）</span><input type="text" inputMode="numeric" pattern="[0-9]*" value={seed} disabled={formLocked} onChange={(event) => setSeed(event.target.value)} aria-label="生成seed" /></label>
           {validationErrors.length > 0 && <div className="validation-list" role="status">{validationErrors.map((error) => <div key={error}>・{error}</div>)}</div>}
-          <button className="button button-primary full-button" type="button" onClick={() => void execute()} disabled={submitting || busy || executionActive || validationErrors.length > 0}>{submitting ? '登録中…' : busy || executionActive ? 'worker監視中…' : '動画生成を実行'}</button>
+          <button className="button button-primary full-button" type="button" onClick={() => void execute()} disabled={submitting || busy || executionActive || providerTaskBlocking || validationErrors.length > 0}>{submitting ? '登録中…' : providerTaskBlocking ? 'provider task確認中…' : busy || executionActive ? 'worker監視中…' : '動画生成を実行'}</button>
           {message && <div className={`inline-message is-${message.type}`} role="status">{message.text}</div>}
         </section>
       </div>
       <aside>
+        <ProviderTaskRecoveryCard tasks={providerTasks} resumingTaskId={resumingTaskId} onResume={(task) => void resumeProviderTask(task)} />
         <VideoGenerationJobStatus job={visibleJob} attempt={currentAttempt} artifacts={resultArtifacts} />
         <VideoGenerationAttemptHistory attempts={selectedRun?.stageAttempts.filter((attempt) => normalizeRequestedStage(attempt.stage) === 'video_generation') ?? []} />
       </aside>

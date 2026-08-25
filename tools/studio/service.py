@@ -7,6 +7,7 @@ import json
 import mimetypes
 import re
 import threading
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -34,6 +35,7 @@ from .comfyui_execution import (
     comfyui_cache_key,
     comfyui_payload_digest,
     comfyui_public_result,
+    comfyui_resume_payload,
     normalize_model_records,
     normalize_workflow_record,
     safe_comfyui_error,
@@ -76,7 +78,13 @@ from .timeline_execution import (
     timeline_public_result,
     validate_local_timeline_payload,
 )
-from .secrets import SecretStore, dpapi_available
+from .secrets import (
+    SecretStorageUnavailable,
+    SecretStore,
+    dpapi_available,
+    protect_private_data,
+    unprotect_private_data,
+)
 from .security import (
     SecurityError,
     canonical_json,
@@ -203,6 +211,7 @@ _LOCAL_TIMELINE_ARTIFACTS = {
 _MAX_LOCAL_TIMELINE_CLIPS = 32
 _MAX_LOCAL_TIMELINE_INPUT_BYTES = 4 * 1024 * 1024 * 1024
 _MAX_LOCAL_TIMELINE_VIDEO_BYTES = 2 * 1024 * 1024 * 1024
+_SERVICE_JOB_SHUTDOWN_TIMEOUT_SECONDS = 5.0
 _EXTERNAL_NARRATION_STAGE = "narration"
 _EXTERNAL_NARRATION_PROVIDER = "elevenlabs"
 _EXTERNAL_AMBIGUOUS_ERROR_CODES = frozenset(
@@ -223,10 +232,16 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest().upper()
 
 
-def _raise_if_cancelled(cancel_event: JobExecutionContext | None) -> None:
+def _raise_if_cancelled(cancel_event: Any | None) -> None:
     if cancel_event is None:
         return
-    cancel_event.raise_if_cancelled()
+    method = getattr(cancel_event, "raise_if_cancelled", None)
+    if callable(method):
+        method()
+        return
+    is_set = getattr(cancel_event, "is_set", None)
+    if callable(is_set) and is_set():
+        raise JobCancelled()
 
 
 def _call_local_worker(
@@ -352,6 +367,7 @@ def _stage_completion_result(
     cancel_event: JobExecutionContext | None,
     *,
     artifact_records: tuple[dict[str, Any], ...] = (),
+    provider_task_record_id: str | None = None,
 ) -> dict[str, Any] | AtomicStageCompletion:
     """Return a public result or the internal atomic-completion envelope.
 
@@ -365,12 +381,17 @@ def _stage_completion_result(
 
     public_result = {"stage_attempt_id": attempt_id, **result}
     if cancel_event is None:
-        if artifact_records:
+        if artifact_records or provider_task_record_id is not None:
             raise ValueError(
                 "atomic artifact registration requires a job execution context"
             )
         return public_result
-    return AtomicStageCompletion(attempt_id, result, artifact_records)
+    return AtomicStageCompletion(
+        attempt_id,
+        result,
+        artifact_records,
+        provider_task_record_id=provider_task_record_id,
+    )
 
 
 def _has_symlink_component(workspace: Path, candidate: str | Path) -> bool:
@@ -459,7 +480,33 @@ class StudioService:
         self.jobs = JobManager(self.database)
         self.audit_exporter = AuditExporter(self.workspace, self.database)
         self._pipeline_submit_lock = threading.Lock()
+        self._local_video_submit_lock = threading.Lock()
         self._pipeline_capability = object()
+        self._provider_recovery_lock = threading.Lock()
+        self._provider_cancellation_lock = threading.Lock()
+        self._provider_cancellation_jobs: dict[str, str] = {}
+        self._provider_recovery_state_lock = threading.Lock()
+        self._provider_recovery_stop = threading.Event()
+        self._provider_recovery_done = threading.Event()
+        recoverable = self.database.list_recoverable_provider_tasks(limit=100)
+        self._startup_provider_recovery: dict[str, Any] = {
+            "found": len(recoverable),
+            "queued": 0,
+            "blocked": 0,
+            "ambiguous": 0,
+            "running": bool(recoverable),
+        }
+        self._provider_recovery_thread: threading.Thread | None = None
+        if recoverable:
+            self._provider_recovery_thread = threading.Thread(
+                target=self._run_startup_provider_recovery,
+                args=(recoverable,),
+                name="studio-provider-recovery",
+                daemon=True,
+            )
+            self._provider_recovery_thread.start()
+        else:
+            self._provider_recovery_done.set()
 
     def _complete_local_stage(
         self,
@@ -504,7 +551,32 @@ class StudioService:
         )
 
     def close(self) -> None:
-        self.jobs.shutdown()
+        self._provider_recovery_stop.set()
+        recovery_thread = self._provider_recovery_thread
+        if (
+            recovery_thread is not None
+            and recovery_thread.is_alive()
+            and recovery_thread is not threading.current_thread()
+        ):
+            # The public workspace instance lock is released only after this
+            # method returns.  Do not let an old recovery daemon cross that
+            # boundary and mutate the database owned by the next Studio.
+            # Provider observation is bounded to one second and local checks
+            # receive the stop event, so this waits for coordination only,
+            # never for the multi-hour remote render itself.
+            recovery_thread.join()
+        if not self.jobs.shutdown(timeout=_SERVICE_JOB_SHUTDOWN_TIMEOUT_SECONDS):
+            # The caller still owns the workspace instance lock.  Failing the
+            # close keeps that lock held so an old Python callback or SQLite
+            # interruption writer can never overlap a new Studio process.
+            # server_close() may be retried after the worker finishes.
+            raise RuntimeError(
+                "Studio background work is still draining; workspace lock retained."
+            )
+
+    def _provider_recovery_snapshot(self) -> dict[str, Any]:
+        with self._provider_recovery_state_lock:
+            return dict(self._startup_provider_recovery)
 
     def health(self) -> dict[str, Any]:
         mirror = self.database.event_mirror_health()
@@ -520,12 +592,17 @@ class StudioService:
             "schema_version": SCHEMA_VERSION,
             "time": utc_now(),
             "event_mirror": mirror,
+            "provider_task_recovery": self._provider_recovery_snapshot(),
         }
 
     def providers_status(self) -> dict[str, Any]:
         return {
             "providers": self.secret_store.statuses(),
             "secure_persistence_available": dpapi_available(),
+            "comfyui_restart_recovery": {
+                "automatic": dpapi_available(),
+                **self._provider_recovery_snapshot(),
+            },
         }
 
     def list_productions(self) -> dict[str, Any]:
@@ -1444,6 +1521,758 @@ class StudioService:
             "deduplicated": not created,
         }
 
+    def _protect_comfyui_resume_payload(
+        self, payload: dict[str, Any]
+    ) -> tuple[str, bytes | None]:
+        """Return current-user ciphertext without persisting prompt plaintext."""
+
+        normalized = comfyui_resume_payload(payload)
+        plaintext = canonical_json(normalized).encode("utf-8")
+        if not dpapi_available():
+            return "none", None
+        try:
+            return (
+                "dpapi-v1",
+                protect_private_data(
+                    plaintext,
+                    description="MiniMaxH3 Studio ComfyUI restart payload",
+                ),
+            )
+        except (OSError, ValueError, SecretStorageUnavailable):
+            # Generation remains available on a platform/account where DPAPI
+            # cannot protect this payload, but automatic restart recovery is
+            # explicitly unavailable and never falls back to plaintext.
+            return "none", None
+
+    def _read_comfyui_resume_payload(
+        self, provider_task_record_id: str
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        material = self.database.get_provider_task_recovery_material(
+            provider_task_record_id
+        )
+        if material is None:
+            raise KeyError("provider task not found")
+        ciphertext = material.get("request_ciphertext")
+        if material.get("request_protection") != "dpapi-v1" or not isinstance(
+            ciphertext, bytes
+        ):
+            raise RequestValidationError(
+                "This provider task has no protected restart payload.",
+                code="resume_payload_unavailable",
+            )
+        try:
+            plaintext = unprotect_private_data(ciphertext)
+            raw = json.loads(plaintext.decode("utf-8"))
+            if not isinstance(raw, dict):
+                raise ValueError("payload")
+            payload = comfyui_resume_payload(raw)
+        except (
+            OSError,
+            ValueError,
+            UnicodeError,
+            json.JSONDecodeError,
+            SecretStorageUnavailable,
+        ) as exc:
+            raise RequestValidationError(
+                "The protected provider restart payload could not be verified.",
+                code="resume_payload_invalid",
+            ) from exc
+        finally:
+            if "plaintext" in locals():
+                plaintext = b""
+        if comfyui_payload_digest(payload) != material.get("payload_digest"):
+            raise RequestValidationError(
+                "The protected provider restart payload does not match its task.",
+                code="resume_payload_invalid",
+            )
+        return payload, material
+
+    def _reconcile_cancel_requested_provider_task(
+        self,
+        provider_task_record_id: str,
+        *,
+        observation_timeout_seconds: float,
+        cancel_event: JobExecutionContext | None = None,
+    ) -> dict[str, Any]:
+        """Reconcile one cancelled provider UUID without a generation POST."""
+
+        _raise_if_cancelled(cancel_event)
+        current_public = self.database.get_provider_task(provider_task_record_id)
+        if current_public is None:
+            raise KeyError("provider task not found")
+        if current_public.get("status") == "failed" and (
+            current_public.get("error") or {}
+        ).get("code") == "provider_cancelled":
+            return {
+                "provider_task_record_id": provider_task_record_id,
+                "provider_task_id": current_public.get("provider_task_id"),
+                "state": "cancelled",
+                "provider_status": "terminal",
+                "duplicate_submission_blocked": False,
+                "reconciliation_pending": False,
+            }
+        if current_public.get("status") != "cancel_requested":
+            raise RequestValidationError(
+                "This provider task is not awaiting cancellation reconciliation.",
+                code="provider_task_manual_review_required",
+            )
+
+        payload, current = self._read_comfyui_resume_payload(
+            provider_task_record_id
+        )
+        _raise_if_cancelled(cancel_event)
+        run_id = str(current.get("run_id") or "")
+        run = self.database.get_run(run_id)
+        if (
+            run is None
+            or run.get("production_id") != current.get("production_id")
+            or run.get("execution_profile")
+            not in {"local_comfyui", LOCAL_PIPELINE_PROFILE}
+            or _LOCAL_VIDEO_GENERATION_STAGE
+            not in run.get("requested_stages", [])
+            or comfyui_payload_digest(payload) != current.get("payload_digest")
+        ):
+            raise RequestValidationError(
+                "The provider cancellation provenance is invalid.",
+                code="provider_task_provenance_invalid",
+            )
+        provider_task_id = current.get("provider_task_id")
+        if not isinstance(provider_task_id, str):
+            raise RequestValidationError(
+                "The provider task has no pre-issued prompt ID.",
+                code="provider_task_provenance_invalid",
+            )
+
+        from . import comfyui
+
+        try:
+            marker_prompt_id = comfyui.recover_comfyui_prompt_id(
+                self.workspace,
+                production_id=run["production_id"],
+                run_id=run_id,
+                cache_key=current["cache_key"],
+                payload_digest=current["payload_digest"],
+            )
+        except (ComfyUIError, ComfyUIValidationError, OSError) as exc:
+            error_code, error_message = safe_comfyui_error(exc)
+            raise ComfyUIError(error_message, code=error_code) from exc
+        if marker_prompt_id is not None and marker_prompt_id != provider_task_id:
+            raise ComfyUIError(
+                "The durable provider task identity changed.",
+                code="comfyui_submission_unknown",
+            )
+
+        # With neither an accepted-submission timestamp nor the marker that is
+        # durably written before POST, this UUID was never exposed to ComfyUI.
+        # It can be terminalized locally without any network request.
+        if marker_prompt_id is None and current.get("submitted_at") is None:
+            terminal = self.database.mark_provider_task_state(
+                provider_task_record_id,
+                "failed",
+                error_code="provider_cancelled",
+                error_message="The provider task was cancelled before submission.",
+            )
+            return {
+                "provider_task_record_id": provider_task_record_id,
+                "provider_task_id": provider_task_id,
+                "state": "cancelled",
+                "provider_status": "not_submitted",
+                "duplicate_submission_blocked": False,
+                "reconciliation_pending": False,
+                "completed_at": terminal.get("completed_at"),
+            }
+
+        _raise_if_cancelled(cancel_event)
+        try:
+            observation = comfyui.observe_comfyui_submission(
+                self.workspace,
+                provider_task_id=provider_task_id,
+                request_timeout_seconds=observation_timeout_seconds,
+            )
+        except (ComfyUIError, ComfyUIValidationError, OSError) as exc:
+            _raise_if_cancelled(cancel_event)
+            error_code, error_message = safe_comfyui_error(exc)
+            raise ComfyUIError(error_message, code=error_code) from exc
+        current = self.database.record_provider_observation(
+            provider_task_record_id
+        )
+        _raise_if_cancelled(cancel_event)
+        provider_state = observation.get("state")
+        provider_status = observation.get("provider_status")
+        if provider_state == "provider_running":
+            cancel_accepted = False
+            try:
+                cancel_accepted = comfyui.request_comfyui_provider_cancel(
+                    self.workspace,
+                    provider_task_id=provider_task_id,
+                    request_timeout_seconds=observation_timeout_seconds,
+                )
+            except (ComfyUIError, ComfyUIValidationError, OSError):
+                # Cancellation is advisory.  Preserve cancel_requested and
+                # retry the exact GET/cancel pair later; never submit prompt.
+                cancel_accepted = False
+            _raise_if_cancelled(cancel_event)
+            return {
+                "provider_task_record_id": provider_task_record_id,
+                "provider_task_id": provider_task_id,
+                "state": "cancel_requested",
+                "provider_status": provider_status,
+                "cancel_request_accepted": bool(cancel_accepted),
+                "duplicate_submission_blocked": True,
+                "reconciliation_pending": True,
+                "last_observed_at": current.get("last_observed_at"),
+            }
+        if provider_state == "ambiguous":
+            # A 404 can mean that a restarted ComfyUI lost volatile history.
+            # Retain the durable cancellation fence and exact UUID for manual
+            # review instead of assuming it is safe to submit again.
+            return {
+                "provider_task_record_id": provider_task_record_id,
+                "provider_task_id": provider_task_id,
+                "state": "cancel_requested",
+                "provider_status": provider_status,
+                "cancel_request_accepted": False,
+                "duplicate_submission_blocked": True,
+                "reconciliation_pending": True,
+                "last_observed_at": current.get("last_observed_at"),
+            }
+        if provider_state not in {"failed", "complete_recoverable"}:
+            raise ComfyUIError(
+                "The ComfyUI cancellation state is unknown.",
+                code="comfyui_submission_unknown",
+            )
+
+        terminal = self.database.mark_provider_task_state(
+            provider_task_record_id,
+            "failed",
+            error_code="provider_cancelled",
+            error_message="The provider task cancellation is terminal.",
+        )
+        marker_removed = marker_prompt_id is None
+        if marker_prompt_id is not None:
+            try:
+                marker_removed = comfyui.cleanup_comfyui_submission_marker(
+                    self.workspace,
+                    production_id=run["production_id"],
+                    run_id=run_id,
+                    cache_key=current["cache_key"],
+                    payload_digest=current["payload_digest"],
+                    provider_task_id=provider_task_id,
+                )
+            except (ComfyUIError, ComfyUIValidationError, OSError):
+                marker_removed = False
+        return {
+            "provider_task_record_id": provider_task_record_id,
+            "provider_task_id": provider_task_id,
+            "state": "cancelled",
+            "provider_status": provider_status,
+            "duplicate_submission_blocked": False,
+            "reconciliation_pending": False,
+            "marker_cleanup_pending": not marker_removed,
+            "completed_at": terminal.get("completed_at"),
+        }
+
+    def _queue_provider_cancellation_reconciliation(
+        self,
+        provider_task: dict[str, Any],
+        *,
+        observation_timeout_seconds: float,
+    ) -> dict[str, Any]:
+        """Admit at most one local GET/cancel reconciliation per task."""
+
+        record_id = str(provider_task.get("id") or "")
+        with self._provider_cancellation_lock:
+            existing_job_id = self._provider_cancellation_jobs.get(record_id)
+            if existing_job_id is not None:
+                existing = self.database.get_job(existing_job_id)
+                if (
+                    existing is not None
+                    and existing.get("status") in {"queued", "running"}
+                    and self.jobs.is_admitted(existing_job_id)
+                ):
+                    existing["provider_task_record_id"] = record_id
+                    existing["deduplicated"] = True
+                    return existing
+                self._provider_cancellation_jobs.pop(record_id, None)
+
+            job = self.jobs.submit(
+                "provider_cancellation_reconciliation",
+                {
+                    "provider_task_record_id": record_id,
+                    "provider_task_id": provider_task.get("provider_task_id"),
+                    "production_id": provider_task.get("production_id"),
+                    "run_id": provider_task.get("run_id"),
+                    "provider": "comfyui",
+                    "operation": "get_and_cancel_only",
+                },
+                lambda _job_id, cancel_event: (
+                    self._reconcile_cancel_requested_provider_task(
+                        record_id,
+                        observation_timeout_seconds=observation_timeout_seconds,
+                        cancel_event=cancel_event,
+                    )
+                ),
+                production_id=provider_task.get("production_id"),
+                lane="default",
+            )
+            self._provider_cancellation_jobs[record_id] = job["id"]
+        job["provider_task_record_id"] = record_id
+        job["provider_cancellation_reconciliation"] = True
+        return job
+
+    def _queue_comfyui_provider_recovery(
+        self,
+        provider_task: dict[str, Any],
+        *,
+        observation_timeout_seconds: float = 30.0,
+    ) -> dict[str, Any]:
+        """Append one new job/attempt that owns an existing provider task."""
+
+        _raise_if_cancelled(self._provider_recovery_stop)
+        record_id = str(provider_task.get("id") or "")
+        payload, current = self._read_comfyui_resume_payload(record_id)
+        _raise_if_cancelled(self._provider_recovery_stop)
+        run_id = str(current.get("run_id") or "")
+        run = self.database.get_run(run_id)
+        if (
+            run is None
+            or run.get("production_id") != current.get("production_id")
+            or run.get("execution_profile")
+            not in {"local_comfyui", LOCAL_PIPELINE_PROFILE}
+            or _LOCAL_VIDEO_GENERATION_STAGE not in run.get("requested_stages", [])
+        ):
+            raise RequestValidationError(
+                "The provider task is no longer bound to a recoverable run.",
+                code="provider_task_provenance_invalid",
+            )
+        if current.get("status") == "cancel_requested":
+            return self._queue_provider_cancellation_reconciliation(
+                current,
+                observation_timeout_seconds=observation_timeout_seconds,
+            )
+        inputs = self._resolve_comfyui_execution_inputs(
+            payload, self._provider_recovery_stop
+        )
+        _raise_if_cancelled(self._provider_recovery_stop)
+        if (
+            inputs.get("cache_key") != current.get("cache_key")
+            or comfyui_payload_digest(payload) != current.get("payload_digest")
+        ):
+            raise RequestValidationError(
+                "The provider task inputs changed after submission.",
+                code="cache_key_mismatch",
+            )
+
+        from . import comfyui
+
+        provider_task_id = current.get("provider_task_id")
+        if not isinstance(provider_task_id, str):
+            raise RequestValidationError(
+                "The provider task has no pre-issued prompt ID.",
+                code="provider_task_provenance_invalid",
+            )
+        try:
+            # A process can die after the adapter atomically published and
+            # verified all cache files but before Studio committed its DB
+            # success.  That success path intentionally removes the marker.
+            # Revalidate this exact cache before requiring a live provider;
+            # the recovery worker repeats the validation and atomically binds
+            # the artifacts to this provider/job/attempt.  A missing or
+            # damaged cache still follows the exact-ID observation path and
+            # can never trigger a blind POST.
+            cache_recovery_available = False
+            cache_relative = (
+                Path("outputs")
+                / "studio"
+                / "runs"
+                / run_id
+                / "video_generation"
+                / inputs["cache_key"]
+            )
+            cache_candidate = workspace_path(self.workspace, cache_relative)
+            if cache_candidate.exists() or cache_candidate.is_symlink():
+                try:
+                    cached = comfyui.validate_comfyui_outputs(
+                        self.workspace,
+                        production_id=run["production_id"],
+                        run_id=run_id,
+                        payload=payload,
+                        workflow=inputs["workflow"],
+                        workflow_source_path=inputs["workflow_source_path"],
+                        workflow_source_bytes=inputs["workflow_source_bytes"],
+                        workflow_source_sha256=inputs["workflow_source_sha256"],
+                        model_files=inputs["model_files"],
+                        cancel_event=self._provider_recovery_stop,
+                    )
+                except ComfyUIError as cache_error:
+                    if getattr(cache_error, "error_code", None) != "cache_integrity_failed":
+                        raise
+                else:
+                    expected_prompt_sha256 = hashlib.sha256(
+                        payload["prompt"].encode("utf-8")
+                    ).hexdigest().upper()
+                    if (
+                        not isinstance(cached, dict)
+                        or cached.get("provider_task_id") != provider_task_id
+                        or cached.get("cache_key") != inputs["cache_key"]
+                        or cached.get("workflow_preset") != payload["workflow_preset"]
+                        or cached.get("seed") != payload["seed"]
+                        or cached.get("prompt_sha256") != expected_prompt_sha256
+                    ):
+                        raise ComfyUIError(
+                            "The published cache does not match its provider task.",
+                            code="cache_integrity_failed",
+                        )
+                    cache_recovery_available = True
+            marker_prompt_id = None
+            if not cache_recovery_available:
+                marker_prompt_id = comfyui.recover_comfyui_prompt_id(
+                    self.workspace,
+                    production_id=run["production_id"],
+                    run_id=run_id,
+                    cache_key=inputs["cache_key"],
+                    payload_digest=current["payload_digest"],
+                )
+            if marker_prompt_id is not None:
+                if marker_prompt_id != provider_task_id:
+                    raise ComfyUIError(
+                        "The durable provider task identity changed.",
+                        code="comfyui_submission_unknown",
+                    )
+                current = self.database.record_provider_submission(
+                    record_id, marker_prompt_id
+                )
+                terminal_marker_state = comfyui.recover_comfyui_terminal_state(
+                    self.workspace,
+                    production_id=run["production_id"],
+                    run_id=run_id,
+                    cache_key=inputs["cache_key"],
+                    payload_digest=current["payload_digest"],
+                    provider_task_id=provider_task_id,
+                )
+                if terminal_marker_state == "failed":
+                    self.database.mark_provider_task_state(
+                        record_id,
+                        "failed",
+                        error_code="comfyui_generation_failed",
+                        error_message="ComfyUI reports a terminal provider failure.",
+                    )
+                    comfyui.cleanup_comfyui_submission_marker(
+                        self.workspace,
+                        production_id=run["production_id"],
+                        run_id=run_id,
+                        cache_key=inputs["cache_key"],
+                        payload_digest=current["payload_digest"],
+                        provider_task_id=provider_task_id,
+                    )
+                    raise RequestValidationError(
+                        "ComfyUI reports a terminal provider failure.",
+                        code="comfyui_generation_failed",
+                    )
+            if (
+                not cache_recovery_available
+                and
+                current.get("status") == "ambiguous"
+                and marker_prompt_id is None
+                and current.get("submitted_at") is None
+            ):
+                raise RequestValidationError(
+                    "The ambiguous ComfyUI task has no exact durable submission evidence.",
+                    code="comfyui_submission_unknown",
+                )
+            should_observe = marker_prompt_id is not None or (
+                not cache_recovery_available
+                and
+                current.get("submitted_at") is not None
+                and current.get("status")
+                in {"submitted", "ambiguous", "recovery_blocked"}
+            )
+            if should_observe:
+                observation = comfyui.observe_comfyui_submission(
+                    self.workspace,
+                    provider_task_id=provider_task_id,
+                    request_timeout_seconds=observation_timeout_seconds,
+                )
+                current = self.database.record_provider_observation(record_id)
+                _raise_if_cancelled(self._provider_recovery_stop)
+                if observation.get("state") == "ambiguous":
+                    self.database.mark_provider_task_state(
+                        record_id,
+                        "ambiguous",
+                        error_code="comfyui_submission_unknown",
+                        error_message=(
+                            "The pre-issued ComfyUI task is not visible in the current runtime."
+                        ),
+                    )
+                    raise RequestValidationError(
+                        "The ComfyUI task requires manual review; no new prompt was submitted.",
+                        code="comfyui_submission_unknown",
+                    )
+                if observation.get("state") == "failed":
+                    self.database.mark_provider_task_state(
+                        record_id,
+                        "failed",
+                        error_code="comfyui_generation_failed",
+                        error_message="ComfyUI reports a terminal provider failure.",
+                    )
+                    if marker_prompt_id is not None:
+                        comfyui.cleanup_comfyui_submission_marker(
+                            self.workspace,
+                            production_id=run["production_id"],
+                            run_id=run_id,
+                            cache_key=inputs["cache_key"],
+                            payload_digest=current["payload_digest"],
+                            provider_task_id=provider_task_id,
+                        )
+                    raise RequestValidationError(
+                        "ComfyUI reports a terminal provider failure.",
+                        code="comfyui_generation_failed",
+                    )
+                if marker_prompt_id is None:
+                    comfyui.restore_comfyui_submission_marker(
+                        self.workspace,
+                        production_id=run["production_id"],
+                        run_id=run_id,
+                        cache_key=inputs["cache_key"],
+                        payload_digest=current["payload_digest"],
+                        provider_task_id=provider_task_id,
+                    )
+        except RequestValidationError:
+            raise
+        except (ComfyUIError, ComfyUIValidationError, OSError) as exc:
+            error_code, error_message = safe_comfyui_error(exc)
+            status = (
+                "ambiguous"
+                if error_code == "comfyui_submission_unknown"
+                else "recovery_blocked"
+            )
+            latest = self.database.get_provider_task(record_id)
+            if latest is not None and latest.get("status") not in {"succeeded", "failed"}:
+                self.database.mark_provider_task_state(
+                    record_id,
+                    status,
+                    error_code=error_code,
+                    error_message=error_message,
+                )
+            raise RequestValidationError(error_message, code=error_code) from exc
+
+        audit = comfyui_audit_payload(
+            payload,
+            workflow=inputs["workflow_record"],
+            models=inputs["model_files"],
+            runtime_identity=inputs["runtime_identity"],
+            cache_key=inputs["cache_key"],
+        )
+        _raise_if_cancelled(self._provider_recovery_stop)
+        attempt = self.database.create_stage_attempt(
+            run_id,
+            _LOCAL_VIDEO_GENERATION_STAGE,
+            inputs["cache_key"],
+            {
+                "execution_profile": run["execution_profile"],
+                "cache_key": inputs["cache_key"],
+                "provider_task_record_id": record_id,
+                "restart_recovery": True,
+                **audit,
+            },
+        )
+        expected_updated_at = str(current["updated_at"])
+
+        def bind_recovery(created_job: dict[str, Any]) -> None:
+            self.database.link_stage_attempt_job(attempt["id"], created_job["id"])
+            claimed = self.database.claim_provider_task_recovery(
+                record_id,
+                expected_updated_at=expected_updated_at,
+                current_stage_attempt_id=attempt["id"],
+                current_job_id=created_job["id"],
+            )
+            if claimed is None:
+                raise RequestValidationError(
+                    "Another worker already claimed this provider task.",
+                    code="provider_task_already_claimed",
+                )
+
+        def abort_recovery(created_job: dict[str, Any]) -> None:
+            self.database.abort_provider_task_recovery_admission(
+                record_id,
+                current_stage_attempt_id=attempt["id"],
+                current_job_id=created_job["id"],
+                error_code="job_setup_failed",
+                error_message="The background job could not be prepared.",
+            )
+
+        try:
+            _raise_if_cancelled(self._provider_recovery_stop)
+            job = self.jobs.submit(
+                "local_video_generation",
+                {
+                    "run_id": run_id,
+                    "production_id": run["production_id"],
+                    "stage": _LOCAL_VIDEO_GENERATION_STAGE,
+                    "execution_profile": run["execution_profile"],
+                    "cache_key": inputs["cache_key"],
+                    "provider_task_record_id": record_id,
+                    "restart_recovery": True,
+                    **audit,
+                    "stage_attempt_id": attempt["id"],
+                },
+                lambda _job_id, cancel_event: self._execute_local_video_generation(
+                    attempt["id"],
+                    run_id,
+                    run["production_id"],
+                    payload,
+                    inputs,
+                    cancel_event,
+                    provider_task_record_id=record_id,
+                ),
+                production_id=run["production_id"],
+                before_enqueue=bind_recovery,
+                admission_failure=abort_recovery,
+                lane="gpu",
+            )
+        except Exception as exc:
+            # JobManager's admission failure hook atomically closes a linked
+            # job/attempt and releases this provider claim.  If the manager
+            # was already closed before it created a job, retire only the
+            # still-unlinked attempt; the provider was never claimed.
+            latest_attempt = self.database.get_stage_attempt(attempt["id"])
+            if (
+                latest_attempt is not None
+                and latest_attempt.get("job_id") is None
+                and latest_attempt.get("status") in {"queued", "running"}
+            ):
+                error_code, error_message = safe_comfyui_error(exc)
+                self.database.update_stage_attempt(
+                    attempt["id"],
+                    "failed",
+                    error_code=error_code,
+                    error_message=error_message,
+                )
+            raise
+        job["stage_attempt_id"] = attempt["id"]
+        job["cache_key"] = inputs["cache_key"]
+        job["provider_task_record_id"] = record_id
+        job["restart_recovery"] = True
+        return job
+
+    def _run_startup_provider_recovery(
+        self, tasks: list[dict[str, Any]]
+    ) -> None:
+        try:
+            summary = self._recover_comfyui_provider_tasks(tasks)
+        except Exception:
+            summary = {
+                "found": len(tasks),
+                "queued": 0,
+                "blocked": len(tasks),
+                "ambiguous": 0,
+            }
+        with self._provider_recovery_state_lock:
+            self._startup_provider_recovery = {**summary, "running": False}
+        self._provider_recovery_done.set()
+
+    def _recover_comfyui_provider_tasks(
+        self, tasks: list[dict[str, Any]] | None = None
+    ) -> dict[str, int]:
+        pending = (
+            list(tasks)
+            if tasks is not None
+            else self.database.list_recoverable_provider_tasks(limit=100)
+        )
+        summary = {
+            "found": len(pending),
+            "queued": 0,
+            "blocked": 0,
+            "ambiguous": 0,
+        }
+        for task in pending:
+            if self._provider_recovery_stop.is_set():
+                break
+            try:
+                self._queue_comfyui_provider_recovery(
+                    task, observation_timeout_seconds=1.0
+                )
+                summary["queued"] += 1
+            except Exception:
+                if self._provider_recovery_stop.is_set():
+                    break
+                latest = self.database.get_provider_task(task["id"])
+                if latest is not None and latest.get("status") == "ambiguous":
+                    summary["ambiguous"] += 1
+                else:
+                    summary["blocked"] += 1
+                    if latest is not None and latest.get("status") not in {
+                        "failed",
+                        "cancel_requested",
+                        "recovery_blocked",
+                    }:
+                        try:
+                            self.database.mark_provider_task_state(
+                                task["id"],
+                                "recovery_blocked",
+                                error_code="provider_recovery_unavailable",
+                                error_message=(
+                                    "The provider task could not be resumed during Studio startup."
+                                ),
+                            )
+                        except Exception:
+                            pass
+        return summary
+
+    def resume_provider_task(self, provider_task_record_id: str) -> dict[str, Any]:
+        """Manually retry a safe, protected provider-task reconciliation."""
+
+        if not isinstance(provider_task_record_id, str) or re.fullmatch(
+            r"provider_task_[0-9a-f]{32}", provider_task_record_id
+        ) is None:
+            raise RequestValidationError(
+                "provider task id is invalid", code="invalid_provider_task_id"
+            )
+        with self._provider_recovery_lock:
+            task = self.database.get_provider_task(provider_task_record_id)
+            if task is None:
+                raise KeyError("provider task not found")
+            current_job_id = task.get("current_job_id")
+            if isinstance(current_job_id, str):
+                current_job = self.database.get_job(current_job_id)
+                if current_job is not None and current_job.get("status") in {
+                    "queued",
+                    "running",
+                }:
+                    if self.jobs.is_admitted(current_job_id):
+                        current_job["provider_task_record_id"] = provider_task_record_id
+                        current_job["deduplicated"] = True
+                        return current_job
+                    current_attempt_id = task.get("current_stage_attempt_id")
+                    if (
+                        current_job.get("status") == "queued"
+                        and isinstance(current_attempt_id, str)
+                    ):
+                        self.database.abort_provider_task_recovery_admission(
+                            provider_task_record_id,
+                            current_stage_attempt_id=current_attempt_id,
+                            current_job_id=current_job_id,
+                            error_code="job_setup_failed",
+                            error_message="The background job could not be prepared.",
+                        )
+                        task = self.database.get_provider_task(
+                            provider_task_record_id
+                        )
+                        if task is None:
+                            raise KeyError("provider task not found")
+            if task.get("status") not in {
+                "prepared",
+                "submitted",
+                "ambiguous",
+                "recovery_blocked",
+                "cancel_requested",
+            }:
+                raise RequestValidationError(
+                    "This provider task cannot be resumed automatically.",
+                    code="provider_task_manual_review_required",
+                )
+            return self._queue_comfyui_provider_recovery(task)
+
     def _resolve_comfyui_execution_inputs(
         self,
         payload: dict[str, Any],
@@ -1833,8 +2662,11 @@ class StudioService:
         payload: dict[str, Any],
         inputs: dict[str, Any],
         cancel_event: JobExecutionContext | None = None,
+        *,
+        provider_task_record_id: str | None = None,
     ) -> dict[str, Any] | AtomicStageCompletion:
         _raise_if_cancelled(cancel_event)
+        active_provider_task_record_id = provider_task_record_id
         try:
             self.database.update_stage_attempt(attempt_id, "running")
             cache_key = inputs["cache_key"]
@@ -1844,31 +2676,162 @@ class StudioService:
             from . import comfyui
 
             _raise_if_cancelled(cancel_event)
-            cached = self._cached_local_comfyui_result(
-                production_id, payload, inputs, cancel_event
-            )
-            if cached is not None:
-                return _stage_completion_result(attempt_id, cached, cancel_event)
-            resume_prompt_id = comfyui.recover_comfyui_prompt_id(
+            # A normal invocation may reuse the latest verified Studio result
+            # before creating any provider lineage.  A reconciliation job must
+            # instead flow through the provider adapter: it validates the
+            # private cache against the persisted provider identity and then
+            # atomically completes that provider task with this new attempt.
+            if active_provider_task_record_id is None:
+                cached = self._cached_local_comfyui_result(
+                    production_id, payload, inputs, cancel_event
+                )
+                if cached is not None:
+                    return _stage_completion_result(attempt_id, cached, cancel_event)
+            payload_digest = comfyui_payload_digest(payload)
+            attempt = self.database.get_stage_attempt(attempt_id)
+            if attempt is None or not isinstance(attempt.get("job_id"), str):
+                raise ComfyUIError(
+                    "The ComfyUI stage is not linked to a durable job.",
+                    code="provider_task_provenance_invalid",
+                )
+            if active_provider_task_record_id is None:
+                existing_tasks = self.database.list_provider_tasks(
+                    run_id=run_id, limit=100
+                )
+                existing = next(
+                    (
+                        item
+                        for item in existing_tasks
+                        if item.get("cache_key") == cache_key
+                        and item.get("payload_digest") == payload_digest
+                    ),
+                    None,
+                )
+                if existing is not None and existing.get("status") in {
+                    "succeeded",
+                    "failed",
+                }:
+                    old_provider_task_id = existing.get("provider_task_id")
+                    if not isinstance(old_provider_task_id, str):
+                        raise ComfyUIError(
+                            "The terminal provider task identity is invalid.",
+                            code="provider_task_provenance_invalid",
+                        )
+                    terminal_marker_id = comfyui.recover_comfyui_prompt_id(
+                        self.workspace,
+                        production_id=production_id,
+                        run_id=run_id,
+                        cache_key=cache_key,
+                        payload_digest=payload_digest,
+                    )
+                    if terminal_marker_id is not None:
+                        if terminal_marker_id != old_provider_task_id:
+                            raise ComfyUIError(
+                                "The terminal provider marker identity changed.",
+                                code="comfyui_submission_unknown",
+                            )
+                        removed = comfyui.cleanup_comfyui_submission_marker(
+                            self.workspace,
+                            production_id=production_id,
+                            run_id=run_id,
+                            cache_key=cache_key,
+                            payload_digest=payload_digest,
+                            provider_task_id=old_provider_task_id,
+                        )
+                        if not removed:
+                            raise ComfyUIError(
+                                "The terminal provider marker could not be reconciled.",
+                                code="comfyui_submission_unknown",
+                            )
+                if existing is not None and existing.get("status") not in {
+                    "succeeded",
+                    "failed",
+                }:
+                    prepared_provider_task_id = existing.get("provider_task_id")
+                else:
+                    prepared_provider_task_id = str(uuid.uuid4())
+                if not isinstance(prepared_provider_task_id, str):
+                    prepared_provider_task_id = str(uuid.uuid4())
+                protection, ciphertext = self._protect_comfyui_resume_payload(payload)
+                provider_task, _created = self.database.create_or_get_provider_task(
+                    production_id=production_id,
+                    run_id=run_id,
+                    origin_stage_attempt_id=attempt_id,
+                    current_stage_attempt_id=attempt_id,
+                    current_job_id=attempt["job_id"],
+                    cache_key=cache_key,
+                    payload_digest=payload_digest,
+                    prepared_provider_task_id=prepared_provider_task_id,
+                    request_protection=protection,
+                    request_ciphertext=ciphertext,
+                )
+                active_provider_task_record_id = provider_task["id"]
+            else:
+                provider_task = self.database.get_provider_task(
+                    active_provider_task_record_id
+                )
+                if (
+                    provider_task is None
+                    or provider_task.get("production_id") != production_id
+                    or provider_task.get("run_id") != run_id
+                    or provider_task.get("cache_key") != cache_key
+                    or provider_task.get("payload_digest") != payload_digest
+                    or provider_task.get("current_stage_attempt_id") != attempt_id
+                    or provider_task.get("current_job_id") != attempt["job_id"]
+                ):
+                    raise ComfyUIError(
+                        "The provider recovery claim is invalid.",
+                        code="provider_task_provenance_invalid",
+                    )
+            if cancel_event is not None and active_provider_task_record_id is not None:
+                cancel_event.set_provider_task_record_id(
+                    active_provider_task_record_id
+                )
+            known_provider_task_id = provider_task.get("provider_task_id")
+            if not isinstance(known_provider_task_id, str):
+                raise ComfyUIError(
+                    "The provider task has no pre-issued prompt ID.",
+                    code="provider_task_provenance_invalid",
+                )
+            recovered_prompt_id = comfyui.recover_comfyui_prompt_id(
                 self.workspace,
                 production_id=production_id,
                 run_id=run_id,
                 cache_key=cache_key,
-                payload_digest=comfyui_payload_digest(payload),
+                payload_digest=payload_digest,
             )
+            if recovered_prompt_id is not None:
+                if recovered_prompt_id != known_provider_task_id:
+                    raise ComfyUIError(
+                        "The durable ComfyUI prompt ID changed.",
+                        code="comfyui_submission_unknown",
+                    )
+                provider_task = self.database.record_provider_submission(
+                    active_provider_task_record_id, recovered_prompt_id
+                )
+                resume_prompt_id = recovered_prompt_id
+                prepared_prompt_id = None
+            elif provider_task.get("status") in {"prepared", "recovering"} and (
+                provider_task.get("submitted_at") is None
+            ):
+                resume_prompt_id = None
+                prepared_prompt_id = known_provider_task_id
+            else:
+                # A previously accepted ID without its marker may still have a
+                # fully published cache.  Passing it as resume identity lets
+                # the adapter validate that cache first, then fail closed
+                # before any POST when the marker/cache is absent.
+                resume_prompt_id = known_provider_task_id
+                prepared_prompt_id = None
 
             def provider_submitted(provider_task_id: str) -> None:
-                self.database.append_event(
-                    "run",
-                    run_id,
-                    "video_generation.provider_submitted",
-                    {
-                        "attempt_id": attempt_id,
-                        "production_id": production_id,
-                        "provider": "comfyui",
-                        "provider_task_id": provider_task_id,
-                        "cache_key": cache_key,
-                    },
+                if active_provider_task_record_id is None:
+                    raise ComfyUIError(
+                        "The provider task record is unavailable.",
+                        code="provider_task_provenance_invalid",
+                    )
+                self.database.record_provider_submission(
+                    active_provider_task_record_id, provider_task_id
                 )
 
             raw = comfyui.generate_comfyui_video(
@@ -1885,6 +2848,7 @@ class StudioService:
                 expected_cache_key=cache_key,
                 cancel_event=cancel_event,
                 resume_prompt_id=resume_prompt_id,
+                prepared_prompt_id=prepared_prompt_id,
                 on_provider_task_id=provider_submitted,
             )
             _raise_if_cancelled(cancel_event)
@@ -1987,13 +2951,24 @@ class StudioService:
                 verified,
                 cancel_event,
                 artifact_records=tuple(artifact_records),
+                provider_task_record_id=active_provider_task_record_id,
             )
         except JobCancelled:
+            # JobManager commits an explicit provider cancellation together
+            # with the linked job/stage interruption.  Keeping this worker
+            # boundary side-effect free prevents a crash or SQLite error from
+            # exposing split provider/job truth.
             raise
         except Exception as exc:
             if cancel_event is not None and cancel_event.is_set():
                 raise JobCancelled() from exc
             error_code, error_message = safe_comfyui_error(exc)
+            if active_provider_task_record_id is not None:
+                # Keep ownership intact until JobManager reaches the database
+                # boundary.  The provider state (failed, ambiguous, or
+                # recovery_blocked) and the linked job/stage failure then
+                # commit in one transaction instead of exposing split truth.
+                pass
             # JobManager owns the terminal transition for a linked ComfyUI
             # job/stage pair.  Wrap unknown exceptions at this boundary so
             # only the fixed, allowlisted ComfyUI error reaches its atomic
@@ -2051,55 +3026,44 @@ class StudioService:
             runtime_identity=inputs["runtime_identity"],
             cache_key=cache_key,
         )
-        attempt = self.database.create_stage_attempt(
-            run_id,
-            _LOCAL_VIDEO_GENERATION_STAGE,
-            cache_key,
-            {
-                "execution_profile": run["execution_profile"],
-                "cache_key": cache_key,
-                **audit,
-                **pipeline_metadata,
-            },
-        )
-        try:
-            job = self.jobs.submit(
-                "local_video_generation",
-                {
-                    "run_id": run_id,
-                    "production_id": run["production_id"],
-                    "stage": _LOCAL_VIDEO_GENERATION_STAGE,
-                    "execution_profile": run["execution_profile"],
-                    "cache_key": cache_key,
-                    **audit,
-                    **pipeline_metadata,
-                    "stage_attempt_id": attempt["id"],
-                },
-                lambda _job_id, cancel_event: self._execute_local_video_generation(
-                    attempt["id"],
-                    run_id,
-                    run["production_id"],
-                    payload,
-                    inputs,
-                    cancel_event,
-                ),
+        payload_digest = comfyui_payload_digest(payload)
+        attempt_payload = {
+            "execution_profile": run["execution_profile"],
+            "cache_key": cache_key,
+            "provider_payload_digest": payload_digest,
+            **audit,
+            **pipeline_metadata,
+        }
+        job_payload = {
+            "run_id": run_id,
+            "production_id": run["production_id"],
+            "stage": _LOCAL_VIDEO_GENERATION_STAGE,
+            "execution_profile": run["execution_profile"],
+            "cache_key": cache_key,
+            "provider_payload_digest": payload_digest,
+            **audit,
+            **pipeline_metadata,
+        }
+        with self._local_video_submit_lock:
+            job, created = self.jobs.submit_local_video_generation_once(
                 production_id=run["production_id"],
-                before_enqueue=lambda created_job: self.database.link_stage_attempt_job(
-                    attempt["id"], created_job["id"]
+                run_id=run_id,
+                cache_key=cache_key,
+                payload_digest=payload_digest,
+                attempt_payload=attempt_payload,
+                job_payload=job_payload,
+                callback_factory=lambda attempt_id: (
+                    lambda _job_id, cancel_event: self._execute_local_video_generation(
+                        attempt_id,
+                        run_id,
+                        run["production_id"],
+                        payload,
+                        inputs,
+                        cancel_event,
+                    )
                 ),
-                lane="gpu",
             )
-        except Exception as exc:
-            error_code, error_message = safe_comfyui_error(exc)
-            self.database.update_stage_attempt(
-                attempt["id"],
-                "failed",
-                error_code=error_code,
-                error_message=error_message,
-            )
-            raise
-        job["stage_attempt_id"] = attempt["id"]
-        job["cache_key"] = cache_key
+        job["deduplicated"] = not created
         return job
 
     def approve_run(self, run_id: str, body: dict[str, Any]) -> dict[str, Any]:

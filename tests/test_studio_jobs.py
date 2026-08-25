@@ -209,6 +209,25 @@ class JobManagerShutdownTests(unittest.TestCase):
         self.assertEqual(self.manager.wait(default_job["id"], timeout=1)["status"], "interrupted")
         self.assertEqual(self.manager.wait(gpu_job["id"], timeout=1)["status"], "interrupted")
 
+    def test_shutdown_reports_noncooperative_worker_until_retry_drains_it(self) -> None:
+        started = threading.Event()
+        release = threading.Event()
+
+        def callback(_job_id: str) -> dict[str, object]:
+            started.set()
+            if not release.wait(5):
+                raise AssertionError("noncooperative worker fixture was not released")
+            return {}
+
+        job = self.manager.submit("audit_export", {}, callback)
+        self.assertTrue(started.wait(2))
+        self.assertFalse(self.manager.shutdown(timeout=0.05))
+        self.assertTrue(self.manager._thread.is_alive())
+        release.set()
+        self.assertTrue(self.manager._finished[job["id"]].wait(2))
+        self.assertTrue(self.manager.shutdown(timeout=2))
+        self.assertFalse(self.manager._thread.is_alive())
+
     def test_shutdown_terminates_registered_process_before_worker_join(self) -> None:
         started = threading.Event()
         process_holder: dict[str, subprocess.Popen[bytes]] = {}

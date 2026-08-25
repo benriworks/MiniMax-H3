@@ -265,6 +265,22 @@ def _wait_for_stage(
             f"The local pipeline cannot execute {stage}.",
             code="local_pipeline_unavailable",
         )
+
+    def retire_child(job_id: str) -> None:
+        # Normal Studio shutdown is a suspension boundary, not an operator
+        # request to cancel a multi-hour provider render.  Propagate the
+        # parent's intent to the child context so ComfyUI keeps the exact
+        # provider task alive for restart recovery.
+        preserve = bool(
+            cancel_event.is_set()
+            and getattr(cancel_event, "preserve_provider_task", False)
+        )
+        cancel_and_wait(
+            job_id,
+            timeout=None,
+            preserve_provider_task=preserve,
+        )
+
     queued_job_id: str | None = None
     queued_attempt_id: str | None = None
     try:
@@ -345,20 +361,20 @@ def _wait_for_stage(
         }
     except (SecurityError, TypeError, ValueError) as exc:
         if queued_job_id is not None:
-            cancel_and_wait(queued_job_id, timeout=None)
+            retire_child(queued_job_id)
         raise LocalPipelineError(
             f"The local pipeline received an invalid {stage} job.",
             code="invalid_worker_result",
         ) from exc
     except JobCancelled:
         if queued_job_id is not None:
-            cancel_and_wait(queued_job_id, timeout=None)
+            retire_child(queued_job_id)
         raise
     except Exception:
         # A top-level terminal state must never race a still-running child.
         # The manager waits for the child's worker slot, not merely its DB row.
         if queued_job_id is not None:
-            cancel_and_wait(queued_job_id, timeout=None)
+            retire_child(queued_job_id)
         raise
 
 

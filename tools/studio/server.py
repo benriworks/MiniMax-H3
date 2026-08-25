@@ -8,6 +8,7 @@ import mimetypes
 import os
 import re
 import secrets
+import socket
 import sys
 import threading
 import urllib.parse
@@ -31,6 +32,12 @@ from .service import RequestValidationError, StudioService
 SESSION_COOKIE = "StudioSession"
 MAX_JSON_BODY = 1024 * 1024
 MAX_REDACTED_TEXT_BYTES = 16 * 1024 * 1024
+# Windows does not reliably wake an already-blocked ``makefile().readline()``
+# when another thread shuts down the accepted socket.  Keep the timeout short
+# from the moment the handler is created so a partial request retires within
+# the server-close drain budget even on that platform.  This is an inactivity
+# timeout, not a limit on a parsed service operation.
+REQUEST_SOCKET_TIMEOUT_SECONDS = 1.0
 _SAFE_INLINE_IMAGE_SUFFIXES = {".bmp", ".gif", ".jpeg", ".jpg", ".png", ".webp"}
 _PRODUCTION_DETAIL_RE = re.compile(r"^/api/productions/([^/]+)$")
 _ARTIFACT_FILE_RE = re.compile(r"^/api/artifacts/([^/]+)/(?:file|content)$")
@@ -47,6 +54,7 @@ _RUN_EXTERNAL_NARRATION_RE = re.compile(r"^/api/runs/([^/]+)/execute-external-na
 _RUN_LOCAL_VIDEO_GENERATION_RE = re.compile(
     r"^/api/runs/([^/]+)/execute-local-video-generation$"
 )
+_PROVIDER_TASK_RESUME_RE = re.compile(r"^/api/provider-tasks/([^/]+)/resume$")
 _RUN_LOCAL_TIMELINE_RE = re.compile(r"^/api/runs/([^/]+)/execute-local-timeline$")
 _RUN_LOCAL_ASSEMBLY_RE = re.compile(r"^/api/runs/([^/]+)/execute-local-assembly$")
 _RUN_LOCAL_QC_RE = re.compile(r"^/api/runs/([^/]+)/execute-local-qc$")
@@ -113,7 +121,13 @@ def _normalized_origin(origin: str) -> str | None:
 
 
 class StudioHTTPServer(ThreadingHTTPServer):
-    daemon_threads = True
+    # Request threads must drain before the workspace lock is released.  A
+    # daemon handler can otherwise outlive server_close(), keep mutating the
+    # SQLite ledger, and overlap a newly started Studio process that acquired
+    # the same workspace lock.  block_on_close is explicit for clarity across
+    # Python maintenance releases.
+    daemon_threads = False
+    block_on_close = True
     allow_reuse_address = True
 
     def __init__(
@@ -132,18 +146,70 @@ class StudioHTTPServer(ThreadingHTTPServer):
         self.allowed_origins = allowed_origins
         self.instance_lock = instance_lock
         self._service_closed = False
+        self._server_closed = False
+        self._close_lock = threading.Lock()
+        self._request_sockets_lock = threading.Lock()
+        # False means request-line/headers/body parsing; True means a fully
+        # parsed request is executing a service operation and must drain.
+        self._request_sockets: dict[socket.socket, bool] = {}
+        self._closing = False
         super().__init__(server_address, StudioRequestHandler)
 
-    def server_close(self) -> None:
+    def process_request_thread(
+        self, request: socket.socket, client_address: tuple[str, int]
+    ) -> None:
+        """Track handler sockets so shutdown can interrupt partial requests."""
+
+        with self._request_sockets_lock:
+            if self._closing:
+                try:
+                    request.close()
+                except OSError:
+                    pass
+                return
+            self._request_sockets[request] = False
         try:
+            super().process_request_thread(request, client_address)
+        finally:
+            with self._request_sockets_lock:
+                self._request_sockets.pop(request, None)
+
+    def server_close(self) -> None:
+        # ThreadingMixIn.server_close() first closes the listening socket and
+        # then joins every non-daemon request handler.  Only after that drain is
+        # it safe to stop the shared service and release the system-wide
+        # workspace lock.  If draining or service shutdown fails, retain the
+        # lock so a second Studio cannot overlap still-live work in this
+        # process; process exit remains the final OS-level release boundary.
+        with self._close_lock:
+            if self._server_closed:
+                return
+            with self._request_sockets_lock:
+                self._closing = True
+                request_sockets = tuple(
+                    request
+                    for request, active in self._request_sockets.items()
+                    if not active
+                )
+            # A socket inactivity timeout alone can be defeated by a partial
+            # loopback request that drips bytes.  Interrupt every accepted
+            # connection before ThreadingMixIn joins handlers; already-running
+            # service calls still drain normally and keep the lock held.
+            for request in request_sockets:
+                try:
+                    request.shutdown(socket.SHUT_RDWR)
+                except OSError:
+                    pass
+                try:
+                    request.close()
+                except OSError:
+                    pass
+            super().server_close()
             if not self._service_closed:
                 self.service.close()
                 self._service_closed = True
-        finally:
-            try:
-                self.instance_lock.close()
-            finally:
-                super().server_close()
+            self.instance_lock.close()
+            self._server_closed = True
 
     def handle_error(self, _request: object, _client_address: object) -> None:
         # Client disconnects must not dump request context or stack traces into
@@ -154,10 +220,20 @@ class StudioHTTPServer(ThreadingHTTPServer):
 class StudioRequestHandler(BaseHTTPRequestHandler):
     server: StudioHTTPServer
     protocol_version = "HTTP/1.1"
+    # Non-daemon handlers must not wait forever on an abandoned keep-alive
+    # connection or partial loopback request during shutdown.
+    timeout = REQUEST_SOCKET_TIMEOUT_SECONDS
 
     def log_message(self, _format: str, *_args: object) -> None:
         # Request bodies, query values and credentials must not become logs.
         return
+
+    def _mark_request_active(self) -> None:
+        """Protect a parsed service call from shutdown socket interruption."""
+
+        with self.server._request_sockets_lock:
+            if self.connection in self.server._request_sockets:
+                self.server._request_sockets[self.connection] = True
 
     def _host_is_allowed(self) -> bool:
         authority = self.headers.get("Host", "")
@@ -206,12 +282,17 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
         )
 
     def _common_headers(self) -> None:
+        # Bound every request thread to one response.  The Studio UI already
+        # polls with independent fetches, and keeping HTTP/1.1 sockets alive
+        # would let a continuously active client prevent ThreadingMixIn from
+        # draining handlers during shutdown.  Per-response close therefore
+        # preserves the handler -> service -> workspace-lock teardown order.
+        self.close_connection = True
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Referrer-Policy", "no-referrer")
-        if self.close_connection:
-            self.send_header("Connection", "close")
+        self.send_header("Connection", "close")
 
     def _send_json(self, status: int, value: Any, *, send_body: bool = True) -> None:
         body = (json.dumps(value, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
@@ -281,9 +362,11 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
             remaining -= len(chunk)
 
     def do_GET(self) -> None:  # noqa: N802
+        self._mark_request_active()
         self._dispatch_get(send_body=True)
 
     def do_HEAD(self) -> None:  # noqa: N802
+        self._mark_request_active()
         self._dispatch_get(send_body=False)
 
     def do_POST(self) -> None:  # noqa: N802
@@ -300,6 +383,7 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
         try:
             path, _query = self._decoded_request()
             body = self._read_json()
+            self._mark_request_active()
             self._dispatch_post(path, body)
         except SecurityError:
             self._error(400, "invalid_path", "The requested path is invalid.")
@@ -313,6 +397,7 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
 
     def do_OPTIONS(self) -> None:  # noqa: N802
         # Deliberately no CORS negotiation; the production UI is same-origin.
+        self._mark_request_active()
         self._error(405, "method_not_allowed", "CORS is not enabled.")
 
     def _method_not_allowed(self) -> None:
@@ -320,12 +405,15 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
         self._error(405, "method_not_allowed", "The HTTP method is not supported.")
 
     def do_DELETE(self) -> None:  # noqa: N802
+        self._mark_request_active()
         self._method_not_allowed()
 
     def do_PUT(self) -> None:  # noqa: N802
+        self._mark_request_active()
         self._method_not_allowed()
 
     def do_PATCH(self) -> None:  # noqa: N802
+        self._mark_request_active()
         self._method_not_allowed()
 
     def _dispatch_get(self, *, send_body: bool) -> None:
@@ -443,6 +531,14 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
             self._send_json(
                 202, service.execute_local_video_generation(match.group(1), body)
             )
+            return
+        match = _PROVIDER_TASK_RESUME_RE.fullmatch(path)
+        if match:
+            if body:
+                raise RequestValidationError(
+                    "provider task resume body must be an empty object"
+                )
+            self._send_json(202, service.resume_provider_task(match.group(1)))
             return
         match = _RUN_LOCAL_TIMELINE_RE.fullmatch(path)
         if match:

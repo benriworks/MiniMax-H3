@@ -48,6 +48,7 @@ export interface ProductionRun {
   requestedStages: string[];
   executionProfile?: 'local_sapi' | 'local_comfyui' | 'local_pipeline' | string;
   stageAttempts: StageAttempt[];
+  providerTasks?: ProviderTask[];
   estimatedCost?: number;
   currency?: string;
   latestApproval?: Approval;
@@ -109,6 +110,46 @@ export interface StageAttempt {
   raw: Record<string, unknown>;
 }
 
+export type ProviderTaskStatus =
+  | 'prepared'
+  | 'submitted'
+  | 'recovering'
+  | 'succeeded'
+  | 'failed'
+  | 'ambiguous'
+  | 'recovery_blocked'
+  | 'cancel_requested'
+  | 'unknown';
+
+export interface ProviderTaskError {
+  code?: string;
+  message?: string;
+}
+
+/** Public recovery projection for one provider task; never contains prompt text. */
+export interface ProviderTask {
+  id: string;
+  provider: string;
+  productionId?: string;
+  runId?: string;
+  stage?: string;
+  status: ProviderTaskStatus;
+  providerTaskId?: string;
+  attemptSequence?: number;
+  activeStageAttemptId?: string;
+  activeJobId?: string;
+  recoveryCount?: number;
+  automaticRecoveryAvailable: boolean;
+  duplicateSubmissionBlocked: boolean;
+  resumable: boolean;
+  nextAction?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  checkedAt?: string;
+  error?: ProviderTaskError;
+  raw: Record<string, unknown>;
+}
+
 export interface StudioEvent {
   id: string;
   timestamp?: string;
@@ -146,6 +187,7 @@ export interface ProductionDetail extends ProductionSummary {
   events: StudioEvent[];
   approvals: Approval[];
   costs: CostEntry[];
+  providerTasks?: ProviderTask[];
   specification?: Record<string, unknown>;
 }
 

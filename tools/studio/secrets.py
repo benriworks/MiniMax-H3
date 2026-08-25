@@ -43,9 +43,29 @@ def _local_free(pointer: ctypes.POINTER(ctypes.c_ubyte)) -> None:
     kernel32.LocalFree(ctypes.cast(pointer, ctypes.c_void_p))
 
 
-def _protect(data: bytes) -> bytes:
+def protect_private_data(
+    data: bytes,
+    *,
+    description: str = "MiniMaxH3 Studio private local data",
+) -> bytes:
+    """Protect one bounded private payload for the current Windows user.
+
+    The returned bytes are DPAPI ciphertext.  Callers may persist the
+    ciphertext, but must never place the plaintext in jobs, events, logs, or
+    public API responses.
+    """
+
     if not dpapi_available():
         raise SecretStorageUnavailable("Windows DPAPI is unavailable")
+    if not isinstance(data, bytes) or not data or len(data) > 512 * 1024:
+        raise ValueError("private data must contain 1 to 524288 bytes")
+    if (
+        not isinstance(description, str)
+        or not description
+        or len(description) > 128
+        or "\x00" in description
+    ):
+        raise ValueError("private data description is invalid")
     input_blob, input_buffer = _blob(data)
     output_blob = _DataBlob()
     crypt32 = ctypes.windll.crypt32
@@ -61,7 +81,7 @@ def _protect(data: bytes) -> bytes:
     crypt32.CryptProtectData.restype = wintypes.BOOL
     if not crypt32.CryptProtectData(
         ctypes.byref(input_blob),
-        "MiniMaxH3 Studio provider credential",
+        description,
         None,
         None,
         None,
@@ -76,9 +96,13 @@ def _protect(data: bytes) -> bytes:
         del input_buffer
 
 
-def _unprotect(data: bytes) -> bytes:
+def unprotect_private_data(data: bytes) -> bytes:
+    """Decrypt one bounded current-user DPAPI payload in process memory."""
+
     if not dpapi_available():
         raise SecretStorageUnavailable("Windows DPAPI is unavailable")
+    if not isinstance(data, bytes) or not data or len(data) > 1024 * 1024:
+        raise ValueError("protected private data is invalid")
     input_blob, input_buffer = _blob(data)
     output_blob = _DataBlob()
     crypt32 = ctypes.windll.crypt32
@@ -137,7 +161,10 @@ class SecretStore:
         clean = value.strip()
         if not clean or "\x00" in clean or "\n" in clean or "\r" in clean:
             raise ValueError("credential must be a non-empty single line")
-        encrypted = _protect(clean.encode("utf-8"))
+        encrypted = protect_private_data(
+            clean.encode("utf-8"),
+            description="MiniMaxH3 Studio provider credential",
+        )
         self.directory.mkdir(parents=True, exist_ok=True)
         with tempfile.NamedTemporaryFile(dir=self.directory, delete=False) as temporary:
             temporary.write(encrypted)
@@ -150,7 +177,7 @@ class SecretStore:
         path = self._path(provider)
         if not path.is_file():
             return None
-        decrypted = _unprotect(path.read_bytes())
+        decrypted = unprotect_private_data(path.read_bytes())
         try:
             value = decrypted.decode("utf-8")
             return value if value else None

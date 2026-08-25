@@ -231,6 +231,34 @@ class StudioCliTests(unittest.TestCase):
         service.close.assert_called_once_with()
         lock.close.assert_called_once_with()
 
+    def test_close_failure_retains_workspace_lock_and_suppresses_success(self) -> None:
+        lock, service, runner = self._mock_runtime()
+        service.close.side_effect = RuntimeError("worker still draining")
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        retained_before = list(cli._RETAINED_INSTANCE_LOCKS)
+        try:
+            with (
+                mock.patch.object(cli, "WorkspaceInstanceLock", return_value=lock),
+                mock.patch.object(cli, "StudioService", return_value=service),
+                mock.patch.object(cli, "run_test_video", runner),
+                redirect_stdout(stdout),
+                redirect_stderr(stderr),
+            ):
+                exit_code = cli.main(self._argv())
+
+            self.assertEqual(exit_code, 2)
+            self.assertEqual(stdout.getvalue(), "")
+            self.assertEqual(
+                json.loads(stderr.getvalue())["error"]["code"],
+                "process_interrupted",
+            )
+            service.close.assert_called_once_with()
+            lock.close.assert_not_called()
+            self.assertIs(cli._RETAINED_INSTANCE_LOCKS[-1], lock)
+        finally:
+            cli._RETAINED_INSTANCE_LOCKS[:] = retained_before
+
     def test_secret_status_remains_flags_only(self) -> None:
         store = mock.Mock()
         store.statuses.return_value = [

@@ -19,9 +19,13 @@ from unittest import mock
 from tools.studio import comfyui as comfyui_module
 from tools.studio import comfyui_execution as execution
 from tools.studio.comfyui import (
+    cleanup_comfyui_submission_marker,
     generate_comfyui_video,
+    observe_comfyui_submission,
     prepare_comfyui_workflow,
     recover_comfyui_prompt_id,
+    recover_comfyui_terminal_state,
+    request_comfyui_provider_cancel,
     resolve_comfyui_runtime_identity,
     resolve_comfyui_tool_identity,
     resume_comfyui_video,
@@ -31,6 +35,7 @@ from tools.studio.comfyui_execution import (
     COMFYUI_WORKFLOW_PRESET,
     ComfyUIError,
     ComfyUIMediaError,
+    ComfyUISubmissionPersistenceError,
     ComfyUISubmissionUnknown,
     ComfyUIValidationError,
     comfyui_audit_payload,
@@ -43,6 +48,7 @@ from tools.studio.comfyui_execution import (
     normalize_workflow_record,
     validate_comfyui_payload,
 )
+from tools.studio.jobs import JobCancelled, JobExecutionContext
 from tools.studio.security import canonical_json
 
 
@@ -81,6 +87,10 @@ class _ComfyHandler(BaseHTTPRequestHandler):
         if self.path == "/queue":
             self.server.queue_requests.append(body)
             self._json(200, {})
+            return
+        if self.path == f"/api/jobs/{self.server.prompt_id}/cancel":
+            self.server.job_cancel_requests.append(self.server.prompt_id)
+            self._json(200, {"cancelled": True})
             return
         if self.path != "/prompt":
             self._json(404, {"error": "not found"})
@@ -124,6 +134,15 @@ class _ComfyHandler(BaseHTTPRequestHandler):
                 return
             self._json(200, self.server.system_stats)
             return
+        if self.path == f"/api/jobs/{self.server.prompt_id}":
+            if self.server.job_status == "not_found":
+                self._json(404, {"error": "Job not found"})
+            else:
+                self._json(
+                    200,
+                    {"id": self.server.prompt_id, "status": self.server.job_status},
+                )
+            return
         if self.path != f"/history/{self.server.prompt_id}":
             self._json(404, {"error": "not found"})
             return
@@ -164,6 +183,7 @@ class _ComfyServer(ThreadingHTTPServer):
         self.prompt_id = PROMPT_ID
         self.prompt_mode = "success"
         self.history_mode = "success"
+        self.job_status = "in_progress"
         self.empty_history_reads = 0
         self.system_stats_mode = "success"
         self.system_stats: dict[str, Any] = {}
@@ -176,6 +196,7 @@ class _ComfyServer(ThreadingHTTPServer):
         self.posts: list[dict[str, Any]] = []
         self.gets: list[str] = []
         self.queue_requests: list[dict[str, Any]] = []
+        self.job_cancel_requests: list[str] = []
 
     @property
     def url(self) -> str:
@@ -833,7 +854,7 @@ class ComfyUIAdapterTests(unittest.TestCase):
             def callback(_prompt_id: str) -> None:
                 raise RuntimeError("simulated database crash window")
 
-            with self.assertRaises(ComfyUISubmissionUnknown):
+            with self.assertRaises(ComfyUISubmissionPersistenceError):
                 generate_comfyui_video(
                     self.workspace,
                     **self._kwargs(server),
@@ -865,12 +886,171 @@ class ComfyUIAdapterTests(unittest.TestCase):
             resumed_callback.assert_not_called()
             self.assertFalse(self._marker().exists())
 
+    def test_terminal_provider_failure_is_fsynced_before_marker_cleanup(self) -> None:
+        with _mock_server() as server:
+            server.history_mode = "error"
+            with self.assertRaises(ComfyUIError) as raised:
+                generate_comfyui_video(self.workspace, **self._kwargs(server))
+            self.assertEqual(raised.exception.error_code, "comfyui_generation_failed")
+            marker = json.loads(self._marker().read_text(encoding="utf-8"))
+            self.assertEqual(marker["prompt_id"], PROMPT_ID)
+            self.assertEqual(marker["terminal_state"], "failed")
+            identity = {
+                "production_id": "PROD_COMFY_TEST",
+                "run_id": "RUN_COMFY_TEST",
+                "cache_key": self._cache_key(),
+                "payload_digest": comfyui_payload_digest(self.payload),
+                "provider_task_id": PROMPT_ID,
+            }
+            self.assertEqual(
+                recover_comfyui_terminal_state(self.workspace, **identity),
+                "failed",
+            )
+            self.assertTrue(
+                cleanup_comfyui_submission_marker(self.workspace, **identity)
+            )
+            self.assertFalse(self._marker().exists())
+
+    def test_preissued_prompt_id_is_durable_before_an_ambiguous_post(self) -> None:
+        with _mock_server() as server:
+            server.prompt_mode = "redirect"
+            with self.assertRaises(ComfyUISubmissionUnknown):
+                generate_comfyui_video(
+                    self.workspace,
+                    **self._kwargs(server),
+                    prepared_prompt_id=PROMPT_ID,
+                )
+            marker = json.loads(self._marker().read_text(encoding="utf-8"))
+            self.assertEqual(marker["prompt_id"], PROMPT_ID)
+            prompt_post = next(
+                item for item in server.posts if item["path"] == "/prompt"
+            )
+            self.assertEqual(prompt_post["json"]["prompt_id"], PROMPT_ID)
+            self.assertEqual(
+                recover_comfyui_prompt_id(
+                    self.workspace,
+                    production_id="PROD_COMFY_TEST",
+                    run_id="RUN_COMFY_TEST",
+                    cache_key=self._cache_key(),
+                    payload_digest=comfyui_payload_digest(self.payload),
+                ),
+                PROMPT_ID,
+            )
+
+    def test_preissued_prompt_id_rejects_a_rewritten_provider_response(self) -> None:
+        prepared_prompt_id = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
+        with _mock_server() as server:
+            with self.assertRaises(ComfyUISubmissionUnknown):
+                generate_comfyui_video(
+                    self.workspace,
+                    **self._kwargs(server),
+                    prepared_prompt_id=prepared_prompt_id,
+                )
+            marker = json.loads(self._marker().read_text(encoding="utf-8"))
+            self.assertEqual(marker["prompt_id"], prepared_prompt_id)
+            self.assertEqual(
+                [item for item in server.posts if item["path"] == "/prompt"][0][
+                    "json"
+                ]["prompt_id"],
+                prepared_prompt_id,
+            )
+
+    def test_marker_cleanup_cannot_remove_another_run_marker(self) -> None:
+        marker = self._marker()
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        payload_digest = comfyui_payload_digest(self.payload)
+        comfyui_module._create_marker(
+            marker,
+            comfyui_module._marker_body(
+                production_id="PROD_COMFY_TEST",
+                run_id="RUN_COMFY_FOREIGN",
+                cache_key=self._cache_key(),
+                payload_digest=payload_digest,
+                prompt_id=PROMPT_ID,
+                queue_number=7,
+            ),
+        )
+        removed = comfyui_module._remove_marker_if_owned(
+            marker,
+            production_id="PROD_COMFY_TEST",
+            run_id="RUN_COMFY_TEST",
+            cache_key=self._cache_key(),
+            payload_digest=payload_digest,
+            prompt_id=PROMPT_ID,
+        )
+        self.assertFalse(removed)
+        self.assertTrue(marker.is_file())
+        self.assertTrue(
+            comfyui_module._remove_marker_if_owned(
+                marker,
+                production_id="PROD_COMFY_TEST",
+                run_id="RUN_COMFY_FOREIGN",
+                cache_key=self._cache_key(),
+                payload_digest=payload_digest,
+                prompt_id=PROMPT_ID,
+            )
+        )
+        self.assertFalse(marker.exists())
+
+    def test_provider_observation_is_read_only_and_distinguishes_not_found(self) -> None:
+        with _mock_server() as server:
+            self._kwargs(server)
+            running = observe_comfyui_submission(
+                self.workspace,
+                provider_task_id=PROMPT_ID,
+                base_url=server.url,
+            )
+            self.assertEqual(running["state"], "provider_running")
+            self.assertEqual(running["provider_status"], "in_progress")
+            self.assertEqual(server.posts, [])
+
+            server.job_status = "completed"
+            completed = observe_comfyui_submission(
+                self.workspace,
+                provider_task_id=PROMPT_ID,
+                base_url=server.url,
+            )
+            self.assertEqual(completed["state"], "complete_recoverable")
+
+            server.job_status = "not_found"
+            missing = observe_comfyui_submission(
+                self.workspace,
+                provider_task_id=PROMPT_ID,
+                base_url=server.url,
+            )
+            self.assertEqual(missing["state"], "ambiguous")
+            self.assertTrue(missing["duplicate_submission_blocked"])
+            self.assertEqual(server.posts, [])
+
+    def test_public_provider_cancel_targets_exact_uuid_without_prompt_post(self) -> None:
+        with _mock_server() as server:
+            self._kwargs(server)
+            accepted = request_comfyui_provider_cancel(
+                self.workspace,
+                provider_task_id=PROMPT_ID,
+                base_url=server.url,
+            )
+            self.assertTrue(accepted)
+            self.assertEqual(server.job_cancel_requests, [PROMPT_ID])
+            self.assertEqual(
+                server.posts,
+                [
+                    {
+                        "path": f"/api/jobs/{PROMPT_ID}/cancel",
+                        "json": {},
+                    }
+                ],
+            )
+            self.assertFalse(
+                any(item["path"] == "/prompt" for item in server.posts)
+            )
+
     def test_resume_rechecks_live_runtime_before_history(self) -> None:
         with _mock_server() as server:
             def callback_gap(_prompt_id: str) -> None:
                 raise RuntimeError("callback gap")
 
-            with self.assertRaises(ComfyUISubmissionUnknown):
+            with self.assertRaises(ComfyUISubmissionPersistenceError):
                 generate_comfyui_video(
                     self.workspace,
                     **self._kwargs(server),
@@ -930,7 +1110,23 @@ class ComfyUIAdapterTests(unittest.TestCase):
                     cancel_event=cancel,
                     on_provider_task_id=lambda _prompt_id: cancel.set(),
                 )
-            self.assertEqual(server.queue_requests, [{"delete": [PROMPT_ID]}])
+            self.assertEqual(server.job_cancel_requests, [PROMPT_ID])
+            self.assertEqual(server.queue_requests, [])
+            self.assertTrue(self._marker().is_file())
+
+    def test_studio_shutdown_suspends_polling_without_deleting_provider_task(self) -> None:
+        suspend = JobExecutionContext("job_restart_recovery")
+        with _mock_server() as server:
+            with self.assertRaises(JobCancelled):
+                generate_comfyui_video(
+                    self.workspace,
+                    **self._kwargs(server),
+                    cancel_event=suspend,
+                    on_provider_task_id=lambda _prompt_id: suspend.set_for_shutdown(),
+                )
+            self.assertEqual(server.queue_requests, [])
+            self.assertEqual(server.job_cancel_requests, [])
+            self.assertTrue(suspend.preserve_provider_task)
             self.assertTrue(self._marker().is_file())
 
     def test_provider_output_traversal_is_rejected_and_source_is_preserved(self) -> None:

@@ -21,7 +21,7 @@ from tools.studio.comfyui_execution import (
     RUNTIME_REPOSITORY_SPECS as COMFYUI_RUNTIME_REPOSITORY_SPECS,
 )
 from tools.studio.database import AtomicStageCompletion
-from tools.studio.jobs import JobExecutionContext
+from tools.studio.jobs import JobCancelled, JobExecutionContext
 from tools.studio.pipeline import (
     LocalPipelineError,
     local_pipeline_audit_payload,
@@ -125,6 +125,9 @@ def _comfyui_inputs() -> dict[str, Any]:
     }
 
 
+_FAKE_COMFY_PROVIDER_IDS: dict[tuple[str, str, str], str] = {}
+
+
 def _fake_local_comfyui_result(
     workspace: Path,
     *,
@@ -138,7 +141,18 @@ def _fake_local_comfyui_result(
     if expected_cache_key is not None and expected_cache_key != PIPELINE_COMFY_CACHE_KEY:
         raise AssertionError("pipeline ComfyUI cache identity changed")
     callback = kwargs.get("on_provider_task_id")
-    prompt_id = "11111111-1111-4111-8111-111111111111"
+    identity_key = (
+        str(workspace.resolve()),
+        run_id,
+        str(expected_cache_key or PIPELINE_COMFY_CACHE_KEY),
+    )
+    prompt_id = kwargs.get("prepared_prompt_id") or kwargs.get("resume_prompt_id")
+    if isinstance(prompt_id, str):
+        _FAKE_COMFY_PROVIDER_IDS[identity_key] = prompt_id
+    else:
+        prompt_id = _FAKE_COMFY_PROVIDER_IDS.get(
+            identity_key, "11111111-1111-4111-8111-111111111111"
+        )
     if callable(callback):
         callback(prompt_id)
     output_directory = (
@@ -222,16 +236,22 @@ class _FakeJobs:
     def __init__(self) -> None:
         self.records: dict[str, dict[str, Any]] = {}
         self.cancelled: list[str] = []
+        self.cancel_preserve: list[bool] = []
 
     def wait(self, job_id: str, timeout: float = 30.0) -> dict[str, Any] | None:
         del timeout
         return self.records.get(job_id)
 
     def cancel_and_wait(
-        self, job_id: str, *, timeout: float | None = None
+        self,
+        job_id: str,
+        *,
+        timeout: float | None = None,
+        preserve_provider_task: bool = False,
     ) -> dict[str, Any] | None:
         del timeout
         self.cancelled.append(job_id)
+        self.cancel_preserve.append(preserve_provider_task)
         return self.records.get(job_id)
 
 
@@ -365,6 +385,32 @@ class LocalPipelineContractTests(unittest.TestCase):
         )
         self.assertEqual(result["technical_verdict"], "pass")
         self.assertEqual(len(result["artifacts"]), 4)
+
+    def test_shutdown_intent_is_propagated_to_current_child(self) -> None:
+        payload = _payload(seed=421)
+        service = _FakeService(payload)
+        context = JobExecutionContext("job_" + "d" * 32)
+        original_wait = service.jobs.wait
+
+        def interrupting_wait(
+            job_id: str, timeout: float = 30.0
+        ) -> dict[str, Any] | None:
+            record = original_wait(job_id, timeout)
+            context.set_for_shutdown()
+            return {**record, "status": "running"} if record is not None else None
+
+        service.jobs.wait = interrupting_wait
+        with self.assertRaises(JobCancelled):
+            run_local_pipeline(
+                service,
+                production_id=PRODUCTION_ID,
+                run_id=RUN_ID,
+                revision_id=REVISION_ID,
+                payload=payload,
+                expected_pipeline_key=service.key,
+                cancel_event=context,
+            )
+        self.assertEqual(service.jobs.cancel_preserve, [True])
 
     def test_long_narration_stops_before_timeline(self) -> None:
         payload = _payload(seed=43)

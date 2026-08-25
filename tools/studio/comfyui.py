@@ -49,6 +49,7 @@ from .comfyui_execution import (
     ComfyUIError,
     ComfyUIMediaError,
     ComfyUIProviderError,
+    ComfyUISubmissionPersistenceError,
     ComfyUISubmissionUnknown,
     ComfyUIValidationError,
     comfyui_cache_key,
@@ -66,7 +67,8 @@ from .security import SecurityError, canonical_json, validate_identifier, worksp
 DEFAULT_BASE_URL = "http://127.0.0.1:8188"
 PROMPT_ENDPOINT = "/prompt"
 HISTORY_ENDPOINT = "/history/{prompt_id}"
-QUEUE_ENDPOINT = "/queue"
+JOB_ENDPOINT = "/api/jobs/{prompt_id}"
+JOB_CANCEL_ENDPOINT = "/api/jobs/{prompt_id}/cancel"
 SYSTEM_STATS_ENDPOINT = "/system_stats"
 SUBMISSION_MARKER_FILENAME = ".submission-unknown.json"
 
@@ -74,7 +76,7 @@ REQUEST_TIMEOUT_SECONDS = 30.0
 GENERATION_TIMEOUT_SECONDS = 6 * 60 * 60.0
 POLL_INTERVAL_SECONDS = 2.0
 MAX_HTTP_RESPONSE_BYTES = 8 * 1024 * 1024
-MAX_QUEUE_RESPONSE_BYTES = 64 * 1024
+MAX_JOB_RESPONSE_BYTES = 256 * 1024
 MAX_SYSTEM_STATS_RESPONSE_BYTES = 256 * 1024
 MAX_REQUEST_BYTES = 512 * 1024
 MAX_WORKFLOW_BYTES = 1024 * 1024
@@ -1409,6 +1411,7 @@ def _marker_body(
     payload_digest: str,
     prompt_id: str | None = None,
     queue_number: int | None = None,
+    terminal_state: str | None = None,
 ) -> dict[str, Any]:
     result: dict[str, Any] = {
         "schema_version": COMFYUI_SCHEMA_VERSION,
@@ -1422,6 +1425,10 @@ def _marker_body(
     if prompt_id is not None:
         result["prompt_id"] = prompt_id
         result["queue_number"] = queue_number
+    if terminal_state is not None:
+        if terminal_state != "failed":
+            raise ComfyUIValidationError("terminal_state is invalid")
+        result["terminal_state"] = terminal_state
     return result
 
 
@@ -1483,8 +1490,11 @@ def _marker_matches(
     run_id: str,
     cache_key: str,
     payload_digest: str,
-    prompt_id: str,
+    prompt_id: str | None,
 ) -> bool:
+    terminal_state = marker.get("terminal_state")
+    if terminal_state not in {None, "failed"}:
+        return False
     expected = _marker_body(
         production_id=production_id,
         run_id=run_id,
@@ -1492,6 +1502,7 @@ def _marker_matches(
         payload_digest=payload_digest,
         prompt_id=prompt_id,
         queue_number=marker.get("queue_number"),
+        terminal_state=terminal_state,
     )
     return dict(marker) == expected and (
         marker.get("queue_number") is None
@@ -1501,6 +1512,31 @@ def _marker_matches(
             and marker["queue_number"] >= 0
         )
     )
+
+
+def _remove_marker_if_owned(
+    marker: Path,
+    *,
+    production_id: str,
+    run_id: str,
+    cache_key: str,
+    payload_digest: str,
+    prompt_id: str | None,
+) -> bool:
+    """Remove only the marker owned by this exact run/provider identity."""
+
+    value = _read_marker(marker)
+    if value is None or not _marker_matches(
+        value,
+        production_id=production_id,
+        run_id=run_id,
+        cache_key=cache_key,
+        payload_digest=payload_digest,
+        prompt_id=prompt_id,
+    ):
+        return False
+    _remove_marker(marker)
+    return True
 
 
 def recover_comfyui_prompt_id(
@@ -1547,19 +1583,141 @@ def recover_comfyui_prompt_id(
     return prompt_id
 
 
+def cleanup_comfyui_submission_marker(
+    workspace: Path,
+    *,
+    production_id: str,
+    run_id: str,
+    cache_key: str,
+    payload_digest: str,
+    provider_task_id: str,
+) -> bool:
+    """Remove only one terminal task's exact durable submission marker."""
+
+    validate_identifier(production_id, label="production id")
+    validate_identifier(run_id, label="run id")
+    normalized_cache_key = _strict_cache_key(cache_key)
+    if (
+        not isinstance(payload_digest, str)
+        or re.fullmatch(r"[0-9A-Fa-f]{64}", payload_digest) is None
+    ):
+        raise ComfyUIValidationError("payload_digest is invalid")
+    prompt_id = _strict_prompt_id(provider_task_id)
+    root = workspace.resolve(strict=True)
+    marker = _submission_marker_path(root, production_id, normalized_cache_key)
+    return _remove_marker_if_owned(
+        marker,
+        production_id=production_id,
+        run_id=run_id,
+        cache_key=normalized_cache_key,
+        payload_digest=payload_digest.upper(),
+        prompt_id=prompt_id,
+    )
+
+
+def recover_comfyui_terminal_state(
+    workspace: Path,
+    *,
+    production_id: str,
+    run_id: str,
+    cache_key: str,
+    payload_digest: str,
+    provider_task_id: str,
+) -> str | None:
+    """Read a validated durable terminal phase for one exact provider UUID."""
+
+    validate_identifier(production_id, label="production id")
+    validate_identifier(run_id, label="run id")
+    normalized_cache_key = _strict_cache_key(cache_key)
+    if (
+        not isinstance(payload_digest, str)
+        or re.fullmatch(r"[0-9A-Fa-f]{64}", payload_digest) is None
+    ):
+        raise ComfyUIValidationError("payload_digest is invalid")
+    prompt_id = _strict_prompt_id(provider_task_id)
+    root = workspace.resolve(strict=True)
+    marker = _submission_marker_path(root, production_id, normalized_cache_key)
+    value = _read_marker(marker)
+    if value is None:
+        return None
+    if not _marker_matches(
+        value,
+        production_id=production_id,
+        run_id=run_id,
+        cache_key=normalized_cache_key,
+        payload_digest=payload_digest.upper(),
+        prompt_id=prompt_id,
+    ):
+        raise ComfyUISubmissionUnknown()
+    terminal_state = value.get("terminal_state")
+    return terminal_state if terminal_state == "failed" else None
+
+
+def restore_comfyui_submission_marker(
+    workspace: Path,
+    *,
+    production_id: str,
+    run_id: str,
+    cache_key: str,
+    payload_digest: str,
+    provider_task_id: str,
+) -> bool:
+    """Recreate a missing marker after an exact read-only provider lookup."""
+
+    validate_identifier(production_id, label="production id")
+    validate_identifier(run_id, label="run id")
+    normalized_cache_key = _strict_cache_key(cache_key)
+    if (
+        not isinstance(payload_digest, str)
+        or re.fullmatch(r"[0-9A-Fa-f]{64}", payload_digest) is None
+    ):
+        raise ComfyUIValidationError("payload_digest is invalid")
+    prompt_id = _strict_prompt_id(provider_task_id)
+    root = workspace.resolve(strict=True)
+    marker = _submission_marker_path(root, production_id, normalized_cache_key)
+    existing = _read_marker(marker)
+    if existing is not None:
+        if not _marker_matches(
+            existing,
+            production_id=production_id,
+            run_id=run_id,
+            cache_key=normalized_cache_key,
+            payload_digest=payload_digest.upper(),
+            prompt_id=prompt_id,
+        ):
+            raise ComfyUISubmissionUnknown()
+        return False
+    _create_marker(
+        marker,
+        _marker_body(
+            production_id=production_id,
+            run_id=run_id,
+            cache_key=normalized_cache_key,
+            payload_digest=payload_digest.upper(),
+            prompt_id=prompt_id,
+            queue_number=None,
+        ),
+    )
+    return True
+
+
 def _submit_prompt(
     base_url: str,
     submitted_graph: Mapping[str, Any],
     *,
+    expected_prompt_id: str | None,
     timeout: float,
     opener: Callable[..., Any] | None,
 ) -> tuple[str, int | None]:
+    request_body: dict[str, Any] = {"prompt": submitted_graph}
+    if expected_prompt_id is not None:
+        request_body["prompt_id"] = _strict_prompt_id(expected_prompt_id)
     try:
         raw = _http_request(
             base_url,
             PROMPT_ENDPOINT,
             method="POST",
-            body={"prompt": submitted_graph},
+            body=request_body,
             timeout=timeout,
             maximum_bytes=MAX_HTTP_RESPONSE_BYTES,
             opener=opener,
@@ -1579,6 +1737,11 @@ def _submit_prompt(
         # A syntactically successful POST response can still correspond to an
         # accepted queue item.  An unusable ID is therefore ambiguous.
         raise ComfyUISubmissionUnknown() from exc
+    if expected_prompt_id is not None and prompt_id != expected_prompt_id:
+        # The pre-issued ID is already durable in the marker/provider task.
+        # Accepting a rewritten response would make later reconciliation
+        # target the wrong job, so preserve the marker and fail closed.
+        raise ComfyUISubmissionUnknown()
     node_errors = response.get("node_errors", {})
     if not isinstance(node_errors, dict) or node_errors:
         # A valid prompt_id means work may already be queued even if unexpected
@@ -1663,28 +1826,145 @@ def _terminal_history(
     raise ComfyUISubmissionUnknown()
 
 
-def _best_effort_queue_cancel(
+def _best_effort_provider_cancel(
     base_url: str,
     prompt_id: str,
     *,
     timeout: float,
     opener: Callable[..., Any] | None,
-) -> None:
+) -> bool:
     try:
-        _http_request(
+        raw = _http_request(
             base_url,
-            QUEUE_ENDPOINT,
+            JOB_CANCEL_ENDPOINT.format(
+                prompt_id=urllib.parse.quote(prompt_id, safe="-")
+            ),
             method="POST",
-            body={"delete": [prompt_id]},
+            body={},
             timeout=min(timeout, 10.0),
-            maximum_bytes=MAX_QUEUE_RESPONSE_BYTES,
-            allow_empty=True,
+            maximum_bytes=MAX_JOB_RESPONSE_BYTES,
             opener=opener,
         )
+        response = _json_response(raw)
+        if set(response) != {"cancelled"} or not isinstance(
+            response.get("cancelled"), bool
+        ):
+            raise ComfyUISubmissionUnknown()
+        return bool(response["cancelled"])
     except BaseException:
         # Cancellation is advisory.  The durable marker remains the safety
         # boundary regardless of whether this best-effort request succeeds.
-        return
+        return False
+
+
+def request_comfyui_provider_cancel(
+    workspace: Path,
+    *,
+    provider_task_id: str,
+    base_url: str = DEFAULT_BASE_URL,
+    request_timeout_seconds: float = REQUEST_TIMEOUT_SECONDS,
+    opener: Callable[..., Any] | None = None,
+) -> bool:
+    """Reissue one exact ComfyUI cancellation without submitting a prompt.
+
+    This public recovery primitive validates the pinned loopback runtime and
+    accepts only the already persisted provider UUID.  The cancellation POST
+    is advisory: callers must retain ``cancel_requested`` until a later exact
+    GET proves a terminal provider state.
+    """
+
+    root = workspace.resolve(strict=True)
+    prompt_id = _strict_prompt_id(provider_task_id)
+    normalized_base = _normalize_base_url(base_url)
+    timeout = _bounded_seconds(
+        request_timeout_seconds,
+        label="request_timeout_seconds",
+        minimum=0.1,
+        maximum=120.0,
+    )
+    _validate_live_comfyui_runtime(
+        root, normalized_base, timeout=timeout, opener=opener
+    )
+    return _best_effort_provider_cancel(
+        normalized_base,
+        prompt_id,
+        timeout=timeout,
+        opener=opener,
+    )
+
+
+def observe_comfyui_submission(
+    workspace: Path,
+    *,
+    provider_task_id: str,
+    base_url: str = DEFAULT_BASE_URL,
+    request_timeout_seconds: float = REQUEST_TIMEOUT_SECONDS,
+    opener: Callable[..., Any] | None = None,
+) -> dict[str, Any]:
+    """Inspect one pre-issued ComfyUI job without POST, cancel, or cleanup."""
+
+    root = workspace.resolve(strict=True)
+    prompt_id = _strict_prompt_id(provider_task_id)
+    normalized_base = _normalize_base_url(base_url)
+    timeout = _bounded_seconds(
+        request_timeout_seconds,
+        label="request_timeout_seconds",
+        minimum=0.1,
+        maximum=120.0,
+    )
+    _validate_live_comfyui_runtime(
+        root, normalized_base, timeout=timeout, opener=opener
+    )
+    path = JOB_ENDPOINT.format(
+        prompt_id=urllib.parse.quote(prompt_id, safe="-")
+    )
+    try:
+        raw = _http_request(
+            normalized_base,
+            path,
+            method="GET",
+            body=None,
+            timeout=timeout,
+            maximum_bytes=MAX_JOB_RESPONSE_BYTES,
+            opener=opener,
+        )
+        response = _json_response(raw)
+    except _HTTPStatusError as exc:
+        if exc.status == 404:
+            return {
+                "state": "ambiguous",
+                "provider_status": "not_found",
+                "provider_task_id": prompt_id,
+                "duplicate_submission_blocked": True,
+                "resumable": False,
+            }
+        raise ComfyUISubmissionUnknown() from exc
+    except (_RedirectRejected, _HTTPTransportError, _HTTPResponseError) as exc:
+        raise ComfyUISubmissionUnknown() from exc
+    if response.get("id") != prompt_id:
+        raise ComfyUISubmissionUnknown()
+    status = response.get("status")
+    if status in {"pending", "in_progress"}:
+        state = "provider_running"
+        resumable = True
+    elif status == "completed":
+        state = "complete_recoverable"
+        resumable = True
+    elif status in {"failed", "cancelled"}:
+        state = "failed"
+        resumable = False
+    else:
+        raise ComfyUISubmissionUnknown()
+    return {
+        "state": state,
+        "provider_status": status,
+        "provider_task_id": prompt_id,
+        # A known provider task must never be submitted again, including after
+        # ComfyUI has completed it.  Completion changes the next action to
+        # artifact recovery; it does not make a duplicate POST safe.
+        "duplicate_submission_blocked": True,
+        "resumable": resumable,
+    }
 
 
 def _poll_history(
@@ -2450,13 +2730,15 @@ def _generate_comfyui_video_impl(
     poll_interval_seconds: float = POLL_INTERVAL_SECONDS,
     opener: Callable[..., Any] | None = None,
     resume_prompt_id: str | None = None,
+    prepared_prompt_id: str | None = None,
     on_provider_task_id: Callable[[str], None] | None = None,
     _model_guard_owner: list[_ModelVerification],
 ) -> dict[str, Any]:
     """Submit or resume the pinned workflow and publish verified artifacts.
 
-    ``on_provider_task_id`` runs exactly once for a new submission, after the
-    prompt ID is durably added to the ambiguity marker and before polling.
+    ``prepared_prompt_id`` lets Studio persist a client-issued UUID before any
+    HTTP side effect.  ``on_provider_task_id`` runs exactly once for a new
+    submission, after ComfyUI echoes that exact ID and before polling.
     A callback failure leaves that marker intact and is surfaced as an unknown
     submission so a caller cannot automatically submit the expensive job a
     second time.  Resumes never invoke the callback again.
@@ -2484,6 +2766,12 @@ def _generate_comfyui_video_impl(
     )
     if on_provider_task_id is not None and not callable(on_provider_task_id):
         raise ComfyUIValidationError("on_provider_task_id must be callable")
+    if resume_prompt_id is not None and prepared_prompt_id is not None:
+        raise ComfyUIValidationError(
+            "resume_prompt_id and prepared_prompt_id are mutually exclusive"
+        )
+    if prepared_prompt_id is not None:
+        prepared_prompt_id = _strict_prompt_id(prepared_prompt_id)
     if opener is not None and not callable(opener):
         raise ComfyUIValidationError("opener must be callable")
     prepared = _preflight(
@@ -2521,9 +2809,17 @@ def _generate_comfyui_video_impl(
         cancel_event=cancel_event,
     )
     marker = _submission_marker_path(root, production_id, cache_key)
+    payload_digest = comfyui_payload_digest(prepared["payload"])
     if cached is not None:
-        _remove_marker(marker)
         manifest, artifacts = cached
+        _remove_marker_if_owned(
+            marker,
+            production_id=production_id,
+            run_id=run_id,
+            cache_key=cache_key,
+            payload_digest=payload_digest,
+            prompt_id=_strict_prompt_id(manifest.get("prompt_id")),
+        )
         return _result(root, cache_directory, manifest, artifacts, cache_hit=True)
     if cache_directory.exists() or cache_directory.is_symlink():
         raise ComfyUIError(
@@ -2531,7 +2827,6 @@ def _generate_comfyui_video_impl(
             code="cache_integrity_failed",
         )
 
-    payload_digest = comfyui_payload_digest(prepared["payload"])
     existing_marker = _read_marker(marker)
     prompt_id: str
     queue_number: int | None = None
@@ -2599,12 +2894,15 @@ def _generate_comfyui_video_impl(
             run_id=run_id,
             cache_key=cache_key,
             payload_digest=payload_digest,
+            prompt_id=prepared_prompt_id,
+            queue_number=None,
         )
         _create_marker(marker, marker_body)
         try:
             prompt_id, queue_number = _submit_prompt(
                 base_url,
                 prepared["submitted_graph"],
+                expected_prompt_id=prepared_prompt_id,
                 timeout=request_timeout,
                 opener=opener,
             )
@@ -2628,7 +2926,11 @@ def _generate_comfyui_video_impl(
             try:
                 on_provider_task_id(prompt_id)
             except BaseException as exc:
-                raise ComfyUISubmissionUnknown() from exc
+                # The provider already echoed the pre-issued UUID and the
+                # exact marker was durably replaced.  This is not transport
+                # ambiguity: restart recovery can safely observe this same
+                # task without another POST.
+                raise ComfyUISubmissionPersistenceError() from exc
 
     try:
         terminal = _poll_history(
@@ -2642,18 +2944,39 @@ def _generate_comfyui_video_impl(
             opener=opener,
         )
     except JobCancelled:
-        _best_effort_queue_cancel(
-            base_url, prompt_id, timeout=request_timeout, opener=opener
-        )
+        # A Studio shutdown only suspends local polling.  Keep the durable
+        # ComfyUI task alive so the next Studio process can resume it without
+        # a duplicate POST.  Explicit user/job cancellation retains the
+        # existing best-effort provider cancellation behavior.
+        if not bool(getattr(cancel_event, "preserve_provider_task", False)):
+            _best_effort_provider_cancel(
+                base_url, prompt_id, timeout=request_timeout, opener=opener
+            )
         raise
     except ComfyUIError as exc:
         if exc.error_code in {"process_interrupted", "comfyui_timeout"}:
-            _best_effort_queue_cancel(
+            _best_effort_provider_cancel(
                 base_url, prompt_id, timeout=request_timeout, opener=opener
             )
         raise
     if terminal.get("state") == "error":
-        _remove_marker(marker)
+        # Keep the exact marker until Studio has durably terminalized the
+        # provider/job/stage records together.  A crash at this boundary can
+        # then recover the definite outcome even if ComfyUI itself restarts
+        # and loses history.  Terminal retry or startup reconciliation removes
+        # the owned marker only after the database failure is durable.
+        _replace_marker(
+            marker,
+            _marker_body(
+                production_id=production_id,
+                run_id=run_id,
+                cache_key=cache_key,
+                payload_digest=payload_digest,
+                prompt_id=prompt_id,
+                queue_number=queue_number,
+                terminal_state="failed",
+            ),
+        )
         raise ComfyUIProviderError(
             "ComfyUI reported a terminal workflow error.", code="comfyui_generation_failed"
         )
@@ -2784,7 +3107,14 @@ def _generate_comfyui_video_impl(
             "Published ComfyUI artifacts failed integrity verification.",
             code="cache_integrity_failed",
         )
-    _remove_marker(marker)
+    _remove_marker_if_owned(
+        marker,
+        production_id=production_id,
+        run_id=run_id,
+        cache_key=cache_key,
+        payload_digest=payload_digest,
+        prompt_id=prompt_id,
+    )
     manifest, artifacts = validated
     return _result(root, cache_directory, manifest, artifacts, cache_hit=False)
 
@@ -2810,6 +3140,7 @@ def generate_comfyui_video(
     poll_interval_seconds: float = POLL_INTERVAL_SECONDS,
     opener: Callable[..., Any] | None = None,
     resume_prompt_id: str | None = None,
+    prepared_prompt_id: str | None = None,
     on_provider_task_id: Callable[[str], None] | None = None,
 ) -> dict[str, Any]:
     """Run one adapter call while retaining Windows model guards to completion."""
@@ -2836,6 +3167,7 @@ def generate_comfyui_video(
             poll_interval_seconds=poll_interval_seconds,
             opener=opener,
             resume_prompt_id=resume_prompt_id,
+            prepared_prompt_id=prepared_prompt_id,
             on_provider_task_id=on_provider_task_id,
             _model_guard_owner=model_guard_owner,
         )
@@ -2867,8 +3199,8 @@ def resume_comfyui_video(
 ) -> dict[str, Any]:
     """Resume one marker-linked prompt without submitting another workflow."""
 
-    if "resume_prompt_id" in kwargs:
-        raise ComfyUIValidationError("resume_prompt_id was provided twice")
+    if "resume_prompt_id" in kwargs or "prepared_prompt_id" in kwargs:
+        raise ComfyUIValidationError("provider task identity was provided twice")
     return generate_comfyui_video(
         workspace,
         resume_prompt_id=provider_task_id,
@@ -2945,13 +3277,19 @@ __all__ = [
     "MAX_OUTPUT_BYTES",
     "POLL_INTERVAL_SECONDS",
     "PROMPT_ENDPOINT",
-    "QUEUE_ENDPOINT",
+    "JOB_ENDPOINT",
+    "JOB_CANCEL_ENDPOINT",
     "REQUEST_TIMEOUT_SECONDS",
     "SUBMISSION_MARKER_FILENAME",
+    "cleanup_comfyui_submission_marker",
     "generate_comfyui_video",
     "generate_local_comfyui_video",
+    "observe_comfyui_submission",
     "prepare_comfyui_workflow",
+    "request_comfyui_provider_cancel",
     "recover_comfyui_prompt_id",
+    "recover_comfyui_terminal_state",
+    "restore_comfyui_submission_marker",
     "resolve_comfyui_runtime_identity",
     "resolve_comfyui_tool_identity",
     "resume_comfyui_video",

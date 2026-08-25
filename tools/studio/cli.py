@@ -21,6 +21,10 @@ _MAX_OUTPUT_DEPTH = 5
 _MAX_OUTPUT_ITEMS = 64
 _MAX_OUTPUT_STRING = 1024
 _SAFE_CODE_RE = re.compile(r"^[a-z0-9_.-]{1,128}$")
+# A close failure means a daemon worker may still touch the workspace.  Keep
+# the OS lock object reachable until process exit instead of letting Python
+# finalization release it while that old work is still draining.
+_RETAINED_INSTANCE_LOCKS: list[WorkspaceInstanceLock] = []
 
 
 class _CliOperationError(RuntimeError):
@@ -249,6 +253,8 @@ def _refresh_index_or_raise(service: StudioService, timeout_seconds: int) -> Non
 def _run_test_video_command(args: argparse.Namespace) -> int:
     lock: WorkspaceInstanceLock | None = None
     service: StudioService | None = None
+    exit_code = 2
+    pending_result: dict[str, Any] | None = None
     try:
         # Resolve before acquiring the lock so a missing or non-directory
         # workspace is handled without creating any state outside it.
@@ -260,46 +266,66 @@ def _run_test_video_command(args: argparse.Namespace) -> int:
                 "Studio test-video could not start: workspace is already in use.",
                 file=sys.stderr,
             )
-            return 2
-        service = StudioService(workspace)
-        _refresh_index_or_raise(service, args.timeout_seconds)
-        result = run_test_video(service, _test_video_request(args))
-        if _is_technical_qc_failure(result):
-            _write_test_video_error("technical_qc_failed")
-            return 3
-        _write_bounded_json(result)
-        return 0
+        else:
+            service = StudioService(workspace)
+            _refresh_index_or_raise(service, args.timeout_seconds)
+            result = run_test_video(service, _test_video_request(args))
+            if _is_technical_qc_failure(result):
+                _write_test_video_error("technical_qc_failed")
+                exit_code = 3
+            else:
+                # Defer stdout until service shutdown proves that every old
+                # worker is gone and the workspace lock can be released.
+                pending_result = dict(result)
+                exit_code = 0
     except TestVideoError as exc:
         code = _safe_error_code(getattr(exc, "error_code", None))
         _write_test_video_error(code)
         if code in {"technical_qc_failed", "technical_verdict_fail", "qc_technical_fail"}:
-            return 3
-        return 2
+            exit_code = 3
+        else:
+            exit_code = 2
     except _CliOperationError as exc:
         _write_test_video_error(exc.code)
-        return 2
+        exit_code = 2
     except (OSError, ValueError, TypeError, KeyError):
         # Do not interpolate exception text: it can contain a user path,
         # provider response, or another secret-bearing value.
         _write_test_video_error("test_video_failed")
-        return 2
+        exit_code = 2
     except Exception:
         _write_test_video_error("test_video_failed")
-        return 2
+        exit_code = 2
     except KeyboardInterrupt:
         _write_test_video_error("process_interrupted")
-        return 130
+        exit_code = 130
     finally:
+        service_closed = service is None
         if service is not None:
             try:
                 service.close()
             except Exception:
-                pass
+                service_closed = False
+            else:
+                service_closed = True
         if lock is not None:
-            try:
-                lock.close()
-            except Exception:
-                pass
+            if service_closed:
+                try:
+                    lock.close()
+                except Exception:
+                    _RETAINED_INSTANCE_LOCKS.append(lock)
+                    service_closed = False
+            else:
+                _RETAINED_INSTANCE_LOCKS.append(lock)
+        if not service_closed:
+            if exit_code == 0:
+                _write_test_video_error("process_interrupted")
+            if exit_code != 130:
+                exit_code = 2
+            pending_result = None
+    if exit_code == 0 and pending_result is not None:
+        _write_bounded_json(pending_result)
+    return exit_code
 
 
 if __name__ == "__main__":

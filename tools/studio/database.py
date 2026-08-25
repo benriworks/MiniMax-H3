@@ -24,7 +24,7 @@ from .security import (
 )
 
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 MAX_EVENT_LINE_BYTES = 2 * 1024 * 1024
 _RUN_EXECUTION_PROFILES = {
     "external",
@@ -55,6 +55,55 @@ _DEFAULT_INTERRUPTED_ERROR_MESSAGE = "The Studio process stopped."
 _MAX_RESTORED_STUDIO_ARTIFACT_BYTES = 2 * 1024 * 1024 * 1024
 _MAX_RESTORED_STUDIO_ARTIFACT_TOTAL_BYTES = 16 * 1024 * 1024 * 1024
 _MAX_RESTORED_STUDIO_ARTIFACT_COUNT = 10_000
+_PROVIDER_TASK_STATUSES = {
+    "prepared",
+    "submitted",
+    "recovering",
+    "succeeded",
+    "failed",
+    "ambiguous",
+    "recovery_blocked",
+    "cancel_requested",
+}
+_PROVIDER_TASK_TERMINAL_STATUSES = {"succeeded", "failed"}
+_PROVIDER_TASK_DEFINITE_FAILURE_CODES = {
+    "comfyui_generation_failed",
+    "comfyui_request_rejected",
+}
+_PROVIDER_TASK_RECOVERABLE_STATUSES = {
+    "prepared",
+    "submitted",
+    "ambiguous",
+    "recovery_blocked",
+    "cancel_requested",
+}
+_PROVIDER_TASK_NEXT_ACTION = {
+    "prepared": "submit",
+    "submitted": "resume",
+    "recovering": "wait",
+    "succeeded": "none",
+    "failed": "retry",
+    "ambiguous": "reconcile",
+    "recovery_blocked": "retry_with_matching_request",
+    "cancel_requested": "confirm_cancellation",
+}
+_PROVIDER_TASK_STATE_TRANSITIONS = {
+    "prepared": {"ambiguous", "recovery_blocked", "cancel_requested", "failed"},
+    "submitted": {
+        "recovering",
+        "ambiguous",
+        "recovery_blocked",
+        "cancel_requested",
+        "failed",
+    },
+    "recovering": {"ambiguous", "recovery_blocked", "cancel_requested", "failed"},
+    "ambiguous": {"recovery_blocked", "cancel_requested", "failed"},
+    "recovery_blocked": {"ambiguous", "cancel_requested", "failed"},
+    "cancel_requested": {"ambiguous", "recovery_blocked", "failed"},
+    "succeeded": set(),
+    "failed": set(),
+}
+_MAX_PROVIDER_REQUEST_CIPHERTEXT_BYTES = 2 * 1024 * 1024
 
 
 def _sha256_file(path: Path) -> str:
@@ -127,6 +176,7 @@ class AtomicStageCompletion:
     stage_attempt_id: str
     public_result: dict[str, Any]
     artifact_records: tuple[dict[str, Any], ...] = ()
+    provider_task_record_id: str | None = None
 
 
 class AtomicCompletionError(ValueError):
@@ -502,6 +552,19 @@ class StudioDatabase:
 
     def initialize(self) -> None:
         with self.session() as connection:
+            connection.execute(
+                "CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)"
+            )
+            version_row = connection.execute(
+                "SELECT value FROM schema_meta WHERE key='schema_version'"
+            ).fetchone()
+            if version_row is not None:
+                try:
+                    current_version = int(version_row["value"])
+                except (TypeError, ValueError) as exc:
+                    raise ValueError("Studio database schema version is invalid") from exc
+                if current_version > SCHEMA_VERSION:
+                    raise ValueError("Studio database schema is newer than this application")
             connection.executescript(
                 """
                 CREATE TABLE IF NOT EXISTS schema_meta (
@@ -688,49 +751,191 @@ class StudioDatabase:
                 """
             )
             # SQLite's CREATE TABLE IF NOT EXISTS does not add columns to an
-            # existing database.  Keep this migration idempotent for the v1
-            # Studio databases already created by the MVP.
-            run_columns = {
-                row["name"]
-                for row in connection.execute("PRAGMA table_info(runs)").fetchall()
-            }
-            if "execution_profile" not in run_columns:
+            # existing database. Keep every incremental change and the schema
+            # version write in one transaction so a failed v5 migration is
+            # retried instead of being advertised as complete.
+            connection.execute("BEGIN IMMEDIATE")
+            try:
+                run_columns = {
+                    row["name"]
+                    for row in connection.execute("PRAGMA table_info(runs)").fetchall()
+                }
+                if "execution_profile" not in run_columns:
+                    connection.execute(
+                        "ALTER TABLE runs ADD COLUMN execution_profile TEXT NOT NULL DEFAULT 'external'"
+                    )
+                if "pipeline_key" not in run_columns:
+                    connection.execute("ALTER TABLE runs ADD COLUMN pipeline_key TEXT")
+                pipeline_claim_columns = {
+                    row["name"]
+                    for row in connection.execute(
+                        "PRAGMA table_info(local_pipeline_claims)"
+                    ).fetchall()
+                }
+                if "active_job_id" not in pipeline_claim_columns:
+                    connection.execute(
+                        "ALTER TABLE local_pipeline_claims ADD COLUMN active_job_id TEXT REFERENCES jobs(id)"
+                    )
+                attempt_columns = {
+                    row["name"]
+                    for row in connection.execute("PRAGMA table_info(stage_attempts)").fetchall()
+                }
+                if "job_id" not in attempt_columns:
+                    connection.execute("ALTER TABLE stage_attempts ADD COLUMN job_id TEXT")
+
                 connection.execute(
-                    "ALTER TABLE runs ADD COLUMN execution_profile TEXT NOT NULL DEFAULT 'external'"
+                    """
+                    CREATE TABLE IF NOT EXISTS provider_tasks (
+                        id TEXT PRIMARY KEY,
+                        provider TEXT NOT NULL CHECK(provider='comfyui'),
+                        production_id TEXT NOT NULL REFERENCES productions(id),
+                        run_id TEXT NOT NULL REFERENCES runs(id),
+                        stage TEXT NOT NULL CHECK(stage='video_generation'),
+                        origin_stage_attempt_id TEXT NOT NULL REFERENCES stage_attempts(id),
+                        current_stage_attempt_id TEXT REFERENCES stage_attempts(id),
+                        current_job_id TEXT REFERENCES jobs(id),
+                        cache_key TEXT NOT NULL CHECK(length(cache_key)=64),
+                        payload_digest TEXT NOT NULL CHECK(length(payload_digest)=64),
+                        provider_task_id TEXT CHECK(
+                            provider_task_id IS NULL OR length(provider_task_id) BETWEEN 1 AND 128
+                        ),
+                        status TEXT NOT NULL CHECK(status IN (
+                            'prepared', 'submitted', 'recovering', 'succeeded',
+                            'failed', 'ambiguous', 'recovery_blocked', 'cancel_requested'
+                        )),
+                        attempt_sequence INTEGER NOT NULL CHECK(attempt_sequence >= 1),
+                        recovery_count INTEGER NOT NULL CHECK(recovery_count >= 0),
+                        request_protection TEXT NOT NULL CHECK(
+                            request_protection IN ('dpapi-v1', 'none')
+                        ),
+                        request_ciphertext BLOB,
+                        created_at TEXT NOT NULL,
+                        updated_at TEXT NOT NULL,
+                        submitted_at TEXT,
+                        last_observed_at TEXT,
+                        completed_at TEXT,
+                        error_code TEXT,
+                        error_message TEXT,
+                        UNIQUE(provider, run_id, cache_key, payload_digest),
+                        CHECK(
+                            (current_stage_attempt_id IS NULL AND current_job_id IS NULL)
+                            OR
+                            (current_stage_attempt_id IS NOT NULL AND current_job_id IS NOT NULL)
+                        ),
+                        CHECK(
+                            (request_protection='none' AND request_ciphertext IS NULL)
+                            OR
+                            (request_protection='dpapi-v1' AND (
+                                (status IN ('succeeded', 'failed') AND request_ciphertext IS NULL)
+                                OR
+                                (typeof(request_ciphertext)='blob'
+                                 AND length(request_ciphertext) BETWEEN 1 AND 2097152)
+                            ))
+                        )
+                    )
+                    """
                 )
-            if "pipeline_key" not in run_columns:
-                connection.execute("ALTER TABLE runs ADD COLUMN pipeline_key TEXT")
-            pipeline_claim_columns = {
-                row["name"]
-                for row in connection.execute(
-                    "PRAGMA table_info(local_pipeline_claims)"
-                ).fetchall()
-            }
-            if "active_job_id" not in pipeline_claim_columns:
+                provider_task_columns = {
+                    row["name"]
+                    for row in connection.execute(
+                        "PRAGMA table_info(provider_tasks)"
+                    ).fetchall()
+                }
+                if "last_observed_at" not in provider_task_columns:
+                    connection.execute(
+                        "ALTER TABLE provider_tasks ADD COLUMN last_observed_at TEXT"
+                    )
                 connection.execute(
-                    "ALTER TABLE local_pipeline_claims ADD COLUMN active_job_id TEXT REFERENCES jobs(id)"
+                    """
+                    CREATE TABLE IF NOT EXISTS local_video_generation_claims (
+                        run_id TEXT NOT NULL REFERENCES runs(id),
+                        production_id TEXT NOT NULL REFERENCES productions(id),
+                        cache_key TEXT NOT NULL CHECK(length(cache_key)=64),
+                        payload_digest TEXT NOT NULL CHECK(length(payload_digest)=64),
+                        stage_attempt_id TEXT NOT NULL UNIQUE REFERENCES stage_attempts(id),
+                        active_job_id TEXT NOT NULL UNIQUE REFERENCES jobs(id),
+                        created_at TEXT NOT NULL,
+                        updated_at TEXT NOT NULL,
+                        PRIMARY KEY(run_id, cache_key, payload_digest)
+                    )
+                    """
                 )
-            attempt_columns = {
-                row["name"]
-                for row in connection.execute("PRAGMA table_info(stage_attempts)").fetchall()
-            }
-            if "job_id" not in attempt_columns:
-                connection.execute("ALTER TABLE stage_attempts ADD COLUMN job_id TEXT")
-            connection.execute(
-                "INSERT INTO schema_meta(key, value) VALUES('schema_version', ?) "
-                "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
-                (str(SCHEMA_VERSION),),
-            )
+                connection.execute(
+                    "CREATE INDEX IF NOT EXISTS local_video_generation_claims_job_idx "
+                    "ON local_video_generation_claims(active_job_id)"
+                )
+                connection.execute(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS provider_tasks_external_id_uq "
+                    "ON provider_tasks(provider, provider_task_id) "
+                    "WHERE provider_task_id IS NOT NULL"
+                )
+                connection.execute(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS provider_tasks_current_job_uq "
+                    "ON provider_tasks(current_job_id) WHERE current_job_id IS NOT NULL"
+                )
+                connection.execute(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS provider_tasks_current_attempt_uq "
+                    "ON provider_tasks(current_stage_attempt_id) "
+                    "WHERE current_stage_attempt_id IS NOT NULL"
+                )
+                connection.execute(
+                    "CREATE INDEX IF NOT EXISTS provider_tasks_status_idx "
+                    "ON provider_tasks(status, updated_at, id)"
+                )
+                connection.execute(
+                    "CREATE INDEX IF NOT EXISTS provider_tasks_run_idx "
+                    "ON provider_tasks(run_id, stage, created_at)"
+                )
+                connection.execute(
+                    """
+                    CREATE TRIGGER IF NOT EXISTS provider_tasks_identity_immutable
+                    BEFORE UPDATE OF provider, production_id, run_id, stage,
+                        cache_key, payload_digest, created_at
+                    ON provider_tasks BEGIN
+                        SELECT RAISE(ABORT, 'provider task identity is immutable');
+                    END
+                    """
+                )
+                connection.execute(
+                    """
+                    CREATE TRIGGER IF NOT EXISTS provider_tasks_immutable_delete
+                    BEFORE DELETE ON provider_tasks BEGIN
+                        SELECT RAISE(ABORT, 'provider tasks are append-only');
+                    END
+                    """
+                )
+                connection.execute(
+                    "INSERT INTO schema_meta(key, value) VALUES('schema_version', ?) "
+                    "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                    (str(SCHEMA_VERSION),),
+                )
+                connection.execute("COMMIT")
+            except BaseException:
+                if connection.in_transaction:
+                    connection.execute("ROLLBACK")
+                raise
 
     def interrupt_active_work(self) -> dict[str, int]:
         """Fail closed when a prior Studio process ended during active work."""
 
         timestamp = utc_now()
-        counts = {"jobs": 0, "stage_attempts": 0}
+        counts = {"jobs": 0, "stage_attempts": 0, "provider_tasks": 0}
         with self.transaction() as connection:
             active_jobs = connection.execute(
                 "SELECT id, kind, production_id FROM jobs "
                 "WHERE status IN ('queued', 'running') ORDER BY created_at, rowid"
+            ).fetchall()
+            # A prior worker may have terminalized its job/stage pair but died
+            # before clearing the provider owner.  Recover every nonterminal
+            # provider binding, not only bindings whose local rows are still
+            # active, so a restart cannot leave that operation permanently
+            # hidden from the recovery scan.
+            active_provider_tasks = connection.execute(
+                "SELECT * FROM provider_tasks "
+                "WHERE current_job_id IS NOT NULL "
+                "AND current_stage_attempt_id IS NOT NULL "
+                "AND status NOT IN ('succeeded', 'failed') "
+                "ORDER BY created_at, rowid"
             ).fetchall()
             connection.execute(
                 "UPDATE jobs SET status='interrupted', completed_at=?, "
@@ -786,10 +991,68 @@ class StudioDatabase:
                     },
                     created_at=timestamp,
                 )
+            for provider_task in active_provider_tasks:
+                next_status = provider_task["status"]
+                if next_status == "recovering":
+                    next_status = (
+                        "submitted" if provider_task["submitted_at"] else "prepared"
+                    )
+                connection.execute(
+                    "UPDATE provider_tasks SET status=?, current_stage_attempt_id=NULL, "
+                    "current_job_id=NULL, updated_at=? WHERE id=? "
+                    "AND current_stage_attempt_id IS NOT NULL AND current_job_id IS NOT NULL",
+                    (next_status, timestamp, provider_task["id"]),
+                )
+                if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                    continue
+                counts["provider_tasks"] += 1
+                self._append_event(
+                    connection,
+                    "run",
+                    provider_task["run_id"],
+                    "video_generation.provider_recovery_pending",
+                    {
+                        "provider_task_record_id": provider_task["id"],
+                        "production_id": provider_task["production_id"],
+                        "provider_task_id": provider_task["provider_task_id"],
+                        "previous_status": provider_task["status"],
+                        "status": next_status,
+                        "previous_attempt_id": provider_task[
+                            "current_stage_attempt_id"
+                        ],
+                        "previous_job_id": provider_task["current_job_id"],
+                        "cache_key": provider_task["cache_key"],
+                        "error_code": "process_interrupted",
+                    },
+                    created_at=timestamp,
+                )
         return counts
 
-    def interrupt_job(self, job_id: str) -> bool:
-        """Atomically interrupt one active job and append its audit event."""
+    def interrupt_job(
+        self,
+        job_id: str,
+        *,
+        cancel_provider_task: bool = False,
+        provider_task_record_id: str | None = None,
+    ) -> bool:
+        """Atomically interrupt one active job and its explicit provider cancel.
+
+        Studio shutdown passes the default ``cancel_provider_task=False`` so a
+        long-running remote render remains recoverable after restart.  An
+        operator cancellation opts in and, when this job owns a provider task,
+        moves that exact task to ``cancel_requested`` in the same transaction
+        as the job/stage interruption.  The protected request and durable
+        marker are intentionally retained until a later GET-only cancellation
+        reconciliation proves the provider outcome.
+        """
+
+        validate_identifier(job_id, label="job id")
+        if provider_task_record_id is not None:
+            self._validate_provider_task_record_id(provider_task_record_id)
+            if not cancel_provider_task:
+                raise ValueError(
+                    "provider task cancellation requires explicit operator intent"
+                )
 
         timestamp = utc_now()
         with self.transaction() as connection:
@@ -800,6 +1063,65 @@ class StudioDatabase:
             ).fetchone()
             if row is None:
                 return False
+            attempts = connection.execute(
+                "SELECT * FROM stage_attempts WHERE job_id=? AND status IN ('queued', 'running') "
+                "ORDER BY created_at, rowid",
+                (job_id,),
+            ).fetchall()
+            provider_task: sqlite3.Row | None = None
+            if cancel_provider_task:
+                if provider_task_record_id is None:
+                    provider_rows = connection.execute(
+                        "SELECT * FROM provider_tasks WHERE current_job_id=? "
+                        "AND status NOT IN ('succeeded', 'failed') ORDER BY rowid LIMIT 2",
+                        (job_id,),
+                    ).fetchall()
+                else:
+                    provider_rows = connection.execute(
+                        "SELECT * FROM provider_tasks WHERE id=? "
+                        "AND current_job_id=? AND status NOT IN ('succeeded', 'failed')",
+                        (provider_task_record_id, job_id),
+                    ).fetchall()
+                if len(provider_rows) > 1:
+                    raise sqlite3.IntegrityError(
+                        "one job cannot own multiple active provider tasks"
+                    )
+                if provider_task_record_id is not None and not provider_rows:
+                    raise AtomicCompletionError(
+                        "provider cancellation ownership changed",
+                        code="atomic_failure_not_active",
+                        job_status="active",
+                        stage_status="unknown",
+                    )
+                if provider_rows:
+                    provider_task = provider_rows[0]
+                    linked_attempts = [
+                        attempt
+                        for attempt in attempts
+                        if attempt["id"]
+                        == provider_task["current_stage_attempt_id"]
+                    ]
+                    if (
+                        len(linked_attempts) != 1
+                        or provider_task["current_job_id"] != job_id
+                        or provider_task["production_id"] != row["production_id"]
+                        or linked_attempts[0]["production_id"]
+                        != provider_task["production_id"]
+                        or linked_attempts[0]["run_id"] != provider_task["run_id"]
+                        or linked_attempts[0]["stage"] != provider_task["stage"]
+                        or linked_attempts[0]["cache_key"]
+                        != provider_task["cache_key"]
+                    ):
+                        raise AtomicCompletionError(
+                            "provider cancellation provenance is invalid",
+                            code="atomic_failure_not_active",
+                            job_status="active",
+                            stage_status=(
+                                linked_attempts[0]["status"]
+                                if linked_attempts
+                                else "unknown"
+                            ),
+                        )
             connection.execute(
                 "UPDATE jobs SET status='interrupted', completed_at=?, "
                 "error_code='process_interrupted', error_message='The Studio process stopped.' "
@@ -820,11 +1142,6 @@ class StudioDatabase:
                 },
                 created_at=timestamp,
             )
-            attempts = connection.execute(
-                "SELECT * FROM stage_attempts WHERE job_id=? AND status IN ('queued', 'running') "
-                "ORDER BY created_at, rowid",
-                (job_id,),
-            ).fetchall()
             for attempt in attempts:
                 connection.execute(
                     "UPDATE stage_attempts SET status='failed', completed_at=?, result_json=NULL, "
@@ -850,6 +1167,50 @@ class StudioDatabase:
                         },
                         created_at=timestamp,
                     )
+            if provider_task is not None:
+                connection.execute(
+                    "UPDATE provider_tasks SET status='cancel_requested', "
+                    "current_stage_attempt_id=NULL, current_job_id=NULL, "
+                    "updated_at=?, completed_at=NULL, "
+                    "error_code='provider_cancel_requested', "
+                    "error_message='Provider cancellation was requested by the operator.' "
+                    "WHERE id=? AND current_stage_attempt_id=? AND current_job_id=? "
+                    "AND status NOT IN ('succeeded', 'failed')",
+                    (
+                        timestamp,
+                        provider_task["id"],
+                        provider_task["current_stage_attempt_id"],
+                        job_id,
+                    ),
+                )
+                if connection.execute(
+                    "SELECT changes() AS count"
+                ).fetchone()["count"] != 1:
+                    raise AtomicCompletionError(
+                        "provider changed before cancellation commit",
+                        code="atomic_failure_not_active",
+                        job_status="interrupted",
+                        stage_status="failed",
+                    )
+                self._append_event(
+                    connection,
+                    "run",
+                    provider_task["run_id"],
+                    "video_generation.provider_state_changed",
+                    {
+                        "provider_task_record_id": provider_task["id"],
+                        "production_id": provider_task["production_id"],
+                        "provider": provider_task["provider"],
+                        "provider_task_id": provider_task["provider_task_id"],
+                        "attempt_id": provider_task["current_stage_attempt_id"],
+                        "job_id": job_id,
+                        "cache_key": provider_task["cache_key"],
+                        "attempt_sequence": provider_task["attempt_sequence"],
+                        "status": "cancel_requested",
+                        "error_code": "provider_cancel_requested",
+                    },
+                    created_at=timestamp,
+                )
             return True
 
     @staticmethod
@@ -1275,6 +1636,11 @@ class StudioDatabase:
             "WHERE r.production_id=? ORDER BY a.created_at, a.rowid",
             (production_id,),
         ).fetchall()
+        provider_tasks = connection.execute(
+            "SELECT * FROM provider_tasks WHERE production_id=? "
+            "ORDER BY created_at DESC, rowid DESC",
+            (production_id,),
+        ).fetchall()
         return {
             "production": self._production_dict(production),
             "artifacts": [self._artifact_dict(row) for row in artifacts],
@@ -1286,6 +1652,9 @@ class StudioDatabase:
             },
             "revisions": [self._revision_dict(row) for row in revisions],
             "runs": [self._run_dict(row, connection) for row in runs],
+            "provider_tasks": [
+                self._provider_task_dict(row) for row in provider_tasks
+            ],
             "events": [self._event_dict(row) for row in events],
             "approvals": [
                 {
@@ -1362,6 +1731,14 @@ class StudioDatabase:
                 "execution_profile": row["execution_profile"] or "external",
                 "pipeline_key": row["pipeline_key"],
                 "stage_attempts": self._stage_attempt_dicts(connection, row["id"]),
+                "provider_tasks": [
+                    self._provider_task_dict(provider_task)
+                    for provider_task in connection.execute(
+                        "SELECT * FROM provider_tasks WHERE run_id=? "
+                        "ORDER BY created_at, rowid",
+                        (row["id"],),
+                    ).fetchall()
+                ],
                 "state": state,
                 "latest_approval": approval,
                 "immutable_digest": row["immutable_digest"],
@@ -1593,6 +1970,816 @@ class StudioDatabase:
             (run_id,),
         ).fetchall()
         return [self._stage_attempt_dict(row) for row in rows]
+
+    @staticmethod
+    def _provider_task_dict(row: sqlite3.Row) -> dict[str, Any]:
+        """Return the public provider-task projection without private bytes."""
+
+        status = row["status"]
+        has_protected_request = bool(
+            row["request_protection"] == "dpapi-v1"
+            and isinstance(row["request_ciphertext"], bytes)
+            and row["request_ciphertext"]
+        )
+        # A pre-issued external ID reserves one active logical submission.
+        # Terminal current-state rows are intentionally retryable/resettable,
+        # so they must not keep the UI or API's duplicate guard latched.
+        duplicate_blocked = status not in _PROVIDER_TASK_TERMINAL_STATUSES
+        resumable = status in {
+            "prepared",
+            "submitted",
+            "recovering",
+            "ambiguous",
+            "recovery_blocked",
+            "cancel_requested",
+        }
+        return {
+            "id": row["id"],
+            "provider": row["provider"],
+            "production_id": row["production_id"],
+            "run_id": row["run_id"],
+            "stage": row["stage"],
+            "origin_stage_attempt_id": row["origin_stage_attempt_id"],
+            "current_stage_attempt_id": row["current_stage_attempt_id"],
+            "current_job_id": row["current_job_id"],
+            "cache_key": row["cache_key"],
+            "payload_digest": row["payload_digest"],
+            "provider_task_id": row["provider_task_id"],
+            "status": status,
+            "attempt_sequence": row["attempt_sequence"],
+            "recovery_count": row["recovery_count"],
+            "request_protection": row["request_protection"],
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+            "submitted_at": row["submitted_at"],
+            "last_observed_at": row["last_observed_at"],
+            "completed_at": row["completed_at"],
+            "automatic_recovery_available": bool(
+                has_protected_request
+                and status
+                in {
+                    "prepared",
+                    "submitted",
+                    "recovering",
+                    "ambiguous",
+                    "recovery_blocked",
+                    "cancel_requested",
+                }
+            ),
+            "duplicate_submission_blocked": duplicate_blocked,
+            "resumable": resumable,
+            "next_action": _PROVIDER_TASK_NEXT_ACTION[status],
+            "checked_at": row["last_observed_at"],
+            "error": (
+                {"code": row["error_code"], "message": row["error_message"]}
+                if row["error_code"]
+                else None
+            ),
+        }
+
+    @staticmethod
+    def _validate_provider_task_record_id(provider_task_record_id: str) -> None:
+        if not isinstance(provider_task_record_id, str) or re.fullmatch(
+            r"provider_task_[0-9a-f]{32}", provider_task_record_id
+        ) is None:
+            raise ValueError("invalid provider task record id")
+
+    @staticmethod
+    def _validate_provider_external_id(provider_task_id: str) -> None:
+        if not isinstance(provider_task_id, str) or re.fullmatch(
+            r"[A-Za-z0-9_.:-]{1,128}", provider_task_id
+        ) is None:
+            raise ValueError("invalid provider task id")
+
+    @staticmethod
+    def _validate_provider_request_material(
+        request_protection: str, request_ciphertext: bytes | None
+    ) -> tuple[str, bytes | None]:
+        if request_protection not in {"dpapi-v1", "none"}:
+            raise ValueError("invalid provider request protection")
+        if request_protection == "none":
+            if request_ciphertext is not None:
+                raise ValueError("unprotected provider request bytes are not accepted")
+            return request_protection, None
+        if not isinstance(request_ciphertext, bytes) or not (
+            1 <= len(request_ciphertext) <= _MAX_PROVIDER_REQUEST_CIPHERTEXT_BYTES
+        ):
+            raise ValueError("invalid protected provider request")
+        return request_protection, bytes(request_ciphertext)
+
+    @staticmethod
+    def _provider_execution_pair(
+        connection: sqlite3.Connection,
+        *,
+        production_id: str,
+        run_id: str,
+        stage: str,
+        cache_key: str,
+        stage_attempt_id: str,
+        job_id: str,
+    ) -> tuple[sqlite3.Row, sqlite3.Row]:
+        attempt = connection.execute(
+            "SELECT * FROM stage_attempts WHERE id=?", (stage_attempt_id,)
+        ).fetchone()
+        job = connection.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
+        run = connection.execute(
+            "SELECT production_id FROM runs WHERE id=?", (run_id,)
+        ).fetchone()
+        job_payload = _loads(job["payload_json"], {}) if job is not None else None
+        if (
+            attempt is None
+            or job is None
+            or run is None
+            or run["production_id"] != production_id
+            or attempt["production_id"] != production_id
+            or attempt["run_id"] != run_id
+            or attempt["stage"] != stage
+            or attempt["cache_key"] != cache_key
+            or attempt["job_id"] != job_id
+            or attempt["status"] not in {"queued", "running"}
+            or job["production_id"] != production_id
+            or job["status"] not in {"queued", "running"}
+            or not isinstance(job_payload, dict)
+            or job_payload.get("run_id") != run_id
+            or job_payload.get("stage") != stage
+        ):
+            raise ValueError("provider task execution pair is invalid")
+        return attempt, job
+
+    def create_or_get_provider_task(
+        self,
+        *,
+        production_id: str,
+        run_id: str,
+        origin_stage_attempt_id: str,
+        current_stage_attempt_id: str,
+        current_job_id: str,
+        cache_key: str,
+        payload_digest: str,
+        prepared_provider_task_id: str,
+        request_protection: str,
+        request_ciphertext: bytes | None,
+        provider: str = "comfyui",
+        stage: str = "video_generation",
+    ) -> tuple[dict[str, Any], bool]:
+        """Create or safely rebind one logical provider operation."""
+
+        validate_identifier(production_id, label="production id")
+        validate_identifier(run_id, label="run id")
+        validate_identifier(origin_stage_attempt_id, label="stage attempt id")
+        validate_identifier(current_stage_attempt_id, label="stage attempt id")
+        validate_identifier(current_job_id, label="job id")
+        if provider != "comfyui" or stage != "video_generation":
+            raise ValueError("unsupported provider task")
+        if not isinstance(cache_key, str) or re.fullmatch(r"[0-9A-F]{64}", cache_key) is None:
+            raise ValueError("invalid provider task cache key")
+        if not isinstance(payload_digest, str) or re.fullmatch(
+            r"[0-9A-F]{64}", payload_digest
+        ) is None:
+            raise ValueError("invalid provider task payload digest")
+        self._validate_provider_external_id(prepared_provider_task_id)
+        protection, ciphertext = self._validate_provider_request_material(
+            request_protection, request_ciphertext
+        )
+        timestamp = utc_now()
+        with self.transaction() as connection:
+            current_attempt, _job = self._provider_execution_pair(
+                connection,
+                production_id=production_id,
+                run_id=run_id,
+                stage=stage,
+                cache_key=cache_key,
+                stage_attempt_id=current_stage_attempt_id,
+                job_id=current_job_id,
+            )
+            origin_attempt = connection.execute(
+                "SELECT * FROM stage_attempts WHERE id=?", (origin_stage_attempt_id,)
+            ).fetchone()
+            if (
+                origin_attempt is None
+                or origin_attempt["run_id"] != run_id
+                or origin_attempt["production_id"] != production_id
+                or origin_attempt["stage"] != stage
+                or origin_attempt["cache_key"] != cache_key
+            ):
+                raise ValueError("provider task origin attempt is invalid")
+            existing = connection.execute(
+                "SELECT * FROM provider_tasks WHERE provider=? AND run_id=? "
+                "AND cache_key=? AND payload_digest=?",
+                (provider, run_id, cache_key, payload_digest),
+            ).fetchone()
+            created = existing is None
+            event_type: str
+            if existing is None:
+                record_id = f"provider_task_{uuid.uuid4().hex}"
+                connection.execute(
+                    "INSERT INTO provider_tasks("
+                    "id, provider, production_id, run_id, stage, origin_stage_attempt_id, "
+                    "current_stage_attempt_id, current_job_id, cache_key, payload_digest, "
+                    "provider_task_id, status, attempt_sequence, recovery_count, request_protection, "
+                    "request_ciphertext, created_at, updated_at) "
+                    "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'prepared', 1, 0, ?, ?, ?, ?)",
+                    (
+                        record_id,
+                        provider,
+                        production_id,
+                        run_id,
+                        stage,
+                        origin_stage_attempt_id,
+                        current_stage_attempt_id,
+                        current_job_id,
+                        cache_key,
+                        payload_digest,
+                        prepared_provider_task_id,
+                        protection,
+                        ciphertext,
+                        timestamp,
+                        timestamp,
+                    ),
+                )
+                event_type = "video_generation.provider_task.prepared"
+            else:
+                record_id = existing["id"]
+                if existing["production_id"] != production_id or existing["stage"] != stage:
+                    raise ValueError("provider task logical identity is inconsistent")
+                if existing["status"] in _PROVIDER_TASK_TERMINAL_STATUSES:
+                    connection.execute(
+                        "UPDATE provider_tasks SET origin_stage_attempt_id=?, "
+                        "current_stage_attempt_id=?, current_job_id=?, "
+                        "provider_task_id=?, status='prepared', "
+                        "attempt_sequence=attempt_sequence+1, recovery_count=0, "
+                        "request_protection=?, request_ciphertext=?, updated_at=?, "
+                        "submitted_at=NULL, last_observed_at=NULL, completed_at=NULL, "
+                        "error_code=NULL, error_message=NULL "
+                        "WHERE id=? AND status IN ('succeeded', 'failed')",
+                        (
+                            origin_stage_attempt_id,
+                            current_stage_attempt_id,
+                            current_job_id,
+                            prepared_provider_task_id,
+                            protection,
+                            ciphertext,
+                            timestamp,
+                            record_id,
+                        ),
+                    )
+                    event_type = "video_generation.provider_task.reset"
+                elif existing["provider_task_id"] != prepared_provider_task_id:
+                    raise ValueError("prepared provider task id changed")
+                elif (
+                    existing["current_stage_attempt_id"] == current_stage_attempt_id
+                    and existing["current_job_id"] == current_job_id
+                ):
+                    return self._provider_task_dict(existing), False
+                else:
+                    if (
+                        existing["current_stage_attempt_id"] is not None
+                        or existing["current_job_id"] is not None
+                    ):
+                        owner_job = connection.execute(
+                            "SELECT status FROM jobs WHERE id=?",
+                            (existing["current_job_id"],),
+                        ).fetchone()
+                        if owner_job is not None and owner_job["status"] in {
+                            "queued",
+                            "running",
+                        }:
+                            raise ValueError("provider task is already claimed")
+                    next_protection = existing["request_protection"]
+                    next_ciphertext = existing["request_ciphertext"]
+                    if next_protection == "none" and protection == "dpapi-v1":
+                        next_protection = protection
+                        next_ciphertext = ciphertext
+                    connection.execute(
+                        "UPDATE provider_tasks SET current_stage_attempt_id=?, current_job_id=?, "
+                        "request_protection=?, request_ciphertext=?, updated_at=? WHERE id=?",
+                        (
+                            current_stage_attempt_id,
+                            current_job_id,
+                            next_protection,
+                            next_ciphertext,
+                            timestamp,
+                            record_id,
+                        ),
+                    )
+                    event_type = "video_generation.provider_task.rebound"
+                if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                    raise ValueError("provider task changed concurrently")
+            row = connection.execute(
+                "SELECT * FROM provider_tasks WHERE id=?", (record_id,)
+            ).fetchone()
+            assert row is not None
+            self._append_event(
+                connection,
+                "run",
+                run_id,
+                event_type,
+                {
+                    "provider_task_record_id": record_id,
+                    "provider": provider,
+                    "production_id": production_id,
+                    "attempt_id": current_attempt["id"],
+                    "job_id": current_job_id,
+                    "cache_key": cache_key,
+                    "payload_digest": payload_digest,
+                    "status": row["status"],
+                    "attempt_sequence": row["attempt_sequence"],
+                },
+                created_at=timestamp,
+            )
+            return self._provider_task_dict(row), created
+
+    def get_provider_task(self, provider_task_record_id: str) -> dict[str, Any] | None:
+        self._validate_provider_task_record_id(provider_task_record_id)
+        with self.session() as connection:
+            row = connection.execute(
+                "SELECT * FROM provider_tasks WHERE id=?", (provider_task_record_id,)
+            ).fetchone()
+        return self._provider_task_dict(row) if row else None
+
+    def get_provider_task_recovery_material(
+        self, provider_task_record_id: str
+    ) -> dict[str, Any] | None:
+        """Return one private recovery record for in-process service use only."""
+
+        self._validate_provider_task_record_id(provider_task_record_id)
+        with self.session() as connection:
+            row = connection.execute(
+                "SELECT * FROM provider_tasks WHERE id=?", (provider_task_record_id,)
+            ).fetchone()
+        if row is None:
+            return None
+        result = self._provider_task_dict(row)
+        raw_ciphertext = row["request_ciphertext"]
+        result["request_ciphertext"] = (
+            bytes(raw_ciphertext) if isinstance(raw_ciphertext, bytes) else None
+        )
+        return result
+
+    def list_provider_tasks(
+        self, *, run_id: str | None = None, limit: int = 100
+    ) -> list[dict[str, Any]]:
+        if run_id is not None:
+            validate_identifier(run_id, label="run id")
+        safe_limit = max(1, min(int(limit), 1000))
+        with self.session() as connection:
+            if run_id is None:
+                rows = connection.execute(
+                    "SELECT * FROM provider_tasks ORDER BY created_at DESC, rowid DESC LIMIT ?",
+                    (safe_limit,),
+                ).fetchall()
+            else:
+                rows = connection.execute(
+                    "SELECT * FROM provider_tasks WHERE run_id=? "
+                    "ORDER BY created_at DESC, rowid DESC LIMIT ?",
+                    (run_id, safe_limit),
+                ).fetchall()
+        return [self._provider_task_dict(row) for row in rows]
+
+    def list_recoverable_provider_tasks(self, *, limit: int = 100) -> list[dict[str, Any]]:
+        safe_limit = max(1, min(int(limit), 1000))
+        with self.session() as connection:
+            rows = connection.execute(
+                "SELECT * FROM provider_tasks WHERE status IN "
+                "('prepared', 'submitted', 'ambiguous', 'recovery_blocked', 'cancel_requested') "
+                "AND current_stage_attempt_id IS NULL AND current_job_id IS NULL "
+                "ORDER BY updated_at, id LIMIT ?",
+                (safe_limit,),
+            ).fetchall()
+        return [self._provider_task_dict(row) for row in rows]
+
+    def record_provider_submission(
+        self, provider_task_record_id: str, provider_task_id: str
+    ) -> dict[str, Any]:
+        self._validate_provider_task_record_id(provider_task_record_id)
+        self._validate_provider_external_id(provider_task_id)
+        timestamp = utc_now()
+        with self.transaction() as connection:
+            row = connection.execute(
+                "SELECT * FROM provider_tasks WHERE id=?", (provider_task_record_id,)
+            ).fetchone()
+            if row is None:
+                raise KeyError("provider task not found")
+            if row["provider_task_id"] != provider_task_id:
+                raise ValueError("provider task id changed")
+            if (
+                row["status"] in {"submitted", "recovering"}
+                and row["submitted_at"] is not None
+            ):
+                return self._provider_task_dict(row)
+            if row["status"] not in {
+                "prepared",
+                "submitted",
+                "recovering",
+                "ambiguous",
+                "recovery_blocked",
+            }:
+                raise ValueError("provider task is not accepting a submission")
+            connection.execute(
+                "UPDATE provider_tasks SET status='submitted', "
+                "submitted_at=COALESCE(submitted_at, ?), updated_at=?, completed_at=NULL, "
+                "error_code=NULL, error_message=NULL WHERE id=? AND provider_task_id=? "
+                "AND status IN ('prepared', 'submitted', 'recovering', 'ambiguous', 'recovery_blocked') "
+                "AND (status!='submitted' OR submitted_at IS NULL)",
+                (timestamp, timestamp, provider_task_record_id, provider_task_id),
+            )
+            if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                raise ValueError("provider task changed concurrently")
+            updated = connection.execute(
+                "SELECT * FROM provider_tasks WHERE id=?", (provider_task_record_id,)
+            ).fetchone()
+            assert updated is not None
+            # submitted_at is cleared only when a terminal current-state row
+            # is reset for a new provider attempt.  A recovery transition may
+            # revisit `submitted` for the same external ID, but must not append
+            # a second acceptance event for that provider attempt.
+            if row["submitted_at"] is None:
+                self._append_event(
+                    connection,
+                    "run",
+                    updated["run_id"],
+                    "video_generation.provider_submitted",
+                    {
+                        "attempt_id": updated["current_stage_attempt_id"]
+                        or updated["origin_stage_attempt_id"],
+                        "production_id": updated["production_id"],
+                        "provider": updated["provider"],
+                        "provider_task_record_id": updated["id"],
+                        "provider_task_id": provider_task_id,
+                        "attempt_sequence": updated["attempt_sequence"],
+                        "cache_key": updated["cache_key"],
+                    },
+                    created_at=timestamp,
+                )
+            return self._provider_task_dict(updated)
+
+    def claim_provider_task_recovery(
+        self,
+        provider_task_record_id: str,
+        *,
+        expected_updated_at: str,
+        current_stage_attempt_id: str,
+        current_job_id: str,
+    ) -> dict[str, Any] | None:
+        self._validate_provider_task_record_id(provider_task_record_id)
+        validate_identifier(current_stage_attempt_id, label="stage attempt id")
+        validate_identifier(current_job_id, label="job id")
+        if not isinstance(expected_updated_at, str) or not expected_updated_at:
+            raise ValueError("expected provider task timestamp is required")
+        timestamp = utc_now()
+        with self.transaction() as connection:
+            row = connection.execute(
+                "SELECT * FROM provider_tasks WHERE id=?", (provider_task_record_id,)
+            ).fetchone()
+            if row is None:
+                raise KeyError("provider task not found")
+            self._provider_execution_pair(
+                connection,
+                production_id=row["production_id"],
+                run_id=row["run_id"],
+                stage=row["stage"],
+                cache_key=row["cache_key"],
+                stage_attempt_id=current_stage_attempt_id,
+                job_id=current_job_id,
+            )
+            connection.execute(
+                "UPDATE provider_tasks SET status='recovering', "
+                "current_stage_attempt_id=?, current_job_id=?, recovery_count=recovery_count+1, "
+                "updated_at=?, completed_at=NULL, error_code=NULL, error_message=NULL "
+                "WHERE id=? AND updated_at=? "
+                "AND status IN ('prepared', 'submitted', 'ambiguous', 'recovery_blocked') "
+                "AND current_stage_attempt_id IS NULL AND current_job_id IS NULL",
+                (
+                    current_stage_attempt_id,
+                    current_job_id,
+                    timestamp,
+                    provider_task_record_id,
+                    expected_updated_at,
+                ),
+            )
+            if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                return None
+            updated = connection.execute(
+                "SELECT * FROM provider_tasks WHERE id=?", (provider_task_record_id,)
+            ).fetchone()
+            assert updated is not None
+            self._append_event(
+                connection,
+                "run",
+                updated["run_id"],
+                "video_generation.provider_recovery_claimed",
+                {
+                    "provider_task_record_id": updated["id"],
+                    "production_id": updated["production_id"],
+                    "provider_task_id": updated["provider_task_id"],
+                    "attempt_id": current_stage_attempt_id,
+                    "job_id": current_job_id,
+                    "cache_key": updated["cache_key"],
+                    "recovery_count": updated["recovery_count"],
+                },
+                created_at=timestamp,
+            )
+            return self._provider_task_dict(updated)
+
+    def abort_provider_task_recovery_admission(
+        self,
+        provider_task_record_id: str,
+        *,
+        current_stage_attempt_id: str,
+        current_job_id: str,
+        error_code: str = "job_setup_failed",
+        error_message: str = "The background job could not be prepared.",
+    ) -> dict[str, Any]:
+        """Atomically fail a recovery pair that never entered its worker queue.
+
+        A CAS loser owns only its queued job/attempt, while a queue insertion
+        failure also owns the provider task in ``recovering`` state.  This
+        transaction closes the exact queued pair in both cases and releases
+        the provider only when the tuple proves ownership.  The protected
+        request and external marker remain available for another exact
+        reconciliation; no provider POST occurs here.
+        """
+
+        self._validate_provider_task_record_id(provider_task_record_id)
+        validate_identifier(current_stage_attempt_id, label="stage attempt id")
+        validate_identifier(current_job_id, label="job id")
+        timestamp = utc_now()
+        safe_code = str(sanitize_for_storage(error_code or "job_setup_failed"))[:128]
+        safe_message = str(sanitize_for_storage(error_message or ""))[:1000] or None
+        with self.transaction() as connection:
+            provider_task = connection.execute(
+                "SELECT * FROM provider_tasks WHERE id=?",
+                (provider_task_record_id,),
+            ).fetchone()
+            job = connection.execute(
+                "SELECT * FROM jobs WHERE id=?", (current_job_id,)
+            ).fetchone()
+            attempt = connection.execute(
+                "SELECT * FROM stage_attempts WHERE id=?",
+                (current_stage_attempt_id,),
+            ).fetchone()
+            if provider_task is None:
+                raise KeyError("provider task not found")
+            if job is None:
+                raise KeyError("job not found")
+            if attempt is None:
+                raise KeyError("stage attempt not found")
+            if (
+                job["kind"] != "local_video_generation"
+                or job["status"] != "queued"
+                or attempt["status"] != "queued"
+                or attempt["job_id"] != current_job_id
+                or attempt["production_id"] != provider_task["production_id"]
+                or attempt["run_id"] != provider_task["run_id"]
+                or attempt["stage"] != provider_task["stage"]
+                or attempt["cache_key"] != provider_task["cache_key"]
+                or job["production_id"] != provider_task["production_id"]
+            ):
+                raise AtomicCompletionError(
+                    "provider recovery admission is no longer queued",
+                    code="atomic_failure_not_active",
+                    job_status=job["status"],
+                    stage_status=attempt["status"],
+                )
+            owns_stage = (
+                provider_task["current_stage_attempt_id"]
+                == current_stage_attempt_id
+            )
+            owns_job = provider_task["current_job_id"] == current_job_id
+            if owns_stage != owns_job:
+                raise sqlite3.IntegrityError(
+                    "provider recovery admission owner is incomplete"
+                )
+            owns_provider = owns_stage and owns_job
+            if owns_provider and provider_task["status"] != "recovering":
+                raise AtomicCompletionError(
+                    "provider recovery admission state changed",
+                    code="atomic_failure_not_active",
+                    job_status=job["status"],
+                    stage_status=attempt["status"],
+                )
+
+            connection.execute(
+                "UPDATE stage_attempts SET status='failed', completed_at=?, "
+                "result_json=NULL, error_code=?, error_message=? "
+                "WHERE id=? AND status='queued'",
+                (
+                    timestamp,
+                    safe_code,
+                    safe_message,
+                    current_stage_attempt_id,
+                ),
+            )
+            if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                raise AtomicCompletionError(
+                    "recovery attempt changed before admission abort",
+                    code="atomic_failure_not_active",
+                    job_status=job["status"],
+                    stage_status="unknown",
+                )
+            connection.execute(
+                "UPDATE jobs SET status='failed', completed_at=?, result_json=NULL, "
+                "error_code=?, error_message=? WHERE id=? AND status='queued'",
+                (timestamp, safe_code, safe_message, current_job_id),
+            )
+            if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                raise AtomicCompletionError(
+                    "recovery job changed before admission abort",
+                    code="atomic_failure_not_active",
+                    job_status="unknown",
+                    stage_status="failed",
+                )
+            if owns_provider:
+                connection.execute(
+                    "UPDATE provider_tasks SET status='recovery_blocked', "
+                    "current_stage_attempt_id=NULL, current_job_id=NULL, "
+                    "updated_at=?, completed_at=NULL, error_code=?, error_message=? "
+                    "WHERE id=? AND status='recovering' "
+                    "AND current_stage_attempt_id=? AND current_job_id=?",
+                    (
+                        timestamp,
+                        safe_code,
+                        safe_message,
+                        provider_task_record_id,
+                        current_stage_attempt_id,
+                        current_job_id,
+                    ),
+                )
+                if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                    raise AtomicCompletionError(
+                        "provider changed before admission abort",
+                        code="atomic_failure_not_active",
+                        job_status="failed",
+                        stage_status="failed",
+                    )
+
+            self._append_event(
+                connection,
+                "run",
+                attempt["run_id"],
+                "stage.attempt.failed",
+                {
+                    "attempt_id": attempt["id"],
+                    "production_id": attempt["production_id"],
+                    "stage": attempt["stage"],
+                    "attempt": attempt["attempt"],
+                    "cache_key": attempt["cache_key"],
+                    "result": None,
+                    "error_code": safe_code,
+                    "error_message": safe_message,
+                },
+                created_at=timestamp,
+            )
+            self._append_event(
+                connection,
+                "job",
+                current_job_id,
+                "job.failed",
+                {
+                    "result": None,
+                    "error_code": safe_code,
+                    "error_message": safe_message,
+                },
+                created_at=timestamp,
+            )
+            if owns_provider:
+                self._append_event(
+                    connection,
+                    "run",
+                    provider_task["run_id"],
+                    "video_generation.provider_state_changed",
+                    {
+                        "provider_task_record_id": provider_task["id"],
+                        "production_id": provider_task["production_id"],
+                        "provider": provider_task["provider"],
+                        "provider_task_id": provider_task["provider_task_id"],
+                        "attempt_id": current_stage_attempt_id,
+                        "job_id": current_job_id,
+                        "cache_key": provider_task["cache_key"],
+                        "attempt_sequence": provider_task["attempt_sequence"],
+                        "status": "recovery_blocked",
+                        "error_code": safe_code,
+                    },
+                    created_at=timestamp,
+                )
+            updated = connection.execute(
+                "SELECT * FROM provider_tasks WHERE id=?",
+                (provider_task_record_id,),
+            ).fetchone()
+            assert updated is not None
+            return self._provider_task_dict(updated)
+
+    def record_provider_observation(
+        self, provider_task_record_id: str
+    ) -> dict[str, Any]:
+        """Persist the time of an actual provider GET without changing state order."""
+
+        self._validate_provider_task_record_id(provider_task_record_id)
+        timestamp = utc_now()
+        with self.transaction() as connection:
+            row = connection.execute(
+                "SELECT * FROM provider_tasks WHERE id=?", (provider_task_record_id,)
+            ).fetchone()
+            if row is None:
+                raise KeyError("provider task not found")
+            connection.execute(
+                "UPDATE provider_tasks SET last_observed_at=? WHERE id=?",
+                (timestamp, provider_task_record_id),
+            )
+            updated = connection.execute(
+                "SELECT * FROM provider_tasks WHERE id=?", (provider_task_record_id,)
+            ).fetchone()
+            assert updated is not None
+            return self._provider_task_dict(updated)
+
+    def mark_provider_task_state(
+        self,
+        provider_task_record_id: str,
+        status: str,
+        *,
+        error_code: str | None = None,
+        error_message: str | None = None,
+    ) -> dict[str, Any]:
+        self._validate_provider_task_record_id(provider_task_record_id)
+        if status not in _PROVIDER_TASK_STATUSES or status == "succeeded":
+            raise ValueError("unsupported provider task state")
+        safe_code = str(sanitize_for_storage(error_code or ""))[:128] or None
+        safe_message = str(sanitize_for_storage(error_message or ""))[:1000] or None
+        timestamp = utc_now()
+        with self.transaction() as connection:
+            row = connection.execute(
+                "SELECT * FROM provider_tasks WHERE id=?", (provider_task_record_id,)
+            ).fetchone()
+            if row is None:
+                raise KeyError("provider task not found")
+            if row["status"] == status:
+                return self._provider_task_dict(row)
+            if row["status"] in _PROVIDER_TASK_TERMINAL_STATUSES:
+                raise ValueError("provider task is terminal")
+            if status not in _PROVIDER_TASK_STATE_TRANSITIONS[row["status"]]:
+                raise ValueError("provider task state transition is invalid")
+            if status == "submitted" and row["provider_task_id"] is None:
+                raise ValueError("submitted provider task id is absent")
+            if status == "recovering" and (
+                row["current_stage_attempt_id"] is None or row["current_job_id"] is None
+            ):
+                raise ValueError("recovering provider task owner is absent")
+            terminal_at = timestamp if status == "failed" else None
+            effective_code = safe_code if status in {
+                "failed",
+                "ambiguous",
+                "recovery_blocked",
+                "cancel_requested",
+            } else None
+            effective_message = safe_message if effective_code else None
+            release_owner = status in {
+                "ambiguous",
+                "recovery_blocked",
+                "cancel_requested",
+                "failed",
+            }
+            connection.execute(
+                "UPDATE provider_tasks SET status=?, updated_at=?, completed_at=?, "
+                "error_code=?, error_message=?, "
+                "current_stage_attempt_id=CASE WHEN ? THEN NULL ELSE current_stage_attempt_id END, "
+                "current_job_id=CASE WHEN ? THEN NULL ELSE current_job_id END, "
+                "request_ciphertext=CASE WHEN ? THEN NULL ELSE request_ciphertext END "
+                "WHERE id=? AND status NOT IN ('succeeded', 'failed')",
+                (
+                    status,
+                    timestamp,
+                    terminal_at,
+                    effective_code,
+                    effective_message,
+                    int(release_owner),
+                    int(release_owner),
+                    int(status == "failed"),
+                    provider_task_record_id,
+                ),
+            )
+            if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                raise ValueError("provider task changed concurrently")
+            updated = connection.execute(
+                "SELECT * FROM provider_tasks WHERE id=?", (provider_task_record_id,)
+            ).fetchone()
+            assert updated is not None
+            self._append_event(
+                connection,
+                "run",
+                updated["run_id"],
+                "video_generation.provider_state_changed",
+                {
+                    "provider_task_record_id": updated["id"],
+                    "production_id": updated["production_id"],
+                    "provider_task_id": updated["provider_task_id"],
+                    "status": status,
+                    "cache_key": updated["cache_key"],
+                    "error_code": effective_code,
+                    "error_message": effective_message,
+                },
+                created_at=timestamp,
+            )
+            return self._provider_task_dict(updated)
 
     def create_stage_attempt(
         self,
@@ -2661,12 +3848,401 @@ class StudioDatabase:
             assert row is not None
             return self._job_dict(row), True
 
+    def create_or_get_local_video_generation_job(
+        self,
+        *,
+        production_id: str,
+        run_id: str,
+        cache_key: str,
+        payload_digest: str,
+        attempt_payload: Any,
+        job_payload: Any,
+    ) -> tuple[dict[str, Any], bool]:
+        """Atomically create or reuse one active direct ComfyUI job claim."""
+
+        validate_identifier(production_id, label="production id")
+        validate_identifier(run_id, label="run id")
+        if re.fullmatch(r"[0-9A-F]{64}", cache_key or "") is None:
+            raise ValueError("invalid cache key")
+        if re.fullmatch(r"[0-9A-F]{64}", payload_digest or "") is None:
+            raise ValueError("invalid payload digest")
+        safe_attempt_payload = sanitize_for_storage(attempt_payload)
+        safe_job_payload = sanitize_for_storage(job_payload)
+        if (
+            not isinstance(safe_attempt_payload, dict)
+            or safe_attempt_payload.get("cache_key") != cache_key
+            or safe_attempt_payload.get("provider_payload_digest") != payload_digest
+            or not isinstance(safe_job_payload, dict)
+            or safe_job_payload.get("production_id") != production_id
+            or safe_job_payload.get("run_id") != run_id
+            or safe_job_payload.get("stage") != "video_generation"
+            or safe_job_payload.get("cache_key") != cache_key
+            or safe_job_payload.get("provider_payload_digest") != payload_digest
+        ):
+            raise ValueError("invalid local video generation claim payload")
+
+        timestamp = utc_now()
+        with self.transaction() as connection:
+            run = connection.execute(
+                "SELECT * FROM runs WHERE id=?", (run_id,)
+            ).fetchone()
+            if (
+                run is None
+                or run["production_id"] != production_id
+                or run["execution_profile"] not in {"local_comfyui", "local_pipeline"}
+                or "video_generation" not in _loads(run["requested_stages_json"], [])
+            ):
+                raise ValueError("local video generation run is invalid")
+
+            claim = connection.execute(
+                "SELECT * FROM local_video_generation_claims "
+                "WHERE run_id=? AND cache_key=? AND payload_digest=?",
+                (run_id, cache_key, payload_digest),
+            ).fetchone()
+            if claim is not None:
+                existing_job = connection.execute(
+                    "SELECT * FROM jobs WHERE id=?", (claim["active_job_id"],)
+                ).fetchone()
+                existing_attempt = connection.execute(
+                    "SELECT * FROM stage_attempts WHERE id=?",
+                    (claim["stage_attempt_id"],),
+                ).fetchone()
+                if existing_job is None or existing_attempt is None:
+                    raise sqlite3.IntegrityError("local video generation claim is missing")
+                if (
+                    claim["production_id"] != production_id
+                    or existing_job["kind"] != "local_video_generation"
+                    or existing_job["production_id"] != production_id
+                    or existing_attempt["job_id"] != existing_job["id"]
+                    or existing_attempt["run_id"] != run_id
+                    or existing_attempt["stage"] != "video_generation"
+                    or existing_attempt["cache_key"] != cache_key
+                    or {
+                        key: value
+                        for key, value in _loads(existing_job["payload_json"], {}).items()
+                        if key != "stage_attempt_id"
+                    }
+                    != safe_job_payload
+                    or _loads(existing_job["payload_json"], {}).get(
+                        "stage_attempt_id"
+                    )
+                    != existing_attempt["id"]
+                    or _loads(existing_attempt["payload_json"], {}) != safe_attempt_payload
+                ):
+                    raise sqlite3.IntegrityError(
+                        "local video generation claim provenance is invalid"
+                    )
+                if (
+                    existing_job["status"] in {"queued", "running"}
+                    and existing_attempt["status"] in {"queued", "running"}
+                ):
+                    output = self._job_dict(existing_job)
+                    output["stage_attempt_id"] = existing_attempt["id"]
+                    output["cache_key"] = cache_key
+                    return output, False
+
+            attempt_id = f"attempt_{uuid.uuid4().hex}"
+            job_id = f"job_{uuid.uuid4().hex}"
+            stored_job_payload = {
+                **safe_job_payload,
+                "stage_attempt_id": attempt_id,
+            }
+            latest = connection.execute(
+                "SELECT COALESCE(MAX(attempt), 0) AS attempt FROM stage_attempts "
+                "WHERE run_id=? AND stage='video_generation'",
+                (run_id,),
+            ).fetchone()
+            attempt_number = int(latest["attempt"]) + 1
+            connection.execute(
+                "INSERT INTO jobs(id, kind, status, production_id, created_at, payload_json) "
+                "VALUES(?, 'local_video_generation', 'queued', ?, ?, ?)",
+                (job_id, production_id, timestamp, _json(stored_job_payload)),
+            )
+            connection.execute(
+                "INSERT INTO stage_attempts(id, run_id, production_id, job_id, stage, "
+                "attempt, status, cache_key, created_at, payload_json) "
+                "VALUES(?, ?, ?, ?, 'video_generation', ?, 'queued', ?, ?, ?)",
+                (
+                    attempt_id,
+                    run_id,
+                    production_id,
+                    job_id,
+                    attempt_number,
+                    cache_key,
+                    timestamp,
+                    _json(safe_attempt_payload),
+                ),
+            )
+            if claim is None:
+                connection.execute(
+                    "INSERT INTO local_video_generation_claims("
+                    "run_id, production_id, cache_key, payload_digest, stage_attempt_id, "
+                    "active_job_id, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        run_id,
+                        production_id,
+                        cache_key,
+                        payload_digest,
+                        attempt_id,
+                        job_id,
+                        timestamp,
+                        timestamp,
+                    ),
+                )
+            else:
+                connection.execute(
+                    "UPDATE local_video_generation_claims SET stage_attempt_id=?, "
+                    "active_job_id=?, updated_at=? WHERE run_id=? AND cache_key=? "
+                    "AND payload_digest=? AND active_job_id=?",
+                    (
+                        attempt_id,
+                        job_id,
+                        timestamp,
+                        run_id,
+                        cache_key,
+                        payload_digest,
+                        claim["active_job_id"],
+                    ),
+                )
+                if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                    raise sqlite3.IntegrityError(
+                        "local video generation claim changed concurrently"
+                    )
+            self._append_event(
+                connection,
+                "job",
+                job_id,
+                "job.queued",
+                {"kind": "local_video_generation", "production_id": production_id},
+                created_at=timestamp,
+            )
+            self._append_event(
+                connection,
+                "run",
+                run_id,
+                "stage.attempt.queued",
+                {
+                    "attempt_id": attempt_id,
+                    "production_id": production_id,
+                    "stage": "video_generation",
+                    "attempt": attempt_number,
+                    "cache_key": cache_key,
+                    "payload": safe_attempt_payload,
+                },
+                created_at=timestamp,
+            )
+            self._append_event(
+                connection,
+                "run",
+                run_id,
+                "stage.attempt.job_linked",
+                {
+                    "attempt_id": attempt_id,
+                    "production_id": production_id,
+                    "stage": "video_generation",
+                    "attempt": attempt_number,
+                    "cache_key": cache_key,
+                    "job_id": job_id,
+                    "linked_at": timestamp,
+                },
+                created_at=timestamp,
+            )
+            row = connection.execute(
+                "SELECT * FROM jobs WHERE id=?", (job_id,)
+            ).fetchone()
+            assert row is not None
+            output = self._job_dict(row)
+            output["stage_attempt_id"] = attempt_id
+            output["cache_key"] = cache_key
+            return output, True
+
+    def abort_local_video_generation_admission(
+        self,
+        job_id: str,
+        stage_attempt_id: str,
+        *,
+        error_code: str = "job_setup_failed",
+        error_message: str = "The background job could not be prepared.",
+    ) -> dict[str, Any]:
+        """Atomically retire a claimed pair that never reached the GPU queue.
+
+        Direct local video admission creates the job, stage attempt, and
+        durable request claim before constructing and enqueueing the callback.
+        If that in-memory admission step fails, the pair is still ``queued``;
+        the normal worker failure transaction intentionally requires a
+        ``running`` job.  This bounded transaction handles only that earlier
+        state and refuses to touch a provider task or an already-started job.
+        The claim remains pointed at the failed pair as audit history, allowing
+        the next identical request to replace it with fresh IDs.
+        """
+
+        timestamp = utc_now()
+        safe_code = str(sanitize_for_storage(error_code or "job_setup_failed"))[:128]
+        safe_message = str(sanitize_for_storage(error_message or ""))[:1000] or None
+        with self.transaction() as connection:
+            job = connection.execute(
+                "SELECT * FROM jobs WHERE id=?", (job_id,)
+            ).fetchone()
+            attempt = connection.execute(
+                "SELECT * FROM stage_attempts WHERE id=?", (stage_attempt_id,)
+            ).fetchone()
+            if job is None:
+                raise KeyError("job not found")
+            if attempt is None:
+                raise KeyError("stage attempt not found")
+            if (
+                job["kind"] != "local_video_generation"
+                or job["status"] != "queued"
+                or attempt["status"] != "queued"
+                or attempt["job_id"] != job_id
+                or attempt["stage"] != "video_generation"
+                or attempt["production_id"] != job["production_id"]
+            ):
+                raise AtomicCompletionError(
+                    "local video admission is no longer queued",
+                    code="atomic_failure_not_active",
+                    job_status=job["status"],
+                    stage_status=attempt["status"],
+                )
+            job_payload = _loads(job["payload_json"], {})
+            attempt_payload = _loads(attempt["payload_json"], {})
+            if (
+                not isinstance(job_payload, dict)
+                or not isinstance(attempt_payload, dict)
+                or job_payload.get("stage_attempt_id") != stage_attempt_id
+                or job_payload.get("run_id") != attempt["run_id"]
+                or job_payload.get("production_id") != attempt["production_id"]
+                or job_payload.get("cache_key") != attempt["cache_key"]
+                or attempt_payload.get("cache_key") != attempt["cache_key"]
+            ):
+                raise sqlite3.IntegrityError(
+                    "local video admission provenance is invalid"
+                )
+            payload_digest = job_payload.get("provider_payload_digest")
+            if (
+                not isinstance(payload_digest, str)
+                or attempt_payload.get("provider_payload_digest") != payload_digest
+            ):
+                raise sqlite3.IntegrityError(
+                    "local video admission payload digest is invalid"
+                )
+            claim = connection.execute(
+                "SELECT * FROM local_video_generation_claims "
+                "WHERE run_id=? AND cache_key=? AND payload_digest=?",
+                (attempt["run_id"], attempt["cache_key"], payload_digest),
+            ).fetchone()
+            if (
+                claim is None
+                or claim["production_id"] != attempt["production_id"]
+                or claim["stage_attempt_id"] != stage_attempt_id
+                or claim["active_job_id"] != job_id
+            ):
+                raise sqlite3.IntegrityError(
+                    "local video admission claim is invalid"
+                )
+            provider_task = connection.execute(
+                "SELECT id FROM provider_tasks WHERE current_stage_attempt_id=? "
+                "OR current_job_id=? LIMIT 1",
+                (stage_attempt_id, job_id),
+            ).fetchone()
+            if provider_task is not None:
+                raise AtomicCompletionError(
+                    "provider submission already owns this admission",
+                    code="atomic_failure_not_active",
+                    job_status=job["status"],
+                    stage_status=attempt["status"],
+                )
+
+            connection.execute(
+                "UPDATE stage_attempts SET status='failed', completed_at=?, "
+                "result_json=NULL, error_code=?, error_message=? "
+                "WHERE id=? AND status='queued'",
+                (timestamp, safe_code, safe_message, stage_attempt_id),
+            )
+            if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                raise AtomicCompletionError(
+                    "stage attempt changed before admission failure could commit",
+                    code="atomic_failure_not_active",
+                    job_status=job["status"],
+                    stage_status="unknown",
+                )
+            connection.execute(
+                "UPDATE jobs SET status='failed', completed_at=?, result_json=NULL, "
+                "error_code=?, error_message=? WHERE id=? AND status='queued'",
+                (timestamp, safe_code, safe_message, job_id),
+            )
+            if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                raise AtomicCompletionError(
+                    "job changed before admission failure could commit",
+                    code="atomic_failure_not_active",
+                    job_status="unknown",
+                    stage_status="failed",
+                )
+            connection.execute(
+                "UPDATE local_video_generation_claims SET updated_at=? "
+                "WHERE run_id=? AND cache_key=? AND payload_digest=? "
+                "AND stage_attempt_id=? AND active_job_id=?",
+                (
+                    timestamp,
+                    attempt["run_id"],
+                    attempt["cache_key"],
+                    payload_digest,
+                    stage_attempt_id,
+                    job_id,
+                ),
+            )
+            if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                raise sqlite3.IntegrityError(
+                    "local video admission claim changed concurrently"
+                )
+            self._append_event(
+                connection,
+                "run",
+                attempt["run_id"],
+                "stage.attempt.failed",
+                {
+                    "attempt_id": attempt["id"],
+                    "production_id": attempt["production_id"],
+                    "stage": attempt["stage"],
+                    "attempt": attempt["attempt"],
+                    "cache_key": attempt["cache_key"],
+                    "result": None,
+                    "error_code": safe_code,
+                    "error_message": safe_message,
+                },
+                created_at=timestamp,
+            )
+            self._append_event(
+                connection,
+                "job",
+                job_id,
+                "job.failed",
+                {
+                    "result": None,
+                    "error_code": safe_code,
+                    "error_message": safe_message,
+                },
+                created_at=timestamp,
+            )
+            updated_job = connection.execute(
+                "SELECT * FROM jobs WHERE id=?", (job_id,)
+            ).fetchone()
+            updated_attempt = connection.execute(
+                "SELECT * FROM stage_attempts WHERE id=?", (stage_attempt_id,)
+            ).fetchone()
+            assert updated_job is not None and updated_attempt is not None
+            return {
+                "job": self._job_dict(updated_job),
+                "stage_attempt": self._stage_attempt_dict(updated_attempt),
+            }
+
     def complete_job_with_stage_attempt(
         self,
         job_id: str,
         stage_attempt_id: str,
         public_result: Any,
         artifact_records: Sequence[dict[str, Any]] = (),
+        provider_task_record_id: str | None = None,
     ) -> dict[str, Any]:
         """Commit a job and its linked active stage attempt together.
 
@@ -2696,6 +4272,8 @@ class StudioDatabase:
         # The linked database row is authoritative.  A worker result must not
         # be able to replace its attempt identity with an untrusted field.
         safe_stage_result.pop("stage_attempt_id", None)
+        if provider_task_record_id is not None:
+            self._validate_provider_task_record_id(provider_task_record_id)
         with self.transaction() as connection:
             job = connection.execute(
                 "SELECT * FROM jobs WHERE id=?", (job_id,)
@@ -2727,6 +4305,40 @@ class StudioDatabase:
                     job_status=job["status"],
                     stage_status=attempt["status"],
                 )
+
+            provider_task: sqlite3.Row | None = None
+            bound_provider_task = connection.execute(
+                "SELECT * FROM provider_tasks WHERE current_stage_attempt_id=? "
+                "AND current_job_id=?",
+                (stage_attempt_id, job_id),
+            ).fetchone()
+            if provider_task_record_id is None and bound_provider_task is not None:
+                raise ValueError("bound provider task completion record is required")
+            if provider_task_record_id is not None:
+                provider_task = connection.execute(
+                    "SELECT * FROM provider_tasks WHERE id=?",
+                    (provider_task_record_id,),
+                ).fetchone()
+                if provider_task is None:
+                    raise KeyError("provider task not found")
+                result_provider_task_id = safe_stage_result.get("provider_task_id")
+                if (
+                    (
+                        bound_provider_task is not None
+                        and bound_provider_task["id"] != provider_task["id"]
+                    )
+                    or provider_task["status"] not in {"submitted", "recovering"}
+                    or provider_task["production_id"] != attempt["production_id"]
+                    or provider_task["run_id"] != attempt["run_id"]
+                    or provider_task["stage"] != attempt["stage"]
+                    or provider_task["cache_key"] != attempt["cache_key"]
+                    or provider_task["current_stage_attempt_id"] != stage_attempt_id
+                    or provider_task["current_job_id"] != job_id
+                    or provider_task["provider_task_id"] is None
+                    or result_provider_task_id != provider_task["provider_task_id"]
+                    or safe_stage_result.get("provider") != provider_task["provider"]
+                ):
+                    raise ValueError("provider task completion provenance is invalid")
 
             if safe_artifact_records:
                 safe_stage_result["artifacts"] = [
@@ -2774,6 +4386,31 @@ class StudioDatabase:
                     stage_status="unknown",
                 )
 
+            if provider_task is not None:
+                connection.execute(
+                    "UPDATE provider_tasks SET status='succeeded', updated_at=?, completed_at=?, "
+                    "last_observed_at=?, request_ciphertext=NULL, error_code=NULL, error_message=NULL "
+                    "WHERE id=? AND status IN ('submitted', 'recovering') "
+                    "AND current_stage_attempt_id=? AND current_job_id=? "
+                    "AND provider_task_id=?",
+                    (
+                        timestamp,
+                        timestamp,
+                        timestamp,
+                        provider_task["id"],
+                        stage_attempt_id,
+                        job_id,
+                        provider_task["provider_task_id"],
+                    ),
+                )
+                if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                    raise AtomicCompletionError(
+                        "provider task changed before atomic completion could commit",
+                        code="atomic_completion_not_active",
+                        job_status="succeeded",
+                        stage_status="succeeded",
+                    )
+
             self._append_event(
                 connection,
                 "run",
@@ -2804,6 +4441,24 @@ class StudioDatabase:
                 },
                 created_at=timestamp,
             )
+            if provider_task is not None:
+                self._append_event(
+                    connection,
+                    "run",
+                    attempt["run_id"],
+                    "video_generation.provider_succeeded",
+                    {
+                        "provider_task_record_id": provider_task["id"],
+                        "production_id": attempt["production_id"],
+                        "provider": provider_task["provider"],
+                        "provider_task_id": provider_task["provider_task_id"],
+                        "attempt_id": stage_attempt_id,
+                        "job_id": job_id,
+                        "cache_key": attempt["cache_key"],
+                        "attempt_sequence": provider_task["attempt_sequence"],
+                    },
+                    created_at=timestamp,
+                )
             updated_job = connection.execute(
                 "SELECT * FROM jobs WHERE id=?", (job_id,)
             ).fetchone()
@@ -2816,6 +4471,14 @@ class StudioDatabase:
                 "job": self._job_dict(updated_job),
                 "stage_attempt": self._stage_attempt_dict(updated_attempt),
             }
+            if provider_task is not None:
+                updated_provider_task = connection.execute(
+                    "SELECT * FROM provider_tasks WHERE id=?", (provider_task["id"],)
+                ).fetchone()
+                assert updated_provider_task is not None
+                committed["provider_task"] = self._provider_task_dict(
+                    updated_provider_task
+                )
         return committed
 
     def fail_job_with_stage_attempt(
@@ -2825,18 +4488,24 @@ class StudioDatabase:
         *,
         error_code: str,
         error_message: str,
+        provider_task_record_id: str | None = None,
     ) -> dict[str, Any]:
-        """Fail a linked active job/stage pair in one transaction.
+        """Fail a linked job/stage and definite provider failure atomically.
 
         JobManager uses this when work returned an atomic completion envelope
         but final artifact registration or terminal commit was rejected.  A
         partial failure is not accepted: the linked pair either becomes
         failed together, is already terminal together, or this method raises.
+        A bound ComfyUI task transitions to ``failed``, ``ambiguous``, or
+        ``recovery_blocked`` from the bounded worker error code in this same
+        transaction; only a definite provider failure clears recovery bytes.
         """
 
         timestamp = utc_now()
         safe_code = str(sanitize_for_storage(error_code or "job_failed"))[:128]
         safe_message = str(sanitize_for_storage(error_message or ""))[:1000] or None
+        if provider_task_record_id is not None:
+            self._validate_provider_task_record_id(provider_task_record_id)
         with self.transaction() as connection:
             job = connection.execute(
                 "SELECT * FROM jobs WHERE id=?", (job_id,)
@@ -2860,18 +4529,57 @@ class StudioDatabase:
             ):
                 raise ValueError("job and stage attempt production do not match")
 
-            if job["status"] in {"failed", "interrupted"} and attempt[
-                "status"
-            ] == "failed":
+            if provider_task_record_id is None:
+                provider_task = connection.execute(
+                    "SELECT * FROM provider_tasks WHERE current_stage_attempt_id=? "
+                    "AND current_job_id=?",
+                    (stage_attempt_id, job_id),
+                ).fetchone()
+            else:
+                provider_task = connection.execute(
+                    "SELECT * FROM provider_tasks WHERE id=?",
+                    (provider_task_record_id,),
+                ).fetchone()
+                if (
+                    provider_task is None
+                    or provider_task["current_stage_attempt_id"] != stage_attempt_id
+                    or provider_task["current_job_id"] != job_id
+                    or provider_task["production_id"] != attempt["production_id"]
+                    or provider_task["run_id"] != attempt["run_id"]
+                    or provider_task["stage"] != attempt["stage"]
+                    or provider_task["cache_key"] != attempt["cache_key"]
+                ):
+                    raise ValueError("provider task failure provenance is invalid")
+            provider_failure_status = (
+                "failed"
+                if safe_code in _PROVIDER_TASK_DEFINITE_FAILURE_CODES
+                else (
+                    "ambiguous"
+                    if safe_code == "comfyui_submission_unknown"
+                    else "recovery_blocked"
+                )
+            )
+            terminalize_provider = bool(
+                provider_task is not None
+                and provider_task["status"] not in _PROVIDER_TASK_TERMINAL_STATUSES
+            )
+
+            pair_already_terminal = (
+                job["status"] in {"failed", "interrupted"}
+                and attempt["status"] == "failed"
+            )
+            if pair_already_terminal and not terminalize_provider:
                 return {
                     "committed": False,
                     "job": self._job_dict(job),
                     "stage_attempt": self._stage_attempt_dict(attempt),
                 }
-            if job["status"] != "running" or attempt["status"] not in {
+            if not pair_already_terminal and (
+                job["status"] != "running" or attempt["status"] not in {
                 "queued",
                 "running",
-            }:
+                }
+            ):
                 raise AtomicCompletionError(
                     "atomic failure requires a running job and active stage attempt",
                     code="atomic_failure_not_active",
@@ -2879,61 +4587,118 @@ class StudioDatabase:
                     stage_status=attempt["status"],
                 )
 
-            connection.execute(
-                "UPDATE stage_attempts SET status='failed', completed_at=?, "
-                "result_json=NULL, error_code=?, error_message=? "
-                "WHERE id=? AND status IN ('queued', 'running')",
-                (timestamp, safe_code, safe_message, stage_attempt_id),
-            )
-            if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
-                raise AtomicCompletionError(
-                    "stage attempt changed before atomic failure could commit",
-                    code="atomic_failure_not_active",
-                    job_status=job["status"],
-                    stage_status="unknown",
+            if not pair_already_terminal:
+                connection.execute(
+                    "UPDATE stage_attempts SET status='failed', completed_at=?, "
+                    "result_json=NULL, error_code=?, error_message=? "
+                    "WHERE id=? AND status IN ('queued', 'running')",
+                    (timestamp, safe_code, safe_message, stage_attempt_id),
                 )
-            connection.execute(
-                "UPDATE jobs SET status='failed', completed_at=?, result_json=NULL, "
-                "error_code=?, error_message=? WHERE id=? AND status='running'",
-                (timestamp, safe_code, safe_message, job_id),
-            )
-            if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
-                raise AtomicCompletionError(
-                    "job changed before atomic failure could commit",
-                    code="atomic_failure_not_active",
-                    job_status="unknown",
-                    stage_status="failed",
+                if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                    raise AtomicCompletionError(
+                        "stage attempt changed before atomic failure could commit",
+                        code="atomic_failure_not_active",
+                        job_status=job["status"],
+                        stage_status="unknown",
+                    )
+                connection.execute(
+                    "UPDATE jobs SET status='failed', completed_at=?, result_json=NULL, "
+                    "error_code=?, error_message=? WHERE id=? AND status='running'",
+                    (timestamp, safe_code, safe_message, job_id),
                 )
+                if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                    raise AtomicCompletionError(
+                        "job changed before atomic failure could commit",
+                        code="atomic_failure_not_active",
+                        job_status="unknown",
+                        stage_status="failed",
+                    )
 
-            self._append_event(
-                connection,
-                "run",
-                attempt["run_id"],
-                "stage.attempt.failed",
-                {
-                    "attempt_id": attempt["id"],
-                    "production_id": attempt["production_id"],
-                    "stage": attempt["stage"],
-                    "attempt": attempt["attempt"],
-                    "cache_key": attempt["cache_key"],
-                    "result": None,
-                    "error_code": safe_code,
-                    "error_message": safe_message,
-                },
-                created_at=timestamp,
-            )
-            self._append_event(
-                connection,
-                "job",
-                job_id,
-                "job.failed",
-                {
-                    "result": None,
-                    "error_code": safe_code,
-                    "error_message": safe_message,
-                },
-                created_at=timestamp,
-            )
+            if terminalize_provider and provider_task is not None:
+                connection.execute(
+                    "UPDATE provider_tasks SET status=?, updated_at=?, completed_at=?, "
+                    "last_observed_at=CASE WHEN ? THEN ? ELSE last_observed_at END, "
+                    "current_stage_attempt_id=NULL, current_job_id=NULL, "
+                    "request_ciphertext=CASE WHEN ? THEN NULL ELSE request_ciphertext END, "
+                    "error_code=?, error_message=? "
+                    "WHERE id=? AND current_stage_attempt_id=? AND current_job_id=? "
+                    "AND status NOT IN ('succeeded', 'failed')",
+                    (
+                        provider_failure_status,
+                        timestamp,
+                        timestamp if provider_failure_status == "failed" else None,
+                        int(provider_failure_status == "failed"),
+                        timestamp,
+                        int(provider_failure_status == "failed"),
+                        safe_code,
+                        safe_message,
+                        provider_task["id"],
+                        stage_attempt_id,
+                        job_id,
+                    ),
+                )
+                if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                    raise AtomicCompletionError(
+                        "provider task changed before atomic failure could commit",
+                        code="atomic_failure_not_active",
+                        job_status="failed",
+                        stage_status="failed",
+                    )
+
+            if not pair_already_terminal:
+                self._append_event(
+                    connection,
+                    "run",
+                    attempt["run_id"],
+                    "stage.attempt.failed",
+                    {
+                        "attempt_id": attempt["id"],
+                        "production_id": attempt["production_id"],
+                        "stage": attempt["stage"],
+                        "attempt": attempt["attempt"],
+                        "cache_key": attempt["cache_key"],
+                        "result": None,
+                        "error_code": safe_code,
+                        "error_message": safe_message,
+                    },
+                    created_at=timestamp,
+                )
+                self._append_event(
+                    connection,
+                    "job",
+                    job_id,
+                    "job.failed",
+                    {
+                        "result": None,
+                        "error_code": safe_code,
+                        "error_message": safe_message,
+                    },
+                    created_at=timestamp,
+                )
+            if terminalize_provider and provider_task is not None:
+                self._append_event(
+                    connection,
+                    "run",
+                    attempt["run_id"],
+                    (
+                        "video_generation.provider_failed"
+                        if provider_failure_status == "failed"
+                        else "video_generation.provider_state_changed"
+                    ),
+                    {
+                        "provider_task_record_id": provider_task["id"],
+                        "production_id": attempt["production_id"],
+                        "provider": provider_task["provider"],
+                        "provider_task_id": provider_task["provider_task_id"],
+                        "attempt_id": stage_attempt_id,
+                        "job_id": job_id,
+                        "cache_key": attempt["cache_key"],
+                        "attempt_sequence": provider_task["attempt_sequence"],
+                        "status": provider_failure_status,
+                        "error_code": safe_code,
+                    },
+                    created_at=timestamp,
+                )
             updated_job = connection.execute(
                 "SELECT * FROM jobs WHERE id=?", (job_id,)
             ).fetchone()
@@ -2941,11 +4706,18 @@ class StudioDatabase:
                 "SELECT * FROM stage_attempts WHERE id=?", (stage_attempt_id,)
             ).fetchone()
             assert updated_job is not None and updated_attempt is not None
-            return {
+            committed = {
                 "committed": True,
                 "job": self._job_dict(updated_job),
                 "stage_attempt": self._stage_attempt_dict(updated_attempt),
             }
+            if terminalize_provider and provider_task is not None:
+                updated_provider = connection.execute(
+                    "SELECT * FROM provider_tasks WHERE id=?", (provider_task["id"],)
+                ).fetchone()
+                assert updated_provider is not None
+                committed["provider_task"] = self._provider_task_dict(updated_provider)
+            return committed
 
     def update_job(
         self,
