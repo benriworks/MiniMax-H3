@@ -14,6 +14,8 @@ import type {
   LocalComfyUiRequest,
   LocalPipelineRequest,
   LocalPipelineStageResult,
+  LocalScreenCaptureAction,
+  LocalScreenCaptureRequest,
   LocalTimelineClip,
   LocalTimelineRequest,
   LocalQcRequest,
@@ -521,6 +523,154 @@ export const buildLocalTimelinePayload = (value: unknown): LocalTimelinePayload 
 
 export const toLocalTimelinePayload = buildLocalTimelinePayload;
 
+export const LOCAL_SCREEN_CAPTURE_LIMITS = {
+  minDurationMs: 1_000,
+  maxDurationMs: 30_000,
+  maxSettleMs: 10_000,
+  maxActions: 16,
+  maxSelectorChars: 256,
+} as const;
+
+const LOCAL_SCREEN_CAPTURE_KEYS = new Set([
+  'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'End', 'Enter',
+  'Escape', 'Home', 'PageDown', 'PageUp', 'Space', 'Tab',
+]);
+
+export type LocalScreenCapturePayloadAction =
+  | { type: 'scroll'; at_ms: number; delta_y: number }
+  | { type: 'click'; at_ms: number; selector: string }
+  | { type: 'press'; at_ms: number; selector: string; key: string };
+
+export interface LocalScreenCapturePayload {
+  url: string;
+  duration_ms: number;
+  settle_ms: number;
+  actions: LocalScreenCapturePayloadAction[];
+}
+
+export interface NormalizedLocalScreenCaptureInput {
+  request: LocalScreenCaptureRequest;
+  payload: LocalScreenCapturePayload;
+  errors: string[];
+}
+
+const captureInteger = (value: unknown): number => {
+  const parsed = number(value);
+  return parsed === undefined ? Number.NaN : parsed;
+};
+
+const normalizeCaptureUrl = (value: unknown): { url: string; error?: string } => {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (!raw || raw.length > 2_048 || /[\\\u0000-\u001f]/.test(raw)) {
+    return { url: raw, error: 'URLを入力してください。' };
+  }
+  try {
+    const target = new URL(raw);
+    if (
+      target.protocol !== 'http:'
+      || target.hostname !== '127.0.0.1'
+      || !target.port
+      || target.username
+      || target.password
+      || target.hash
+    ) {
+      return { url: raw, error: 'http://127.0.0.1:<port>/ のloopback URLだけを指定できます。' };
+    }
+    return { url: target.href };
+  } catch {
+    return { url: raw, error: 'URLの形式が正しくありません。' };
+  }
+};
+
+/** Normalize the closed Playwright request; no credentials or arbitrary JS can enter the wire body. */
+export const normalizeLocalScreenCaptureInput = (value: unknown): NormalizedLocalScreenCaptureInput => {
+  const record = asRecord(value);
+  const target = normalizeCaptureUrl(pick(record, ['url']));
+  const durationMs = captureInteger(pick(record, ['durationMs', 'duration_ms']));
+  const settleMs = captureInteger(pick(record, ['settleMs', 'settle_ms']));
+  const rawActions = pick(record, ['actions']);
+  const actionsValue = Array.isArray(rawActions) ? rawActions : [];
+  const errors: string[] = [];
+  if (target.error) errors.push(target.error);
+  if (!Number.isInteger(durationMs) || durationMs < LOCAL_SCREEN_CAPTURE_LIMITS.minDurationMs || durationMs > LOCAL_SCREEN_CAPTURE_LIMITS.maxDurationMs) {
+    errors.push('録画時間は1,000〜30,000msの整数で指定してください。');
+  }
+  if (!Number.isInteger(settleMs) || settleMs < 0 || settleMs > LOCAL_SCREEN_CAPTURE_LIMITS.maxSettleMs) {
+    errors.push('描画待ちは0〜10,000msの整数で指定してください。');
+  }
+  if (!Array.isArray(rawActions)) errors.push('操作一覧を配列で指定してください。');
+  if (actionsValue.length > LOCAL_SCREEN_CAPTURE_LIMITS.maxActions) errors.push(`操作は${LOCAL_SCREEN_CAPTURE_LIMITS.maxActions}件以内にしてください。`);
+
+  const actions: LocalScreenCaptureAction[] = [];
+  const payloadActions: LocalScreenCapturePayloadAction[] = [];
+  let lastAtMs = -1;
+  actionsValue.slice(0, LOCAL_SCREEN_CAPTURE_LIMITS.maxActions).forEach((value, index) => {
+    const action = asRecord(value);
+    const type = text(pick(action, ['type']));
+    const atMs = captureInteger(pick(action, ['atMs', 'at_ms']));
+    const label = `操作${index + 1}`;
+    if (!['scroll', 'click', 'press'].includes(type)) {
+      errors.push(`${label}のtypeはscroll、click、pressのいずれかです。`);
+      return;
+    }
+    if (!Number.isInteger(atMs) || atMs < 0 || !Number.isInteger(durationMs) || atMs >= durationMs) {
+      errors.push(`${label}のat_msは録画時間内の整数で指定してください。`);
+      return;
+    }
+    if (atMs < lastAtMs) {
+      errors.push('操作はat_msの昇順で指定してください。');
+      return;
+    }
+    if (type === 'scroll') {
+      const deltaY = captureInteger(pick(action, ['deltaY', 'delta_y']));
+      if (!Number.isInteger(deltaY) || deltaY === 0 || deltaY < -4_000 || deltaY > 4_000) {
+        errors.push(`${label}のdelta_yは-4,000〜4,000の0以外の整数で指定してください。`);
+        return;
+      }
+      actions.push({ type, atMs, deltaY });
+      payloadActions.push({ type, at_ms: atMs, delta_y: deltaY });
+      lastAtMs = atMs;
+      return;
+    }
+    const selector = text(pick(action, ['selector'])).trim();
+    if (!selector || selector.length > LOCAL_SCREEN_CAPTURE_LIMITS.maxSelectorChars || /[\u0000-\u001f]/.test(selector)) {
+      errors.push(`${label}のselectorが正しくありません。`);
+      return;
+    }
+    if (type === 'click') {
+      actions.push({ type, atMs, selector });
+      payloadActions.push({ type, at_ms: atMs, selector });
+      lastAtMs = atMs;
+      return;
+    }
+    const key = text(pick(action, ['key']));
+    if (!LOCAL_SCREEN_CAPTURE_KEYS.has(key)) {
+      errors.push(`${label}のkeyは許可されたナビゲーションキーではありません。`);
+      return;
+    }
+    actions.push({ type: 'press', atMs, selector, key });
+    payloadActions.push({ type: 'press', at_ms: atMs, selector, key });
+    lastAtMs = atMs;
+  });
+
+  return {
+    request: { url: target.url, durationMs, settleMs, actions },
+    payload: {
+      url: target.url,
+      duration_ms: durationMs,
+      settle_ms: settleMs,
+      actions: payloadActions,
+    },
+    errors,
+  };
+};
+
+export const buildLocalScreenCapturePayload = (value: unknown): LocalScreenCapturePayload => {
+  const normalized = normalizeLocalScreenCaptureInput(value);
+  if (normalized.errors.length > 0) throw new TypeError(normalized.errors[0]);
+  return normalized.payload;
+};
+
 export const LOCAL_COMFYUI_WORKFLOW_PRESET = 'minimax_h3_t2v_official_q4_v1' as const;
 export const LOCAL_COMFYUI_MAX_PROMPT_CHARS = 50_000;
 export const LOCAL_COMFYUI_MAX_SEED = '9223372036854775807' as const;
@@ -979,6 +1129,64 @@ export const isLocalTimelineJobForSelection = (
       && (!selection.runId || runId === selection.runId)
       && (!selection.stageAttemptId || stageAttemptId === selection.stageAttemptId),
   );
+};
+
+const isActiveJobStatus = (status: Job['status']): boolean =>
+  status === 'pending' || status === 'running';
+
+const jobTimestamp = (job: Job): string => job.updatedAt ?? job.startedAt ?? '';
+
+/** Match only screen-capture jobs for the selected run. */
+export const isLocalScreenCaptureJobForSelection = (
+  job: Job,
+  selection: { runId?: string },
+): boolean => {
+  const stage = normalizeStudioStageName(job.stage);
+  const type = normalizeStudioStageName(job.type);
+  return (stage === 'screen_capture' || type === 'local_screen_capture')
+    && (!selection.runId || job.runId === selection.runId);
+};
+
+/**
+ * Select the screen-capture job that represents the current attempt.
+ *
+ * A just-submitted job and the attempt's explicit links outrank the jobs
+ * listing.  Only after those links are absent do we consider an in-flight
+ * job, which prevents an older successful capture from masking new work.
+ */
+export const selectLocalScreenCaptureJob = (
+  submittedJob: Job | undefined,
+  currentAttempt: StageAttempt | undefined,
+  jobs: Job[],
+  runId?: string,
+): Job | undefined => {
+  if (submittedJob && (!runId || submittedJob.runId === runId)) {
+    return submittedJob;
+  }
+
+  const scoped = jobs.filter((job) => isLocalScreenCaptureJobForSelection(job, { runId }));
+  if (currentAttempt?.jobId) {
+    const linked = scoped.find((job) => job.id === currentAttempt.jobId);
+    if (linked) return linked;
+  }
+  if (currentAttempt?.id) {
+    const linked = scoped.find((job) => job.stageAttemptId === currentAttempt.id);
+    if (linked) return linked;
+  }
+
+  // A detail reload has already identified the newest attempt.  Do not let
+  // an unrelated older job fill this gap while that attempt is still active;
+  // the next poll will pick up its explicit job/stage link.
+  if (currentAttempt) {
+    return undefined;
+  }
+
+  const ordered = [...scoped].sort((left, right) => {
+    const activeDelta = Number(isActiveJobStatus(right.status)) - Number(isActiveJobStatus(left.status));
+    if (activeDelta !== 0) return activeDelta;
+    return jobTimestamp(right).localeCompare(jobTimestamp(left));
+  });
+  return ordered[0];
 };
 
 export const isLocalComfyUiJobForSelection = (
@@ -1765,9 +1973,13 @@ export const normalizeJob = (value: unknown, index = 0): Job => {
     stage: text(field(['stage', 'step']), '') || undefined,
     status: normalizeStatus(field(['status', 'state'])),
     progress: number(field(['progress', 'percent', 'percentage'])),
+    progressPhase: text(field(['progress_phase', 'progressPhase']), '') || undefined,
     message: error.message,
     startedAt: text(field(['started_at', 'startedAt']), '') || undefined,
-    updatedAt: text(field(['updated_at', 'updatedAt', 'finished_at', 'finishedAt', 'completed_at']), '') || undefined,
+    // The jobs endpoint exposes created_at for pending jobs and often omits
+    // updated_at.  Keep that timestamp so a new queued job cannot sort behind
+    // an older terminal capture in the Studio UI.
+    updatedAt: text(field(['updated_at', 'updatedAt', 'finished_at', 'finishedAt', 'completed_at', 'created_at', 'createdAt']), '') || undefined,
     attempt: number(field(['attempt', 'attempt_number', 'try'])) ?? result?.attempt,
     stageAttemptId,
     assemblyAttemptId,
@@ -2031,6 +2243,9 @@ export const api = {
     } else if (changes.executionProfile === 'local_comfyui') {
       body.execution_profile = 'local_comfyui';
       body.estimated_cost = { amount: 0, currency: 'JPY' };
+    } else if (changes.executionProfile === 'local_playwright') {
+      body.execution_profile = 'local_playwright';
+      body.estimated_cost = { amount: 0, currency: 'JPY' };
     } else if (changes.executionProfile === 'elevenlabs_tts') {
       body.execution_profile = 'elevenlabs_tts';
     }
@@ -2074,6 +2289,14 @@ export const api = {
         method: 'POST',
         body: serializeLocalComfyUiPayload(payload),
       },
+    );
+    return normalizeJob(value);
+  },
+
+  async executeLocalScreenCapture(runId: string, body: LocalScreenCaptureRequest): Promise<Job> {
+    const value = await post<unknown>(
+      `/api/runs/${encodeURIComponent(runId)}/execute-local-screen-capture`,
+      buildLocalScreenCapturePayload(body),
     );
     return normalizeJob(value);
   },

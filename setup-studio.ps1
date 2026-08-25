@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
-    [switch] $SkipBuild
+    [switch] $SkipBuild,
+    [switch] $SkipBrowserInstall
 )
 
 $ErrorActionPreference = 'Stop'
@@ -105,6 +106,47 @@ Invoke-External `
     -ArgumentList $installArguments `
     -Description 'Install Studio frontend dependencies' `
     -WorkingDirectory $frontendRoot
+
+$playwrightCli = Join-Path $frontendRoot 'node_modules\playwright\cli.js'
+$playwrightDoctor = Join-Path $projectRoot 'tools\studio\playwright_doctor.mjs'
+if (-not (Test-Path -LiteralPath $playwrightCli -PathType Leaf)) {
+    throw "Pinned Playwright CLI was not found after npm install: $playwrightCli"
+}
+if (-not (Test-Path -LiteralPath $playwrightDoctor -PathType Leaf)) {
+    throw "Playwright doctor was not found: $playwrightDoctor"
+}
+
+# Capture jobs intentionally ignore Node injection and custom browser-cache
+# variables. Install and diagnose Chromium under the same environment contract
+# so setup cannot pass with a binary that the runtime will later refuse to use.
+$playwrightEnvironmentNames = @('NODE_OPTIONS', 'NODE_PATH', 'PLAYWRIGHT_BROWSERS_PATH')
+$savedPlaywrightEnvironment = @{}
+foreach ($environmentName in $playwrightEnvironmentNames) {
+    $environmentItem = Get-Item -LiteralPath "Env:$environmentName" -ErrorAction SilentlyContinue
+    if ($null -ne $environmentItem) {
+        $savedPlaywrightEnvironment[$environmentName] = $environmentItem.Value
+        Remove-Item -LiteralPath "Env:$environmentName"
+    }
+}
+try {
+    if (-not $SkipBrowserInstall) {
+        Invoke-External `
+            -FilePath $nodeCommand.Source `
+            -ArgumentList @($playwrightCli, 'install', 'chromium') `
+            -Description 'Install pinned Playwright Chromium' `
+            -WorkingDirectory $projectRoot
+    }
+    Invoke-External `
+        -FilePath $nodeCommand.Source `
+        -ArgumentList @($playwrightDoctor) `
+        -Description 'Verify pinned Playwright Chromium' `
+        -WorkingDirectory $projectRoot
+}
+finally {
+    foreach ($environmentName in $savedPlaywrightEnvironment.Keys) {
+        Set-Item -LiteralPath "Env:$environmentName" -Value $savedPlaywrightEnvironment[$environmentName]
+    }
+}
 
 if (-not $SkipBuild) {
     Invoke-External `

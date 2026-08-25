@@ -95,6 +95,7 @@ _PUBLIC_ERROR_CODES = frozenset(
         "invalid_external_narration_request",
         "invalid_external_tts_request",
         "invalid_local_qc_request",
+        "invalid_local_screen_capture_request",
         "invalid_local_timeline_request",
         "invalid_range",
         "invalid_media",
@@ -121,11 +122,13 @@ _PUBLIC_ERROR_CODES = frozenset(
         "local_pipeline_stage_failed",
         "local_pipeline_timeout",
         "local_pipeline_unavailable",
+        "local_playwright_failed",
         "local_profile_cost_not_allowed",
         "local_profile_stage_not_allowed",
         "local_qc_failed",
         "local_qc_unavailable",
         "local_timeline_failed",
+        "local_screen_capture_failed",
         "local_worker_unavailable",
         "metadata_too_large",
         "mismatched_provider_output",
@@ -133,6 +136,7 @@ _PUBLIC_ERROR_CODES = frozenset(
         "narration_longer_than_source",
         "narration_synthesis_failed",
         "process_interrupted",
+        "playwright_unavailable",
         "publish_failed",
         "qc_assembly_changed",
         "qc_assembly_not_available",
@@ -428,6 +432,43 @@ def _payload_stage_attempt_id(job: dict[str, Any]) -> str | None:
     return value
 
 
+def _cleanup_uncommitted_atomic_completion(
+    database: StudioDatabase,
+    job_id: str,
+    completion: AtomicStageCompletion | None,
+    *,
+    committed: bool,
+) -> None:
+    """Discard newly published files only after durable success is ruled out.
+
+    A worker may atomically publish a directory before returning its database
+    completion envelope.  Cancellation or a rejected terminal transaction
+    must not strand that directory outside the artifact registry.  Conversely,
+    a SQLite response can be ambiguous after commit, so re-read both durable
+    rows and preserve the files whenever either side reports success.
+    """
+
+    if committed or completion is None or completion.failure_cleanup is None:
+        return
+    try:
+        job = database.get_job(job_id)
+        attempt = database.get_stage_attempt(completion.stage_attempt_id)
+    except Exception:
+        # If durable truth cannot be inspected, retaining the directory is
+        # safer than deleting artifacts that may already have committed.
+        return
+    if job is None or attempt is None:
+        return
+    if job.get("status") == "succeeded" or attempt.get("status") == "succeeded":
+        return
+    try:
+        completion.failure_cleanup()
+    except Exception:
+        # Cleanup is compensating hygiene, never a replacement for the fixed
+        # public worker error or the linked job/stage terminal transition.
+        pass
+
+
 def _is_claimed_local_pipeline_top(job: dict[str, Any]) -> bool:
     """Recognize the durable top contract, not merely a lane-test job kind."""
 
@@ -528,7 +569,7 @@ def _sha256_file(path: Path) -> str:
 
 
 class JobManager:
-    _LANES = ("default", "gpu", "pipeline")
+    _LANES = ("default", "gpu", "browser", "pipeline")
 
     def __init__(self, database: StudioDatabase):
         self.database = database
@@ -579,6 +620,7 @@ class JobManager:
         # the default worker, and expose the GPU worker for diagnostics/tests.
         self._thread = self._threads["default"]
         self._gpu_thread = self._threads["gpu"]
+        self._browser_thread = self._threads["browser"]
         self._pipeline_thread = self._threads["pipeline"]
         for thread in self._threads.values():
             thread.start()
@@ -1101,6 +1143,8 @@ class JobManager:
                 self._dequeued_job_ids.add(job_id)
                 self._pending_local_pipeline_admission_aborts.discard(job_id)
             atomic_stage_attempt_id: str | None = None
+            atomic_completion: AtomicStageCompletion | None = None
+            atomic_completion_committed = False
             is_local_pipeline = False
             try:
                 context.raise_if_cancelled()
@@ -1128,6 +1172,8 @@ class JobManager:
                 # callback so it cannot begin after cancellation is published.
                 context.raise_if_cancelled()
                 result = self._invoke(callback, job_id, context)
+                if isinstance(result, AtomicStageCompletion):
+                    atomic_completion = result
                 context.raise_if_cancelled()
                 if isinstance(result, AtomicStageCompletion):
                     # Worker-backed stages have two durable terminal records.
@@ -1147,6 +1193,7 @@ class JobManager:
                         result.artifact_records,
                         provider_task_record_id=result.provider_task_record_id,
                     )
+                    atomic_completion_committed = True
                 else:
                     if atomic_stage_attempt_id is not None:
                         # A durable stage link opts this job into paired
@@ -1160,6 +1207,12 @@ class JobManager:
                         else:
                             self.database.update_job(job_id, "succeeded", result=result)
             except JobCancelled:
+                _cleanup_uncommitted_atomic_completion(
+                    self.database,
+                    job_id,
+                    atomic_completion,
+                    committed=atomic_completion_committed,
+                )
                 try:
                     preserve_provider_task = context.preserve_provider_task
                     interrupted = self.database.interrupt_job(
@@ -1180,6 +1233,12 @@ class JobManager:
                             job_id, interrupted
                         )
             except Exception as exc:  # The worker boundary must keep later jobs alive.
+                _cleanup_uncommitted_atomic_completion(
+                    self.database,
+                    job_id,
+                    atomic_completion,
+                    committed=atomic_completion_committed,
+                )
                 try:
                     if context.is_set():
                         preserve_provider_task = context.preserve_provider_task

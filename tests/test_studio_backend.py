@@ -2649,12 +2649,17 @@ class AtomicCompletionTests(unittest.TestCase):
         completion_entered = threading.Event()
         release_completion = threading.Event()
         interruption_committed = threading.Event()
+        cleanup_calls: list[str] = []
         original_complete = self.service.database.complete_job_with_stage_attempt
         original_interrupt = self.service.database.interrupt_active_work
 
         def callback(_job_id: str, _context: threading.Event) -> AtomicStageCompletion:
             self.service.database.update_stage_attempt(attempt_id, "running")
-            return AtomicStageCompletion(attempt_id, {"cache_hit": False, "artifacts": []})
+            return AtomicStageCompletion(
+                attempt_id,
+                {"cache_hit": False, "artifacts": []},
+                failure_cleanup=lambda: cleanup_calls.append(attempt_id),
+            )
 
         def blocked_complete(*args: object, **kwargs: object) -> dict[str, object]:
             completion_entered.set()
@@ -2706,6 +2711,7 @@ class AtomicCompletionTests(unittest.TestCase):
         assert final_attempt is not None
         self.assertEqual(completed["status"], "interrupted")
         self.assertEqual(final_attempt["status"], "failed")
+        self.assertEqual(cleanup_calls, [attempt_id])
         self.assertNotEqual(
             (completed["status"], final_attempt["status"]),
             ("interrupted", "succeeded"),
@@ -2721,12 +2727,14 @@ class AtomicCompletionTests(unittest.TestCase):
             run_id, "narration", "D" * 64, {"test": True}
         )
         attempt_id = str(attempt["id"])
+        cleanup_calls: list[str] = []
 
         def callback(_job_id: str, _context: threading.Event) -> AtomicStageCompletion:
             self.service.database.update_stage_attempt(attempt_id, "running")
             return AtomicStageCompletion(
                 attempt_id,
                 {"cache_hit": False, "artifacts": []},
+                failure_cleanup=lambda: cleanup_calls.append(attempt_id),
             )
 
         with mock.patch.object(
@@ -2753,6 +2761,7 @@ class AtomicCompletionTests(unittest.TestCase):
         self.assertEqual(final_attempt["status"], "failed")
         self.assertEqual(completed["error"]["code"], "job_failed")
         self.assertEqual(final_attempt["error"]["code"], "job_failed")
+        self.assertEqual(cleanup_calls, [attempt_id])
         with closing(self.service.database.connect()) as connection:
             terminal_events = connection.execute(
                 "SELECT event_type FROM events "
@@ -6713,6 +6722,41 @@ class HTTPTests(unittest.TestCase):
             status, _headers, body = self.request(
                 "POST",
                 f"/api/runs/{run_id}/execute-local-video-generation",
+                body=request_body,
+                headers={"X-Studio-Token": self.token},
+            )
+        self.assertEqual(status, 202)
+        self.assertEqual(json.loads(body), queued)
+        execute.assert_called_once_with(run_id, request_body)
+
+    def test_local_screen_capture_http_route_forwards_exact_body(self) -> None:
+        created = self.server.service.create_run(
+            PRODUCTION_ID,
+            {
+                "changes": [{"type": "screen_capture"}],
+                "execution_profile": "local_playwright",
+            },
+        )
+        run_id = created["run"]["id"]
+        request_body = {
+            "url": f"http://127.0.0.1:{self.server.server_port}/",
+            "duration_ms": 1_200,
+            "settle_ms": 100,
+            "actions": [{"type": "scroll", "at_ms": 500, "delta_y": 640}],
+        }
+        queued = {
+            "id": "job_" + "b" * 32,
+            "kind": "local_screen_capture",
+            "status": "queued",
+        }
+        with mock.patch.object(
+            self.server.service,
+            "execute_local_screen_capture",
+            return_value=queued,
+        ) as execute:
+            status, _headers, body = self.request(
+                "POST",
+                f"/api/runs/{run_id}/execute-local-screen-capture",
                 body=request_body,
                 headers={"X-Studio-Token": self.token},
             )

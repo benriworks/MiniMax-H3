@@ -75,7 +75,7 @@ export interface ProductionRun {
   finishedAt?: string;
   stages: RunStage[];
   requestedStages: string[];
-  executionProfile?: 'local_sapi' | 'local_comfyui' | 'local_pipeline' | string;
+  executionProfile?: 'local_sapi' | 'local_comfyui' | 'local_playwright' | 'local_pipeline' | string;
   stageAttempts: StageAttempt[];
   providerTasks?: ProviderTask[];
   pipelineContinuation?: PipelineContinuation;
@@ -323,6 +323,18 @@ export interface LocalTimelineRequest {
   clips: LocalTimelineClip[];
 }
 
+export type LocalScreenCaptureAction =
+  | { type: 'scroll'; atMs: number; deltaY: number }
+  | { type: 'click'; atMs: number; selector: string }
+  | { type: 'press'; atMs: number; selector: string; key: string };
+
+export interface LocalScreenCaptureRequest {
+  url: string;
+  durationMs: number;
+  settleMs: number;
+  actions: LocalScreenCaptureAction[];
+}
+
 export type LocalQcVariant = 'clean' | 'captioned';
 
 export type LocalQcVerdict = 'pass' | 'fail';
@@ -347,6 +359,7 @@ export interface Job {
   stage?: string;
   status: StudioStatus;
   progress?: number;
+  progressPhase?: string;
   message?: string;
   startedAt?: string;
   updatedAt?: string;
@@ -382,7 +395,7 @@ export interface RerunChanges {
   note: string;
   allowPaidApi: boolean;
   maxCostJpy?: number;
-  executionProfile?: 'local_sapi' | 'local_comfyui' | 'local_pipeline' | 'elevenlabs_tts' | 'default';
+  executionProfile?: 'local_sapi' | 'local_comfyui' | 'local_playwright' | 'local_pipeline' | 'elevenlabs_tts' | 'default';
 }
 
 /** Browser-facing request for the pinned local ComfyUI video worker. */

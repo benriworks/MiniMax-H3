@@ -4,7 +4,7 @@
 
 MiniMaxH3 Studioは、制作案件、ログ、中間成果物、費用、承認履歴を1か所で確認するためのローカルWebアプリです。チャットは企画と監督の窓口、Studioは実行状態と証跡を保持する制御盤として分離します。`一括生成`タブからは、固定されたlocal-only経路を一つのRunとして実行できます。
 
-このMVPはPowerDirectorのような汎用ノンリニア編集ソフトではありません。既存の`productions/`と`outputs/productions/`を読み込み、制作記録の閲覧、再実行計画、承認、監査exportを扱う土台です。Windows SAPIによるローカルナレーションworker、ElevenLabs Multilingual v2の文字時刻付き外部TTS worker、固定workflowによるローカルComfyUI MiniMax H3動画worker、登録済み動画をトリムして順序付きハードカットへ連結するFFmpeg timeline worker、音声・字幕合成worker、完成masterのローカルtechnical QC workerまでを実装済みです。画面収録、transition／overlayを含む詳細編集、MiniMax外部APIのStudio workerは後続段階です。
+このMVPはPowerDirectorのような汎用ノンリニア編集ソフトではありません。既存の`productions/`と`outputs/productions/`を読み込み、制作記録の閲覧、再実行計画、承認、監査exportを扱う土台です。Windows SAPIによるローカルナレーションworker、ElevenLabs Multilingual v2の文字時刻付き外部TTS worker、固定workflowによるローカルComfyUI MiniMax H3動画worker、isolated Chromiumでloopback Webページを縦動画へ記録するPlaywright画面収録worker、登録済み動画をトリムして順序付きハードカットへ連結するFFmpeg timeline worker、音声・字幕合成worker、完成masterのローカルtechnical QC workerまでを実装済みです。Windowsデスクトップ／ネイティブアプリ収録、transition／overlayを含む詳細編集、MiniMax外部APIのStudio workerは後続段階です。
 
 ## MVPでできること
 
@@ -31,6 +31,10 @@ MiniMaxH3 Studioは、制作案件、ログ、中間成果物、費用、承認�
 - 長時間GPU生成をdefault jobから分離した1 worker FIFO laneで直列化し、prompt ID、prompt SHA-256、exact seed decimal、workflow/model/runtime/tool identity、成果物hashを追跡する。
 - ComfyUI taskとpipeline continuationをschema v6へ永続化し、Studio終了時はprovider側の生成を継続する。次回起動ではHTTP serverを待たせないbackground照合を行い、旧attemptを履歴として残した同じRunの新attemptから重複POSTなしで回収する。
 - 同一Run／cache key／payload digestの動画生成requestはSQLiteの永続claimで1つのactive jobへ集約し、複数画面から同時実行しても新しいComfyUI POSTを増やさない。Studioはactive-active構成ではなく、workspace単一起動lockで第二processを先に拒否する。
+- `local_playwright`の0円runを作り、明示したloopback Web URLをfresh Chromium contextで1〜30秒収録する。
+- 収録中の操作は時刻付き`scroll`、`click`、allowlist済み`press`だけを最大16件受け付け、任意JavaScript、cookie、storage state、header、browser flag、出力pathは受け付けない。
+- 生WebMを固定1080×1920、24fps、H.264／yuv420p、video-only MP4へ変換し、`screen-capture.mp4`、`playwright-raw.webm`、始点／終点PNG、sanitized report、`ffprobe.json`、自己hash付き`manifest.json`の7成果物をatomicに登録する。
+- 画面収録を専用browser laneへ分離し、job／attempt／progress／成果物previewを2秒pollingで追跡する。`local_playwright` Runの`requested_stages`と実行可能工程は`screen_capture`と`timeline`だけです。`assembly`と`qc`はgeneric rerun planの`affected_stages`に影響工程として残りますが、このprofileでは実行しません。画面収録とtimelineのジョブ状態・進捗率を2秒pollingで表示し、収録MP4は同じproductionのtimeline入力候補にできます。
 - `local_pipeline`の`一括生成`タブから、固定workflowの動画、Windows SAPIナレーション、生成動画1本を全尺1カットにするtimeline、assembly、technical QCを一度に実行する。
 - `local_pipeline`は`video_generation`、`narration`、`captions`、`timeline`、`assembly`、`qc`の6 requested stageを持つimmutableな0円Runで、実workerはComfyUI→SAPI→one-clip timeline→assembly→QCの5 stageを順次実行する。
 - 専用pipeline laneがGPUのComfyUI childとdefault laneのSAPI／FFmpeg childを協調し、DB-levelのcanonical keyでRun/top jobをdedupeする。failed／interrupted後は同じRunのattemptを再試行し、親cancelはchildの終了を待ってから確定する。
@@ -49,13 +53,14 @@ MiniMaxH3 Studioは、制作案件、ログ、中間成果物、費用、承認�
 
 MVPが行わないこと:
 
-- ElevenLabs以外の外部有料provider、MiniMax外部API、画面収録の実行
-- 画面収録、transition／overlay／音量調整を含む汎用タイムライン編集
+- ElevenLabs以外の外部有料provider、MiniMax外部APIの実行
+- Windowsデスクトップ／ネイティブアプリ、system audio、microphone、外部Webサイト、既存ログインsessionの収録
+- transition／overlay／音量調整を含む汎用タイムライン編集
 - ブラウザから任意ローカルpathを読むこと
 - creativeまたは公開権利を自動承認すること
 
-「run作成」は監査可能な実行計画を保存する操作で、それだけではworkerや課金APIを開始しません。`local_sapi` runでは、作成後にナレーション、カット編集、編集・合成、品質検査の各画面または対応する専用APIで明示したときだけローカルworkerを開始します。`local_comfyui` runも、生成映像画面でpromptとseedを確認して実行した場合だけGPU workerを開始します。`elevenlabs_tts` runは、作成、正の費用見積、上限承認に加え、外部音声画面で送信内容を確認して`confirm_billable=true`を明示した場合だけ外部TTS workerを開始します。カット編集は同じproductionの登録済み動画artifactだけを受け付けます。合成は同じRunの成功済みナレーションを、QCは同じRunの成功済みassembly attemptを必須とします。timeline previewは通常の登録済み動画と同じ入力候補としてassemblyへ渡せます。
-通常の課金対象requested stageを含むrunには正の見積額が必須です。0以下または未指定の見積はfail closedで拒否し、runを残しません。`local_sapi`はnarration、captions、timeline、assembly、qcだけを対象にする0円profileです。`elevenlabs_tts`はnarrationを必須とし、narration、captions、assembly、qcだけを対象にする課金profileです。`local_comfyui`はvideo_generationだけを明示実行する単独0円profileです。`local_pipeline`は専用endpointからのみ作成する、6 requested stage／5 executed stageの固定local-only 0円profileです。ElevenLabs、MiniMax API、費用approvalはこの経路へ到達しません。
+「run作成」は監査可能な実行計画を保存する操作で、それだけではworkerや課金APIを開始しません。`local_sapi` runでは、作成後にナレーション、カット編集、編集・合成、品質検査の各画面または対応する専用APIで明示したときだけローカルworkerを開始します。`local_comfyui` runも、生成映像画面でpromptとseedを確認して実行した場合だけGPU workerを開始します。`local_playwright` runは、画面収録画面でURL、尺、操作を確認して明示実行した場合だけbrowser workerを開始します。`elevenlabs_tts` runは、作成、正の費用見積、上限承認に加え、外部音声画面で送信内容を確認して`confirm_billable=true`を明示した場合だけ外部TTS workerを開始します。カット編集は同じproductionの登録済み動画artifactだけを受け付けます。合成は同じRunの成功済みナレーションを、QCは同じRunの成功済みassembly attemptを必須とします。timeline previewは通常の登録済み動画と同じ入力候補としてassemblyへ渡せます。
+通常の課金対象requested stageを含むrunには正の見積額が必須です。0以下または未指定の見積はfail closedで拒否し、runを残しません。`local_sapi`はnarration、captions、timeline、assembly、qcだけを対象にする0円profileです。`elevenlabs_tts`はnarrationを必須とし、narration、captions、assembly、qcだけを対象にする課金profileです。`local_comfyui`はvideo_generationを必須とし、video_generation、timeline、assembly、qcを対象にする0円profileです。`local_playwright`はscreen_captureを必須とし、screen_captureとtimelineだけを実行可能にする0円profileです。`local_playwright`のassembly／qcは影響工程としてRun計画に残りますが、このprofileでは実行しません。`local_pipeline`は専用endpointからのみ作成する、6 requested stage／5 executed stageの固定local-only 0円profileです。ElevenLabs、MiniMax API、費用approvalはこの経路へ到達しません。
 
 ## 一括生成（`local_pipeline`）
 
@@ -116,6 +121,23 @@ raw prompt/scriptはSQLite、event、job metadataへ複製しません。prompt 
 
 prompt本文はproviderへ提出したexact graphを保全する`workflow.json`には含まれます。SQLite、job/run/eventの公開metadataには複製せず、`prompt_sha256`と`prompt_chars`だけを残します。再起動に必要なexact requestだけは現在のWindowsユーザー用DPAPI暗号文として`provider_tasks`へ保存し、公開APIと監査snapshotには出しません。terminal成功／確定失敗で暗号文を消去し、callback後のDB永続化失敗や送信結果不明では暗号文とmarkerを保持します。providerがterminal failureを返した場合はmarker自体へ失敗stateをfsyncしてからDBへ反映します。DPAPIが利用できない場合は平文保存せず自動復旧を停止します。`workflow.json`を含む監査exportや共有前には本文が含まれる前提で確認してください。
 
+ローカルWeb画面収録のHTTP境界は`POST /api/runs/{run_id}/execute-local-screen-capture`です。bodyは次の4 fieldだけを受け付けます。URLは明示的な`http://127.0.0.1:<port>/...`だけを許可し、userinfo、fragment、暗黙port、制御文字、非loopback hostを拒否します。初期navigationだけでなくredirect、subresource、WebSocket、popupも同じloopback portの境界内へ閉じます。
+
+```json
+{
+  "url": "http://127.0.0.1:8765/",
+  "duration_ms": 5000,
+  "settle_ms": 500,
+  "actions": [
+    {"type": "scroll", "at_ms": 1500, "delta_y": 720}
+  ]
+}
+```
+
+`duration_ms`は1,000〜30,000、`settle_ms`は0〜10,000、`actions`は最大16件です。`click`ではselector、`press`ではallowlist済みkeyを指定できますが、任意JavaScript、cookie／storage state、header、download、persistent profile、browser flag、output pathは指定できません。raw URL、path、query、selectorはjob／attempt／eventへ保存せず、origin、長さ、query有無、SHA-256だけを監査metadataへ残します。raw requestはworker staging内の一時JSONだけで受け渡し、公開前に削除します。
+
+Playwrightは毎回freshなChromium contextを使い、ページ音声を収録しません。生WebMを固定MP4へ変換してfull decodeとfresh ffprobeを行い、7成果物がすべて検証できた場合だけdirectory、job、attempt、artifact、eventを成功として確定します。screen captureだけのRunはnarration／assemblyを自動実行しません。`local_playwright` Runではtimelineを明示実行できますが、assembly／qcは影響工程として計画に残るだけで、このprofileからは実行しません。
+
 カット編集のHTTP境界は`POST /api/runs/{run_id}/execute-local-timeline`です。bodyは次の形だけを受け付け、pathやFFmpeg設定は受け付けません。
 
 ```json
@@ -135,12 +157,15 @@ queue投入と直後のDB補償が連続失敗した場合も、background coord
 - Windows PowerShellまたはPowerShell 7
 - Python 3.10以降。既存の`.venv`があれば優先して使用
 - Node.js 20.19以降の20系、または22.12以降とnpm。Node.js 21と22.0〜22.11はVite 8の対応範囲外
+- MP4変換と検証に使うFFmpeg／ffprobe
 
 初回とfrontend更新後:
 
 ```powershell
 .\setup-studio.ps1
 ```
+
+setupは`studio/package-lock.json`へexact pinしたPlaywright `1.62.1`を`npm ci`で導入し、既定では対応Chromiumを取得します。browser install／doctor時はruntimeと同じく`NODE_OPTIONS`、`NODE_PATH`、任意`PLAYWRIGHT_BROWSERS_PATH`を外し、続けて`playwright_doctor.mjs`がpackage、browser binary、実launchを検査します。欠落やrevision不一致ではfail closedにします。すでにbrowserを用意した検証だけは`-SkipBrowserInstall`を使えますが、doctor自体は省略しません。
 
 通常起動:
 
@@ -219,6 +244,8 @@ outputs/studio/
                                 事前発行prompt IDを含め、ComfyUI POST前にfsyncする再送防止marker
   runs/<run>/video_generation/<cache>/
                                 generated-video.mp4 / workflow.json / ffprobe.json / manifest.json
+  runs/<run>/screen_capture/<cache>/
+                                screen-capture.mp4 / playwright-raw.webm / first-frame.png / last-frame.png / capture-report.json / ffprobe.json / manifest.json
   runs/<run>/narration/<cache>/ narration.wav / captions.srt / timings.json / manifest.json
   runs/<run>/timeline/<cache>/  timeline-preview.mp4 / timeline.json / ffprobe.json / manifest.json
   runs/<run>/assembly/<cache>/  master-clean.mp4 / master-captioned.mp4 / ffprobe.json / manifest.json
@@ -257,6 +284,8 @@ MVPは変更種別から`requested_stages`と再利用工程を計画します�
 
 ローカルComfyUIはprompt hash、seed、固定workflow、4 model、2 runtime lock、3 repository revision、FFprobe identity、出力policyからcache keyを作ります。GPU lane内で同じproductionの成功attempt chainを物理ownerまで辿り、4成果物、manifest自己hash、fresh ffprobeを再検証します。新規taskではStudioがUUIDを事前発行し、schema v6の`provider_tasks`とfsync済みmarkerへ保存した後、同じ値をComfyUIの`prompt_id`へ渡して応答完全一致を要求します。Studio再起動時は旧jobを`interrupted`、旧attemptを`failed(process_interrupted)`として保持し、ownerを解放した同じtaskへ新しいattempt/jobをCASで1件だけ追加します。marker、暗号化request、payload digest、cache key、Run、固定runtime、`GET /api/jobs/{id}`を照合し、既知taskは再POSTしません。明示cancelはprovider taskを`cancel_requested`へ移す処理とjob／attemptの中断を同じSQLite transaction・同じ時刻で確定し、暗号文とmarkerを残します。再起動または手動再照合では同じUUIDへのGETとtargeted cancelだけを行い、terminalを確認してから暗号文を消去します。IDなし旧marker、通常復旧時の404、runtime不一致、改変は`ambiguous`または`recovery_blocked`で止め、cancel照合時の404は`cancel_requested`を保持します。
 
+ローカルPlaywright画面収録は正規化timing／actionsと、URL／selectorのhash、固定network policy、Node／Playwright／Chromium／worker script／FFmpeg／ffprobeの実体hash、固定出力policyにrequestごとのnonceを加えてcapture keyを作ります。ページ内容が同一である保証はないため、並行requestや過去の成功captureをcontent cacheとして再利用しません。成功時とartifact restore時は7成果物のexact集合、manifest自己hash、各file bytes／SHA-256、MP4のfresh ffprobeとfull decodeを再検証します。
+
 ローカルtimelineは順序付きartifact ID、trim、入力bytes／SHA-256、固定出力policy、解決済みFFmpeg／ffprobeの実体versionとbinary SHA-256からcache keyを作り、同じproduction内の成功attempt chainと4成果物を再検証します。ローカルassemblyはsource動画、WAV、SRT、字幕preset、字幕有無、音声・出力方針、FFmpeg/ffprobeの実体versionとbinary SHA-256からcache keyを作り、manifest自己hash、登録済みartifact、実fileを再検証します。ローカルQCはassembly attempt、選択variant、masterのhash／bytes、期待尺、QC policy、FFmpeg/ffprobeの実体identityからcache keyを作ります。cache再利用時も対象mediaと成果物を再検証します。字幕だけを変更した場合は映像、timeline、ナレーションを再利用し、合成とQCだけを新runで実行できる土台です。
 
 `local_pipeline`は全入力のcanonical keyをschema v6 DB claimへ束ね、同一production・同一入力のRun/top jobを再利用します。正規化requestはDPAPI暗号文だけを保持し、動画成功時はsource job/attemptをcheckpointします。shutdown／crash後にproviderまたはcheckpointが成功済みなら`ready`へ移し、単一coordinatorが同じRunへ新topをCASで一件だけ投入します。checkpoint付きvideo childは指定sourceを含むcache chainと物理artifactを検証し、再生成へfallbackしません。親cancelはchild job/processのjoinを待ち、後からproviderが成功してもclaimを`cancelled`へ閉じます。各local stage、provider terminal／video checkpoint、top terminal／claimは対応するatomic transactionで確定し、UIはstage lineage、continuation state、最終master／QCを再読込できます。
@@ -275,7 +304,7 @@ Studioでは次を別々に扱います。
 | stage attempt | stage、attempt番号、cache key、状態、所要時間、provider、task ID、実費、timing source |
 | status / approval | 台帳由来のtechnical・creative・public status、run費用上限の承認／却下と理由 |
 
-ローカルSAPI attemptは`provider=windows_sapi`、`provider_task_id=null`、`actual_cost=0`、`timing_source=wav_frames`として記録します。ローカルComfyUI attemptは`provider=comfyui`、`provider_task_id=<prompt-id>`、`actual_cost=0`、`timing_source=ffprobe`、prompt SHA-256、文字数、seed／`seed_decimal`として記録します。ElevenLabs attemptは`provider=elevenlabs`、`provider_task_id=<request-id>`、`character_cost=<header値またはnull>`、`actual_cost=null`、`timing_source=elevenlabs_alignment`として記録します。`character-cost`はproviderの課金文字量でありUSD実費ではありません。ローカルtimeline attemptは`provider=local_ffmpeg_timeline`、ローカルassembly attemptは`provider=local_ffmpeg`、ローカルQC attemptは`provider=local_ffmpeg_qc`として、いずれも`provider_task_id=null`、`actual_cost=0`、`timing_source=ffprobe`を記録します。QCは解析不能なtool/process failureだけをjob失敗とし、解析が完了して検査に不合格ならjob／attempt成功と`technical_verdict=fail`を併記します。API応答にないUSD実費を推測せず、将来のprovider請求照合で確定するまでは未確定のまま保持します。
+ローカルSAPI attemptは`provider=windows_sapi`、`provider_task_id=null`、`actual_cost=0`、`timing_source=wav_frames`として記録します。ローカルComfyUI attemptは`provider=comfyui`、`provider_task_id=<prompt-id>`、`actual_cost=0`、`timing_source=ffprobe`、prompt SHA-256、文字数、seed／`seed_decimal`として記録します。ローカルPlaywright attemptは`provider=local_playwright`、`provider_task_id=null`、`actual_cost=0`、`timing_source=ffprobe`として、originとhash化したtarget/action監査値だけを記録します。ElevenLabs attemptは`provider=elevenlabs`、`provider_task_id=<request-id>`、`character_cost=<header値またはnull>`、`actual_cost=null`、`timing_source=elevenlabs_alignment`として記録します。`character-cost`はproviderの課金文字量でありUSD実費ではありません。ローカルtimeline attemptは`provider=local_ffmpeg_timeline`、ローカルassembly attemptは`provider=local_ffmpeg`、ローカルQC attemptは`provider=local_ffmpeg_qc`として、いずれも`provider_task_id=null`、`actual_cost=0`、`timing_source=ffprobe`を記録します。QCは解析不能なtool/process failureだけをjob失敗とし、解析が完了して検査に不合格ならjob／attempt成功と`technical_verdict=fail`を併記します。API応答にないUSD実費を推測せず、将来のprovider請求照合で確定するまでは未確定のまま保持します。
 
 監査exportは、SQLiteを1つのread transactionで固定した時点の記録をZIPへまとめる派生成果物です。event mirrorもそのsnapshotと一致する検証済みprefixをmemoryへ固定してから格納します。一般テキスト副生成物はZIP格納前に既知の秘密情報patternをredactし、変更対象をpackage manifestの`redacted_text_files`へ記録します。安全な構造化処理を保証できないYAML/YML、INI/CFG/CONF、TOML、CSV/TSV、XML、HTML/XHTML、SVGは`structured_text_requires_local_review`として除外します。未知形式と外部archiveも`unsupported_artifact_kind`として除外します。Studio生成のSRT、timings、manifestは既定で含め、WAVは他のaudio/video/imageと同様に`include_media=true`のときだけ含めます。監査ZIP自身は再帰的に含めません。package manifest自身を除く格納entryごとの実bytes/SHA-256、scope別event chain末尾、検証できず除外したmirrorを記録し、ZIP閉鎖後に全entryを再検証します。ZIP全体のSHA-256は隣接sidecarへ保存します。DB snapshot後に元artifactが更新された場合、artifact metadataの時点とcopy時点は異なり得るため、ZIP内実体については`archive_entries`のbytes/hashを正本とします。監査ZIPが存在するだけで公開権利や人の通し試聴が確認済みになったとは扱いません。
 
@@ -291,6 +320,7 @@ Studioでは次を別々に扱います。
 - 課金POST前に永続markerを作ります。providerが受理した可能性を否定できないtimeout、5xx、切断などは`external_submission_unknown`として停止し、同じproduction/cache identityを自動再送しません。これは曖昧状態で重複課金しないためのfail-closed境界です。
 - ComfyUI endpointは`http://127.0.0.1:8188`へ内部固定し、公開requestから上書きできません。環境proxyを無効化し、redirect、過大応答、非loopback URLを拒否します。新POSTとmarker-linked resumeの直前に`/system_stats`を読み、`run-local.ps1 -Profile official_q4`（任意の`-NoBrowser`）が作るworkspace内main/output、listen/port、ComfyUI 0.31.0、PyTorch 2.13.0+cu130、Python 3.12、Dynamic VRAM、custom-node disable／exact GGUF allowlistを含む完全なargvを照合します。未知・重複・equals形式の引数、Emergency／Turbo／precision変更、model path redirectを拒否し、`runtime/ComfyUI/extra_model_paths.yaml`も存在またはsymlinkなら拒否します。
 - ComfyUIのruntime lock 2 fileはLF byte列とSHA-256を固定し、ComfyUI、ComfyUI-GGUF、MiniMax H3 Turboの3 checkoutはexact HEADと非ignored fileを含むclean状態を要求します。Windowsでは新しいPOST attemptごとに4 modelをwrite/delete共有なしで開き、その同じhandleからfull SHA-256を計算してpublish後まで保持します。実行中の書換え・削除・置換と、既にwriterが開いているmodelを拒否します。非Windowsだけは物理file identity付きprocess cacheを使います。historyが返すMP4は送信graphへ注入した出力prefix配下の規定basenameだけを受け付け、workspace内の別MP4を生成結果として登録しません。
+- Playwright画面収録はcanonicalな`127.0.0.1` URLと明示portだけを許可し、全HTTP requestを同一scheme／host／portへroute制限します。proxy環境、`NODE_OPTIONS`、`NODE_PATH`、任意`PLAYWRIGHT_BROWSERS_PATH`をworkerへ継承せず、service worker、download、popup、WebSocket、persistent profileを無効化します。raw URLとselectorはargv、SQLite、event、manifest、公開errorへ入れず、専用staging JSONだけで渡します。browser laneのprocess treeは既存のdeadline／cancel registryで停止し、公開directoryは全検証後だけatomic renameします。
 - `.env`拡張子、`.env.*`、credential/secret key file、DPAPI secretは索引対象外です。JSON/JSONLは構造化redactionし、一般テキストはAuthorization、Basic/Bearer、Cookie、API key、署名値など既知patternをbest-effortでredactします。
 - artifact配信は登録済みかつ許可されたroot内のfileだけを対象にします。
 - narration workerは文字列をPowerShell commandへ展開せず、run配下の専用一時directoryにUTF-8 JSONとして渡します。一時fileは同じWindowsユーザー／workspace ACLを信頼境界とし、処理後に削除します。SAPI preflightと合成PowerShellはどちらもjobのprocess registryへ登録し、preflightは100ms周期でcancelを確認します。tracked helperだけを起動し、戻り値はprovider、task ID、実費、cache key、exact artifact path/name/kind/MIME/bytes/SHA-256のallowlistで検証してから登録します。
@@ -317,12 +347,12 @@ Studioは個人用loopbackツールです。LANからの攻撃面を作らない
 
 1. ユーザーがチャットで制作や修正を依頼する。
 2. CodexがStudioのローカルAPIまたはCLIを通して新しいrevision/runを作る。
-3. Studioが索引・監査job、ローカルComfyUI動画生成、ローカル／ElevenLabs narration、timeline、assembly、QC attempt、成果物、費用計画、ログを保持する。後続workerも同じ台帳へ保持する。
+3. Studioが索引・監査job、ローカルComfyUI動画生成、Playwright画面収録、ローカル／ElevenLabs narration、timeline、assembly、QC attempt、成果物、費用計画、ログを保持する。後続workerも同じ台帳へ保持する。
 4. ユーザーはStudioで候補や中間成果物を確認する。
 5. Codexは完了、失敗、承認待ちなど節目だけを確認する。
 6. `local_pipeline`の`一括生成`タブでprompt、seed、script、音声、字幕preset、variantを確認して、固定local-onlyの6 requested／5 executed stageを明示実行する。StudioはComfyUI→SAPI→one-clip timeline→assembly→QCの順序、child job、cache、artifact hash、technical verdictを保持する。単独の`local_comfyui`、`local_sapi`、`elevenlabs_tts`は工程単位の再実行や比較に使い、local pipelineではElevenLabs、MiniMax API、費用approvalを使わない。
 
-現MVPは索引・監査jobに加えてローカルComfyUI動画生成、`local_pipeline`一括生成、ローカル／ElevenLabs narration、timeline、assembly、technical QCもバックグラウンド実行します。dashboard全体のhealth/job一覧は15秒間隔、実行中のpipeline top jobとchildの動画生成／narration／timeline／assembly／QC job、および選択RunのComfyUI provider taskとpipeline continuation stateは2秒間隔で取得します。production detailの一時取得失敗でも最後に確認できたフォームと復旧stateを保持します。専用pipeline laneはGPU childをdefault childから分離し、parent cancel時はchild終了を待ちます。Studio再起動後にComfyUI生成が成功へ復旧した場合は、単一coordinatorが同じRunの新topを一度だけenqueueし、検証済み動画cacheからSAPI以降を自動継続します。チャットは節目だけを確認することで監視トークンを抑えられます。Studioへ記録済みの状態はチャットを閉じてもローカルに残ります。
+現MVPは索引・監査jobに加えてローカルComfyUI動画生成、Playwright Web画面収録、`local_pipeline`一括生成、ローカル／ElevenLabs narration、timeline、assembly、technical QCもバックグラウンド実行します。profile単位では、`local_playwright`はscreen_captureとtimelineだけを実行可能とし、assembly／qcは影響工程として計画に残しますが実行しません。dashboard全体のhealth/job一覧は15秒間隔、実行中の画面収録とtimeline、pipeline top job／child、および選択RunのComfyUI provider taskとpipeline continuation stateは2秒間隔で取得し、ジョブ状態と進捗率を表示します。production detailの一時取得失敗でも最後に確認できたフォームと復旧stateを保持します。専用browser laneはChromium captureをdefault laneから、専用pipeline laneはGPU childをdefault childから分離します。Studio再起動後にComfyUI生成が成功へ復旧した場合は、単一coordinatorが同じRunの新topを一度だけenqueueし、検証済み動画cacheからSAPI以降を自動継続します。チャットは節目だけを確認することで監視トークンを抑えられます。Studioへ記録済みの状態はチャットを閉じてもローカルに残ります。
 
 ローカルナレーション画面は操作性のため1行2,000文字・合計50,000文字を先に警告します。backendの正本上限は1 segment 4,000文字・合計100,000文字・100 segmentです。外部TTSもbackendで同じsegment／総文字数上限を適用し、さらにvoice ID、全voice setting、seed、provider応答、媒体size／尺を検証します。UIを迂回したrequestにも必ず適用します。
 
@@ -336,12 +366,22 @@ Studioは個人用loopbackツールです。LANからの攻撃面を作らない
 
 2026-08-25 root最終検証では、Python全344件を実行して343件合格＋non-Windows専用race test 1件をWindowsでskipし、frontend 42/42、production buildも成功しました。fake-backed統合で`local_pipeline` request schema v4（SQLite schema v6）、`POST /api/productions/{production_id}/execute-local-pipeline`、専用pipeline lane、6 requested／5 executed stage、DB-level dedupe、same-run retry、parent-child cancellation wait、外部TTS非到達、atomic artifact確定、QC pass、Studio UIの2秒pollingを確認しました。自動継続回帰では、Studio再起動後のprovider成功から同じRunへ新topを一度だけ投入し、8件の同時再送をdedupeすること、source job/attemptを固定したcache-only動画再利用、cache欠損・改ざん・lineage不一致でprovider task／marker／ComfyUI `POST /prompt`へ進まないこと、明示cancel後は継続しないこと、暗号文改ざん、queue投入＋補償の二重失敗、enqueue後例外、worker退役中のDB一時障害、ready CAS、shutdown中のlate cancel競合を安全側に処理することを確認しました。終了・復旧回帰では、atomic `cancel_requested`、未送信／running／404／terminalの同一UUID再照合、解析済みHTTP handlerのdrain、未解析partial requestの有界遮断、`Connection: close`、終了しないworker時のworkspace lock保持と再試行、worker lane／SQLite interruption writerを残りshutdown deadline内でdrainし、期限超過時はlockを保持することを確認しました。成功topの再利用時は5 childのexact lineageと、captioned既定では全19件（clean-onlyでは18件）のartifactをDB metadata・物理bytes・SHA-256で再検証し、最終または中間artifactの欠損／改変／I/O raceを同じRunの新top jobで自己修復します。この検証ではComfyUIへ新規promptをPOSTしていないため、実GPU一括完走時間、強制終了→再起動→同一task回収からpipeline完走までの実機E2E、完成映像の目視品質は未確認です。
 
+## 現行Playwright画面収録の検証状態
+
+2026-08-25にPlaywright `1.62.1`／Chromium `151.0.7922.34`を使い、Studio自身の`http://127.0.0.1:8765/`を対象に実Web収録E2Eを行いました。描画待ち500ms、1秒時点で720px scroll、指定尺3秒のrequestから、run `run_cbaa1ead33fb4d02be586dcc48cc75be`、job `job_1decf170bbc341f49ff1b4f3e423819b`、attempt `attempt_7e150e65276d4471a42847f4fa100f7b`が成功しました。最終MP4は1080×1920、24fps、H.264／yuv420p、video-only、3.000秒、389,197 bytes、SHA-256 `B959499D011224674EE8D9746CB95FD8E8C762294482D43F53477C49F0637A07`で、full decodeとfresh ffprobeを通過しました。7成果物は`outputs/studio/runs/run_cbaa1ead33fb4d02be586dcc48cc75be/screen_capture/4021F9F3CA5A228EC8F22456234A9C80853AAA85277B9525CC85ED9C8DF1B73E/`へatomicに登録し、始点／終点PNGの縦viewportとscroll差分を目視確認しました。
+
+続けて収録MP4を同じ`local_playwright` Runのtimelineへ実投入し、job `job_47286fd1eef8480f86e4520289632ac7`／attempt `attempt_6a0bb3b50d934d55bc9336837eebd43a`が成功しました。`timeline-preview.mp4`は1080×1920、24fps、video-only、3.000秒、362,527 bytes、SHA-256 `17B9FD76E1170BB88A2EC64E66ACA88FF75F0FFD777596E8FA6E4273E5B6B25C`で、4成果物を`outputs/studio/runs/run_cbaa1ead33fb4d02be586dcc48cc75be/timeline/F45A9955F5A7AA8FCD4F1A2B3241E4FA1166470015C15A732C661AD9110982BB/`へatomic登録しました。これにより、画面収録artifactを既存カット編集へ渡す実素材連携まで確認済みです。
+
+自動検証はPython全359件中358件合格＋Windows上のnon-Windows専用1件skipを確認し、その後追加したbrowser lane実行中progress可視性、DB atomic commit失敗cleanup、publish後cancel cleanupの3件も個別合格しました。関連するbackend／実ブラウザ統合123件も再実行して全件合格しています。frontend 50/50、production build、`setup-studio.ps1 -SkipBuild -SkipBrowserInstall`のbrowser doctorも成功しています。実Playwright回帰テストでは別loopback portへのsubrequest遮断、絶対path／raw URL token非漏洩、output policy改ざん拒否、publish後のcancel／検証失敗cleanup、収録・変換・検証のprogress通知も確認しています。最新版serverでの再受入ではjob `job_be88c3cb938e4166aef35eb8a873ea83`が`preflight`→`recording`→`transcoding`→`verification`→`publishing`→`registration`→100%完了をAPIへ返し、7成果物を登録しました。この受入はloopback Web viewport収録の証拠であり、Windowsデスクトップ／ネイティブアプリ、system audio、microphone、外部Webサイト、既存ログインsession、30秒超の収録を保証しません。
+
+Run契約修正後の再受入では、run `run_c0745a922f814b67b1c45f7fbac8fd80`が`requested_stages=[screen_capture,timeline]`、rerun planの`affected_stages=[screen_capture,timeline,assembly,qc]`を返すことを確認しました。同Runのjob `job_66c8ae62688044a59cb3ca0a14207aec`も2.000秒、1080×1920、24fps、H.264、video-onlyのMP4と7成果物を登録し、manifestに絶対pathを残していません。
+
 ## 次段階
 
-実装済み: Windows SAPI adapter、ElevenLabs Multilingual v2 `with-timestamps` adapter、文字alignmentからのsegment字幕、費用承認＋payload確認gate、成功cache＋曖昧送信marker、provider request ID／character cost／未確定USD欄、発音置換、固定公式INT8＋Q4 ComfyUI graph、閉じたruntime argv／model／live process照合、Windows model handle保護、GPU FIFO lane、pre-issued UUID、schema v6 provider task／pipeline continuation、DPAPI resume／pipeline request payload、Studio起動時の自動照合、新attempt追記、CAS重複防止、手動resume UI、復旧済み動画のcache-only自動継続、atomic `cancel_requested`＋GET-only targeted cancel再照合、provider／job／attempt／artifactの原子的確定、登録済み動画1〜32カットのtrim／並べ替え／ハードカットpreview、FFmpeg clean／captioned master、`shorts_ja_large_v1`字幕preset、codec／stream／duration／full-decode／全編無音のローカルtechnical QC、ffprobe／manifest、stage attempt/cache。専用`local_pipeline` lane、6 requested／5 executed stage、DB-level Run/top-job dedupe、same-run failed／interrupted retry、parent-child cancellation wait、local stage artifactのatomic completion、HTTP／worker／SQLite writerのdrain成功時だけworkspace lockを解放する単一writer境界。
+実装済み: Windows SAPI adapter、ElevenLabs Multilingual v2 `with-timestamps` adapter、文字alignmentからのsegment字幕、費用承認＋payload確認gate、成功cache＋曖昧送信marker、provider request ID／character cost／未確定USD欄、発音置換、固定公式INT8＋Q4 ComfyUI graph、閉じたruntime argv／model／live process照合、Windows model handle保護、GPU FIFO lane、pre-issued UUID、schema v6 provider task／pipeline continuation、DPAPI resume／pipeline request payload、Studio起動時の自動照合、新attempt追記、CAS重複防止、手動resume UI、復旧済み動画のcache-only自動継続、atomic `cancel_requested`＋GET-only targeted cancel再照合、provider／job／attempt／artifactの原子的確定、isolated Chromiumによるloopback Web収録と専用browser lane、登録済み動画1〜32カットのtrim／並べ替え／ハードカットpreview、FFmpeg clean／captioned master、`shorts_ja_large_v1`字幕preset、codec／stream／duration／full-decode／全編無音のローカルtechnical QC、ffprobe／manifest、stage attempt/cache。専用`local_pipeline` lane、6 requested／5 executed stage、DB-level Run/top-job dedupe、same-run failed／interrupted retry、parent-child cancellation wait、local stage artifactのatomic completion、HTTP／worker／SQLite writerのdrain成功時だけworkspace lockを解放する単一writer境界。
 
 1. Remotionによるtransition、overlay、テロップ、音量、対話的previewを備えた詳細timeline編集
-2. PlaywrightとWindows画面収録
+2. Windowsデスクトップ／ネイティブアプリ、system audioを扱う画面収録worker
 3. 実ComfyUIでのStudio強制終了／再起動→`local_pipeline`自動継続E2E、ComfyUI自体の再起動でtaskが404になった場合と旧IDなしmarkerの手動判断・破棄UI
 4. ElevenLabs請求情報とのUSD実費照合と、必要に応じた別TTS provider adapter
 5. 音量、黒画面、長時間静止、字幕safe areaなどtechnical QC policyの追加

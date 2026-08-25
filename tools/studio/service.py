@@ -9,7 +9,7 @@ import re
 import threading
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from .assembly_execution import (
     LocalAssemblyError,
@@ -84,6 +84,15 @@ from .secrets import (
     dpapi_available,
     protect_private_data,
     unprotect_private_data,
+)
+from .browser_capture_execution import (
+    BrowserCaptureError,
+    BrowserCaptureValidationError,
+    browser_capture_audit_payload,
+    browser_capture_key,
+    browser_capture_public_result,
+    safe_browser_capture_error,
+    validate_browser_capture_payload,
 )
 from .security import (
     SecurityError,
@@ -160,10 +169,13 @@ _EXECUTION_PROFILES = {
     "local_sapi",
     "elevenlabs_tts",
     "local_comfyui",
+    "local_playwright",
 }
 _LOCAL_SAPI_ZERO_COST_STAGES = {"narration", "captions", "timeline", "assembly", "qc"}
 _ELEVENLABS_TTS_STAGES = {"narration", "captions", "assembly", "qc"}
 _LOCAL_COMFYUI_ZERO_COST_STAGES = {"video_generation", "timeline", "assembly", "qc"}
+_LOCAL_PLAYWRIGHT_ZERO_COST_STAGES = {"screen_capture", "timeline", "assembly", "qc"}
+_LOCAL_PLAYWRIGHT_EXECUTION_STAGES = ("screen_capture", "timeline")
 _LOCAL_PIPELINE_ZERO_COST_STAGES = {
     "narration",
     "captions",
@@ -175,6 +187,7 @@ _LOCAL_PIPELINE_ZERO_COST_STAGES = {
 _LOCAL_DOWNSTREAM_PROFILES = {"local_sapi", "elevenlabs_tts", "local_pipeline"}
 _LOCAL_NARRATION_STAGE = "narration"
 _LOCAL_VIDEO_GENERATION_STAGE = "video_generation"
+_LOCAL_SCREEN_CAPTURE_STAGE = "screen_capture"
 _LOCAL_TIMELINE_STAGE = "timeline"
 _LOCAL_ASSEMBLY_STAGE = "assembly"
 _LOCAL_QC_STAGE = "qc"
@@ -188,6 +201,15 @@ _LOCAL_NARRATION_ARTIFACTS = {
 _LOCAL_COMFYUI_ARTIFACTS = {
     "generated-video.mp4": ("video", "video/mp4"),
     "workflow.json": ("document", "application/json"),
+    "ffprobe.json": ("document", "application/json"),
+    "manifest.json": ("document", "application/json"),
+}
+_LOCAL_SCREEN_CAPTURE_ARTIFACTS = {
+    "screen-capture.mp4": ("video", "video/mp4"),
+    "playwright-raw.webm": ("video", "video/webm"),
+    "first-frame.png": ("image", "image/png"),
+    "last-frame.png": ("image", "image/png"),
+    "capture-report.json": ("document", "application/json"),
     "ffprobe.json": ("document", "application/json"),
     "manifest.json": ("document", "application/json"),
 }
@@ -369,6 +391,7 @@ def _stage_completion_result(
     *,
     artifact_records: tuple[dict[str, Any], ...] = (),
     provider_task_record_id: str | None = None,
+    failure_cleanup: Callable[[], None] | None = None,
 ) -> dict[str, Any] | AtomicStageCompletion:
     """Return a public result or the internal atomic-completion envelope.
 
@@ -382,7 +405,11 @@ def _stage_completion_result(
 
     public_result = {"stage_attempt_id": attempt_id, **result}
     if cancel_event is None:
-        if artifact_records or provider_task_record_id is not None:
+        if (
+            artifact_records
+            or provider_task_record_id is not None
+            or failure_cleanup is not None
+        ):
             raise ValueError(
                 "atomic artifact registration requires a job execution context"
             )
@@ -392,6 +419,7 @@ def _stage_completion_result(
         result,
         artifact_records,
         provider_task_record_id=provider_task_record_id,
+        failure_cleanup=failure_cleanup,
     )
 
 
@@ -528,6 +556,7 @@ class StudioService:
         cancel_event: JobExecutionContext | None,
         *,
         artifact_records: list[dict[str, Any]] | tuple[dict[str, Any], ...] = (),
+        failure_cleanup: Callable[[], None] | None = None,
     ) -> dict[str, Any] | AtomicStageCompletion:
         """Complete a local stage without publishing artifacts ahead of it.
 
@@ -560,6 +589,7 @@ class StudioService:
             public,
             cancel_event,
             artifact_records=records,
+            failure_cleanup=failure_cleanup,
         )
 
     def close(self) -> None:
@@ -779,6 +809,10 @@ class StudioService:
                 execution_profile == "local_comfyui"
                 and affected_stages.issubset(_LOCAL_COMFYUI_ZERO_COST_STAGES)
             )
+            or (
+                execution_profile == "local_playwright"
+                and affected_stages.issubset(_LOCAL_PLAYWRIGHT_ZERO_COST_STAGES)
+            )
         )
         if (
             execution_profile == "local_sapi"
@@ -799,6 +833,18 @@ class StudioService:
         ):
             raise RequestValidationError(
                 "local_comfyui runs require video_generation and may only affect video_generation, timeline, assembly, or qc.",
+                code="local_profile_stage_not_allowed",
+            )
+        if (
+            execution_profile == "local_playwright"
+            and amount_minor == 0
+            and (
+                _LOCAL_SCREEN_CAPTURE_STAGE not in affected_stages
+                or not affected_stages.issubset(_LOCAL_PLAYWRIGHT_ZERO_COST_STAGES)
+            )
+        ):
+            raise RequestValidationError(
+                "local_playwright runs require screen_capture and may only affect screen_capture, timeline, assembly, or qc.",
                 code="local_profile_stage_not_allowed",
             )
         if plan["billable_stages"] and amount_minor <= 0 and not local_zero_cost_plan:
@@ -845,13 +891,37 @@ class StudioService:
                     "local_comfyui runs require video_generation and may only affect video_generation, timeline, assembly, or qc.",
                     code="local_profile_stage_not_allowed",
                 )
+        if execution_profile == "local_playwright":
+            if amount_minor != 0:
+                raise RequestValidationError(
+                    "local_playwright runs must use a zero-cost estimate.",
+                    code="local_profile_cost_not_allowed",
+                )
+            if (
+                _LOCAL_SCREEN_CAPTURE_STAGE not in affected_stages
+                or not affected_stages.issubset(_LOCAL_PLAYWRIGHT_ZERO_COST_STAGES)
+            ):
+                raise RequestValidationError(
+                    "local_playwright runs require screen_capture and may only affect screen_capture, timeline, assembly, or qc.",
+                    code="local_profile_stage_not_allowed",
+                )
         parent_revision_id = body.get("parent_revision_id")
         if parent_revision_id is not None:
             validate_identifier(parent_revision_id, label="parent revision id")
+        persisted_plan = plan
+        if execution_profile == "local_playwright":
+            # The generic dependency planner retains assembly/QC as impacted
+            # downstream work, but this profile owns executable workers only
+            # for capture and timeline. Keep that distinction durable so an
+            # assembly/QC panel never treats this Run as executable.
+            persisted_plan = {
+                **plan,
+                "requested_stages": list(_LOCAL_PLAYWRIGHT_EXECUTION_STAGES),
+            }
         revision, run = self.database.create_revision_and_run(
             production_id,
-            plan["changes"],
-            plan,
+            persisted_plan["changes"],
+            persisted_plan,
             amount_minor,
             currency,
             parent_revision_id=parent_revision_id,
@@ -4781,6 +4851,325 @@ class StudioService:
             for item in records
         ]
 
+    def _validate_local_screen_capture_artifact_records(
+        self,
+        run_id: str,
+        capture_key: str,
+        raw_artifacts: Any,
+    ) -> list[dict[str, Any]]:
+        if not isinstance(raw_artifacts, list) or len(raw_artifacts) != len(
+            _LOCAL_SCREEN_CAPTURE_ARTIFACTS
+        ):
+            raise BrowserCaptureError(
+                "The local screen capture worker returned an incomplete artifact set.",
+                code="invalid_worker_result",
+            )
+        expected_root = f"outputs/studio/runs/{run_id}/screen_capture/{capture_key}/"
+        validated: list[dict[str, Any]] = []
+        seen_names: set[str] = set()
+        for item in raw_artifacts:
+            if not isinstance(item, dict) or not isinstance(item.get("rel_path"), str):
+                raise BrowserCaptureError(
+                    "The local screen capture worker returned an invalid artifact.",
+                    code="invalid_worker_result",
+                )
+            try:
+                path = workspace_path(self.workspace, item["rel_path"], must_exist=True)
+                relative = relative_workspace_path(self.workspace, path)
+            except (SecurityError, OSError):
+                raise BrowserCaptureError(
+                    "The local screen capture worker returned an unsafe artifact path.",
+                    code="unsafe_worker_artifact",
+                ) from None
+            expected = _LOCAL_SCREEN_CAPTURE_ARTIFACTS.get(path.name)
+            if (
+                expected is None
+                or path.name in seen_names
+                or relative != f"{expected_root}{path.name}"
+                or _has_symlink_component(self.workspace, item["rel_path"])
+                or path.is_symlink()
+                or not path.is_file()
+                or sensitive_artifact_path(relative)
+                or item.get("kind") != expected[0]
+                or item.get("media_type", item.get("mime")) != expected[1]
+                or item.get("name") != path.name
+            ):
+                raise BrowserCaptureError(
+                    "The local screen capture worker returned an unexpected artifact.",
+                    code="invalid_worker_result",
+                )
+            stat = path.stat()
+            digest = _sha256_file(path)
+            if item.get("bytes") != stat.st_size or item.get("sha256") != digest:
+                raise BrowserCaptureError(
+                    "The local screen capture worker returned mismatched artifact metadata.",
+                    code="invalid_worker_result",
+                )
+            seen_names.add(path.name)
+            validated.append(
+                {
+                    "id": stable_id("art", relative.casefold()),
+                    "rel_path": relative,
+                    "name": path.name,
+                    "kind": expected[0],
+                    "media_type": expected[1],
+                    "bytes": stat.st_size,
+                    "mtime_ns": stat.st_mtime_ns,
+                    "sha256": digest,
+                    "is_heavy": stat.st_size > 10 * 1024 * 1024,
+                }
+            )
+        if seen_names != set(_LOCAL_SCREEN_CAPTURE_ARTIFACTS):
+            raise BrowserCaptureError(
+                "The local screen capture worker returned an incomplete artifact set.",
+                code="invalid_worker_result",
+            )
+        return validated
+
+    def _execute_local_screen_capture(
+        self,
+        attempt_id: str,
+        run_id: str,
+        production_id: str,
+        payload: dict[str, Any],
+        capture_key: str,
+        cancel_event: JobExecutionContext | None = None,
+    ) -> dict[str, Any] | AtomicStageCompletion:
+        _raise_if_cancelled(cancel_event)
+        published_output = False
+        completion_handed_off = False
+        browser_capture: Any = None
+
+        def report_progress(progress: int, phase: str) -> None:
+            if cancel_event is None:
+                return
+            try:
+                self.database.update_job_progress(
+                    cancel_event.job_id, progress, phase
+                )
+            except Exception:
+                # Progress telemetry must not override verified media output
+                # or the atomic stage/job terminal transition.
+                pass
+
+        try:
+            self.database.update_stage_attempt(attempt_id, "running")
+            report_progress(1, "preflight")
+            try:
+                from . import browser_capture
+            except (ImportError, AttributeError) as exc:
+                raise BrowserCaptureError(
+                    "The local Playwright worker is not installed.",
+                    code="local_worker_unavailable",
+                ) from exc
+            try:
+                raw = _call_local_worker(
+                    browser_capture.generate_local_screen_capture,
+                    self.workspace,
+                    production_id=production_id,
+                    run_id=run_id,
+                    capture_key=capture_key,
+                    payload=payload,
+                    cancel_event=cancel_event,
+                    progress_callback=report_progress,
+                )
+                # The real worker returns only after atomically publishing its
+                # capture directory.  From here until JobManager commits the
+                # artifact records, every failure path owns compensating
+                # cleanup of that exact nonce-derived directory.
+                published_output = True
+            except BrowserCaptureError:
+                raise
+            except Exception as exc:
+                raise BrowserCaptureError(
+                    "The local Playwright worker failed.",
+                    code="local_screen_capture_failed",
+                ) from exc
+            result = browser_capture_public_result(
+                raw,
+                expected_capture_key=capture_key,
+                expected_duration_ms=payload["duration_ms"],
+                expected_origin=payload["target"]["origin"],
+                artifacts=[],
+            )
+            physical = _call_local_worker(
+                browser_capture.validate_local_screen_capture_outputs,
+                self.workspace,
+                production_id=production_id,
+                run_id=run_id,
+                capture_key=capture_key,
+                payload=payload,
+                cancel_event=cancel_event,
+            )
+            physical_public = browser_capture_public_result(
+                physical,
+                expected_capture_key=capture_key,
+                expected_duration_ms=payload["duration_ms"],
+                expected_origin=payload["target"]["origin"],
+                artifacts=[],
+            )
+            report_progress(98, "registration")
+            if result != physical_public:
+                raise BrowserCaptureError(
+                    "The local screen capture worker returned mismatched metadata.",
+                    code="invalid_worker_result",
+                )
+            raw_artifacts = raw.get("artifacts") if isinstance(raw, dict) else None
+            physical_artifacts = physical.get("artifacts") if isinstance(physical, dict) else None
+            if not isinstance(raw_artifacts, list) or not isinstance(physical_artifacts, list):
+                raise BrowserCaptureError(
+                    "The local screen capture worker returned invalid artifacts.",
+                    code="invalid_worker_result",
+                )
+            physical_by_name = {
+                item.get("name"): item for item in physical_artifacts if isinstance(item, dict)
+            }
+            if set(physical_by_name) != set(_LOCAL_SCREEN_CAPTURE_ARTIFACTS):
+                raise BrowserCaptureError(
+                    "The local screen capture worker returned invalid artifacts.",
+                    code="invalid_worker_result",
+                )
+            for item in raw_artifacts:
+                if not isinstance(item, dict):
+                    raise BrowserCaptureError(
+                        "The local screen capture worker returned invalid artifacts.",
+                        code="invalid_worker_result",
+                    )
+                physical_item = physical_by_name.get(item.get("name"))
+                if (
+                    not isinstance(physical_item, dict)
+                    or item.get("bytes") != physical_item.get("bytes")
+                    or item.get("sha256") != physical_item.get("sha256")
+                ):
+                    raise BrowserCaptureError(
+                        "The local screen capture worker returned mismatched artifacts.",
+                        code="invalid_worker_result",
+                    )
+            artifact_records = self._validate_local_screen_capture_artifact_records(
+                run_id, capture_key, raw_artifacts
+            )
+            _raise_if_cancelled(cancel_event)
+            completion = self._complete_local_stage(
+                attempt_id,
+                production_id,
+                physical_public,
+                cancel_event,
+                artifact_records=artifact_records,
+                failure_cleanup=(
+                    lambda: browser_capture.discard_local_screen_capture_outputs(
+                        self.workspace,
+                        run_id=run_id,
+                        capture_key=capture_key,
+                    )
+                    if cancel_event is not None
+                    else None
+                ),
+            )
+            completion_handed_off = True
+            return completion
+        except JobCancelled:
+            if published_output and not completion_handed_off and browser_capture is not None:
+                try:
+                    browser_capture.discard_local_screen_capture_outputs(
+                        self.workspace,
+                        run_id=run_id,
+                        capture_key=capture_key,
+                    )
+                except Exception:
+                    pass
+            raise
+        except Exception as exc:
+            if published_output and not completion_handed_off and browser_capture is not None:
+                try:
+                    browser_capture.discard_local_screen_capture_outputs(
+                        self.workspace,
+                        run_id=run_id,
+                        capture_key=capture_key,
+                    )
+                except Exception:
+                    pass
+            if cancel_event is not None and cancel_event.is_set():
+                raise JobCancelled() from exc
+            error_code, error_message = safe_browser_capture_error(exc)
+            if isinstance(exc, BrowserCaptureError):
+                raise
+            raise BrowserCaptureError(error_message, code=error_code) from exc
+
+    def execute_local_screen_capture(
+        self, run_id: str, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Queue one isolated, loopback-only Playwright viewport capture."""
+
+        validate_identifier(run_id, label="run id")
+        run = self.database.get_run(run_id)
+        if run is None:
+            raise KeyError("run not found")
+        if run.get("execution_profile") != "local_playwright":
+            raise RequestValidationError(
+                "This run is not configured for local Playwright capture.",
+                code="execution_profile_required",
+            )
+        requested_stages = run.get("requested_stages")
+        if (
+            not isinstance(requested_stages, list)
+            or _LOCAL_SCREEN_CAPTURE_STAGE not in requested_stages
+        ):
+            raise RequestValidationError(
+                "The screen_capture stage was not requested by this run.",
+                code="stage_not_requested",
+            )
+        try:
+            payload = validate_browser_capture_payload(body)
+            capture_key = browser_capture_key(payload, uuid.uuid4().hex)
+            audit = browser_capture_audit_payload(payload, capture_key=capture_key)
+        except BrowserCaptureValidationError as exc:
+            raise RequestValidationError(
+                str(exc.public_message), code=str(exc.error_code)[:128]
+            ) from exc
+        attempt = self.database.create_stage_attempt(
+            run_id,
+            _LOCAL_SCREEN_CAPTURE_STAGE,
+            capture_key,
+            {"execution_profile": run["execution_profile"], **audit},
+        )
+        try:
+            job = self.jobs.submit(
+                "local_screen_capture",
+                {
+                    "run_id": run_id,
+                    "production_id": run["production_id"],
+                    "stage": _LOCAL_SCREEN_CAPTURE_STAGE,
+                    "execution_profile": run["execution_profile"],
+                    **audit,
+                    "stage_attempt_id": attempt["id"],
+                },
+                lambda _job_id, cancel_event: self._execute_local_screen_capture(
+                    attempt["id"],
+                    run_id,
+                    run["production_id"],
+                    payload,
+                    capture_key,
+                    cancel_event,
+                ),
+                production_id=run["production_id"],
+                before_enqueue=lambda created_job: self.database.link_stage_attempt_job(
+                    attempt["id"], created_job["id"]
+                ),
+                lane="browser",
+            )
+        except Exception as exc:
+            error_code, error_message = safe_browser_capture_error(exc)
+            self.database.update_stage_attempt(
+                attempt["id"],
+                "failed",
+                error_code=error_code,
+                error_message=error_message,
+            )
+            raise
+        job["stage_attempt_id"] = attempt["id"]
+        job["capture_key"] = capture_key
+        return job
+
     def _cached_local_timeline_result(
         self,
         cache_key: str,
@@ -5140,7 +5529,11 @@ class StudioService:
         run = self.database.get_run(run_id)
         if run is None:
             raise KeyError("run not found")
-        if run.get("execution_profile") not in {"local_sapi", LOCAL_PIPELINE_PROFILE}:
+        if run.get("execution_profile") not in {
+            "local_sapi",
+            "local_playwright",
+            LOCAL_PIPELINE_PROFILE,
+        }:
             raise RequestValidationError(
                 "This run is not configured for local timeline composition.",
                 code="execution_profile_required",

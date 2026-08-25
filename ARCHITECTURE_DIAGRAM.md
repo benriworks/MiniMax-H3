@@ -38,7 +38,10 @@ flowchart LR
         NarrationWorker["tools/studio/narration.py<br/>validated SAPI worker / cache"]
         ExternalTtsContract["external_tts_execution.py<br/>strict payload / cache / result contract"]
         ElevenLabsWorker["elevenlabs.py<br/>bounded with-timestamps adapter / cache"]
-        TimelineWorker["tools/studio/timeline.py<br/>validated hard-cut worker / cache<br/>24fps frame-budget v2"]
+        ScreenCaptureContract["browser_capture_execution.py<br/>local_playwright: screen_capture + timeline<br/>assembly / qc remain plan-only"]
+        ScreenCaptureWorker["browser_capture.py + playwright_capture.mjs<br/>isolated Chromium / bounded capture<br/>fixed MP4 conversion + atomic publish"]
+        PlaywrightDoctor["playwright_doctor.mjs<br/>pinned package / Chromium launch check"]
+        TimelineWorker["tools/studio/timeline.py<br/>local_sapi + local_playwright timeline<br/>validated hard-cut worker / cache"]
         AssemblyWorker["tools/studio/assembly.py<br/>validated FFmpeg worker / cache<br/>closed caption presets"]
         QcWorker["tools/studio/qc.py<br/>validated technical QC / cache"]
         SapiHelper["sapi_synthesize.ps1<br/>UTF-8 JSON IPC"]
@@ -71,7 +74,11 @@ flowchart LR
         ExternalSubmissionState["outputs/studio/external-submissions<br/>production/cache ambiguity marker"]
         GpuLane["Studio GPU FIFO lane<br/>single ComfyUI worker"]
         PipelineLane["Studio local_pipeline lane<br/>one top job / child coordination"]
+        BrowserLane["Studio browser FIFO lane<br/>one isolated capture worker"]
         DefaultLane["Studio default child lane<br/>SAPI + FFmpeg FIFO"]
+        PinnedChromium["Playwright 1.62.1 Chromium<br/>fresh context / no persistent profile"]
+        LoopbackWebTarget["explicit loopback Web target<br/>127.0.0.1 + exact port"]
+        ScreenCaptureOutputs["outputs/studio/runs/.../screen_capture<br/>MP4 / raw WebM / first + last PNG<br/>report / ffprobe / manifest"]
         VideoGenerationOutputs["outputs/studio/runs/.../video_generation<br/>MP4 / workflow / ffprobe / manifest"]
         NarrationOutputs["outputs/studio/runs/.../narration<br/>WAV / SRT / timing / manifest"]
         TimelineOutputs["outputs/studio/runs/.../timeline<br/>preview MP4 / timeline / ffprobe / manifest"]
@@ -154,6 +161,8 @@ flowchart LR
     PackageIndexes -->|"npm registry"| StudioSetup
     StudioFrontend --> StudioSetup
     StudioSetup --> StudioBuild
+    StudioSetup -->|"install + fail-closed launch check"| PlaywrightDoctor
+    PlaywrightDoctor --> PinnedChromium
     Operator --> StudioLauncher
     StudioLauncher -->|"python -m tools.studio.server"| HttpLifecycle
     StudioLauncher -->|"acquire before service construction"| WorkspaceLock
@@ -164,6 +173,7 @@ flowchart LR
     ShutdownGate -->|"timeout/failure: retain"| WorkspaceLock
     StudioBuild -->|"normal: static dist<br/>Dev: Vite"| StudioUi
     StudioUi -->|"GET: loopback Host<br/>POST: cookie/session + Origin"| HttpLifecycle
+    StudioUi -->|"2s polling: job status + progress%"| StudioBackend
     ProductionLedgers -->|"read / refresh index"| StudioBackend
     ProductionArtifacts -->|"registered artifacts only"| StudioBackend
     StudioBackend -->|"atomic artifact + job + stage<br/>terminal transaction"| StudioDb
@@ -223,8 +233,18 @@ flowchart LR
     ElevenLabsApi -->|"audio_base64 + character alignment<br/>request-id + character-cost"| ElevenLabsWorker
     ElevenLabsWorker -->|"MP3 decode / shell=false"| MediaTools
     ElevenLabsWorker -->|"atomic WAV / SRT / timing / manifest<br/>actual_cost remains null"| NarrationOutputs
-    StudioBackend -->|"local_sapi timeline / explicit execute<br/>persist job-attempt link before queue"| TimelineWorker
+    StudioBackend -->|"POST /api/runs/{id}/execute-local-screen-capture<br/>local_playwright / explicit zero-cost execute"| ScreenCaptureContract
+    ScreenCaptureContract -->|"canonical origin + hashes only persisted<br/>raw URL remains transient"| BrowserLane
+    BrowserLane -->|"bounded child process tree"| ScreenCaptureWorker
+    ScreenCaptureWorker -->|"new isolated context<br/>same exact loopback port only<br/>redirect/subresource checked"| PinnedChromium
+    PinnedChromium -->|"viewport capture only"| LoopbackWebTarget
+    StudioUi -->|"one permitted loopback target"| LoopbackWebTarget
+    ScreenCaptureWorker -->|"fixed 1080x1920 / 24fps<br/>H.264 yuv420p video-only"| MediaTools
+    ScreenCaptureWorker -->|"staging then atomic directory publish<br/>bytes + SHA-256 + fresh ffprobe"| ScreenCaptureOutputs
+    ScreenCaptureOutputs -->|"7 exact artifacts registered only with terminal success"| StudioBackend
+    StudioBackend -->|"local_sapi / local_playwright timeline<br/>explicit execute; persist job-attempt link before queue"| TimelineWorker
     ProductionArtifacts -->|"same-production registered videos<br/>bytes + SHA-256 verified"| TimelineWorker
+    ScreenCaptureOutputs -->|"registered capture video"| TimelineWorker
     TimelineWorker -->|"fixed clip names / shell=false<br/>1080x1920 / 24fps / hard cuts"| MediaTools
     MediaTools -->|"H.264 video-only / fresh ffprobe"| TimelineWorker
     TimelineWorker -->|"atomic output + SHA-256"| TimelineOutputs
@@ -257,13 +277,15 @@ flowchart LR
     classDef external fill:#fff3df,stroke:#9a6300,color:#432b00;
     classDef secret fill:#ffe8ee,stroke:#9c284b,color:#481023;
 
-    class Setup,RuntimeLock,Downloader,ModelManifest,Doctor,Launcher,Metrics,LowWorkflow,TurboWorkflow,Q4TurboWorkflow,OfficialQ4Workflow,OfficialQ4TurboWorkflow,StudioApiWorkflow,ApiWrapper,ApiCli,ProductionLedgers,StudioSetup,StudioLauncher,StudioFrontend,StudioBackend,HttpLifecycle,ShutdownGate,ProviderRecovery,PipelineContinuationCoordinator,LocalPipelineContract,LocalPipelineOrchestrator,StudioComfyContract,StudioComfyWorker,NarrationWorker,ExternalTtsContract,ElevenLabsWorker,TimelineWorker,AssemblyWorker,QcWorker,SapiHelper,StudioCli,TestVideoOrchestrator tracked;
-    class Venv,Comfy,GgufNode,TurboNode,Models,OfficialWorkflow,Outputs,HardwareMetrics,StudioBuild,StudioUi,StudioDb,VideoClaims,ProviderTasks,PipelineClaims,StudioEvents,ExternalSubmissionState,GpuLane,PipelineLane,DefaultLane,VideoGenerationOutputs,NarrationOutputs,TimelineOutputs,AssemblyOutputs,QcOutputs,AuditExports,ProductionArtifacts,WindowsSapi,MediaTools local;
+    class Setup,RuntimeLock,Downloader,ModelManifest,Doctor,Launcher,Metrics,LowWorkflow,TurboWorkflow,Q4TurboWorkflow,OfficialQ4Workflow,OfficialQ4TurboWorkflow,StudioApiWorkflow,ApiWrapper,ApiCli,ProductionLedgers,StudioSetup,StudioLauncher,StudioFrontend,StudioBackend,HttpLifecycle,ShutdownGate,ProviderRecovery,PipelineContinuationCoordinator,LocalPipelineContract,LocalPipelineOrchestrator,StudioComfyContract,StudioComfyWorker,NarrationWorker,ExternalTtsContract,ElevenLabsWorker,ScreenCaptureContract,ScreenCaptureWorker,PlaywrightDoctor,TimelineWorker,AssemblyWorker,QcWorker,SapiHelper,StudioCli,TestVideoOrchestrator tracked;
+    class Venv,Comfy,GgufNode,TurboNode,Models,OfficialWorkflow,Outputs,HardwareMetrics,StudioBuild,StudioUi,StudioDb,VideoClaims,ProviderTasks,PipelineClaims,StudioEvents,ExternalSubmissionState,GpuLane,PipelineLane,BrowserLane,DefaultLane,PinnedChromium,LoopbackWebTarget,ScreenCaptureOutputs,VideoGenerationOutputs,NarrationOutputs,TimelineOutputs,AssemblyOutputs,QcOutputs,AuditExports,ProductionArtifacts,WindowsSapi,MediaTools local;
     class GitHub,PackageIndexes,HuggingFace,MiniMaxApi,OutputCdn,ElevenLabsApi external;
     class Env,StudioSecrets secret;
 ```
 
 HTTP終了境界は`HttpLifecycle`と`ShutdownGate`に分けています。全responseを`Connection: close`にし、終了時は未解析socketだけを遮断して解析済みservice処理をdrainします。provider recovery、worker lane、SQLite interruption writerがすべて終了した場合だけworkspace lockを解放し、timeout／例外時は再試行またはprocess終了までlockを保持します。
+
+Playwright画面収録は`ScreenCaptureContract`でcanonicalなloopback URLと閉じた操作集合へ正規化し、raw URL／selectorを永続payloadから除外します。専用`BrowserLane`はrequestごとにfresh Chromium contextを起動し、redirect、subresource、WebSocket、popupを同じ明示portの内側へ制限します。raw WebMは固定FFmpeg policyでMP4へ変換し、full decode、fresh ffprobe、7成果物のbytes／SHA-256を満たした場合だけ`ScreenCaptureOutputs`をatomic publishします。これはWeb viewportの境界であり、Windowsデスクトップ、system audio、既存browser profileは扱いません。
 
 明示cancelはjob／attemptの中断と`provider_tasks.cancel_requested`を同じSQLite transaction・同じ時刻で確定します。その後のstartup／manual再照合は同じUUIDへのGETとtargeted cancelだけを使い、生成用`POST /prompt`を再送しません。未送信はlocal terminalへ確定し、running／404／一時的な照合不能はfenceを保持します。
 

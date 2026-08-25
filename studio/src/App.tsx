@@ -9,6 +9,8 @@ import {
   getLocalQcResultStatus,
   hasRequestedLocalQcStages,
   isLocalTimelineJobForSelection,
+  isLocalScreenCaptureJobForSelection,
+  selectLocalScreenCaptureJob,
   isEligibleLocalQcRun,
   isLocalQcJobForSelection,
   isSucceededLocalFfmpegAssemblyAttempt,
@@ -32,6 +34,7 @@ import {
   duplicateTimelineClip,
   moveTimelineClip,
   normalizeLocalTimelineInput,
+  normalizeLocalScreenCaptureInput,
   normalizeLocalAssemblyInput,
   normalizeLocalQcInput,
   normalizeLocalComfyUiInput,
@@ -53,6 +56,7 @@ import type {
   LocalComfyUiRequest,
   LocalPipelineRequest,
   LocalPipelineStageResult,
+  LocalScreenCaptureRequest,
   LocalTimelineClip,
   LocalTimelineRequest,
   LocalQcRequest,
@@ -72,7 +76,7 @@ import type {
   StudioStatus,
 } from './types';
 
-type DetailTab = 'overview' | 'pipeline' | 'video' | 'narration' | 'timeline' | 'assembly' | 'qc' | 'artifacts' | 'compare' | 'logs' | 'audit';
+type DetailTab = 'overview' | 'pipeline' | 'video' | 'capture' | 'narration' | 'timeline' | 'assembly' | 'qc' | 'artifacts' | 'compare' | 'logs' | 'audit';
 
 const STATUS_LABEL: Record<StudioStatus, string> = {
   pending: '待機',
@@ -281,9 +285,42 @@ const hasAssemblyStage = (run: ProductionRun): boolean =>
   run.requestedStages.some((stage) => normalizeRequestedStage(stage) === 'assembly')
   || run.stages.some((stage) => normalizeRequestedStage(stage.name) === 'assembly');
 
+const hasScreenCaptureStage = (run: ProductionRun): boolean =>
+  run.requestedStages.some((stage) => normalizeRequestedStage(stage) === 'screen_capture')
+  || run.stages.some((stage) => normalizeRequestedStage(stage.name) === 'screen_capture');
+
 const hasLocalSapiProfile = (run?: ProductionRun): boolean => run?.executionProfile === 'local_sapi';
 
 const hasElevenLabsProfile = (run?: ProductionRun): boolean => run?.executionProfile === 'elevenlabs_tts';
+
+const hasLocalTimelineProfile = (run?: ProductionRun): boolean =>
+  hasLocalSapiProfile(run) || run?.executionProfile === 'local_playwright';
+
+const localScreenCaptureError = (error: unknown): string => {
+  if (error instanceof StudioApiError && error.unsupported) {
+    return 'このStudio backendはPlaywright画面収録に対応していません。backendを更新してから再試行してください。';
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  const normalized = message.toLowerCase();
+  if (normalized.includes('playwright') || normalized.includes('chromium')) {
+    return `Playwright画面収録を開始できませんでした：${message}`;
+  }
+  if (normalized.includes('profile')) {
+    return 'このRunはlocal_playwright実行用ではありません。画面収録プロファイルでRunを作成してください。';
+  }
+  return `ローカル画面収録に失敗しました：${message}`;
+};
+
+const screenCaptureProgressPhaseLabel = (phase?: string): string => ({
+  queued: '待機中',
+  preflight: '実行環境を確認中',
+  recording: 'Chromiumで収録中',
+  transcoding: 'MP4へ変換中',
+  verification: '映像を検証中',
+  publishing: '成果物を公開中',
+  registration: '監査記録へ登録中',
+  completed: '完了',
+}[phase ?? ''] ?? (phase || '—'));
 
 /** Assembly and technical QC remain local for both local SAPI and ElevenLabs runs. */
 const hasLocalMediaProfile = (run?: ProductionRun): boolean => hasLocalSapiProfile(run) || hasElevenLabsProfile(run);
@@ -626,6 +663,7 @@ function ProductionWorkspace({ detail, jobs, providers, onReload }: { detail: Pr
     { id: 'overview', label: '概要' },
     { id: 'pipeline', label: '一括生成' },
     { id: 'video', label: '生成映像' },
+    { id: 'capture', label: '画面収録' },
     { id: 'narration', label: 'ナレーション' },
     { id: 'timeline', label: 'カット編集' },
     { id: 'assembly', label: '編集・合成' },
@@ -677,6 +715,7 @@ function ProductionWorkspace({ detail, jobs, providers, onReload }: { detail: Pr
         {tab === 'overview' && <Overview detail={detail} latestRun={latestRun} onReload={onReload} />}
         {tab === 'pipeline' && <LocalPipelinePanel detail={detail} jobs={jobs} onReload={onReload} />}
         {tab === 'video' && <VideoGenerationPanel detail={detail} jobs={jobs} onReload={onReload} />}
+        {tab === 'capture' && <ScreenCapturePanel detail={detail} jobs={jobs} onReload={onReload} />}
         {tab === 'narration' && <NarrationPanel detail={detail} jobs={jobs} providers={providers} onReload={onReload} />}
         {tab === 'timeline' && <TimelinePanel detail={detail} jobs={jobs} onReload={onReload} />}
         {tab === 'assembly' && <AssemblyPanel detail={detail} jobs={jobs} onReload={onReload} />}
@@ -1260,6 +1299,235 @@ function ProviderTaskRecoveryCard({
   );
 }
 
+function ScreenCapturePanel({ detail, jobs, onReload }: { detail: ProductionDetail; jobs: Job[]; onReload: () => Promise<void> }) {
+  const eligibleRuns = useMemo(
+    () => [...detail.runs]
+      .filter((run) => hasScreenCaptureStage(run) && run.executionProfile === 'local_playwright')
+      .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')),
+    [detail.runs],
+  );
+  const [selectedRunId, setSelectedRunId] = useState(eligibleRuns[0]?.id ?? '');
+  const [url, setUrl] = useState(() => `${window.location.origin}/`);
+  const [durationMs, setDurationMs] = useState(5_000);
+  const [settleMs, setSettleMs] = useState(500);
+  const [actionsText, setActionsText] = useState('[\n  {"type":"scroll","at_ms":1500,"delta_y":720}\n]');
+  const [job, setJob] = useState<Job>();
+  const [submitting, setSubmitting] = useState(false);
+  const [submissionUncertain, setSubmissionUncertain] = useState(false);
+  const submittingRef = useRef(false);
+  const pollingRef = useRef(false);
+  const submissionGuardRef = useRef<{ runId: string; knownJobIds: Set<string> } | undefined>(undefined);
+  const [message, setMessage] = useState<{ type: 'error' | 'success' | 'info'; text: string }>();
+
+  useEffect(() => {
+    if (!eligibleRuns.some((run) => run.id === selectedRunId)) {
+      setSelectedRunId(eligibleRuns[0]?.id ?? '');
+      setJob(undefined);
+      setSubmissionUncertain(false);
+      submissionGuardRef.current = undefined;
+      setMessage(undefined);
+    }
+  }, [eligibleRuns, selectedRunId]);
+
+  const selectedRun = eligibleRuns.find((run) => run.id === selectedRunId);
+  const attempts = [...(selectedRun?.stageAttempts ?? [])]
+    .filter((attempt) => normalizeRequestedStage(attempt.stage) === 'screen_capture')
+    .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
+  const currentAttempt = attempts[0];
+  const matchingJobs = selectedRun
+    ? jobs.filter((candidate) => isLocalScreenCaptureJobForSelection(candidate, { runId: selectedRun.id }))
+    : [];
+  const visibleJob = submitting || submissionUncertain
+    ? (submissionUncertain ? job : undefined)
+    : selectLocalScreenCaptureJob(job, currentAttempt, matchingJobs, selectedRun?.id);
+  const status = visibleJob?.status ?? (submitting || submissionUncertain ? undefined : currentAttempt?.status);
+  const active = status === 'pending' || status === 'running';
+  const parsedActions = useMemo(() => {
+    try {
+      const value: unknown = JSON.parse(actionsText);
+      return Array.isArray(value)
+        ? { value, error: undefined }
+        : { value: [], error: '操作一覧はJSON配列で指定してください。' };
+    } catch {
+      return { value: [], error: '操作一覧のJSONが正しくありません。' };
+    }
+  }, [actionsText]);
+  const normalizedInput = useMemo(
+    () => normalizeLocalScreenCaptureInput({ url, durationMs, settleMs, actions: parsedActions.value }),
+    [durationMs, parsedActions.value, settleMs, url],
+  );
+  const validationErrors = parsedActions.error
+    ? [parsedActions.error, ...normalizedInput.errors]
+    : normalizedInput.errors;
+
+  useEffect(() => {
+    if (!selectedRun || submitting || (!active && !submissionUncertain)) return;
+    let cancelled = false;
+    const poll = async () => {
+      if (pollingRef.current) return;
+      pollingRef.current = true;
+      try {
+        const nextJobs = await api.jobs();
+        if (cancelled) return;
+        const scopedJobs = nextJobs.filter((candidate) => isLocalScreenCaptureJobForSelection(candidate, { runId: selectedRun.id }));
+        const guard = submissionGuardRef.current;
+        const reconciled = submissionUncertain && guard?.runId === selectedRun.id
+          ? selectLocalScreenCaptureJob(
+            undefined,
+            undefined,
+            scopedJobs.filter((candidate) => !guard.knownJobIds.has(candidate.id)),
+            selectedRun.id,
+          )
+          : undefined;
+        const next = reconciled
+          ?? (submissionUncertain ? undefined : visibleJob?.id
+            ? nextJobs.find((candidate) => candidate.id === visibleJob.id)
+            : selectLocalScreenCaptureJob(undefined, currentAttempt, scopedJobs, selectedRun.id));
+        if (next) setJob(next);
+        if (reconciled) {
+          submissionGuardRef.current = undefined;
+          setSubmissionUncertain(false);
+          setMessage({ type: 'info', text: '応答を受信できませんでしたが、受理済みJobを照合しました。再送は行いません。' });
+        }
+        if (next && ['succeeded', 'failed', 'cancelled'].includes(next.status)) {
+          await onReload().catch(() => undefined);
+        }
+      } catch {
+        // Preserve the last known state; the next bounded poll retries.
+      } finally {
+        pollingRef.current = false;
+      }
+    };
+    void poll();
+    const timer = window.setInterval(() => { void poll(); }, 2_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [active, currentAttempt, onReload, selectedRun, submissionUncertain, submitting, visibleJob?.id]);
+
+  const execute = async () => {
+    if (submittingRef.current || active || !selectedRun) return;
+    if (validationErrors.length > 0) {
+      setMessage({ type: 'error', text: validationErrors[0] });
+      return;
+    }
+    submittingRef.current = true;
+    setSubmitting(true);
+    setSubmissionUncertain(false);
+    submissionGuardRef.current = {
+      runId: selectedRun.id,
+      knownJobIds: new Set([
+        ...matchingJobs.map((candidate) => candidate.id),
+        ...(currentAttempt?.jobId ? [currentAttempt.jobId] : []),
+      ]),
+    };
+    setJob(undefined);
+    setMessage({ type: 'info', text: 'isolated Chromiumの画面収録をbrowser laneへ登録しています。' });
+    try {
+      const request: LocalScreenCaptureRequest = normalizedInput.request;
+      const submitted = await api.executeLocalScreenCapture(selectedRun.id, request);
+      submissionGuardRef.current = undefined;
+      setSubmissionUncertain(false);
+      setJob(submitted);
+      setMessage({
+        type: submitted.status === 'failed' ? 'error' : 'success',
+        text: submitted.status === 'failed'
+          ? localScreenCaptureError(submitted.message ?? 'workerが失敗しました')
+          : 'Playwright画面収録をキューに登録しました。',
+      });
+      await onReload().catch(() => undefined);
+    } catch (error) {
+      // A server-side 4xx is a definitive rejection; it cannot represent an
+      // accepted capture, so do not leave the form in the ambiguity lock.
+      if (error instanceof StudioApiError && error.status >= 400 && error.status < 500) {
+        submissionGuardRef.current = undefined;
+        setSubmissionUncertain(false);
+        setMessage({ type: 'error', text: localScreenCaptureError(error) });
+        return;
+      }
+      // The backend persists the attempt/job before the HTTP response is
+      // written. Re-read both sources before allowing another submission so
+      // a timeout or disconnected response cannot create a duplicate capture.
+      setSubmissionUncertain(true);
+      await onReload().catch(() => undefined);
+      try {
+        const nextJobs = await api.jobs();
+        const guard = submissionGuardRef.current;
+        const freshJobs = guard?.runId === selectedRun.id
+          ? nextJobs
+            .filter((candidate) => isLocalScreenCaptureJobForSelection(candidate, { runId: selectedRun.id }))
+            .filter((candidate) => !guard.knownJobIds.has(candidate.id))
+          : [];
+        const reconciled = selectLocalScreenCaptureJob(undefined, undefined, freshJobs, selectedRun.id);
+        if (reconciled) {
+          submissionGuardRef.current = undefined;
+          setSubmissionUncertain(false);
+          setJob(reconciled);
+          setMessage({ type: 'info', text: '応答を受信できませんでしたが、受理済みJobを照合しました。再送は行いません。' });
+          if (['succeeded', 'failed', 'cancelled'].includes(reconciled.status)) {
+            await onReload().catch(() => undefined);
+          }
+          return;
+        }
+      } catch {
+        // Keep the uncertainty lock; the polling effect retries the jobs
+        // lookup without permitting a second POST.
+      }
+      setMessage({ type: 'error', text: `${localScreenCaptureError(error)} 受理状態を確認中のため、二重実行防止で再送を停止しています。` });
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
+  };
+
+  if (eligibleRuns.length === 0) {
+    return <section className="panel"><div className="panel-header"><div><span className="section-kicker">LOCAL PLAYWRIGHT</span><h3>画面収録</h3></div></div><EmptyState title="local_playwrightの画面収録Runがありません" description="概要の再調整で画面収録を選び、local_playwrightプロファイルのRunを作成してください。" /></section>;
+  }
+
+  const artifacts = visibleJob?.result?.artifacts ?? (submitting || submissionUncertain ? [] : currentAttempt?.artifacts ?? []);
+  const preview = artifacts.find((artifact) => artifact.name === 'screen-capture.mp4');
+  const recordedDurationMs = visibleJob?.result?.durationMs ?? (submitting || submissionUncertain ? durationMs : currentAttempt?.durationMs ?? durationMs);
+  const progressPercent = visibleJob?.progress === undefined
+    ? undefined
+    : Math.max(0, Math.min(100, visibleJob.progress));
+  const locked = submitting || active || submissionUncertain;
+  return (
+    <div className="timeline-grid">
+      <div>
+        <section className="panel">
+          <div className="panel-header"><div><span className="section-kicker">LOCAL PLAYWRIGHT</span><h3>Web実画面収録</h3></div><span className="tag">費用 0円</span></div>
+          <p className="panel-lead">新しいChromium contextでloopback Web画面だけを縦1080×1920・24fps・音声なしMP4に収録します。Cookieや既存ブラウザprofileは共有せず、外部通信も遮断します。</p>
+          <label className="field"><span>対象Run</span><select value={selectedRunId} disabled={locked} onChange={(event) => { setSelectedRunId(event.target.value); setJob(undefined); setSubmissionUncertain(false); submissionGuardRef.current = undefined; setMessage(undefined); }} aria-label="画面収録対象Run">{eligibleRuns.map((run) => <option key={run.id} value={run.id}>{run.label} · {run.id} · {run.executionProfile}</option>)}</select></label>
+          <label className="field"><span>loopback URL</span><input type="url" value={url} disabled={locked} onChange={(event) => setUrl(event.target.value)} placeholder="http://127.0.0.1:3000/" aria-label="画面収録URL" /></label>
+          <div className="field-grid two-columns">
+            <label className="field"><span>録画時間（ms）</span><input type="number" min="1000" max="30000" step="100" value={durationMs} disabled={locked} onChange={(event) => setDurationMs(Number(event.target.value))} /></label>
+            <label className="field"><span>描画待ち（ms）</span><input type="number" min="0" max="10000" step="100" value={settleMs} disabled={locked} onChange={(event) => setSettleMs(Number(event.target.value))} /></label>
+          </div>
+          <label className="field"><span>操作（最大16件のJSON配列）</span><textarea rows={7} value={actionsText} disabled={locked} onChange={(event) => setActionsText(event.target.value)} spellCheck={false} aria-label="画面収録操作JSON" /><small>scroll、click、pressのみ。任意JavaScript、文字入力、認証情報は受け付けません。</small></label>
+          {validationErrors.length > 0 && <div className="validation-list" role="status">{[...new Set(validationErrors)].map((error) => <div key={error}>・{error}</div>)}</div>}
+          <button className="button button-primary full-button" type="button" disabled={locked || validationErrors.length > 0} onClick={() => void execute()}>{submitting ? '登録中…' : submissionUncertain ? '受理状態を照合中…' : active ? '収録を監視中…' : '画面収録を実行'}</button>
+          {message && <div className={`inline-message is-${message.type}`} role="status">{message.text}</div>}
+        </section>
+        {preview && <section className="panel"><div className="panel-header"><div><span className="section-kicker">VERIFIED OUTPUT</span><h3>収録プレビュー</h3></div></div><ArtifactPreview artifact={preview} /></section>}
+      </div>
+      <aside>
+        <section className="panel compact-panel timeline-status-panel" aria-live="polite" aria-busy={active || submissionUncertain}>
+          <div className="panel-header"><div><span className="section-kicker">CAPTURE STATUS</span><h3>画面収録実行状況</h3></div>{status ? <StatusBadge status={status} label={jobStatusLabel(status)} /> : <span className="muted">未実行</span>}</div>
+          <dl className="narration-metrics"><div><dt>Job</dt><dd className="mono">{visibleJob?.id ?? (submitting || submissionUncertain ? '—' : currentAttempt?.jobId ?? '—')}</dd></div><div><dt>Stage attempt</dt><dd className="mono">{visibleJob?.stageAttemptId ?? (submitting || submissionUncertain ? '—' : currentAttempt?.id ?? '—')}</dd></div><div><dt>進捗</dt><dd>{progressPercent === undefined ? (active || submissionUncertain ? '計測中' : '—') : `${Math.round(progressPercent)}%`}</dd></div><div><dt>工程</dt><dd>{screenCaptureProgressPhaseLabel(visibleJob?.progressPhase)}</dd></div><div><dt>指定尺</dt><dd>{(recordedDurationMs / 1000).toFixed(1)}秒</dd></div><div><dt>出力</dt><dd>1080×1920 / 24fps</dd></div><div><dt>音声</dt><dd>なし</dd></div><div><dt>artifact</dt><dd>{artifacts.length}</dd></div></dl>
+          {progressPercent === undefined
+            ? (active || submissionUncertain) && <p className="muted">進捗: worker報告待ち。状態と成果物を2秒ごとに更新しています。</p>
+            : <div className="progress-track" role="progressbar" aria-label="画面収録の進捗" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progressPercent}><span style={{ width: `${progressPercent}%` }} /></div>}
+          {visibleJob?.message && <p className={visibleJob.status === 'failed' ? 'narration-error-text' : 'muted'}>{visibleJob.message}{visibleJob.errorCode ? ` · ${visibleJob.errorCode}` : ''}</p>}
+          <div className="narration-artifact-list"><strong>中間・最終成果物</strong>{artifacts.length === 0 ? <span className="muted">まだありません</span> : artifacts.map((artifact) => <a key={artifact.id} href={artifact.url} target="_blank" rel="noreferrer">{artifact.name} · {formatBytes(artifact.sizeBytes)} ↗</a>)}</div>
+          <p className="gate-separation-note">URL全文とselector本文はjob・eventへ保存せず、originとSHA-256だけを監査記録に残します。</p>
+        </section>
+        <section className="panel compact-panel"><div className="panel-header"><div><span className="section-kicker">STAGE ATTEMPTS</span><h3>画面収録試行履歴</h3></div><span className="count-chip">{attempts.length}</span></div>{attempts.length === 0 ? <p className="muted">stage attempt記録はまだありません。</p> : <div className="attempt-list">{attempts.map((attempt) => <article className="attempt-row" key={attempt.id}><div><strong>#{attempt.attempt ?? '—'} · {attempt.id}</strong><small>{formatDate(attempt.createdAt)}</small></div><StatusBadge status={attempt.status} label={jobStatusLabel(attempt.status)} /><div><span>{formatDuration(attempt.durationSeconds)}</span><span>{attempt.artifacts.length} artifact</span></div></article>)}</div>}</section>
+      </aside>
+    </div>
+  );
+}
+
 function VideoGenerationPanel({ detail, jobs, onReload }: { detail: ProductionDetail; jobs: Job[]; onReload: () => Promise<void> }) {
   const eligibleRuns = useMemo(
     () => [...detail.runs]
@@ -1508,6 +1776,10 @@ const RERUN_STAGES = [
 const LOCAL_SAPI_STAGES = new Set(['narration', 'captions', 'timeline', 'assembly', 'qc']);
 const ELEVENLABS_TTS_STAGES = new Set(['narration', 'captions', 'assembly', 'qc']);
 const LOCAL_COMFYUI_STAGES = new Set(['video', 'video_generation', 'timeline', 'assembly', 'qc']);
+// A Playwright Run starts from a new capture. The planner expands that change
+// to timeline/assembly/QC impact, while only capture and timeline have an
+// executable local_playwright worker in this profile.
+const LOCAL_PLAYWRIGHT_STAGES = new Set(['screen_capture']);
 
 const artifactFileName = (artifact: Artifact): string =>
   (artifact.name || artifact.path || '').split(/[\\/]/).pop()?.toLowerCase() ?? '';
@@ -1552,7 +1824,7 @@ const formatMilliseconds = (milliseconds?: number): string =>
 function TimelinePanel({ detail, jobs, onReload }: { detail: ProductionDetail; jobs: Job[]; onReload: () => Promise<void> }) {
   const eligibleRuns = useMemo(
     () => [...detail.runs]
-      .filter((run) => hasTimelineStage(run) && hasLocalSapiProfile(run))
+      .filter((run) => hasTimelineStage(run) && hasLocalTimelineProfile(run))
       .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')),
     [detail.runs],
   );
@@ -2562,6 +2834,7 @@ function RerunPanel({ productionId, onReload }: { productionId: string; onReload
     if (changes.executionProfile === 'local_sapi' && !LOCAL_SAPI_STAGES.has(normalizeRequestedStage(stage))) return;
     if (changes.executionProfile === 'elevenlabs_tts' && !ELEVENLABS_TTS_STAGES.has(normalizeRequestedStage(stage))) return;
     if (changes.executionProfile === 'local_comfyui' && !LOCAL_COMFYUI_STAGES.has(normalizeRequestedStage(stage))) return;
+    if (changes.executionProfile === 'local_playwright' && !LOCAL_PLAYWRIGHT_STAGES.has(normalizeRequestedStage(stage))) return;
     setPlan(undefined);
     setChanges((current) => ({
       ...current,
@@ -2599,11 +2872,15 @@ function RerunPanel({ productionId, onReload }: { productionId: string; onReload
       setMessage({ type: 'error', text: 'local_comfyuiは生成映像（video_generation）工程を必須にしてください。' });
       return;
     }
+    if (changes.executionProfile === 'local_playwright' && !changes.stages.some((stage) => normalizeRequestedStage(stage) === 'screen_capture')) {
+      setMessage({ type: 'error', text: 'local_playwrightは画面収録（screen_capture）工程を必須にしてください。' });
+      return;
+    }
     if (changes.executionProfile === 'elevenlabs_tts' && (!Number.isFinite(changes.maxCostJpy) || (changes.maxCostJpy ?? 0) <= 0)) {
       setMessage({ type: 'error', text: 'elevenlabs_ttsは正の見積額（maxCostJpy）を必須にしてください。' });
       return;
     }
-    if (plan.requiresCostEstimate && changes.executionProfile !== 'local_sapi' && changes.executionProfile !== 'local_comfyui' && (!changes.allowPaidApi || !changes.maxCostJpy || changes.maxCostJpy <= 0)) {
+    if (plan.requiresCostEstimate && changes.executionProfile !== 'local_sapi' && changes.executionProfile !== 'local_comfyui' && changes.executionProfile !== 'local_playwright' && (!changes.allowPaidApi || !changes.maxCostJpy || changes.maxCostJpy <= 0)) {
       setMessage({ type: 'error', text: '課金工程を含むため、有料APIの計画を有効にして見積額を入力してください。' });
       return;
     }
@@ -2623,20 +2900,21 @@ function RerunPanel({ productionId, onReload }: { productionId: string; onReload
   return (
     <section className="panel rerun-panel">
       <div className="panel-header"><div><span className="section-kicker">PARTIAL RERUN</span><h3>再調整</h3></div></div>
-      <p className="panel-lead">変更箇所から再実行範囲と再利用候補を計算し、監査可能なRun計画として保存します。local_sapiのローカル音声、またはelevenlabs_ttsの外部音声をRun作成後に各タブから明示実行できます。後者も合成・QCはローカルです。</p>
+      <p className="panel-lead">変更箇所から再実行範囲と再利用候補を計算し、監査可能なRun計画として保存します。ローカル音声・ComfyUI動画・Playwright画面収録、またはElevenLabs外部音声をRun作成後に各タブから明示実行できます。</p>
       <fieldset className="stage-checks">
         <legend>変更する工程</legend>
         {RERUN_STAGES.map(([id, label]) => (
           <label key={id}>
-            <input type="checkbox" checked={changes.stages.includes(id)} onChange={() => toggleStage(id)} disabled={(changes.executionProfile === 'local_sapi' && !LOCAL_SAPI_STAGES.has(id)) || (changes.executionProfile === 'elevenlabs_tts' && !ELEVENLABS_TTS_STAGES.has(id)) || (changes.executionProfile === 'local_comfyui' && !LOCAL_COMFYUI_STAGES.has(id))} />
+            <input type="checkbox" checked={changes.stages.includes(id)} onChange={() => toggleStage(id)} disabled={(changes.executionProfile === 'local_sapi' && !LOCAL_SAPI_STAGES.has(id)) || (changes.executionProfile === 'elevenlabs_tts' && !ELEVENLABS_TTS_STAGES.has(id)) || (changes.executionProfile === 'local_comfyui' && !LOCAL_COMFYUI_STAGES.has(id)) || (changes.executionProfile === 'local_playwright' && !LOCAL_PLAYWRIGHT_STAGES.has(id))} />
             <span>{label}</span>
           </label>
         ))}
       </fieldset>
       <fieldset className="execution-profile-fieldset"><legend>実行プロファイル</legend>
-        <label className="profile-option"><input type="radio" name={`execution-profile-${productionId}`} value="default" checked={changes.executionProfile !== 'local_sapi' && changes.executionProfile !== 'elevenlabs_tts' && changes.executionProfile !== 'local_comfyui'} onChange={() => { setPlan(undefined); setChanges((current) => ({ ...current, executionProfile: 'default' })); }} /><span><strong>通常</strong><small>既存のRun計画・費用ルールを使用</small></span></label>
+        <label className="profile-option"><input type="radio" name={`execution-profile-${productionId}`} value="default" checked={changes.executionProfile !== 'local_sapi' && changes.executionProfile !== 'elevenlabs_tts' && changes.executionProfile !== 'local_comfyui' && changes.executionProfile !== 'local_playwright'} onChange={() => { setPlan(undefined); setChanges((current) => ({ ...current, executionProfile: 'default' })); }} /><span><strong>通常</strong><small>既存のRun計画・費用ルールを使用</small></span></label>
         <label className="profile-option"><input type="radio" name={`execution-profile-${productionId}`} value="local_sapi" checked={changes.executionProfile === 'local_sapi'} onChange={() => { setPlan(undefined); setChanges((current) => ({ ...current, executionProfile: 'local_sapi', stages: ['narration'], allowPaidApi: false, maxCostJpy: undefined })); }} /><span><strong>local_sapi（ローカルworker）</strong><small>narration・字幕・カット編集・編集/合成・QC、見積0円・外部送信なし</small></span></label>
         <label className="profile-option"><input type="radio" name={`execution-profile-${productionId}`} value="local_comfyui" checked={changes.executionProfile === 'local_comfyui'} onChange={() => { setPlan(undefined); setChanges((current) => ({ ...current, executionProfile: 'local_comfyui', stages: ['video'], allowPaidApi: false, maxCostJpy: undefined })); }} /><span><strong>local_comfyui（ローカル動画worker）</strong><small>生成映像を実行。後続工程は影響計画として記録し、このprofileではまだ実行しません</small></span></label>
+        <label className="profile-option"><input type="radio" name={`execution-profile-${productionId}`} value="local_playwright" checked={changes.executionProfile === 'local_playwright'} onChange={() => { setPlan(undefined); setChanges((current) => ({ ...current, executionProfile: 'local_playwright', stages: ['screen_capture'], allowPaidApi: false, maxCostJpy: undefined })); }} /><span><strong>local_playwright（Web画面収録）</strong><small>収録から開始し、timelineは後で明示実行。assembly／QCは影響記録のみ</small></span></label>
         <label className="profile-option"><input type="radio" name={`execution-profile-${productionId}`} value="elevenlabs_tts" checked={changes.executionProfile === 'elevenlabs_tts'} onChange={() => { setPlan(undefined); setChanges((current) => ({ ...current, executionProfile: 'elevenlabs_tts', stages: ['narration'], allowPaidApi: true, maxCostJpy: undefined })); }} /><span><strong>elevenlabs_tts（外部音声）</strong><small>音声だけ外部送信・課金、合成/QCはローカル。正の見積と承認が必要</small></span></label>
       </fieldset>
       <label className="field">
@@ -2652,10 +2930,10 @@ function RerunPanel({ productionId, onReload }: { productionId: string; onReload
         <input
           type="checkbox"
           checked={changes.allowPaidApi}
-          disabled={changes.executionProfile === 'local_sapi' || changes.executionProfile === 'local_comfyui' || changes.executionProfile === 'elevenlabs_tts'}
+          disabled={changes.executionProfile === 'local_sapi' || changes.executionProfile === 'local_comfyui' || changes.executionProfile === 'local_playwright' || changes.executionProfile === 'elevenlabs_tts'}
           onChange={(event) => { setPlan(undefined); setChanges((current) => ({ ...current, allowPaidApi: event.target.checked, executionProfile: event.target.checked ? 'default' : current.executionProfile })); }}
         />
-          <span><strong>有料APIを使う計画</strong><small>{changes.executionProfile === 'local_sapi' ? 'local_sapiと相互排他的です' : changes.executionProfile === 'local_comfyui' ? 'local_comfyuiはローカルGPUで実行するため課金なしです' : changes.executionProfile === 'elevenlabs_tts' ? 'elevenlabs_ttsでは必須です。Run作成後に上限を承認します' : 'Run作成後、監査タブで上限を承認します'}</small></span>
+          <span><strong>有料APIを使う計画</strong><small>{changes.executionProfile === 'local_sapi' ? 'local_sapiと相互排他的です' : changes.executionProfile === 'local_comfyui' ? 'local_comfyuiはローカルGPUで実行するため課金なしです' : changes.executionProfile === 'local_playwright' ? 'local_playwrightはローカルChromiumで実行するため課金なしです' : changes.executionProfile === 'elevenlabs_tts' ? 'elevenlabs_ttsでは必須です。Run作成後に上限を承認します' : 'Run作成後、監査タブで上限を承認します'}</small></span>
       </label>
       {changes.allowPaidApi && (
         <label className="field inline-field">
@@ -2671,8 +2949,8 @@ function RerunPanel({ productionId, onReload }: { productionId: string; onReload
           <dl>
             <div><dt>再実行</dt><dd>{(plan.stages.length ? plan.stages : changes.stages).map(stageLabel).join('、')}</dd></div>
             <div><dt>再利用</dt><dd>{plan.reusedStages.length ? plan.reusedStages.map(stageLabel).join('、') : 'APIから情報なし'}</dd></div>
-            <div><dt>課金工程</dt><dd>{changes.executionProfile === 'local_sapi' || changes.executionProfile === 'local_comfyui' ? 'なし（ローカル）' : plan.billableStages.length ? plan.billableStages.map(stageLabel).join('、') : 'なし'}</dd></div>
-            <div><dt>見積費用</dt><dd>{changes.executionProfile === 'local_sapi' || changes.executionProfile === 'local_comfyui' ? '0円（外部送信なし）' : plan.estimatedCost === undefined ? (plan.requiresCostEstimate ? (changes.maxCostJpy && changes.maxCostJpy > 0 ? formatMoney(changes.maxCostJpy, 'JPY') : '見積入力が必要') : '課金なし') : formatMoney(plan.estimatedCost, plan.currency)}</dd></div>
+            <div><dt>課金工程</dt><dd>{changes.executionProfile === 'local_sapi' || changes.executionProfile === 'local_comfyui' || changes.executionProfile === 'local_playwright' ? 'なし（ローカル）' : plan.billableStages.length ? plan.billableStages.map(stageLabel).join('、') : 'なし'}</dd></div>
+            <div><dt>見積費用</dt><dd>{changes.executionProfile === 'local_sapi' || changes.executionProfile === 'local_comfyui' || changes.executionProfile === 'local_playwright' ? '0円（外部送信なし）' : plan.estimatedCost === undefined ? (plan.requiresCostEstimate ? (changes.maxCostJpy && changes.maxCostJpy > 0 ? formatMoney(changes.maxCostJpy, 'JPY') : '見積入力が必要') : '課金なし') : formatMoney(plan.estimatedCost, plan.currency)}</dd></div>
           </dl>
           <div className="button-row">
             <button className="button button-ghost" onClick={() => setPlan(undefined)} disabled={busy}>戻る</button>

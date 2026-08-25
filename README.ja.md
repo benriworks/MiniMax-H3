@@ -13,7 +13,9 @@
 .\run-studio.ps1
 ```
 
-通常は`http://127.0.0.1:8765`を開きます。現在のMVPは既存制作台帳の閲覧、再実行計画、Run記録、有料工程の費用上限承認、監査exportに加え、Windows SAPIによる無課金のローカルナレーション生成、固定ComfyUIによるローカル動画生成、FFmpegによるclean／字幕焼き込みmasterのローカル合成、完成masterのローカルtechnical QCを扱えます。字幕、segment timing、発音置換、工程cache、codec／stream／duration／full-decode／全編無音の検査、ffprobe・manifestも記録します。ElevenLabs外部TTSは別の承認済みprofileで扱い、画面収録とMiniMax外部APIのStudio workerは未接続です。詳細とセキュリティ境界は[STUDIO_MVP_JA.md](STUDIO_MVP_JA.md)を参照してください。
+通常は`http://127.0.0.1:8765`を開きます。現在のMVPは既存制作台帳の閲覧、再実行計画、Run記録、有料工程の費用上限承認、監査exportに加え、Windows SAPIによる無課金のローカルナレーション生成、固定ComfyUIによるローカル動画生成、isolated Chromiumによるloopback Web画面収録、FFmpegによるカット編集とclean／字幕焼き込みmasterのローカル合成、完成masterのローカルtechnical QCを扱えます。字幕、segment timing、発音置換、工程cache、codec／stream／duration／full-decode／全編無音の検査、ffprobe・manifestも記録します。ElevenLabs外部TTSは別の承認済みprofileで扱い、MiniMax外部APIのStudio workerは未接続です。Web収録は`127.0.0.1`の明示portだけを対象とし、Windowsデスクトップ、system audio、外部サイト、既存ログインsessionは未対応です。詳細とセキュリティ境界は[STUDIO_MVP_JA.md](STUDIO_MVP_JA.md)を参照してください。
+
+`local_playwright`で実行できる工程は`screen_capture`と`timeline`です。`assembly`と`qc`は影響工程としてRun計画に残りますが、このprofileでは実行しません。画面収録とtimelineのジョブ状態・進捗率はUIが2秒pollingで再取得します。
 
 ### `一括生成`（local_pipeline）
 

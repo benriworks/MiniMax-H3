@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
-from typing import Any, Iterator, Sequence
+from typing import Any, Callable, Iterator, Sequence
 
 from .security import (
     canonical_json,
@@ -31,6 +31,7 @@ _RUN_EXECUTION_PROFILES = {
     "local_sapi",
     "elevenlabs_tts",
     "local_comfyui",
+    "local_playwright",
     "local_pipeline",
 }
 _LOCAL_SAPI_ZERO_COST_STAGES = {
@@ -42,6 +43,8 @@ _LOCAL_SAPI_ZERO_COST_STAGES = {
 }
 _ELEVENLABS_TTS_STAGES = {"narration", "captions", "assembly", "qc"}
 _LOCAL_COMFYUI_ZERO_COST_STAGES = {"video_generation", "timeline", "assembly", "qc"}
+_LOCAL_PLAYWRIGHT_ZERO_COST_STAGES = {"screen_capture", "timeline", "assembly", "qc"}
+_LOCAL_PLAYWRIGHT_EXECUTION_STAGES = {"screen_capture", "timeline"}
 _LOCAL_PIPELINE_ZERO_COST_STAGES = {
     "narration",
     "captions",
@@ -192,14 +195,18 @@ class AtomicStageCompletion:
     ``public_result`` is the stage result that must be persisted on the
     attempt.  The database derives the historical job result by adding
     ``stage_attempt_id`` to that mapping.  Optional ``artifact_records`` are
-    registered in the same transaction as the job/stage success transition;
-    the envelope itself is never persisted as a public job result.
+    registered in the same transaction as the job/stage success transition.
+    ``failure_cleanup`` is an internal, best-effort rollback for newly
+    published local files when that transaction does not commit; it is never
+    persisted or invoked after a confirmed success.  The envelope itself is
+    never persisted as a public job result.
     """
 
     stage_attempt_id: str
     public_result: dict[str, Any]
     artifact_records: tuple[dict[str, Any], ...] = ()
     provider_task_record_id: str | None = None
+    failure_cleanup: Callable[[], None] | None = None
 
 
 class AtomicCompletionError(ValueError):
@@ -2378,7 +2385,9 @@ class StudioDatabase:
         rearm_pipeline_continuation: bool = False,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         requested_stages = (
-            rerun_plan.get("affected_stages") if isinstance(rerun_plan, dict) else None
+            rerun_plan.get("requested_stages", rerun_plan.get("affected_stages"))
+            if isinstance(rerun_plan, dict)
+            else None
         )
         if execution_profile not in _RUN_EXECUTION_PROFILES:
             raise ValueError("execution profile is invalid")
@@ -2546,7 +2555,9 @@ class StudioDatabase:
                     revision_digest,
                 ),
             )
-            stages = safe_plan.get("affected_stages", [])
+            stages = safe_plan.get(
+                "requested_stages", safe_plan.get("affected_stages", [])
+            )
             run_payload = {
                 "id": run_id,
                 "production_id": production_id,
@@ -4354,6 +4365,15 @@ class StudioDatabase:
                         or not set(requested_stages).issubset(
                             _LOCAL_COMFYUI_ZERO_COST_STAGES
                         )
+                    ):
+                        continue
+                    if execution_profile == "local_playwright" and (
+                        estimated_minor != 0
+                        or frozenset(requested_stages)
+                        not in {
+                            frozenset(_LOCAL_PLAYWRIGHT_EXECUTION_STAGES),
+                            frozenset(_LOCAL_PLAYWRIGHT_ZERO_COST_STAGES),
+                        }
                     ):
                         continue
                     pipeline_key = run.get("pipeline_key")
@@ -6404,9 +6424,36 @@ class StudioDatabase:
                 created_at=timestamp,
             )
 
+    def update_job_progress(self, job_id: str, progress: int, phase: str) -> None:
+        """Persist bounded, non-terminal progress for a running local job.
+
+        Progress is deliberately kept in the replaceable running result.  The
+        atomic terminal transition overwrites it with the verified stage
+        result, so intermediate telemetry can never masquerade as an output.
+        """
+
+        validate_identifier(job_id, label="job id")
+        if (
+            isinstance(progress, bool)
+            or not isinstance(progress, int)
+            or not 0 <= progress <= 99
+        ):
+            raise ValueError("job progress must be an integer from 0 through 99")
+        if (
+            not isinstance(phase, str)
+            or re.fullmatch(r"[a-z][a-z0-9_]{0,31}", phase) is None
+        ):
+            raise ValueError("job progress phase is invalid")
+        with self.transaction() as connection:
+            connection.execute(
+                "UPDATE jobs SET result_json=? WHERE id=? AND status='running'",
+                (_json({"progress": progress, "progress_phase": phase}), job_id),
+            )
+
     @staticmethod
     def _job_dict(row: sqlite3.Row) -> dict[str, Any]:
-        return {
+        result = _loads(row["result_json"], None)
+        output = {
             "id": row["id"],
             "kind": row["kind"],
             "status": row["status"],
@@ -6415,13 +6462,34 @@ class StudioDatabase:
             "started_at": row["started_at"],
             "completed_at": row["completed_at"],
             "payload": _loads(row["payload_json"], {}),
-            "result": _loads(row["result_json"], None),
+            "result": result,
             "error": (
                 {"code": row["error_code"], "message": row["error_message"]}
                 if row["error_code"]
                 else None
             ),
         }
+        if row["kind"] == "local_screen_capture":
+            progress = None
+            phase = None
+            if row["status"] == "queued":
+                progress = 0
+                phase = "queued"
+            elif row["status"] == "running" and isinstance(result, dict):
+                candidate = result.get("progress")
+                candidate_phase = result.get("progress_phase")
+                if isinstance(candidate, int) and not isinstance(candidate, bool):
+                    progress = max(0, min(99, candidate))
+                if isinstance(candidate_phase, str):
+                    phase = candidate_phase
+            elif row["status"] == "succeeded":
+                progress = 100
+                phase = "completed"
+            if progress is not None:
+                output["progress"] = progress
+            if phase is not None:
+                output["progress_phase"] = phase
+        return output
 
     def get_job(self, job_id: str) -> dict[str, Any] | None:
         with self.session() as connection:

@@ -475,6 +475,7 @@ def _bounded_process(
     timeout: float,
     label: str,
     cancel_event: Any | None = None,
+    environment: Mapping[str, str] | None = None,
 ) -> bytes:
     """Run a local media tool without a shell and with bounded diagnostics.
 
@@ -545,6 +546,7 @@ def _bounded_process(
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            env=None if environment is None else dict(environment),
             **process_options,
         )
         registered = _register_process(cancel_event, process)
