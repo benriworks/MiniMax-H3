@@ -109,17 +109,23 @@ Invoke-External `
 
 $playwrightCli = Join-Path $frontendRoot 'node_modules\playwright\cli.js'
 $playwrightDoctor = Join-Path $projectRoot 'tools\studio\playwright_doctor.mjs'
+$remotionDoctor = Join-Path $projectRoot 'tools\studio\remotion_doctor.mjs'
 if (-not (Test-Path -LiteralPath $playwrightCli -PathType Leaf)) {
     throw "Pinned Playwright CLI was not found after npm install: $playwrightCli"
 }
 if (-not (Test-Path -LiteralPath $playwrightDoctor -PathType Leaf)) {
     throw "Playwright doctor was not found: $playwrightDoctor"
 }
+if (-not (Test-Path -LiteralPath $remotionDoctor -PathType Leaf)) {
+    throw "Remotion doctor was not found: $remotionDoctor"
+}
 
 # Capture jobs intentionally ignore Node injection and custom browser-cache
 # variables. Install and diagnose Chromium under the same environment contract
 # so setup cannot pass with a binary that the runtime will later refuse to use.
-$playwrightEnvironmentNames = @('NODE_OPTIONS', 'NODE_PATH', 'PLAYWRIGHT_BROWSERS_PATH')
+$playwrightEnvironmentNames = @('NODE_OPTIONS', 'NODE_PATH', 'PLAYWRIGHT_BROWSERS_PATH') + @(
+    Get-ChildItem Env: | Where-Object { $_.Name -like 'REMOTION_*' } | ForEach-Object { $_.Name }
+) | Select-Object -Unique
 $savedPlaywrightEnvironment = @{}
 foreach ($environmentName in $playwrightEnvironmentNames) {
     $environmentItem = Get-Item -LiteralPath "Env:$environmentName" -ErrorAction SilentlyContinue
@@ -140,6 +146,16 @@ try {
         -FilePath $nodeCommand.Source `
         -ArgumentList @($playwrightDoctor) `
         -Description 'Verify pinned Playwright Chromium' `
+        -WorkingDirectory $projectRoot
+    Invoke-External `
+        -FilePath $nodeCommand.Source `
+        -ArgumentList @($remotionDoctor, '--write-attestation') `
+        -Description 'Attest installed Remotion runtime files' `
+        -WorkingDirectory $projectRoot
+    Invoke-External `
+        -FilePath $nodeCommand.Source `
+        -ArgumentList @($remotionDoctor) `
+        -Description 'Verify pinned Remotion renderer dependencies' `
         -WorkingDirectory $projectRoot
 }
 finally {

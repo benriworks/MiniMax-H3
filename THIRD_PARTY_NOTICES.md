@@ -78,3 +78,11 @@ Q4 profileは実行時に必要な5ファイルだけを表し、Q2 encoderを�
 - [ComfyUI](https://github.com/Comfy-Org/ComfyUI)、[ComfyUI-GGUF](https://github.com/city96/ComfyUI-GGUF)、[ComfyUI-MiniMax-H3-Turbo](https://github.com/Larryvrh/ComfyUI-MiniMax-H3-Turbo)、PyTorchおよびPython依存は、それぞれのライセンスに従います。固定source/versionは[runtime-lock.json](runtime-lock.json)と[requirements-local-lock.txt](requirements-local-lock.txt)に記録しています。
 - low-VRAM workflowは[Comfy-Org/workflow_templates](https://github.com/Comfy-Org/workflow_templates)のMIT-licensed templateを変換したものです。固定sourceと変更点は[workflows/README.md](workflows/README.md)に記録しています。
 - API利用にはモデルライセンスとは別に、MiniMax Platformの契約、価格、privacy、content policyが適用されます。[MiniMax API docs](https://platform.minimax.io/docs/api-reference/video-generation-v2-create)を起点に実行時点の条件を確認してください。
+
+## Remotion Studio timeline
+
+Studioの詳細timeline previewはRemotion `4.0.517`をexact pinし、`remotion`、`@remotion/player`、`@remotion/renderer`、`@remotion/bundler`、`@remotion/transitions`を使用します。ライセンス判定は[Remotion License](https://www.remotion.dev/license)と各packageに同梱されたライセンス本文を優先してください。
+
+このrepositoryは個人利用を前提に実装しています。Remotionの案内では個人利用などにFree Licenseの条件がありますが、利用主体、組織規模、商用提供形態が変わる場合は対象条件を再確認し、必要なら適切なライセンスを取得してください。version更新で条件やtelemetry要件が変わり得るため、自動upgradeは行いません。
+
+Remotion workerは登録済みローカル動画だけを一時stagingし、固定compositionをPlaywright同梱Chromiumでrenderします。外部font、任意URL、任意React component、CSS、JavaScript、browser flagは入力できません。これはライセンス確認、素材権利確認、公開可否判断を代替しません。

@@ -2,9 +2,11 @@
 
 This module is intentionally a small, stdlib-only media adapter.  It accepts
 three already-registered workspace files (a source video, a narration WAV, and
-an SRT caption file), then creates one or two reviewable masters:
+an SRT caption file), then creates one or two reviewable masters using one
+closed audio preset:
 
-* ``master-clean.mp4`` replaces the source audio with narration;
+* ``master-clean.mp4`` either replaces source audio with narration or mixes
+  required non-silent source audio at 25% under 100% narration with a limiter;
 * ``master-captioned.mp4`` burns the same captions into the clean master when
   ``include_captioned`` is true.
 
@@ -36,24 +38,28 @@ try:
     # The control-plane contract is kept separate so service.py can validate
     # worker results without importing any media implementation details.
     from .assembly_execution import (
+        DEFAULT_AUDIO_MIX_PRESET,
         DEFAULT_CAPTION_STYLE_PRESET,
         LocalAssemblyError,
         LocalAssemblyValidationError,
+        normalize_audio_mix_preset,
         normalize_caption_style_preset,
         validate_normalized_caption_style,
     )
 except ImportError:  # pragma: no cover - compatibility for isolated use
     from assembly_execution import (  # type: ignore[no-redef]
+        DEFAULT_AUDIO_MIX_PRESET,
         DEFAULT_CAPTION_STYLE_PRESET,
         LocalAssemblyError,
         LocalAssemblyValidationError,
+        normalize_audio_mix_preset,
         normalize_caption_style_preset,
         validate_normalized_caption_style,
     )
 
 
-ASSEMBLY_SCHEMA_VERSION = 2
-IMPLEMENTATION_VERSION = "local-ffmpeg-v2"
+ASSEMBLY_SCHEMA_VERSION = 3
+IMPLEMENTATION_VERSION = "local-ffmpeg-v3"
 PROVIDER = "local_ffmpeg"
 TIMING_SOURCE = "ffprobe"
 
@@ -76,10 +82,15 @@ MAX_CAPTION_TEXT_CHARS = 4_000
 MAX_VIDEO_WIDTH = 16_384
 MAX_VIDEO_HEIGHT = 16_384
 MAX_VIDEO_PIXELS = 64 * 1024 * 1024
-_AUDIO_POLICY_VERSION = "replace-source-audio-pad-short-reject-over-250ms-v1"
+_AUDIO_POLICY_VERSION = "closed-mix-preset-pad-short-reject-over-250ms-v2"
 _OUTPUT_POLICY_VERSION = "h264-yuv420p-aac-mp4-caption-presets-v2"
 
 _CACHE_KEY_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,256}$")
+_MAX_VOLUME_RE = re.compile(
+    rb"max_volume:\s*(?P<value>-?inf|[-+]?[0-9]+(?:\.[0-9]+)?)\s*dB",
+    re.IGNORECASE,
+)
+_MIN_ACTIVE_AUDIO_PEAK_DB = -60.0
 _ALLOWED_CAPTION_CONTROL = {"\r", "\n", "\t"}
 _BASE_FILES: tuple[dict[str, str], ...] = (
     {"filename": "master-clean.mp4", "kind": "video", "mime": "video/mp4"},
@@ -179,6 +190,15 @@ def _resolved_caption_style(
             code="invalid_local_assembly_request",
         )
     return style
+
+
+def _resolved_audio_mix_policy(
+    audio_mix_preset: str = DEFAULT_AUDIO_MIX_PRESET,
+) -> dict[str, Any]:
+    try:
+        return normalize_audio_mix_preset(audio_mix_preset)
+    except LocalAssemblyValidationError as exc:
+        raise AssemblyValidationError(str(exc), code=exc.code) from exc
 
 
 def _sha256_file(path: Path) -> str:
@@ -306,6 +326,7 @@ def assembly_cache_key(
     include_captioned: bool,
     *,
     caption_style_preset: str = DEFAULT_CAPTION_STYLE_PRESET,
+    audio_mix_preset: str = DEFAULT_AUDIO_MIX_PRESET,
     ffmpeg_identity: Mapping[str, Any] | None = None,
     ffprobe_identity: Mapping[str, Any] | None = None,
     tool_identity: Mapping[str, Mapping[str, Any]] | None = None,
@@ -322,6 +343,7 @@ def assembly_cache_key(
         caption_style_preset,
         include_captioned=include_captioned,
     )
+    audio_mix_policy = _resolved_audio_mix_policy(audio_mix_preset)
     if tool_identity is not None:
         if ffmpeg_identity is not None or ffprobe_identity is not None:
             raise AssemblyValidationError("tool identity was provided twice")
@@ -339,7 +361,10 @@ def assembly_cache_key(
         "captions_sha256": _strict_sha256(captions_sha256, label="captions_sha256"),
         "include_captioned": include_captioned,
         "caption_style": caption_style,
-        "audio_policy": _AUDIO_POLICY_VERSION,
+        "audio_policy": {
+            "policy_version": _AUDIO_POLICY_VERSION,
+            "mix_policy": audio_mix_policy,
+        },
         "output_policy": _output_policy(include_captioned),
         "caption_policy": _caption_policy(caption_style),
         "resource_policy": _resource_policy(),
@@ -476,6 +501,7 @@ def _bounded_process(
     label: str,
     cancel_event: Any | None = None,
     environment: Mapping[str, str] | None = None,
+    output_stream: str = "stdout",
 ) -> bytes:
     """Run a local media tool without a shell and with bounded diagnostics.
 
@@ -487,6 +513,8 @@ def _bounded_process(
     """
 
     _raise_if_cancelled(cancel_event)
+    if output_stream not in {"stdout", "stderr"}:
+        raise AssemblyToolError(f"{label} output stream is invalid")
     creationflags = 0
     process_options: dict[str, Any] = {}
     if os.name == "nt":
@@ -655,7 +683,7 @@ def _bounded_process(
         # Tool output is intentionally not surfaced: ffmpeg paths and local
         # installation details are not useful in the public job record.
         raise AssemblyToolError(f"{label} failed", code="local_ffmpeg_failed")
-    return stdout
+    return stderr if output_stream == "stderr" else stdout
 
 
 def _json_probe(
@@ -767,6 +795,17 @@ def _validate_source_probe(probe: Mapping[str, Any]) -> int:
     return duration_ms
 
 
+def _validate_required_source_audio_probe(probe: Mapping[str, Any]) -> None:
+    audio_streams = [
+        stream for stream in _streams(probe) if stream.get("codec_type") == "audio"
+    ]
+    if len(audio_streams) != 1:
+        raise AssemblyValidationError(
+            "source audio mix requires exactly one source audio stream",
+            code="source_audio_required",
+        )
+
+
 def _source_dimensions(probe: Mapping[str, Any]) -> tuple[int, int]:
     video = _first_stream(probe, "video")
     width, height = video.get("width"), video.get("height")
@@ -811,6 +850,118 @@ def _validate_narration_probe(probe: Mapping[str, Any]) -> int:
     if duration_ms < MIN_DURATION_MS or duration_ms > MAX_DURATION_MS:
         raise AssemblyValidationError("narration duration is unsupported", code="invalid_media")
     return duration_ms
+
+
+def _require_non_silent_audio(
+    ffmpeg: str,
+    path: Path,
+    *,
+    cwd: Path,
+    label: str,
+    error_code: str,
+    cancel_event: Any | None = None,
+) -> float:
+    """Reject digital silence using bounded FFmpeg sample analysis.
+
+    FFprobe proves stream structure but does not decode samples.  ``volumedetect``
+    reports ``-inf`` for an all-zero track.  Lossy codecs can turn encoded
+    silence into tiny finite noise, so peaks at or below -60 dB are treated as
+    silent.  This is a safety/integrity gate, not a loudness-normalization or
+    subjective mix-quality judgement.
+    """
+
+    diagnostics = _bounded_process(
+        [
+            ffmpeg,
+            "-hide_banner",
+            "-nostdin",
+            "-v",
+            "info",
+            "-protocol_whitelist",
+            "file,pipe",
+            "-i",
+            str(path),
+            "-map",
+            "0:a:0",
+            "-vn",
+            "-sn",
+            "-dn",
+            "-af",
+            "volumedetect",
+            "-f",
+            "null",
+            "-",
+        ],
+        cwd=cwd,
+        timeout=FFMPEG_TIMEOUT_SECONDS,
+        label=f"ffmpeg {label} activity analysis",
+        cancel_event=cancel_event,
+        output_stream="stderr",
+    )
+    matches = list(_MAX_VOLUME_RE.finditer(diagnostics))
+    if not matches:
+        raise AssemblyToolError(
+            f"{label} activity could not be determined",
+            code="invalid_audio_analysis",
+        )
+    value = matches[-1].group("value").decode("ascii").casefold()
+    if value in {"inf", "-inf"}:
+        raise AssemblyValidationError(
+            f"{label} must not be silent",
+            code=error_code,
+        )
+    try:
+        peak_db = float(value)
+    except ValueError as exc:  # pragma: no cover - guarded by the regex
+        raise AssemblyToolError(
+            f"{label} activity could not be determined",
+            code="invalid_audio_analysis",
+        ) from exc
+    if not math.isfinite(peak_db) or peak_db <= _MIN_ACTIVE_AUDIO_PEAK_DB:
+        raise AssemblyValidationError(
+            f"{label} must not be silent",
+            code=error_code,
+        )
+    return peak_db
+
+
+def _validate_mix_inputs(
+    *,
+    ffmpeg: str,
+    source_path: Path,
+    narration_path: Path,
+    source_probe: Mapping[str, Any],
+    inputs: Mapping[str, Mapping[str, Any]],
+    workspace: Path,
+    cancel_event: Any | None = None,
+) -> dict[str, float]:
+    _validate_required_source_audio_probe(source_probe)
+    source_peak_db = _require_non_silent_audio(
+        ffmpeg,
+        source_path,
+        cwd=workspace,
+        label="source audio",
+        error_code="source_audio_silent",
+        cancel_event=cancel_event,
+    )
+    narration_peak_db = _require_non_silent_audio(
+        ffmpeg,
+        narration_path,
+        cwd=workspace,
+        label="narration audio",
+        error_code="narration_audio_silent",
+        cancel_event=cancel_event,
+    )
+    _assert_input_unchanged(
+        source_path, inputs["source_video"], label="source_video"
+    )
+    _assert_input_unchanged(
+        narration_path, inputs["narration_wav"], label="narration_wav"
+    )
+    return {
+        "source_peak_db": source_peak_db,
+        "narration_peak_db": narration_peak_db,
+    }
 
 
 def _validate_caption_bytes(path: Path) -> bytes:
@@ -1108,7 +1259,12 @@ def _output_policy(include_captioned: bool) -> dict[str, str]:
     }
 
 
-def _audio_policy(*, source_duration_ms: int, narration_duration_ms: int) -> dict[str, Any]:
+def _audio_policy(
+    *,
+    source_duration_ms: int,
+    narration_duration_ms: int,
+    audio_mix_policy: Mapping[str, Any],
+) -> dict[str, Any]:
     if narration_duration_ms > source_duration_ms:
         action = "trim_to_source_duration_within_250ms_tolerance"
     elif narration_duration_ms < source_duration_ms:
@@ -1117,7 +1273,21 @@ def _audio_policy(*, source_duration_ms: int, narration_duration_ms: int) -> dic
         action = "exact_source_duration"
     return {
         "policy_version": _AUDIO_POLICY_VERSION,
-        "source_audio": "replaced",
+        "preset": audio_mix_policy["preset"],
+        "mix_policy": dict(audio_mix_policy),
+        "source_audio": (
+            "mixed" if audio_mix_policy["source_audio_action"] == "mix" else "replaced"
+        ),
+        "independent_non_silence_validation": (
+            "source_and_narration_required"
+            if audio_mix_policy["source_audio_required"]
+            else "not_required_for_backward_compatible_replacement"
+        ),
+        "active_peak_threshold_db": (
+            _MIN_ACTIVE_AUDIO_PEAK_DB
+            if audio_mix_policy["source_audio_required"]
+            else None
+        ),
         "narration_duration_ms": narration_duration_ms,
         "source_duration_ms": source_duration_ms,
         "long_narration_policy": "reject_over_250ms",
@@ -1174,6 +1344,7 @@ def _validate_cache(
     target_duration_ms: int,
     include_captioned: bool,
     caption_style: Mapping[str, Any],
+    audio_mix_policy: Mapping[str, Any],
     narration_duration_ms: int,
     source_width: int,
     source_height: int,
@@ -1201,6 +1372,8 @@ def _validate_cache(
         or manifest.get("include_captioned") is not include_captioned
         or manifest.get("caption_style_preset") != caption_style["preset"]
         or manifest.get("caption_style") != dict(caption_style)
+        or manifest.get("audio_mix_preset") != audio_mix_policy["preset"]
+        or manifest.get("audio_mix_policy") != dict(audio_mix_policy)
         or manifest.get("tool_identity") != dict(tool_identity)
         or manifest.get("output_policy") != _output_policy(include_captioned)
         or manifest.get("caption_policy") != _caption_policy(caption_style)
@@ -1210,6 +1383,7 @@ def _validate_cache(
         != _audio_policy(
             source_duration_ms=target_duration_ms,
             narration_duration_ms=narration_duration_ms,
+            audio_mix_policy=audio_mix_policy,
         )
     ):
         return None
@@ -1275,6 +1449,8 @@ def _validate_cache(
             return None
         if _validate_source_probe(source_probe) != target_duration_ms:
             return None
+        if audio_mix_policy["source_audio_required"]:
+            _validate_required_source_audio_probe(source_probe)
         if _validate_narration_probe(narration_probe) != narration_duration_ms:
             return None
         if _source_dimensions(source_probe) != (source_width, source_height):
@@ -1373,6 +1549,7 @@ def _build_manifest(
     stage: Path,
     include_captioned: bool,
     caption_style: Mapping[str, Any],
+    audio_mix_policy: Mapping[str, Any],
     narration_duration_ms: int,
     tool_identity: Mapping[str, Mapping[str, str]],
     source_width: int,
@@ -1405,6 +1582,8 @@ def _build_manifest(
         "include_captioned": include_captioned,
         "caption_style_preset": caption_style["preset"],
         "caption_style": dict(caption_style),
+        "audio_mix_preset": audio_mix_policy["preset"],
+        "audio_mix_policy": dict(audio_mix_policy),
         "tool_identity": dict(tool_identity),
         "output_policy": _output_policy(include_captioned),
         "caption_policy": _caption_policy(caption_style),
@@ -1413,6 +1592,7 @@ def _build_manifest(
         "audio_policy": _audio_policy(
             source_duration_ms=target_duration_ms,
             narration_duration_ms=narration_duration_ms,
+            audio_mix_policy=audio_mix_policy,
         ),
         "inputs": dict(inputs),
         "media": {
@@ -1448,6 +1628,8 @@ def _result(
         "include_captioned": manifest["include_captioned"],
         "caption_style_preset": manifest["caption_style_preset"],
         "caption_style": dict(manifest["caption_style"]),
+        "audio_mix_preset": manifest["audio_mix_preset"],
+        "audio_mix_policy": dict(manifest["audio_mix_policy"]),
         "source_video_sha256": manifest["inputs"]["source_video"]["sha256"],
         "narration_wav_sha256": manifest["inputs"]["narration_wav"]["sha256"],
         "captions_sha256": manifest["inputs"]["captions_srt"]["sha256"],
@@ -1466,6 +1648,7 @@ def validate_local_assembly_outputs(
     captions_srt: str | Path,
     include_captioned: bool,
     caption_style_preset: str = DEFAULT_CAPTION_STYLE_PRESET,
+    audio_mix_preset: str = DEFAULT_AUDIO_MIX_PRESET,
     ffmpeg: str | Path | None = None,
     ffprobe: str | Path | None = None,
     cancel_event: Any | None = None,
@@ -1488,6 +1671,7 @@ def validate_local_assembly_outputs(
         caption_style_preset,
         include_captioned=include_captioned,
     )
+    audio_mix_policy = _resolved_audio_mix_policy(audio_mix_preset)
     cache_key = _strict_cache_key(cache_key)
     if not isinstance(workspace, Path):
         workspace = Path(workspace)
@@ -1540,12 +1724,23 @@ def validate_local_assembly_outputs(
         "narration_wav": _input_record(workspace, narration_path),
         "captions_srt": _input_record(workspace, captions_path),
     }
+    if audio_mix_policy["source_audio_required"]:
+        _validate_mix_inputs(
+            ffmpeg=ffmpeg_executable,
+            source_path=source_path,
+            narration_path=narration_path,
+            source_probe=source_probe,
+            inputs=input_records,
+            workspace=workspace,
+            cancel_event=cancel_event,
+        )
     expected_cache_key = assembly_cache_key(
         input_records["source_video"]["sha256"],
         input_records["narration_wav"]["sha256"],
         input_records["captions_srt"]["sha256"],
         include_captioned,
         caption_style_preset=caption_style["preset"],
+        audio_mix_preset=audio_mix_policy["preset"],
         tool_identity=resolved_tool_identity,
     )
     _raise_if_cancelled(cancel_event)
@@ -1565,6 +1760,7 @@ def validate_local_assembly_outputs(
         target_duration_ms=target_duration_ms,
         include_captioned=include_captioned,
         caption_style=caption_style,
+        audio_mix_policy=audio_mix_policy,
         narration_duration_ms=narration_duration_ms,
         source_width=source_width,
         source_height=source_height,
@@ -1595,6 +1791,7 @@ def assemble_local_video(
     captions_srt: str | Path,
     include_captioned: bool,
     caption_style_preset: str = DEFAULT_CAPTION_STYLE_PRESET,
+    audio_mix_preset: str = DEFAULT_AUDIO_MIX_PRESET,
     ffmpeg: str | Path | None = None,
     ffprobe: str | Path | None = None,
     cancel_event: Any | None = None,
@@ -1617,6 +1814,7 @@ def assemble_local_video(
         caption_style_preset,
         include_captioned=include_captioned,
     )
+    audio_mix_policy = _resolved_audio_mix_policy(audio_mix_preset)
     cache_key = _strict_cache_key(cache_key)
     if not isinstance(workspace, Path):
         workspace = Path(workspace)
@@ -1675,12 +1873,23 @@ def assemble_local_video(
         "narration_wav": _input_record(workspace, narration_path),
         "captions_srt": _input_record(workspace, captions_path),
     }
+    if audio_mix_policy["source_audio_required"]:
+        _validate_mix_inputs(
+            ffmpeg=ffmpeg_executable,
+            source_path=source_path,
+            narration_path=narration_path,
+            source_probe=source_probe,
+            inputs=input_records,
+            workspace=workspace,
+            cancel_event=cancel_event,
+        )
     expected_cache_key = assembly_cache_key(
         input_records["source_video"]["sha256"],
         input_records["narration_wav"]["sha256"],
         input_records["captions_srt"]["sha256"],
         include_captioned,
         caption_style_preset=caption_style["preset"],
+        audio_mix_preset=audio_mix_policy["preset"],
         tool_identity=resolved_tool_identity,
     )
     _raise_if_cancelled(cancel_event)
@@ -1699,6 +1908,7 @@ def assemble_local_video(
         target_duration_ms=target_duration_ms,
         include_captioned=include_captioned,
         caption_style=caption_style,
+        audio_mix_policy=audio_mix_policy,
         narration_duration_ms=narration_duration_ms,
         source_width=source_width,
         source_height=source_height,
@@ -1744,6 +1954,8 @@ def assemble_local_video(
         _raise_if_cancelled(cancel_event)
         if _validate_source_probe(stage_source_probe) != target_duration_ms:
             raise AssemblyError("staged source video changed", code="input_changed")
+        if audio_mix_policy["source_audio_required"]:
+            _validate_required_source_audio_probe(stage_source_probe)
         if _validate_narration_probe(stage_narration_probe) != narration_duration_ms:
             raise AssemblyError("staged narration changed", code="input_changed")
         if _source_dimensions(stage_source_probe) != (source_width, source_height):
@@ -1771,56 +1983,80 @@ def assemble_local_video(
         _raise_if_cancelled(cancel_event)
         clean_path = stage / "master-clean.mp4"
         captioned_path = stage / "master-captioned.mp4"
+        audio_mapping: list[str]
+        if audio_mix_policy["source_audio_required"]:
+            # This graph is selected only by a closed enum.  The public
+            # request cannot inject gain, filter, path, or label syntax.
+            audio_filter = (
+                "[0:a:0]aresample=48000,"
+                "aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,"
+                "volume=0.25,apad,"
+                f"atrim=end={duration_seconds},asetpts=PTS-STARTPTS[source];"
+                "[1:a:0]aresample=48000,"
+                "aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,"
+                "volume=1.0,apad,"
+                f"atrim=end={duration_seconds},asetpts=PTS-STARTPTS[narration];"
+                "[source][narration]"
+                "amix=inputs=2:duration=longest:dropout_transition=0:normalize=0,"
+                "alimiter=limit=0.95:level=disabled[mixed]\n"
+            ).encode("ascii")
+            _write_atomic(stage / "audio-filter-script.txt", audio_filter)
+            audio_mapping = [
+                "-filter_complex_script",
+                "audio-filter-script.txt",
+                "-map",
+                "[mixed]",
+            ]
+        else:
+            audio_mapping = ["-map", "1:a:0", "-af", "apad"]
+        clean_arguments = [
+            ffmpeg_executable,
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-nostdin",
+            "-y",
+            "-protocol_whitelist",
+            "file,pipe",
+            "-i",
+            "source-video.mp4",
+            "-i",
+            "narration.wav",
+            "-map",
+            "0:v:0",
+            *audio_mapping,
+            "-t",
+            duration_seconds,
+            "-c:v",
+            "libx264",
+            "-preset",
+            "medium",
+            "-crf",
+            "18",
+            "-pix_fmt",
+            "yuv420p",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "128k",
+            "-ar",
+            "48000",
+            "-ac",
+            "2",
+            "-threads",
+            str(FFMPEG_THREADS),
+            "-filter_threads",
+            str(FFMPEG_THREADS),
+            "-map_metadata",
+            "-1",
+            "-movflags",
+            "+faststart",
+            "-fs",
+            str(MAX_OUTPUT_BYTES),
+            "master-clean.mp4",
+        ]
         _bounded_process(
-            [
-                ffmpeg_executable,
-                "-hide_banner",
-                "-loglevel",
-                "error",
-                "-nostdin",
-                "-y",
-                "-protocol_whitelist",
-                "file,pipe",
-                "-i",
-                "source-video.mp4",
-                "-i",
-                "narration.wav",
-                "-map",
-                "0:v:0",
-                "-map",
-                "1:a:0",
-                "-af",
-                "apad",
-                "-t",
-                duration_seconds,
-                "-c:v",
-                "libx264",
-                "-preset",
-                "medium",
-                "-crf",
-                "18",
-                "-pix_fmt",
-                "yuv420p",
-                "-c:a",
-                "aac",
-                "-b:a",
-                "128k",
-                "-ar",
-                "48000",
-                "-ac",
-                "2",
-                "-threads",
-                str(FFMPEG_THREADS),
-                "-filter_threads",
-                str(FFMPEG_THREADS),
-                "-map_metadata",
-                "-1",
-                "-movflags",
-                "+faststart",
-                "-fs",
-                str(MAX_OUTPUT_BYTES),
-                "master-clean.mp4",
-            ],
+            clean_arguments,
             cwd=stage,
             timeout=FFMPEG_TIMEOUT_SECONDS,
             label="ffmpeg clean assembly",
@@ -1959,6 +2195,7 @@ def assemble_local_video(
                 stage=stage,
                 include_captioned=include_captioned,
                 caption_style=caption_style,
+                audio_mix_policy=audio_mix_policy,
                 narration_duration_ms=narration_duration_ms,
                 tool_identity=resolved_tool_identity,
                 source_width=source_width,
@@ -1984,6 +2221,7 @@ def assemble_local_video(
         target_duration_ms=target_duration_ms,
         include_captioned=include_captioned,
         caption_style=caption_style,
+        audio_mix_policy=audio_mix_policy,
         narration_duration_ms=narration_duration_ms,
         source_width=source_width,
         source_height=source_height,

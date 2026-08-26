@@ -42,7 +42,11 @@ flowchart LR
         ScreenCaptureWorker["browser_capture.py + playwright_capture.mjs<br/>isolated Chromium / bounded capture<br/>fixed MP4 conversion + atomic publish"]
         PlaywrightDoctor["playwright_doctor.mjs<br/>pinned package / Chromium launch check"]
         TimelineWorker["tools/studio/timeline.py<br/>local_sapi + local_playwright timeline<br/>validated hard-cut worker / cache"]
-        AssemblyWorker["tools/studio/assembly.py<br/>validated FFmpeg worker / cache<br/>closed caption presets"]
+        RemotionContract["remotion_timeline_execution.py<br/>schema v1 / closed edit recipe<br/>local_remotion_timeline"]
+        RemotionWorker["remotion_timeline.py + remotion_render.mjs<br/>Remotion 4.0.517 / concurrency 1<br/>cache + atomic registration"]
+        RemotionComposition["studio/src/remotion<br/>shared Player / renderer composition"]
+        RemotionDoctor["remotion_doctor.mjs<br/>dependency closure attestation<br/>exact packages / Chromium reuse check"]
+        AssemblyWorker["tools/studio/assembly.py<br/>validated FFmpeg worker / cache<br/>closed caption + audio mix presets"]
         QcWorker["tools/studio/qc.py<br/>validated technical QC / cache"]
         SapiHelper["sapi_synthesize.ps1<br/>UTF-8 JSON IPC"]
         StudioCli["tools.studio.cli<br/>secret + local test-video control"]
@@ -74,7 +78,7 @@ flowchart LR
         ExternalSubmissionState["outputs/studio/external-submissions<br/>production/cache ambiguity marker"]
         GpuLane["Studio GPU FIFO lane<br/>single ComfyUI worker"]
         PipelineLane["Studio local_pipeline lane<br/>one top job / child coordination"]
-        BrowserLane["Studio browser FIFO lane<br/>one isolated capture worker"]
+        BrowserLane["Studio browser FIFO lane<br/>capture + Remotion timeline / one job"]
         DefaultLane["Studio default child lane<br/>SAPI + FFmpeg FIFO"]
         PinnedChromium["Playwright 1.62.1 Chromium<br/>fresh context / no persistent profile"]
         LoopbackWebTarget["explicit loopback Web target<br/>127.0.0.1 + exact port"]
@@ -82,6 +86,7 @@ flowchart LR
         VideoGenerationOutputs["outputs/studio/runs/.../video_generation<br/>MP4 / workflow / ffprobe / manifest"]
         NarrationOutputs["outputs/studio/runs/.../narration<br/>WAV / SRT / timing / manifest"]
         TimelineOutputs["outputs/studio/runs/.../timeline<br/>preview MP4 / timeline / ffprobe / manifest"]
+        RemotionOutputs["outputs/studio/runs/.../remotion_timeline<br/>MP4 / timeline / render report<br/>ffprobe / manifest"]
         AssemblyOutputs["outputs/studio/runs/.../assembly<br/>clean / captioned MP4 / ffprobe / manifest"]
         QcOutputs["outputs/studio/runs/.../qc<br/>technical QC / ffprobe / manifest"]
         AuditExports["outputs/studio/audits<br/>ZIP + SHA-256 sidecar"]
@@ -163,6 +168,9 @@ flowchart LR
     StudioSetup --> StudioBuild
     StudioSetup -->|"install + fail-closed launch check"| PlaywrightDoctor
     PlaywrightDoctor --> PinnedChromium
+    StudioSetup -->|"npm ci後にclosure attestation生成<br/>exact 4.0.517 package check"| RemotionDoctor
+    RemotionDoctor -->|"reuse installed executable"| PinnedChromium
+    RemotionComposition --> StudioFrontend
     Operator --> StudioLauncher
     StudioLauncher -->|"python -m tools.studio.server"| HttpLifecycle
     StudioLauncher -->|"acquire before service construction"| WorkspaceLock
@@ -249,11 +257,26 @@ flowchart LR
     MediaTools -->|"H.264 video-only / fresh ffprobe"| TimelineWorker
     TimelineWorker -->|"atomic output + SHA-256"| TimelineOutputs
     TimelineOutputs -->|"exact path / kind / MIME / hash allowlist"| StudioBackend
+    StudioUi -->|"@remotion/player<br/>same schema v1 composition preview"| RemotionComposition
+    StudioBackend -->|"POST /api/runs/{id}/execute-remotion-timeline<br/>timeline stage / explicit zero-cost execute"| RemotionContract
+    RemotionContract -->|"registered video IDs only<br/>1-16 clips / max 60s / closed controls"| BrowserLane
+    BrowserLane -->|"FIFO / bounded child process tree"| RemotionWorker
+    RemotionComposition -->|"tracked composition + model"| RemotionWorker
+    ProductionArtifacts -->|"same-production videos<br/>bytes + SHA-256 verified"| RemotionWorker
+    ScreenCaptureOutputs -->|"registered capture video"| RemotionWorker
+    TimelineOutputs -->|"registered hard-cut preview"| RemotionWorker
+    RemotionWorker -->|"programmatic render / explicit executable"| PinnedChromium
+    RemotionDoctor -->|"closure digest / counts<br/>cache tool identity"| RemotionWorker
+    RemotionWorker -->|"render後にclosure再照合<br/>変更時はpublish拒否"| RemotionDoctor
+    RemotionWorker -->|"audio normalization + full decode<br/>fresh ffprobe"| MediaTools
+    RemotionWorker -->|"exact 5 artifacts / atomic publish<br/>then atomic DB registration"| RemotionOutputs
+    RemotionOutputs -->|"exact path / kind / MIME / hash allowlist"| StudioBackend
     StudioBackend -->|"same production/run IDs<br/>persist job-attempt link before queue"| AssemblyWorker
     ProductionArtifacts -->|"registered source video"| AssemblyWorker
     TimelineOutputs -->|"registered timeline preview video"| AssemblyWorker
+    RemotionOutputs -->|"registered detailed timeline preview<br/>replace or fixed 25% source mix"| AssemblyWorker
     NarrationOutputs -->|"verified WAV / SRT"| AssemblyWorker
-    AssemblyWorker -->|"shell=false / fixed policy"| MediaTools
+    AssemblyWorker -->|"shell=false / closed audio policy<br/>narration-only or source 25% mix + limiter"| MediaTools
     MediaTools -->|"H.264 + AAC / ffprobe facts"| AssemblyWorker
     AssemblyWorker -->|"atomic output + SHA-256"| AssemblyOutputs
     AssemblyOutputs -->|"exact path / kind / MIME / hash allowlist"| StudioBackend
@@ -277,8 +300,8 @@ flowchart LR
     classDef external fill:#fff3df,stroke:#9a6300,color:#432b00;
     classDef secret fill:#ffe8ee,stroke:#9c284b,color:#481023;
 
-    class Setup,RuntimeLock,Downloader,ModelManifest,Doctor,Launcher,Metrics,LowWorkflow,TurboWorkflow,Q4TurboWorkflow,OfficialQ4Workflow,OfficialQ4TurboWorkflow,StudioApiWorkflow,ApiWrapper,ApiCli,ProductionLedgers,StudioSetup,StudioLauncher,StudioFrontend,StudioBackend,HttpLifecycle,ShutdownGate,ProviderRecovery,PipelineContinuationCoordinator,LocalPipelineContract,LocalPipelineOrchestrator,StudioComfyContract,StudioComfyWorker,NarrationWorker,ExternalTtsContract,ElevenLabsWorker,ScreenCaptureContract,ScreenCaptureWorker,PlaywrightDoctor,TimelineWorker,AssemblyWorker,QcWorker,SapiHelper,StudioCli,TestVideoOrchestrator tracked;
-    class Venv,Comfy,GgufNode,TurboNode,Models,OfficialWorkflow,Outputs,HardwareMetrics,StudioBuild,StudioUi,StudioDb,VideoClaims,ProviderTasks,PipelineClaims,StudioEvents,ExternalSubmissionState,GpuLane,PipelineLane,BrowserLane,DefaultLane,PinnedChromium,LoopbackWebTarget,ScreenCaptureOutputs,VideoGenerationOutputs,NarrationOutputs,TimelineOutputs,AssemblyOutputs,QcOutputs,AuditExports,ProductionArtifacts,WindowsSapi,MediaTools local;
+    class Setup,RuntimeLock,Downloader,ModelManifest,Doctor,Launcher,Metrics,LowWorkflow,TurboWorkflow,Q4TurboWorkflow,OfficialQ4Workflow,OfficialQ4TurboWorkflow,StudioApiWorkflow,ApiWrapper,ApiCli,ProductionLedgers,StudioSetup,StudioLauncher,StudioFrontend,StudioBackend,HttpLifecycle,ShutdownGate,ProviderRecovery,PipelineContinuationCoordinator,LocalPipelineContract,LocalPipelineOrchestrator,StudioComfyContract,StudioComfyWorker,NarrationWorker,ExternalTtsContract,ElevenLabsWorker,ScreenCaptureContract,ScreenCaptureWorker,PlaywrightDoctor,TimelineWorker,RemotionContract,RemotionWorker,RemotionComposition,RemotionDoctor,AssemblyWorker,QcWorker,SapiHelper,StudioCli,TestVideoOrchestrator tracked;
+    class Venv,Comfy,GgufNode,TurboNode,Models,OfficialWorkflow,Outputs,HardwareMetrics,StudioBuild,StudioUi,StudioDb,VideoClaims,ProviderTasks,PipelineClaims,StudioEvents,ExternalSubmissionState,GpuLane,PipelineLane,BrowserLane,DefaultLane,PinnedChromium,LoopbackWebTarget,ScreenCaptureOutputs,VideoGenerationOutputs,NarrationOutputs,TimelineOutputs,RemotionOutputs,AssemblyOutputs,QcOutputs,AuditExports,ProductionArtifacts,WindowsSapi,MediaTools local;
     class GitHub,PackageIndexes,HuggingFace,MiniMaxApi,OutputCdn,ElevenLabsApi external;
     class Env,StudioSecrets secret;
 ```
@@ -286,6 +309,8 @@ flowchart LR
 HTTP終了境界は`HttpLifecycle`と`ShutdownGate`に分けています。全responseを`Connection: close`にし、終了時は未解析socketだけを遮断して解析済みservice処理をdrainします。provider recovery、worker lane、SQLite interruption writerがすべて終了した場合だけworkspace lockを解放し、timeout／例外時は再試行またはprocess終了までlockを保持します。
 
 Playwright画面収録は`ScreenCaptureContract`でcanonicalなloopback URLと閉じた操作集合へ正規化し、raw URL／selectorを永続payloadから除外します。専用`BrowserLane`はrequestごとにfresh Chromium contextを起動し、redirect、subresource、WebSocket、popupを同じ明示portの内側へ制限します。raw WebMは固定FFmpeg policyでMP4へ変換し、full decode、fresh ffprobe、7成果物のbytes／SHA-256を満たした場合だけ`ScreenCaptureOutputs`をatomic publishします。これはWeb viewportの境界であり、Windowsデスクトップ、system audio、既存browser profileは扱いません。
+
+Remotion詳細timelineは既存の`TimelineWorker`によるハードカットを残したまま、別の`RemotionContract`／`RemotionWorker`として同じ`timeline` stageに接続します。schema v1は登録済み動画、trim、素材音量、fade、固定テロップだけを許し、`BrowserLane`で画面収録とFIFO直列化します。UIの`@remotion/player`とbackend rendererは同じ`RemotionComposition`を使い、setup済み`PinnedChromium`を再利用します。`RemotionDoctor`はsetup時にRemotion 5 packageとPlaywrightの実dependency closureをattestし、worker開始時とrender後にfile treeを再計算します。pathを含まないdigest／package・file・bytes数はcache tool identityへ入り、変更時はpublish前に失敗します。5成果物はcache／manifest／入力・tool hash、full decode、fresh ffprobeを再検証してからatomic登録します。`RemotionOutputs`の素材音声は詳細previewで確認でき、`AssemblyWorker`の互換既定ではナレーションへ置換、固定mix presetではpreview音声をさらに25%へ下げてナレーションと合成します。mixは素材音声1 streamと両入力の非無音を必須とし、任意gainやBGMは受け付けません。
 
 明示cancelはjob／attemptの中断と`provider_tasks.cancel_requested`を同じSQLite transaction・同じ時刻で確定します。その後のstartup／manual再照合は同じUUIDへのGETとtargeted cancelだけを使い、生成用`POST /prompt`を再送しません。未送信はlocal terminalへ確定し、running／404／一時的な照合不能はfenceを保持します。
 

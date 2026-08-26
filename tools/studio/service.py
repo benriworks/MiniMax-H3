@@ -78,6 +78,16 @@ from .timeline_execution import (
     timeline_public_result,
     validate_local_timeline_payload,
 )
+from .remotion_timeline_execution import (
+    RemotionTimelineError,
+    RemotionTimelineValidationError,
+    compile_remotion_timeline,
+    remotion_timeline_audit_payload,
+    remotion_timeline_cache_key,
+    remotion_timeline_public_result,
+    safe_remotion_timeline_error,
+    validate_remotion_timeline_payload,
+)
 from .secrets import (
     SecretStorageUnavailable,
     SecretStore,
@@ -227,6 +237,13 @@ _LOCAL_QC_ARTIFACTS = {
 _LOCAL_TIMELINE_ARTIFACTS = {
     "timeline-preview.mp4": ("video", "video/mp4"),
     "timeline.json": ("document", "application/json"),
+    "ffprobe.json": ("document", "application/json"),
+    "manifest.json": ("document", "application/json"),
+}
+_LOCAL_REMOTION_TIMELINE_ARTIFACTS = {
+    "remotion-preview.mp4": ("video", "video/mp4"),
+    "remotion-timeline.json": ("document", "application/json"),
+    "render-report.json": ("document", "application/json"),
     "ffprobe.json": ("document", "application/json"),
     "manifest.json": ("document", "application/json"),
 }
@@ -4759,6 +4776,46 @@ class StudioService:
             "aggregate_bytes": aggregate_bytes,
         }
 
+    def _validated_remotion_timeline_inputs(
+        self,
+        run: dict[str, Any],
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Resolve a closed Remotion recipe to immutable local media inputs."""
+
+        base = {
+            "clips": [
+                {
+                    "video_artifact_id": item["video_artifact_id"],
+                    "start_ms": item["start_ms"],
+                    "end_ms": item["end_ms"],
+                }
+                for item in payload["clips"]
+            ]
+        }
+        resolved = self._validated_timeline_inputs(run, base)
+        clips: list[dict[str, Any]] = []
+        cache_clips: list[dict[str, Any]] = []
+        for public, physical, cache in zip(
+            payload["clips"], resolved["clips"], resolved["cache_clips"], strict=True
+        ):
+            editing = {
+                "volume_percent": public["volume_percent"],
+                "transition_to_next": public["transition_to_next"],
+                "overlay": public["overlay"],
+            }
+            clips.append({**physical, **editing})
+            cache_clips.append({**cache, **editing})
+        # Compile once at the trust boundary.  The worker repeats this check;
+        # keeping the value here makes duration/audit decisions deterministic.
+        compiled = compile_remotion_timeline(cache_clips)
+        return {
+            "clips": clips,
+            "cache_clips": cache_clips,
+            "aggregate_bytes": resolved["aggregate_bytes"],
+            "compiled": compiled,
+        }
+
     def _validate_local_timeline_artifact_records(
         self,
         run_id: str,
@@ -4922,6 +4979,91 @@ class StudioService:
         if seen_names != set(_LOCAL_SCREEN_CAPTURE_ARTIFACTS):
             raise BrowserCaptureError(
                 "The local screen capture worker returned an incomplete artifact set.",
+                code="invalid_worker_result",
+            )
+        return validated
+
+    def _validate_local_remotion_timeline_artifact_records(
+        self,
+        run_id: str,
+        cache_key: str,
+        raw_artifacts: Any,
+    ) -> list[dict[str, Any]]:
+        if not isinstance(raw_artifacts, list) or len(raw_artifacts) != len(
+            _LOCAL_REMOTION_TIMELINE_ARTIFACTS
+        ):
+            raise RemotionTimelineError(
+                "The Remotion worker returned an incomplete artifact set.",
+                code="invalid_worker_result",
+            )
+        expected_root = f"outputs/studio/runs/{run_id}/remotion_timeline/{cache_key}/"
+        validated: list[dict[str, Any]] = []
+        seen_names: set[str] = set()
+        for item in raw_artifacts:
+            if not isinstance(item, dict) or not isinstance(item.get("rel_path"), str):
+                raise RemotionTimelineError(
+                    "The Remotion worker returned an invalid artifact.",
+                    code="invalid_worker_result",
+                )
+            try:
+                path = workspace_path(self.workspace, item["rel_path"], must_exist=True)
+                relative = relative_workspace_path(self.workspace, path)
+            except (SecurityError, OSError):
+                raise RemotionTimelineError(
+                    "The Remotion worker returned an unsafe artifact path.",
+                    code="unsafe_worker_artifact",
+                ) from None
+            expected = _LOCAL_REMOTION_TIMELINE_ARTIFACTS.get(path.name)
+            if (
+                expected is None
+                or path.name in seen_names
+                or relative != f"{expected_root}{path.name}"
+                or _has_symlink_component(self.workspace, item["rel_path"])
+                or path.is_symlink()
+                or not path.is_file()
+                or sensitive_artifact_path(relative)
+                or item.get("kind") != expected[0]
+                or item.get("media_type", item.get("mime")) != expected[1]
+                or item.get("name") != path.name
+            ):
+                raise RemotionTimelineError(
+                    "The Remotion worker returned an unexpected artifact.",
+                    code="invalid_worker_result",
+                )
+            stat = path.stat()
+            maximum = (
+                _MAX_LOCAL_TIMELINE_VIDEO_BYTES
+                if path.name == "remotion-preview.mp4"
+                else 16 * 1024 * 1024
+            )
+            digest = _sha256_file(path)
+            if (
+                stat.st_size <= 0
+                or stat.st_size > maximum
+                or item.get("bytes") != stat.st_size
+                or item.get("sha256") != digest
+            ):
+                raise RemotionTimelineError(
+                    "The Remotion worker returned mismatched artifact metadata.",
+                    code="invalid_worker_result",
+                )
+            seen_names.add(path.name)
+            validated.append(
+                {
+                    "id": stable_id("art", relative.casefold()),
+                    "rel_path": relative,
+                    "name": path.name,
+                    "kind": expected[0],
+                    "media_type": expected[1],
+                    "bytes": stat.st_size,
+                    "mtime_ns": stat.st_mtime_ns,
+                    "sha256": digest,
+                    "is_heavy": stat.st_size > 10 * 1024 * 1024,
+                }
+            )
+        if seen_names != set(_LOCAL_REMOTION_TIMELINE_ARTIFACTS):
+            raise RemotionTimelineError(
+                "The Remotion worker returned an incomplete artifact set.",
                 code="invalid_worker_result",
             )
         return validated
@@ -5623,6 +5765,298 @@ class StudioService:
         job["cache_key"] = cache_key
         return job
 
+    def _execute_remotion_timeline(
+        self,
+        attempt_id: str,
+        run_id: str,
+        production_id: str,
+        cache_key: str,
+        inputs: dict[str, Any],
+        cancel_event: JobExecutionContext | None = None,
+    ) -> dict[str, Any] | AtomicStageCompletion:
+        """Render and atomically register one closed Remotion recipe."""
+
+        _raise_if_cancelled(cancel_event)
+        remotion_worker: Any = None
+        owns_published_output = False
+        completion_handed_off = False
+
+        def report_progress(progress: int, phase: str) -> None:
+            if cancel_event is None:
+                return
+            try:
+                self.database.update_job_progress(cancel_event.job_id, progress, phase)
+            except Exception:
+                # Rendering truth and the paired terminal transaction take
+                # precedence over best-effort progress telemetry.
+                pass
+
+        try:
+            self.database.update_stage_attempt(attempt_id, "running")
+            report_progress(1, "preflight")
+            try:
+                from . import remotion_timeline as remotion_worker
+            except (ImportError, AttributeError) as exc:
+                raise RemotionTimelineError(
+                    "The local Remotion worker is not installed.",
+                    code="remotion_unavailable",
+                ) from exc
+            expected_duration_ms = inputs["compiled"]["duration_ms"]
+            try:
+                raw = _call_local_worker(
+                    remotion_worker.generate_remotion_timeline,
+                    self.workspace,
+                    production_id=production_id,
+                    run_id=run_id,
+                    cache_key=cache_key,
+                    clips=inputs["clips"],
+                    cancel_event=cancel_event,
+                    progress_callback=report_progress,
+                )
+            except RemotionTimelineError:
+                raise
+            except Exception as exc:
+                raise RemotionTimelineError(
+                    "The local Remotion render failed.",
+                    code="local_remotion_render_failed",
+                ) from exc
+            _raise_if_cancelled(cancel_event)
+            raw_cache_hit = raw.get("cache_hit", False) if isinstance(raw, dict) else False
+            if not isinstance(raw_cache_hit, bool):
+                raise RemotionTimelineError(
+                    "The Remotion worker returned invalid cache metadata.",
+                    code="invalid_worker_result",
+                )
+            # A cache hit predates this attempt and must never be removed by
+            # compensation if the following database transaction fails.
+            owns_published_output = not raw_cache_hit
+            result = remotion_timeline_public_result(
+                raw,
+                expected_cache_key=cache_key,
+                expected_duration_ms=expected_duration_ms,
+                cache_hit=raw_cache_hit,
+                artifacts=[],
+            )
+            physical = _call_local_worker(
+                remotion_worker.validate_remotion_timeline_outputs,
+                self.workspace,
+                production_id=production_id,
+                run_id=run_id,
+                cache_key=cache_key,
+                clips=inputs["clips"],
+                cancel_event=cancel_event,
+            )
+            physical_for_public = dict(physical) if isinstance(physical, dict) else physical
+            if isinstance(physical_for_public, dict):
+                physical_for_public["cache_hit"] = raw_cache_hit
+            physical_public = remotion_timeline_public_result(
+                physical_for_public,
+                expected_cache_key=cache_key,
+                expected_duration_ms=expected_duration_ms,
+                cache_hit=raw_cache_hit,
+                artifacts=[],
+            )
+            if result != physical_public:
+                raise RemotionTimelineError(
+                    "The Remotion worker returned mismatched metadata.",
+                    code="invalid_worker_result",
+                )
+            raw_artifacts = raw.get("artifacts") if isinstance(raw, dict) else None
+            physical_artifacts = (
+                physical.get("artifacts") if isinstance(physical, dict) else None
+            )
+            if not isinstance(raw_artifacts, list) or not isinstance(
+                physical_artifacts, list
+            ):
+                raise RemotionTimelineError(
+                    "The Remotion worker returned invalid artifacts.",
+                    code="invalid_worker_result",
+                )
+            physical_by_name = {
+                item.get("name"): item
+                for item in physical_artifacts
+                if isinstance(item, dict)
+            }
+            if set(physical_by_name) != set(_LOCAL_REMOTION_TIMELINE_ARTIFACTS):
+                raise RemotionTimelineError(
+                    "The Remotion worker returned invalid artifacts.",
+                    code="invalid_worker_result",
+                )
+            for item in raw_artifacts:
+                if not isinstance(item, dict):
+                    raise RemotionTimelineError(
+                        "The Remotion worker returned invalid artifacts.",
+                        code="invalid_worker_result",
+                    )
+                physical_item = physical_by_name.get(item.get("name"))
+                if (
+                    not isinstance(physical_item, dict)
+                    or item.get("bytes") != physical_item.get("bytes")
+                    or item.get("sha256") != physical_item.get("sha256")
+                    or item.get("rel_path") != physical_item.get("rel_path")
+                ):
+                    raise RemotionTimelineError(
+                        "The Remotion worker returned mismatched artifacts.",
+                        code="invalid_worker_result",
+                    )
+            artifact_records = self._validate_local_remotion_timeline_artifact_records(
+                run_id, cache_key, raw_artifacts
+            )
+            report_progress(98, "registration")
+            _raise_if_cancelled(cancel_event)
+            completion = self._complete_local_stage(
+                attempt_id,
+                production_id,
+                physical_public,
+                cancel_event,
+                artifact_records=artifact_records,
+                failure_cleanup=(
+                    lambda: remotion_worker.discard_remotion_timeline_outputs(
+                        self.workspace,
+                        run_id=run_id,
+                        cache_key=cache_key,
+                    )
+                    if owns_published_output and cancel_event is not None
+                    else None
+                ),
+            )
+            completion_handed_off = True
+            return completion
+        except JobCancelled:
+            if (
+                owns_published_output
+                and not completion_handed_off
+                and remotion_worker is not None
+            ):
+                try:
+                    remotion_worker.discard_remotion_timeline_outputs(
+                        self.workspace, run_id=run_id, cache_key=cache_key
+                    )
+                except Exception:
+                    pass
+            raise
+        except Exception as exc:
+            if (
+                owns_published_output
+                and not completion_handed_off
+                and remotion_worker is not None
+            ):
+                try:
+                    remotion_worker.discard_remotion_timeline_outputs(
+                        self.workspace, run_id=run_id, cache_key=cache_key
+                    )
+                except Exception:
+                    pass
+            if cancel_event is not None and cancel_event.is_set():
+                raise JobCancelled() from exc
+            error_code, error_message = safe_remotion_timeline_error(exc)
+            if isinstance(exc, RemotionTimelineError):
+                raise
+            raise RemotionTimelineError(error_message, code=error_code) from exc
+
+    def execute_remotion_timeline(
+        self, run_id: str, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Queue an allowlisted Remotion timeline on the isolated browser lane."""
+
+        validate_identifier(run_id, label="run id")
+        run = self.database.get_run(run_id)
+        if run is None:
+            raise KeyError("run not found")
+        if run.get("execution_profile") not in {
+            "local_sapi",
+            "local_comfyui",
+            "local_playwright",
+        }:
+            raise RequestValidationError(
+                "This run is not configured for local Remotion composition.",
+                code="execution_profile_required",
+            )
+        requested_stages = run.get("requested_stages")
+        if not isinstance(requested_stages, list) or _LOCAL_TIMELINE_STAGE not in requested_stages:
+            raise RequestValidationError(
+                "The timeline stage was not requested by this run.",
+                code="stage_not_requested",
+            )
+        try:
+            payload = validate_remotion_timeline_payload(body)
+            inputs = self._validated_remotion_timeline_inputs(run, payload)
+            try:
+                from . import remotion_timeline as remotion_worker
+            except (ImportError, AttributeError) as exc:
+                raise RemotionTimelineError(
+                    "The local Remotion worker is not installed.",
+                    code="remotion_unavailable",
+                ) from exc
+            tool_identity = _call_local_worker(
+                remotion_worker.resolve_remotion_tool_identity,
+                self.workspace,
+            )
+            cache_key = remotion_timeline_cache_key(
+                inputs["cache_clips"], tool_identity=tool_identity
+            )
+            audit = remotion_timeline_audit_payload(
+                inputs["cache_clips"], cache_key=cache_key
+            )
+        except RemotionTimelineValidationError as exc:
+            raise RequestValidationError(
+                str(exc.public_message), code=str(exc.error_code)[:128]
+            ) from exc
+        except RemotionTimelineError as exc:
+            raise RequestValidationError(
+                str(exc.public_message), code=str(exc.error_code)[:128]
+            ) from exc
+        attempt = self.database.create_stage_attempt(
+            run_id,
+            _LOCAL_TIMELINE_STAGE,
+            cache_key,
+            {
+                "execution_profile": run["execution_profile"],
+                "render_engine": "remotion_v1",
+                "tool_identity": tool_identity,
+                **audit,
+            },
+        )
+        try:
+            job = self.jobs.submit(
+                "local_remotion_timeline",
+                {
+                    "run_id": run_id,
+                    "production_id": run["production_id"],
+                    "stage": _LOCAL_TIMELINE_STAGE,
+                    "execution_profile": run["execution_profile"],
+                    "render_engine": "remotion_v1",
+                    "tool_identity": tool_identity,
+                    **audit,
+                    "stage_attempt_id": attempt["id"],
+                },
+                lambda _job_id, cancel_event: self._execute_remotion_timeline(
+                    attempt["id"],
+                    run_id,
+                    run["production_id"],
+                    cache_key,
+                    inputs,
+                    cancel_event,
+                ),
+                production_id=run["production_id"],
+                before_enqueue=lambda created_job: self.database.link_stage_attempt_job(
+                    attempt["id"], created_job["id"]
+                ),
+                lane="browser",
+            )
+        except Exception as exc:
+            error_code, error_message = safe_remotion_timeline_error(exc)
+            self.database.update_stage_attempt(
+                attempt["id"],
+                "failed",
+                error_code=error_code,
+                error_message=error_message,
+            )
+            raise
+        job["stage_attempt_id"] = attempt["id"]
+        job["cache_key"] = cache_key
+        return job
+
     def _validated_assembly_inputs(
         self,
         run: dict[str, Any],
@@ -5980,6 +6414,7 @@ class StudioService:
         expected_hashes: dict[str, str],
         include_captioned: bool,
         caption_style: dict[str, Any],
+        audio_mix_preset: str,
         inputs: dict[str, Any],
         cancel_event: JobExecutionContext | None = None,
     ) -> dict[str, Any] | None:
@@ -6002,6 +6437,7 @@ class StudioService:
                 captions_srt=inputs["captions_srt"],
                 include_captioned=include_captioned,
                 caption_style_preset=caption_style["preset"],
+                audio_mix_preset=audio_mix_preset,
                 cancel_event=cancel_event,
             )
         except (ImportError, AttributeError, LocalAssemblyError, OSError):
@@ -6079,6 +6515,7 @@ class StudioService:
                 expected_hashes=expected_hashes,
                 expected_include_captioned=include_captioned,
                 expected_caption_style=caption_style,
+                expected_audio_mix_preset=audio_mix_preset,
                 artifacts=verified,
                 cache_hit=True,
             )
@@ -6090,6 +6527,7 @@ class StudioService:
                 expected_hashes=expected_hashes,
                 expected_include_captioned=include_captioned,
                 expected_caption_style=caption_style,
+                expected_audio_mix_preset=audio_mix_preset,
                 artifacts=verified,
                 cache_hit=True,
             )
@@ -6126,6 +6564,7 @@ class StudioService:
                 expected_hashes,
                 payload["include_captioned"],
                 payload["caption_style"],
+                payload["audio_mix_preset"],
                 inputs,
                 cancel_event,
             )
@@ -6151,6 +6590,7 @@ class StudioService:
                         captions_srt=inputs["captions_srt"],
                         include_captioned=payload["include_captioned"],
                         caption_style_preset=payload["caption_style_preset"],
+                        audio_mix_preset=payload["audio_mix_preset"],
                         cancel_event=cancel_event,
                     )
                 except LocalAssemblyError:
@@ -6170,6 +6610,7 @@ class StudioService:
                     expected_hashes=expected_hashes,
                     expected_include_captioned=payload["include_captioned"],
                     expected_caption_style=payload["caption_style"],
+                    expected_audio_mix_preset=payload["audio_mix_preset"],
                     artifacts=[],
                     cache_hit=raw_cache_hit
                     if isinstance(raw_cache_hit, bool)
@@ -6186,6 +6627,7 @@ class StudioService:
                     captions_srt=inputs["captions_srt"],
                     include_captioned=payload["include_captioned"],
                     caption_style_preset=payload["caption_style_preset"],
+                    audio_mix_preset=payload["audio_mix_preset"],
                     cancel_event=cancel_event,
                 )
                 physical_for_public = dict(physical_result)
@@ -6196,6 +6638,7 @@ class StudioService:
                     expected_hashes=expected_hashes,
                     expected_include_captioned=payload["include_captioned"],
                     expected_caption_style=payload["caption_style"],
+                    expected_audio_mix_preset=payload["audio_mix_preset"],
                     artifacts=[],
                     cache_hit=raw_cache_hit,
                 )
@@ -6304,6 +6747,7 @@ class StudioService:
                 inputs["captions_sha256"],
                 payload["include_captioned"],
                 caption_style_preset=payload["caption_style_preset"],
+                audio_mix_preset=payload["audio_mix_preset"],
             )
         except (ImportError, AttributeError) as exc:
             raise RequestValidationError(
@@ -6403,6 +6847,7 @@ class StudioService:
         assembly_result = assembly_attempt["result"]
         include_captioned = assembly_result.get("include_captioned")
         caption_style = assembly_result.get("caption_style")
+        audio_mix_preset = assembly_result.get("audio_mix_preset")
         cache_hit = assembly_result.get("cache_hit")
         expected_hashes = {
             field: assembly_result.get(field)
@@ -6424,6 +6869,7 @@ class StudioService:
                 expected_hashes=expected_hashes,
                 expected_include_captioned=include_captioned,
                 expected_caption_style=caption_style,
+                expected_audio_mix_preset=audio_mix_preset,
                 artifacts=[],
                 cache_hit=cache_hit,
             )
@@ -6525,6 +6971,7 @@ class StudioService:
                     expected_hashes=expected_hashes,
                     expected_include_captioned=include_captioned,
                     expected_caption_style=caption_style,
+                    expected_audio_mix_preset=audio_mix_preset,
                     artifacts=[],
                     cache_hit=linked_cache_hit,
                 )

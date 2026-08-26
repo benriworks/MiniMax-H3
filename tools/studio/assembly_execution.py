@@ -15,6 +15,13 @@ CAPTION_STYLE_PRESETS = (
     CAPTION_STYLE_PRESET_STUDIO_DEFAULT_V1,
     CAPTION_STYLE_PRESET_SHORTS_JA_LARGE_V1,
 )
+AUDIO_MIX_PRESET_NARRATION_ONLY_V1 = "narration_only_v1"
+AUDIO_MIX_PRESET_SOURCE_UNDER_NARRATION_V1 = "source_under_narration_v1"
+DEFAULT_AUDIO_MIX_PRESET = AUDIO_MIX_PRESET_NARRATION_ONLY_V1
+AUDIO_MIX_PRESETS = (
+    AUDIO_MIX_PRESET_NARRATION_ONLY_V1,
+    AUDIO_MIX_PRESET_SOURCE_UNDER_NARRATION_V1,
+)
 _CACHE_KEY_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,256}$")
 _ARTIFACT_ID_RE = re.compile(r"^art_[0-9a-f]{32}$")
 _ATTEMPT_ID_RE = re.compile(r"^attempt_[0-9a-f]{32}$")
@@ -24,6 +31,7 @@ _ALLOWED_BODY_KEYS = {
     "narration_attempt_id",
     "include_captioned",
     "caption_style_preset",
+    "audio_mix_preset",
 }
 
 _CAPTION_STYLE_FIELDS = {
@@ -120,6 +128,37 @@ _CAPTION_STYLE_DEFINITIONS: dict[str, dict[str, Any]] = {
     },
 }
 
+_AUDIO_MIX_POLICY_FIELDS = {
+    "preset",
+    "source_audio_action",
+    "source_audio_required",
+    "source_audio_gain_percent",
+    "narration_gain_percent",
+    "limiter",
+}
+
+# Audio filter parameters are renderer policy, never caller-provided FFmpeg
+# fragments.  Extending this enum requires a schema/version change and a new
+# auditable cache identity.
+_AUDIO_MIX_POLICY_DEFINITIONS: dict[str, dict[str, Any]] = {
+    AUDIO_MIX_PRESET_NARRATION_ONLY_V1: {
+        "preset": AUDIO_MIX_PRESET_NARRATION_ONLY_V1,
+        "source_audio_action": "replace",
+        "source_audio_required": False,
+        "source_audio_gain_percent": 0,
+        "narration_gain_percent": 100,
+        "limiter": "none",
+    },
+    AUDIO_MIX_PRESET_SOURCE_UNDER_NARRATION_V1: {
+        "preset": AUDIO_MIX_PRESET_SOURCE_UNDER_NARRATION_V1,
+        "source_audio_action": "mix",
+        "source_audio_required": True,
+        "source_audio_gain_percent": 25,
+        "narration_gain_percent": 100,
+        "limiter": "peak_0_95",
+    },
+}
+
 
 class LocalAssemblyError(RuntimeError):
     """A bounded public error that may cross the background-job boundary."""
@@ -155,6 +194,25 @@ def validate_normalized_caption_style(value: Any) -> dict[str, Any]:
     return canonical
 
 
+def normalize_audio_mix_preset(value: Any = DEFAULT_AUDIO_MIX_PRESET) -> dict[str, Any]:
+    """Resolve one closed preset into its exact renderer audio policy."""
+
+    if not isinstance(value, str) or value not in _AUDIO_MIX_POLICY_DEFINITIONS:
+        raise LocalAssemblyValidationError("audio_mix_preset is not supported")
+    return dict(_AUDIO_MIX_POLICY_DEFINITIONS[value])
+
+
+def validate_normalized_audio_mix_policy(value: Any) -> dict[str, Any]:
+    """Accept only a byte-for-byte canonical policy produced by this module."""
+
+    if not isinstance(value, dict) or set(value) != _AUDIO_MIX_POLICY_FIELDS:
+        raise LocalAssemblyValidationError("audio_mix_policy is invalid")
+    canonical = normalize_audio_mix_preset(value.get("preset"))
+    if value != canonical:
+        raise LocalAssemblyValidationError("audio_mix_policy is not canonical")
+    return canonical
+
+
 def validate_local_assembly_payload(body: Any) -> dict[str, Any]:
     """Normalize the public assembly request without accepting extra fields."""
 
@@ -178,6 +236,9 @@ def validate_local_assembly_payload(body: Any) -> dict[str, Any]:
     caption_style = normalize_caption_style_preset(
         body.get("caption_style_preset", DEFAULT_CAPTION_STYLE_PRESET)
     )
+    audio_mix_policy = normalize_audio_mix_preset(
+        body.get("audio_mix_preset", DEFAULT_AUDIO_MIX_PRESET)
+    )
     if not include_captioned and caption_style["preset"] != DEFAULT_CAPTION_STYLE_PRESET:
         raise LocalAssemblyValidationError(
             "caption_style_preset requires include_captioned=true"
@@ -188,6 +249,8 @@ def validate_local_assembly_payload(body: Any) -> dict[str, Any]:
         "include_captioned": include_captioned,
         "caption_style_preset": caption_style["preset"],
         "caption_style": caption_style,
+        "audio_mix_preset": audio_mix_policy["preset"],
+        "audio_mix_policy": audio_mix_policy,
     }
 
 
@@ -204,6 +267,10 @@ def assembly_audit_payload(
         "include_captioned": payload["include_captioned"],
         "caption_style_preset": payload["caption_style_preset"],
         "caption_style": validate_normalized_caption_style(payload["caption_style"]),
+        "audio_mix_preset": payload["audio_mix_preset"],
+        "audio_mix_policy": validate_normalized_audio_mix_policy(
+            payload["audio_mix_policy"]
+        ),
         "source_video_sha256": source_video_sha256,
         "narration_wav_sha256": narration_wav_sha256,
         "captions_sha256": captions_sha256,
@@ -217,6 +284,7 @@ def assembly_public_result(
     expected_hashes: dict[str, str],
     expected_include_captioned: bool,
     expected_caption_style: dict[str, Any] | None = None,
+    expected_audio_mix_preset: str = DEFAULT_AUDIO_MIX_PRESET,
     artifacts: list[dict[str, Any]],
     cache_hit: bool,
 ) -> dict[str, Any]:
@@ -301,6 +369,23 @@ def assembly_public_result(
             "The local assembly worker returned invalid caption style metadata.",
             code="invalid_worker_result",
         )
+    try:
+        canonical_audio_mix_policy = normalize_audio_mix_preset(
+            expected_audio_mix_preset
+        )
+    except LocalAssemblyValidationError as exc:
+        raise LocalAssemblyError(
+            "The expected audio mix preset is invalid.",
+            code="invalid_worker_result",
+        ) from exc
+    if (
+        raw.get("audio_mix_preset") != canonical_audio_mix_policy["preset"]
+        or raw.get("audio_mix_policy") != canonical_audio_mix_policy
+    ):
+        raise LocalAssemblyError(
+            "The local assembly worker returned invalid audio mix metadata.",
+            code="invalid_worker_result",
+        )
     verified_hashes: dict[str, str] = {}
     for field in ("source_video_sha256", "narration_wav_sha256", "captions_sha256"):
         value = raw.get(field)
@@ -327,6 +412,8 @@ def assembly_public_result(
         "include_captioned": include_captioned,
         "caption_style_preset": canonical_style["preset"],
         "caption_style": canonical_style,
+        "audio_mix_preset": canonical_audio_mix_policy["preset"],
+        "audio_mix_policy": canonical_audio_mix_policy,
         **verified_hashes,
         "cost": {"amount": "0.00", "currency": "USD", "source": "local"},
     }

@@ -305,12 +305,14 @@ export interface ExternalNarrationPayload {
 }
 
 export type LocalAssemblyCaptionStylePreset = 'studio_default_v1' | 'shorts_ja_large_v1';
+export type LocalAssemblyAudioMixPreset = 'narration_only_v1' | 'source_under_narration_v1';
 
 export interface LocalAssemblyRequest {
   videoArtifactId: string;
   narrationAttemptId: string;
   includeCaptioned: boolean;
   captionStylePreset: LocalAssemblyCaptionStylePreset;
+  audioMixPreset: LocalAssemblyAudioMixPreset;
 }
 
 export interface LocalTimelineClip {
@@ -321,6 +323,31 @@ export interface LocalTimelineClip {
 
 export interface LocalTimelineRequest {
   clips: LocalTimelineClip[];
+}
+
+export type LocalRemotionTimelineOverlayPosition = 'top' | 'center' | 'bottom';
+
+export interface LocalRemotionTimelineTransition {
+  type: 'fade';
+  durationMs: number;
+}
+
+export interface LocalRemotionTimelineOverlay {
+  text: string;
+  startMs: number;
+  endMs: number;
+  position: LocalRemotionTimelineOverlayPosition;
+  stylePreset: 'shorts_ja_large_v1';
+}
+
+export interface LocalRemotionTimelineClip extends LocalTimelineClip {
+  volumePercent: number;
+  transitionToNext: LocalRemotionTimelineTransition | null;
+  overlay: LocalRemotionTimelineOverlay | null;
+}
+
+export interface LocalRemotionTimelineRequest {
+  clips: LocalRemotionTimelineClip[];
 }
 
 export type LocalScreenCaptureAction =

@@ -59,6 +59,9 @@ _RUN_LOCAL_SCREEN_CAPTURE_RE = re.compile(
 )
 _PROVIDER_TASK_RESUME_RE = re.compile(r"^/api/provider-tasks/([^/]+)/resume$")
 _RUN_LOCAL_TIMELINE_RE = re.compile(r"^/api/runs/([^/]+)/execute-local-timeline$")
+_RUN_REMOTION_TIMELINE_RE = re.compile(
+    r"^/api/runs/([^/]+)/execute-remotion-timeline$"
+)
 _RUN_LOCAL_ASSEMBLY_RE = re.compile(r"^/api/runs/([^/]+)/execute-local-assembly$")
 _RUN_LOCAL_QC_RE = re.compile(r"^/api/runs/([^/]+)/execute-local-qc$")
 _AUDIT_EXPORT_RE = re.compile(r"^/api/productions/([^/]+)/audit-export$")
@@ -552,6 +555,10 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
         match = _RUN_LOCAL_TIMELINE_RE.fullmatch(path)
         if match:
             self._send_json(202, service.execute_local_timeline(match.group(1), body))
+            return
+        match = _RUN_REMOTION_TIMELINE_RE.fullmatch(path)
+        if match:
+            self._send_json(202, service.execute_remotion_timeline(match.group(1), body))
             return
         match = _RUN_LOCAL_ASSEMBLY_RE.fullmatch(path)
         if match:

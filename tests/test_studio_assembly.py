@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import math
 import os
 import shutil
 import struct
@@ -28,11 +29,15 @@ from tools.studio.assembly import (
     validate_local_assembly_outputs,
 )
 from tools.studio.assembly_execution import (
+    AUDIO_MIX_PRESET_NARRATION_ONLY_V1,
+    AUDIO_MIX_PRESET_SOURCE_UNDER_NARRATION_V1,
     CAPTION_STYLE_PRESET_SHORTS_JA_LARGE_V1,
     CAPTION_STYLE_PRESET_STUDIO_DEFAULT_V1,
     LocalAssemblyValidationError,
+    normalize_audio_mix_preset,
     normalize_caption_style_preset,
     validate_local_assembly_payload,
+    validate_normalized_audio_mix_policy,
     validate_normalized_caption_style,
 )
 from tools.studio.jobs import JobCancelled, JobExecutionContext
@@ -74,6 +79,64 @@ def _wav_bytes(duration_ms: int, *, sample_rate: int = 8_000) -> bytes:
         handle.setframerate(sample_rate)
         handle.writeframes(struct.pack("<h", 0) * frames)
     return output.getvalue()
+
+
+def _tone_wav_bytes(
+    duration_ms: int,
+    *,
+    frequency_hz: float,
+    sample_rate: int = 48_000,
+    amplitude: int = 12_000,
+) -> bytes:
+    frames = (duration_ms * sample_rate) // 1_000
+    samples = (
+        int(round(amplitude * math.sin(2 * math.pi * frequency_hz * index / sample_rate)))
+        for index in range(frames)
+    )
+    output = io.BytesIO()
+    with wave.open(output, "wb") as handle:
+        handle.setnchannels(1)
+        handle.setsampwidth(2)
+        handle.setframerate(sample_rate)
+        handle.writeframes(b"".join(struct.pack("<h", value) for value in samples))
+    return output.getvalue()
+
+
+def _tone_strength(path: Path, *, frequency_hz: float, sample_rate: int = 8_000) -> float:
+    completed = subprocess.run(
+        [
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-i",
+            str(path),
+            "-map",
+            "0:a:0",
+            "-ac",
+            "1",
+            "-ar",
+            str(sample_rate),
+            "-f",
+            "s16le",
+            "-",
+        ],
+        check=True,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    sample_count = len(completed.stdout) // 2
+    samples = struct.unpack(f"<{sample_count}h", completed.stdout)
+    sine = sum(
+        sample * math.sin(2 * math.pi * frequency_hz * index / sample_rate)
+        for index, sample in enumerate(samples)
+    )
+    cosine = sum(
+        sample * math.cos(2 * math.pi * frequency_hz * index / sample_rate)
+        for index, sample in enumerate(samples)
+    )
+    return 2 * math.hypot(sine, cosine) / max(1, sample_count)
 
 
 class LocalAssemblyTests(unittest.TestCase):
@@ -123,11 +186,49 @@ class LocalAssemblyTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.temporary.cleanup()
 
+    def _replace_source_with_audio(self, *, silent: bool = False) -> None:
+        audio_source = "anullsrc=r=32000:cl=stereo" if silent else "sine=frequency=440:sample_rate=32000"
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                "testsrc=size=160x96:rate=24",
+                "-f",
+                "lavfi",
+                "-i",
+                audio_source,
+                "-t",
+                "1.000",
+                "-map",
+                "0:v:0",
+                "-map",
+                "1:a:0",
+                "-c:v",
+                "libx264",
+                "-pix_fmt",
+                "yuv420p",
+                "-c:a",
+                "aac",
+                str(self.source),
+            ],
+            check=True,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
     def _key(
         self,
         *,
         include_captioned: bool = True,
         caption_style_preset: str = CAPTION_STYLE_PRESET_STUDIO_DEFAULT_V1,
+        audio_mix_preset: str = AUDIO_MIX_PRESET_NARRATION_ONLY_V1,
     ) -> str:
         return assembly_cache_key(
             hashlib.sha256(self.source.read_bytes()).hexdigest(),
@@ -135,6 +236,7 @@ class LocalAssemblyTests(unittest.TestCase):
             hashlib.sha256(self.captions.read_bytes()).hexdigest(),
             include_captioned,
             caption_style_preset=caption_style_preset,
+            audio_mix_preset=audio_mix_preset,
         )
 
     def _run(
@@ -142,6 +244,7 @@ class LocalAssemblyTests(unittest.TestCase):
         *,
         include_captioned: bool = True,
         caption_style_preset: str = CAPTION_STYLE_PRESET_STUDIO_DEFAULT_V1,
+        audio_mix_preset: str = AUDIO_MIX_PRESET_NARRATION_ONLY_V1,
     ) -> dict[str, object]:
         return generate_local_assembly(
             self.workspace,
@@ -150,12 +253,14 @@ class LocalAssemblyTests(unittest.TestCase):
             cache_key=self._key(
                 include_captioned=include_captioned,
                 caption_style_preset=caption_style_preset,
+                audio_mix_preset=audio_mix_preset,
             ),
             source_video=self.source,
             narration_wav=self.narration,
             captions_srt=self.captions,
             include_captioned=include_captioned,
             caption_style_preset=caption_style_preset,
+            audio_mix_preset=audio_mix_preset,
         )
 
     def test_generates_verified_clean_captioned_outputs_and_cache_hit(self) -> None:
@@ -270,6 +375,120 @@ class LocalAssemblyTests(unittest.TestCase):
         tampered["font_name"] = "../../outside.ttf"
         with self.assertRaises(LocalAssemblyValidationError):
             validate_normalized_caption_style(tampered)
+
+    def test_audio_mix_request_is_closed_and_backward_compatible(self) -> None:
+        base = {
+            "video_artifact_id": "art_" + "a" * 32,
+            "narration_attempt_id": "attempt_" + "b" * 32,
+            "include_captioned": True,
+        }
+        default = validate_local_assembly_payload(base)
+        self.assertEqual(
+            default["audio_mix_preset"], AUDIO_MIX_PRESET_NARRATION_ONLY_V1
+        )
+        self.assertEqual(
+            default["audio_mix_policy"],
+            normalize_audio_mix_preset(AUDIO_MIX_PRESET_NARRATION_ONLY_V1),
+        )
+        mixed = validate_local_assembly_payload(
+            {
+                **base,
+                "audio_mix_preset": AUDIO_MIX_PRESET_SOURCE_UNDER_NARRATION_V1,
+            }
+        )
+        self.assertEqual(mixed["audio_mix_policy"]["source_audio_gain_percent"], 25)
+        self.assertEqual(mixed["audio_mix_policy"]["narration_gain_percent"], 100)
+        self.assertEqual(mixed["audio_mix_policy"]["limiter"], "peak_0_95")
+
+        for unsafe in (
+            {**base, "audio_mix_preset": "custom"},
+            {**base, "audio_mix_preset": "source_under_narration_v1,volume=9"},
+            {**base, "source_audio_gain_percent": 99},
+            {**base, "audio_filter": "amix=inputs=2"},
+        ):
+            with self.subTest(unsafe=unsafe), self.assertRaises(
+                LocalAssemblyValidationError
+            ):
+                validate_local_assembly_payload(unsafe)
+
+        tampered = normalize_audio_mix_preset(
+            AUDIO_MIX_PRESET_SOURCE_UNDER_NARRATION_V1
+        )
+        tampered["source_audio_gain_percent"] = 100
+        with self.assertRaises(LocalAssemblyValidationError):
+            validate_normalized_audio_mix_policy(tampered)
+
+        self.assertNotEqual(
+            self._key(audio_mix_preset=AUDIO_MIX_PRESET_NARRATION_ONLY_V1),
+            self._key(
+                audio_mix_preset=AUDIO_MIX_PRESET_SOURCE_UNDER_NARRATION_V1
+            ),
+        )
+
+    def test_source_under_narration_mix_preserves_both_signals_and_cache(self) -> None:
+        self._replace_source_with_audio()
+        self.narration.write_bytes(
+            _tone_wav_bytes(700, frequency_hz=880, amplitude=12_000)
+        )
+        preset = AUDIO_MIX_PRESET_SOURCE_UNDER_NARRATION_V1
+        first = self._run(audio_mix_preset=preset)
+        self.assertFalse(first["cache_hit"])
+        self.assertEqual(first["audio_mix_preset"], preset)
+        self.assertEqual(
+            first["audio_mix_policy"], normalize_audio_mix_preset(preset)
+        )
+        clean_path = self.workspace / next(
+            item["path"]
+            for item in first["artifacts"]  # type: ignore[index]
+            if item["name"] == "master-clean.mp4"
+        )
+        self.assertGreater(_tone_strength(clean_path, frequency_hz=440), 300)
+        self.assertGreater(_tone_strength(clean_path, frequency_hz=880), 3_000)
+
+        manifest_path = self.workspace / next(
+            item["path"]
+            for item in first["artifacts"]  # type: ignore[index]
+            if item["name"] == "manifest.json"
+        )
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        self.assertEqual(manifest["audio_mix_preset"], preset)
+        self.assertEqual(manifest["audio_mix_policy"]["source_audio_gain_percent"], 25)
+        self.assertEqual(manifest["audio_policy"]["source_audio"], "mixed")
+        self.assertEqual(
+            manifest["audio_policy"]["independent_non_silence_validation"],
+            "source_and_narration_required",
+        )
+
+        second = self._run(audio_mix_preset=preset)
+        self.assertTrue(second["cache_hit"])
+        validated = validate_local_assembly_outputs(
+            self.workspace,
+            production_id="PROD_TEST",
+            run_id="RUN_TEST",
+            cache_key=self._key(audio_mix_preset=preset),
+            source_video=self.source,
+            narration_wav=self.narration,
+            captions_srt=self.captions,
+            include_captioned=True,
+            audio_mix_preset=preset,
+        )
+        self.assertTrue(validated["cache_hit"])
+        self.assertEqual(validated["audio_mix_preset"], preset)
+
+    def test_mix_rejects_missing_or_silent_source_audio_and_silent_narration(self) -> None:
+        preset = AUDIO_MIX_PRESET_SOURCE_UNDER_NARRATION_V1
+        self.narration.write_bytes(_tone_wav_bytes(700, frequency_hz=880))
+        with self.assertRaisesRegex(AssemblyValidationError, "source audio stream"):
+            self._run(audio_mix_preset=preset)
+
+        self._replace_source_with_audio(silent=True)
+        with self.assertRaisesRegex(AssemblyValidationError, "source audio must not be silent"):
+            self._run(audio_mix_preset=preset)
+
+        self._replace_source_with_audio()
+        self.narration.write_bytes(_wav_bytes(700, sample_rate=48_000))
+        with self.assertRaisesRegex(AssemblyValidationError, "narration audio must not be silent"):
+            self._run(audio_mix_preset=preset)
 
     def test_shorts_caption_style_is_large_bold_safe_and_audited(self) -> None:
         default_key = self._key()

@@ -19,8 +19,11 @@ from unittest import mock
 
 from tools.studio.instance_lock import StudioInstanceLockError, WorkspaceInstanceLock
 from tools.studio.assembly_execution import (
+    AUDIO_MIX_PRESET_SOURCE_UNDER_NARRATION_V1,
+    DEFAULT_AUDIO_MIX_PRESET,
     DEFAULT_CAPTION_STYLE_PRESET,
     LocalAssemblyError,
+    normalize_audio_mix_preset,
     normalize_caption_style_preset,
 )
 from tools.studio.comfyui_execution import (
@@ -127,6 +130,7 @@ def fake_local_assembly_result(
     captions_srt: Path,
     include_captioned: bool,
     caption_style_preset: str = DEFAULT_CAPTION_STYLE_PRESET,
+    audio_mix_preset: str = DEFAULT_AUDIO_MIX_PRESET,
 ) -> dict[str, object]:
     del production_id
     output_directory = (
@@ -164,6 +168,7 @@ def fake_local_assembly_result(
             }
         )
     caption_style = normalize_caption_style_preset(caption_style_preset)
+    audio_mix_policy = normalize_audio_mix_preset(audio_mix_preset)
     return {
         "artifacts": artifacts,
         "duration_ms": 125,
@@ -176,6 +181,8 @@ def fake_local_assembly_result(
         "include_captioned": include_captioned,
         "caption_style_preset": caption_style["preset"],
         "caption_style": caption_style,
+        "audio_mix_preset": audio_mix_policy["preset"],
+        "audio_mix_policy": audio_mix_policy,
         "source_video_sha256": hashlib.sha256(source_video.read_bytes()).hexdigest().upper(),
         "narration_wav_sha256": hashlib.sha256(narration_wav.read_bytes()).hexdigest().upper(),
         "captions_sha256": hashlib.sha256(captions_srt.read_bytes()).hexdigest().upper(),
@@ -193,6 +200,7 @@ def fake_validate_local_assembly_outputs(
     captions_srt: Path,
     include_captioned: bool,
     caption_style_preset: str = DEFAULT_CAPTION_STYLE_PRESET,
+    audio_mix_preset: str = DEFAULT_AUDIO_MIX_PRESET,
 ) -> dict[str, object]:
     del production_id
     output_directory = (
@@ -219,6 +227,7 @@ def fake_validate_local_assembly_outputs(
             }
         )
     caption_style = normalize_caption_style_preset(caption_style_preset)
+    audio_mix_policy = normalize_audio_mix_preset(audio_mix_preset)
     return {
         "artifacts": artifacts,
         "duration_ms": 125,
@@ -231,6 +240,8 @@ def fake_validate_local_assembly_outputs(
         "include_captioned": include_captioned,
         "caption_style_preset": caption_style["preset"],
         "caption_style": caption_style,
+        "audio_mix_preset": audio_mix_policy["preset"],
+        "audio_mix_policy": audio_mix_policy,
         "source_video_sha256": hashlib.sha256(source_video.read_bytes()).hexdigest().upper(),
         "narration_wav_sha256": hashlib.sha256(narration_wav.read_bytes()).hexdigest().upper(),
         "captions_sha256": hashlib.sha256(captions_srt.read_bytes()).hexdigest().upper(),
@@ -522,6 +533,7 @@ def create_succeeded_assembly_attempt(
         PRODUCTION_ID, run_id, cache_key, include_captioned, raw_artifacts
     )
     caption_style = normalize_caption_style_preset()
+    audio_mix_policy = normalize_audio_mix_preset()
     attempt = service.database.create_stage_attempt(
         run_id, "assembly", cache_key, {"test_fixture": True}
     )
@@ -539,6 +551,8 @@ def create_succeeded_assembly_attempt(
         "include_captioned": include_captioned,
         "caption_style_preset": caption_style["preset"],
         "caption_style": caption_style,
+        "audio_mix_preset": audio_mix_policy["preset"],
+        "audio_mix_policy": audio_mix_policy,
         "source_video_sha256": "A" * 64,
         "narration_wav_sha256": "B" * 64,
         "captions_sha256": "C" * 64,
@@ -5522,6 +5536,7 @@ class ServiceTests(unittest.TestCase):
             "narration_attempt_id": narration_attempt_id,
             "include_captioned": True,
             "caption_style_preset": "shorts_ja_large_v1",
+            "audio_mix_preset": AUDIO_MIX_PRESET_SOURCE_UNDER_NARRATION_V1,
         }
         calls: list[str] = []
         generation_errors: list[str] = []
@@ -5544,7 +5559,9 @@ class ServiceTests(unittest.TestCase):
 
         cache_key = "A" * 64
         with (
-            mock.patch("tools.studio.assembly.assembly_cache_key", return_value=cache_key),
+            mock.patch(
+                "tools.studio.assembly.assembly_cache_key", return_value=cache_key
+            ) as cache_key_builder,
             mock.patch(
                 "tools.studio.assembly.generate_local_assembly",
                 side_effect=fake_generate,
@@ -5564,13 +5581,31 @@ class ServiceTests(unittest.TestCase):
             self.assertEqual(
                 first["result"]["caption_style_preset"], "shorts_ja_large_v1"
             )
+            self.assertEqual(
+                first["result"]["audio_mix_preset"],
+                AUDIO_MIX_PRESET_SOURCE_UNDER_NARRATION_V1,
+            )
+            self.assertEqual(
+                first["result"]["audio_mix_policy"],
+                normalize_audio_mix_preset(
+                    AUDIO_MIX_PRESET_SOURCE_UNDER_NARRATION_V1
+                ),
+            )
             self.assertEqual(len(first["result"]["artifacts"]), 4)
+            self.assertEqual(
+                first_job["payload"]["audio_mix_preset"],
+                AUDIO_MIX_PRESET_SOURCE_UNDER_NARRATION_V1,
+            )
 
             second_job = self.service.execute_local_assembly(run_id, request)
             second = self.service.jobs.wait(second_job["id"], timeout=10)
             assert second is not None
             self.assertEqual(second["status"], "succeeded")
             self.assertTrue(second["result"]["cache_hit"])
+            self.assertEqual(
+                second["result"]["audio_mix_preset"],
+                AUDIO_MIX_PRESET_SOURCE_UNDER_NARRATION_V1,
+            )
             self.assertEqual(
                 second["result"]["cache_source_attempt_id"],
                 first["result"]["stage_attempt_id"],
@@ -5588,6 +5623,15 @@ class ServiceTests(unittest.TestCase):
             self.assertEqual(third["status"], "succeeded")
             self.assertFalse(third["result"]["cache_hit"])
 
+        self.assertEqual(cache_key_builder.call_count, 3)
+        self.assertTrue(
+            all(
+                call.kwargs.get("audio_mix_preset")
+                == AUDIO_MIX_PRESET_SOURCE_UNDER_NARRATION_V1
+                for call in cache_key_builder.call_args_list
+            )
+        )
+
         self.assertEqual(calls, [run_id, run_id])
         run = self.service.run(run_id)
         assert run is not None
@@ -5598,6 +5642,17 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(
             [attempt["job_id"] for attempt in assembly_attempts],
             [first_job["id"], second_job["id"], third_job["id"]],
+        )
+        self.assertTrue(
+            all(
+                attempt["payload"]["audio_mix_preset"]
+                == AUDIO_MIX_PRESET_SOURCE_UNDER_NARRATION_V1
+                and attempt["payload"]["audio_mix_policy"]
+                == normalize_audio_mix_preset(
+                    AUDIO_MIX_PRESET_SOURCE_UNDER_NARRATION_V1
+                )
+                for attempt in assembly_attempts
+            )
         )
 
         audit_job = self.service.audit_export(PRODUCTION_ID, {"include_media": False})
@@ -5699,6 +5754,28 @@ class ServiceTests(unittest.TestCase):
                     "unexpected": True,
                 },
             )
+        with self.assertRaises(RequestValidationError) as raised:
+            self.service.execute_local_assembly(
+                local["run"]["id"],
+                {
+                    "video_artifact_id": "art_" + "0" * 32,
+                    "narration_attempt_id": "attempt_" + "0" * 32,
+                    "include_captioned": True,
+                    "audio_mix_preset": "caller_defined_filter",
+                },
+            )
+        self.assertEqual(raised.exception.code, "invalid_local_assembly_request")
+        with self.assertRaises(RequestValidationError) as raised:
+            self.service.execute_local_assembly(
+                local["run"]["id"],
+                {
+                    "video_artifact_id": "art_" + "0" * 32,
+                    "narration_attempt_id": "attempt_" + "0" * 32,
+                    "include_captioned": True,
+                    "audio_mix_policy": {"source_audio_gain_percent": 100},
+                },
+            )
+        self.assertEqual(raised.exception.code, "invalid_local_assembly_request")
 
         assembly_only = self.service.create_run(
             PRODUCTION_ID,
@@ -5996,6 +6073,37 @@ class ServiceTests(unittest.TestCase):
             f"outputs/studio/runs/{source_created['run']['id']}/assembly/",
             resolved["assembly_artifact"]["rel_path"],
         )
+
+        mixed_policy_attempt = self.service.database.create_stage_attempt(
+            cached_run_id,
+            "assembly",
+            source_attempt["cache_key"],
+            {"test_fixture": True},
+        )
+        self.service.database.update_stage_attempt(
+            mixed_policy_attempt["id"], "running"
+        )
+        mixed_policy_result = dict(source_attempt["result"])
+        mixed_policy_result["cache_hit"] = True
+        mixed_policy_result["cache_source_attempt_id"] = source_attempt["id"]
+        mixed_policy_result[
+            "audio_mix_preset"
+        ] = AUDIO_MIX_PRESET_SOURCE_UNDER_NARRATION_V1
+        mixed_policy_result["audio_mix_policy"] = normalize_audio_mix_preset(
+            AUDIO_MIX_PRESET_SOURCE_UNDER_NARRATION_V1
+        )
+        mixed_policy_attempt = self.service.database.update_stage_attempt(
+            mixed_policy_attempt["id"], "succeeded", result=mixed_policy_result
+        )
+        with self.assertRaises(RequestValidationError) as raised:
+            self.service._validated_qc_inputs(
+                cached_run,
+                {
+                    "assembly_attempt_id": mixed_policy_attempt["id"],
+                    "variant": "clean",
+                },
+            )
+        self.assertEqual(raised.exception.code, "qc_assembly_not_available")
 
         bad_source = self.service.database.create_stage_attempt(
             source_created["run"]["id"],
@@ -6840,6 +6948,41 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(json.loads(body), queued)
         execute.assert_called_once_with(PRODUCTION_ID, request_body)
 
+    def test_remotion_timeline_http_route_forwards_exact_body(self) -> None:
+        request_body = {
+            "schema_version": 1,
+            "clips": [
+                {
+                    "video_artifact_id": "art_" + "a" * 32,
+                    "start_ms": 0,
+                    "end_ms": 1_000,
+                    "volume_percent": 100,
+                    "transition_to_next": None,
+                    "overlay": None,
+                }
+            ],
+        }
+        queued = {
+            "id": "job_" + "c" * 32,
+            "kind": "local_remotion_timeline",
+            "status": "queued",
+        }
+        run_id = "run_" + "d" * 32
+        with mock.patch.object(
+            self.server.service,
+            "execute_remotion_timeline",
+            return_value=queued,
+        ) as execute:
+            status, _headers, body = self.request(
+                "POST",
+                f"/api/runs/{run_id}/execute-remotion-timeline",
+                body=request_body,
+                headers={"X-Studio-Token": self.token},
+            )
+        self.assertEqual(status, 202)
+        self.assertEqual(json.loads(body), queued)
+        execute.assert_called_once_with(run_id, request_body)
+
     def test_local_timeline_http_endpoint_records_attempt_and_artifacts(self) -> None:
         created = self.server.service.create_run(
             PRODUCTION_ID,
@@ -6937,7 +7080,9 @@ class HTTPTests(unittest.TestCase):
         }
         cache_key = "B" * 64
         with (
-            mock.patch("tools.studio.assembly.assembly_cache_key", return_value=cache_key),
+            mock.patch(
+                "tools.studio.assembly.assembly_cache_key", return_value=cache_key
+            ) as cache_key_builder,
             mock.patch(
                 "tools.studio.assembly.generate_local_assembly",
                 side_effect=fake_local_assembly_result,
@@ -6959,6 +7104,16 @@ class HTTPTests(unittest.TestCase):
         assert completed is not None
         self.assertEqual(completed["status"], "succeeded", completed)
         self.assertEqual(len(completed["result"]["artifacts"]), 3)
+        self.assertEqual(
+            completed["result"]["audio_mix_preset"], DEFAULT_AUDIO_MIX_PRESET
+        )
+        self.assertEqual(
+            completed["result"]["audio_mix_policy"], normalize_audio_mix_preset()
+        )
+        self.assertEqual(
+            cache_key_builder.call_args.kwargs["audio_mix_preset"],
+            DEFAULT_AUDIO_MIX_PRESET,
+        )
         self.assertFalse(
             any(
                 artifact["name"] == "master-captioned.mp4"

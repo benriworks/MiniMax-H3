@@ -12,7 +12,9 @@
 > 固定した公式INT8＋Q4 workflowのComfyUI動画生成を専用GPU FIFO laneで実行できます。生成映像はprompt本文を公開結果へ複製せず、workflow、ffprobe、manifestとともに監査可能なartifactとして保存します。長時間生成はprovider taskをschema v5へ永続化し、Studio再起動後も同じComfyUI taskを重複POSTせず新しいattemptで照合・回収します。起動時の外部照合はbackgroundで行うためHTTP起動を待たせず、同一生成要求もSQLiteの永続claimで1つのjobへ集約します。
 > `local_playwright`では、明示した`127.0.0.1` Webページをfresh Chromium contextで収録し、固定1080×1920／24fpsのMP4、生WebM、始点／終点画像、ffprobe、manifestを監査可能なartifactとして保存します。実行可能な工程は`screen_capture`と`timeline`だけで、`assembly`と`qc`はRun計画に残る影響工程ですが、このprofileでは実行しません。UIは画面収録／timelineのjob stateとprogress percentageを2秒ごとにpollします。Windowsデスクトップ、system audio、外部サイト、既存ログインsessionは対象外です。
 > 明示cancelはdurableな`cancel_requested`として確定し、同じUUIDへのGETとtargeted cancelだけで再照合して生成用`POST /prompt`を再送しません。Studio終了時は未解析HTTPだけを遮断し、解析済みhandler、provider recovery、worker、SQLite writerがすべてdrainした場合だけsystem-wide workspace lockを解放します。
-> 登録済み動画のハードカット編集preview、Shorts向け大字幕presetを含むFFmpeg音声・字幕合成、完成masterのtechnical QCはローカル実行します。
+> 登録済み動画の高速ハードカットに加え、schema v1のRemotion詳細timelineをローカル実行できます。詳細previewは動画1〜16件／最大60秒、素材音量、fade、固定`shorts_ja_large_v1`テロップを扱い、UIのPlayerとrendererで同じcompositionを使います。Remotion `4.0.517`とPlaywright Chromiumを固定し、画面収録と同じbrowser FIFO laneでconcurrency 1へ直列化します。
+> SetupはRemotion 5 packageとPlaywrightの実`node_modules` dependency closureをattestし、workerはrender前後に再照合します。path非公開のclosure digestはcache tool identityへ入り、dependency変更時は成果物publish前にfail closedします。
+> Remotion previewを後続assemblyへ渡すときは、互換既定`narration_only_v1`で素材音を置換するか、固定`source_under_narration_v1`で素材25%＋ナレーション100%＋limiterへmixするかを選べます。mixは素材音声1 streamと素材／ナレーション双方の非無音を必須とし、任意gain、BGM、duckingは受け付けません。現行local pipelineのhard-cut previewはvideo-onlyなので一括生成は互換既定のままです。Shorts向け大字幕presetを含むFFmpeg音声・字幕合成、完成masterのtechnical QCは引き続きローカル実行します。Remotionは個人利用前提で、利用主体・用途・配布形態が変わる場合は現行licenseの再確認が必要です。
 > `tools.studio.cli test-video`は、このローカル4工程を1コマンドで直列実行し、MP4、工程ID、cache利用、成果物hash、QC判定をまとめて返します。
 > 通常low-VRAM workflowの20-step品質実行は自動受入では未検証です。Q2 TurboはQ3 GGUFの4-stepスモークと0.4MP・5秒・8-step jobまで完走確認済みです。
 > ComfyUIはMiniMax H3 VAEのchunked I/O最適化を含むcommitへ固定済みです。任意の

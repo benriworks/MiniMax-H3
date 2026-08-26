@@ -9,6 +9,7 @@ import type {
   HealthStatus,
   Job,
   JobResult,
+  LocalAssemblyAudioMixPreset,
   LocalAssemblyCaptionStylePreset,
   LocalAssemblyRequest,
   LocalComfyUiRequest,
@@ -16,6 +17,11 @@ import type {
   LocalPipelineStageResult,
   LocalScreenCaptureAction,
   LocalScreenCaptureRequest,
+  LocalRemotionTimelineClip,
+  LocalRemotionTimelineOverlay,
+  LocalRemotionTimelineOverlayPosition,
+  LocalRemotionTimelineRequest,
+  LocalRemotionTimelineTransition,
   LocalTimelineClip,
   LocalTimelineRequest,
   LocalQcRequest,
@@ -77,6 +83,15 @@ const durationSeconds = (record: UnknownRecord): number | undefined => {
   if (seconds !== undefined) return seconds;
   const milliseconds = number(pick(record, ['duration_ms', 'elapsed_ms']));
   return milliseconds === undefined ? undefined : milliseconds / 1000;
+};
+
+/** Calculate worker wall time without confusing it with the rendered media duration. */
+export const elapsedSecondsBetween = (startedAt?: string, finishedAt?: string): number | undefined => {
+  if (!startedAt || !finishedAt) return undefined;
+  const started = Date.parse(startedAt);
+  const finished = Date.parse(finishedAt);
+  if (!Number.isFinite(started) || !Number.isFinite(finished) || finished < started) return undefined;
+  return (finished - started) / 1_000;
 };
 
 const boolean = (value: unknown, fallback = false): boolean => {
@@ -377,8 +392,14 @@ export const LOCAL_ASSEMBLY_CAPTION_STYLE_PRESETS = [
   'shorts_ja_large_v1',
 ] as const satisfies readonly LocalAssemblyCaptionStylePreset[];
 
+export const LOCAL_ASSEMBLY_AUDIO_MIX_PRESETS = [
+  'narration_only_v1',
+  'source_under_narration_v1',
+] as const satisfies readonly LocalAssemblyAudioMixPreset[];
+
 export const DEFAULT_LOCAL_ASSEMBLY_CAPTION_STYLE_PRESET: LocalAssemblyCaptionStylePreset = 'studio_default_v1';
 export const RECOMMENDED_LOCAL_ASSEMBLY_CAPTION_STYLE_PRESET: LocalAssemblyCaptionStylePreset = 'shorts_ja_large_v1';
+export const DEFAULT_LOCAL_ASSEMBLY_AUDIO_MIX_PRESET: LocalAssemblyAudioMixPreset = 'narration_only_v1';
 
 export const isLocalAssemblyCaptionStylePreset = (
   value: unknown,
@@ -387,20 +408,32 @@ export const isLocalAssemblyCaptionStylePreset = (
   && LOCAL_ASSEMBLY_CAPTION_STYLE_PRESETS.some((preset) => preset === value)
 );
 
+export const isLocalAssemblyAudioMixPreset = (
+  value: unknown,
+): value is LocalAssemblyAudioMixPreset => (
+  typeof value === 'string'
+  && LOCAL_ASSEMBLY_AUDIO_MIX_PRESETS.some((preset) => preset === value)
+);
+
 export const normalizeLocalAssemblyInput = (
   videoArtifactId: string,
   narrationAttemptId: string,
   includeCaptioned: boolean,
   captionStylePreset: unknown = DEFAULT_LOCAL_ASSEMBLY_CAPTION_STYLE_PRESET,
+  audioMixPreset: unknown = DEFAULT_LOCAL_ASSEMBLY_AUDIO_MIX_PRESET,
 ): NormalizedAssemblyInput => {
   const normalizedPreset = isLocalAssemblyCaptionStylePreset(captionStylePreset)
     ? captionStylePreset
     : DEFAULT_LOCAL_ASSEMBLY_CAPTION_STYLE_PRESET;
+  const normalizedAudioMixPreset = isLocalAssemblyAudioMixPreset(audioMixPreset)
+    ? audioMixPreset
+    : DEFAULT_LOCAL_ASSEMBLY_AUDIO_MIX_PRESET;
   const request: LocalAssemblyRequest = {
     videoArtifactId: videoArtifactId.trim(),
     narrationAttemptId: narrationAttemptId.trim(),
     includeCaptioned: Boolean(includeCaptioned),
     captionStylePreset: normalizedPreset,
+    audioMixPreset: normalizedAudioMixPreset,
   };
   const errors: string[] = [];
   if (!request.videoArtifactId) errors.push('動画artifactを選択してください。');
@@ -411,6 +444,9 @@ export const normalizeLocalAssemblyInput = (
   if (!request.includeCaptioned && request.captionStylePreset !== 'studio_default_v1') {
     errors.push('shorts_ja_large_v1は字幕付き版を生成する場合のみ選択できます。');
   }
+  if (!isLocalAssemblyAudioMixPreset(audioMixPreset)) {
+    errors.push('音声mixプリセットはnarration_only_v1またはsource_under_narration_v1を指定してください。');
+  }
   return { request, errors };
 };
 
@@ -419,6 +455,7 @@ export interface LocalAssemblyPayload {
   narration_attempt_id: string;
   include_captioned: boolean;
   caption_style_preset: LocalAssemblyCaptionStylePreset;
+  audio_mix_preset: LocalAssemblyAudioMixPreset;
 }
 
 /** Return the exact local assembly wire body after applying the same form validation. */
@@ -429,6 +466,7 @@ export const buildLocalAssemblyPayload = (value: unknown): LocalAssemblyPayload 
     text(pick(record, ['narrationAttemptId', 'narration_attempt_id'])),
     boolean(pick(record, ['includeCaptioned', 'include_captioned']), true),
     pick(record, ['captionStylePreset', 'caption_style_preset']),
+    pick(record, ['audioMixPreset', 'audio_mix_preset']),
   );
   if (normalized.errors.length > 0) throw new TypeError(normalized.errors[0]);
   return {
@@ -436,6 +474,7 @@ export const buildLocalAssemblyPayload = (value: unknown): LocalAssemblyPayload 
     narration_attempt_id: normalized.request.narrationAttemptId,
     include_captioned: normalized.request.includeCaptioned,
     caption_style_preset: normalized.request.captionStylePreset,
+    audio_mix_preset: normalized.request.audioMixPreset,
   };
 };
 
@@ -522,6 +561,274 @@ export const buildLocalTimelinePayload = (value: unknown): LocalTimelinePayload 
 };
 
 export const toLocalTimelinePayload = buildLocalTimelinePayload;
+
+export const REMOTION_TIMELINE_SCHEMA_VERSION = 1 as const;
+export const REMOTION_TIMELINE_COMPOSITION_ID = 'MiniMaxH3DetailedTimelineV1' as const;
+export const REMOTION_TIMELINE_WIDTH = 1080 as const;
+export const REMOTION_TIMELINE_HEIGHT = 1920 as const;
+export const REMOTION_TIMELINE_FPS = 24 as const;
+
+export const REMOTION_TIMELINE_LIMITS = {
+  minClips: 1,
+  maxClips: 16,
+  minClipDurationMs: 50,
+  maxOutputDurationMs: 60_000,
+  minTransitionDurationMs: 50,
+  maxTransitionDurationMs: 2_000,
+  minOverlayDurationMs: 50,
+  maxOverlayCharacters: 200,
+  maxOverlayLines: 4,
+} as const;
+
+const REMOTION_ARTIFACT_ID_RE = /^art_[0-9a-f]{32}$/;
+
+export interface RemotionTimelinePayload {
+  schema_version: typeof REMOTION_TIMELINE_SCHEMA_VERSION;
+  clips: Array<{
+    video_artifact_id: string;
+    start_ms: number;
+    end_ms: number;
+    volume_percent: number;
+    transition_to_next: null | { type: 'fade'; duration_ms: number };
+    overlay: null | {
+      text: string;
+      start_ms: number;
+      end_ms: number;
+      position: LocalRemotionTimelineOverlayPosition;
+      style_preset: 'shorts_ja_large_v1';
+    };
+  }>;
+}
+
+export interface NormalizedRemotionTimelineInput {
+  request: LocalRemotionTimelineRequest;
+  payload: RemotionTimelinePayload;
+  outputDurationMs: number;
+  durationInFrames: number;
+  errors: string[];
+}
+
+const remotionInteger = (value: unknown): number => {
+  const parsed = number(value);
+  return parsed !== undefined && Number.isSafeInteger(parsed) ? parsed : Number.NaN;
+};
+
+const normalizeRemotionTransition = (value: unknown): LocalRemotionTimelineTransition | null => {
+  if (value === null || value === undefined) return null;
+  const record = asRecord(value);
+  return {
+    type: text(pick(record, ['type']), '') as 'fade',
+    durationMs: remotionInteger(pick(record, ['durationMs', 'duration_ms'])),
+  };
+};
+
+const normalizeRemotionOverlay = (value: unknown): LocalRemotionTimelineOverlay | null => {
+  if (value === null || value === undefined) return null;
+  const record = asRecord(value);
+  return {
+    text: text(pick(record, ['text']), '').replace(/\r\n?/g, '\n').trim(),
+    startMs: remotionInteger(pick(record, ['startMs', 'start_ms'])),
+    endMs: remotionInteger(pick(record, ['endMs', 'end_ms'])),
+    position: text(pick(record, ['position']), '') as LocalRemotionTimelineOverlayPosition,
+    stylePreset: text(pick(record, ['stylePreset', 'style_preset']), '') as 'shorts_ja_large_v1',
+  };
+};
+
+const remotionPayloadForRequest = (request: LocalRemotionTimelineRequest): RemotionTimelinePayload => ({
+  schema_version: REMOTION_TIMELINE_SCHEMA_VERSION,
+  clips: request.clips.map((clip) => ({
+    video_artifact_id: clip.videoArtifactId,
+    start_ms: clip.startMs,
+    end_ms: clip.endMs,
+    volume_percent: clip.volumePercent,
+    transition_to_next: clip.transitionToNext === null ? null : {
+      type: clip.transitionToNext.type,
+      duration_ms: clip.transitionToNext.durationMs,
+    },
+    overlay: clip.overlay === null ? null : {
+      text: clip.overlay.text,
+      start_ms: clip.overlay.startMs,
+      end_ms: clip.overlay.endMs,
+      position: clip.overlay.position,
+      style_preset: clip.overlay.stylePreset,
+    },
+  })),
+});
+
+/** Match Python's non-negative integer half-up frame conversion exactly. */
+export const millisecondsToFramesHalfUp = (milliseconds: number, fps = REMOTION_TIMELINE_FPS): number => {
+  if (!Number.isSafeInteger(milliseconds) || milliseconds < 0) {
+    throw new TypeError('milliseconds must be a non-negative safe integer');
+  }
+  if (!Number.isSafeInteger(fps) || fps <= 0) throw new TypeError('fps must be a positive safe integer');
+  const wholeSeconds = Math.floor(milliseconds / 1_000);
+  const remainderMs = milliseconds % 1_000;
+  const frames = wholeSeconds * fps + Math.floor((remainderMs * fps + 500) / 1_000);
+  if (!Number.isSafeInteger(frames)) throw new TypeError('frame count exceeds the safe integer range');
+  return frames;
+};
+
+export const framesToMillisecondsHalfUp = (frames: number, fps = REMOTION_TIMELINE_FPS): number => {
+  if (!Number.isSafeInteger(frames) || frames < 1) throw new TypeError('frames must be a positive safe integer');
+  if (!Number.isSafeInteger(fps) || fps <= 0) throw new TypeError('fps must be a positive safe integer');
+  const milliseconds = Math.floor((frames * 1_000 + Math.floor(fps / 2)) / fps);
+  if (!Number.isSafeInteger(milliseconds)) throw new TypeError('duration exceeds the safe integer range');
+  return milliseconds;
+};
+
+export const remotionTimelineOutputDurationMs = (clips: readonly LocalRemotionTimelineClip[]): number =>
+  clips.reduce((total, clip) => total + (clip.endMs - clip.startMs) - (clip.transitionToNext?.durationMs ?? 0), 0);
+
+export const remotionTimelineDurationInFrames = (
+  clips: readonly LocalRemotionTimelineClip[],
+  fps = REMOTION_TIMELINE_FPS,
+): number => clips.reduce((total, clip) => total
+  + millisecondsToFramesHalfUp(clip.endMs - clip.startMs, fps)
+  - (clip.transitionToNext === null ? 0 : millisecondsToFramesHalfUp(clip.transitionToNext.durationMs, fps)), 0);
+
+export const normalizeRemotionTimelineInput = (value: unknown): NormalizedRemotionTimelineInput => {
+  const recordValue = asRecord(value);
+  const rawSchemaVersion = pick(recordValue, ['schemaVersion', 'schema_version']);
+  const values = Array.isArray(value) ? value : Array.isArray(recordValue.clips) ? recordValue.clips : [];
+  const clips: LocalRemotionTimelineClip[] = values.map((item) => {
+    const record = asRecord(item);
+    return {
+      videoArtifactId: text(pick(record, ['videoArtifactId', 'video_artifact_id']), '').trim(),
+      startMs: remotionInteger(pick(record, ['startMs', 'start_ms'])),
+      endMs: remotionInteger(pick(record, ['endMs', 'end_ms'])),
+      volumePercent: remotionInteger(pick(record, ['volumePercent', 'volume_percent'])),
+      transitionToNext: normalizeRemotionTransition(pick(record, ['transitionToNext', 'transition_to_next'])),
+      overlay: normalizeRemotionOverlay(pick(record, ['overlay'])),
+    };
+  });
+  const request: LocalRemotionTimelineRequest = { clips };
+  const errors: string[] = [];
+  if (!Array.isArray(value) && !Array.isArray(recordValue.clips)) errors.push('カット一覧を指定してください。');
+  if (rawSchemaVersion !== undefined && remotionInteger(rawSchemaVersion) !== REMOTION_TIMELINE_SCHEMA_VERSION) {
+    errors.push(`schema_versionは${REMOTION_TIMELINE_SCHEMA_VERSION}を指定してください。`);
+  }
+  if (clips.length < REMOTION_TIMELINE_LIMITS.minClips) errors.push('カットを1件以上追加してください。');
+  if (clips.length > REMOTION_TIMELINE_LIMITS.maxClips) {
+    errors.push(`カットは${REMOTION_TIMELINE_LIMITS.maxClips}件以内にしてください。`);
+  }
+
+  const durations = clips.map((clip) => clip.endMs - clip.startMs);
+  clips.forEach((clip, index) => {
+    const label = `カット${index + 1}`;
+    const durationMs = durations[index];
+    if (!REMOTION_ARTIFACT_ID_RE.test(clip.videoArtifactId)) {
+      errors.push(`${label}の動画artifact IDが不正です。`);
+    }
+    if (!Number.isSafeInteger(clip.startMs) || clip.startMs < 0) {
+      errors.push(`${label}の開始時刻は0以上の整数ミリ秒で指定してください。`);
+    }
+    if (!Number.isSafeInteger(clip.endMs) || clip.endMs < 0) {
+      errors.push(`${label}の終了時刻は0以上の整数ミリ秒で指定してください。`);
+    } else if (clip.endMs > REMOTION_TIMELINE_LIMITS.maxOutputDurationMs) {
+      errors.push(`${label}の終了時刻は${REMOTION_TIMELINE_LIMITS.maxOutputDurationMs / 1_000}秒以内にしてください。`);
+    }
+    if (Number.isSafeInteger(durationMs) && durationMs < REMOTION_TIMELINE_LIMITS.minClipDurationMs) {
+      errors.push(`${label}の尺は${REMOTION_TIMELINE_LIMITS.minClipDurationMs}ms以上にしてください。`);
+    }
+    if (!Number.isSafeInteger(clip.volumePercent) || clip.volumePercent < 0 || clip.volumePercent > 100) {
+      errors.push(`${label}の素材音量は0〜100の整数パーセントで指定してください。`);
+    }
+
+    const transition = clip.transitionToNext;
+    if (index === clips.length - 1 && transition !== null) {
+      errors.push('最終カットのtransition_to_nextはnullにしてください。');
+    } else if (transition !== null) {
+      if (transition.type !== 'fade') errors.push(`${label}のtransitionはfadeだけ指定できます。`);
+      if (!Number.isSafeInteger(transition.durationMs)
+        || transition.durationMs < REMOTION_TIMELINE_LIMITS.minTransitionDurationMs
+        || transition.durationMs > REMOTION_TIMELINE_LIMITS.maxTransitionDurationMs) {
+        errors.push(`${label}のfade時間は${REMOTION_TIMELINE_LIMITS.minTransitionDurationMs}〜${REMOTION_TIMELINE_LIMITS.maxTransitionDurationMs}msで指定してください。`);
+      } else {
+        const nextDurationMs = durations[index + 1];
+        const transitionFrames = millisecondsToFramesHalfUp(transition.durationMs);
+        if (Number.isSafeInteger(durationMs) && durationMs >= REMOTION_TIMELINE_LIMITS.minClipDurationMs
+          && transitionFrames >= millisecondsToFramesHalfUp(durationMs)) {
+          errors.push(`${label}のfade時間は現在のカット尺より短くしてください。`);
+        }
+        if (Number.isSafeInteger(nextDurationMs) && nextDurationMs >= REMOTION_TIMELINE_LIMITS.minClipDurationMs
+          && transitionFrames >= millisecondsToFramesHalfUp(nextDurationMs)) {
+          errors.push(`${label}のfade時間は次のカット尺より短くしてください。`);
+        }
+      }
+    }
+
+    const overlay = clip.overlay;
+    if (overlay !== null) {
+      const characterCount = [...overlay.text].length;
+      const lineCount = overlay.text === '' ? 0 : overlay.text.split('\n').length;
+      if (characterCount < 1 || characterCount > REMOTION_TIMELINE_LIMITS.maxOverlayCharacters) {
+        errors.push(`${label}のテロップは1〜${REMOTION_TIMELINE_LIMITS.maxOverlayCharacters}文字で指定してください。`);
+      }
+      if (lineCount > REMOTION_TIMELINE_LIMITS.maxOverlayLines) {
+        errors.push(`${label}のテロップは${REMOTION_TIMELINE_LIMITS.maxOverlayLines}行以内にしてください。`);
+      }
+      if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(overlay.text)) {
+        errors.push(`${label}のテロップに制御文字は使用できません。`);
+      }
+      if (!Number.isSafeInteger(overlay.startMs) || overlay.startMs < 0) {
+        errors.push(`${label}のテロップ開始時刻は0以上の整数ミリ秒で指定してください。`);
+      }
+      if (!Number.isSafeInteger(overlay.endMs) || overlay.endMs < 0) {
+        errors.push(`${label}のテロップ終了時刻は0以上の整数ミリ秒で指定してください。`);
+      }
+      if (Number.isSafeInteger(overlay.startMs) && Number.isSafeInteger(overlay.endMs)
+        && overlay.endMs - overlay.startMs < REMOTION_TIMELINE_LIMITS.minOverlayDurationMs) {
+        errors.push(`${label}のテロップ表示時間は${REMOTION_TIMELINE_LIMITS.minOverlayDurationMs}ms以上にしてください。`);
+      }
+      if (Number.isSafeInteger(durationMs) && Number.isSafeInteger(overlay.endMs) && overlay.endMs > durationMs) {
+        errors.push(`${label}のテロップ終了時刻はトリム後のカット尺以内にしてください。`);
+      }
+      if (!['top', 'center', 'bottom'].includes(overlay.position)) {
+        errors.push(`${label}のテロップ位置はtop、center、bottomから選択してください。`);
+      }
+      if (overlay.stylePreset !== 'shorts_ja_large_v1') {
+        errors.push(`${label}のテロップstyle presetはshorts_ja_large_v1を指定してください。`);
+      }
+    }
+  });
+
+  const canCompileDuration = clips.length > 0 && clips.every((clip, index) => {
+    const durationMs = clip.endMs - clip.startMs;
+    const transition = clip.transitionToNext;
+    return Number.isSafeInteger(durationMs)
+      && durationMs >= REMOTION_TIMELINE_LIMITS.minClipDurationMs
+      && (transition === null || (
+        index < clips.length - 1
+        && Number.isSafeInteger(transition.durationMs)
+        && transition.durationMs >= REMOTION_TIMELINE_LIMITS.minTransitionDurationMs
+        && transition.durationMs <= REMOTION_TIMELINE_LIMITS.maxTransitionDurationMs
+      ));
+  });
+  const durationInFrames = canCompileDuration ? remotionTimelineDurationInFrames(clips) : 0;
+  const outputDurationMs = durationInFrames > 0 ? framesToMillisecondsHalfUp(durationInFrames) : 0;
+  if (outputDurationMs > REMOTION_TIMELINE_LIMITS.maxOutputDurationMs) {
+    errors.push(`出力尺は${REMOTION_TIMELINE_LIMITS.maxOutputDurationMs / 1_000}秒以内にしてください。`);
+  }
+  if (canCompileDuration && durationInFrames < 1) errors.push('出力は1frame以上にしてください。');
+
+  return {
+    request,
+    payload: remotionPayloadForRequest(request),
+    outputDurationMs,
+    durationInFrames,
+    errors,
+  };
+};
+
+export const normalizeLocalRemotionTimelineInput = normalizeRemotionTimelineInput;
+
+export const buildRemotionTimelinePayload = (value: unknown): RemotionTimelinePayload => {
+  const normalized = normalizeRemotionTimelineInput(value);
+  if (normalized.errors.length > 0) throw new TypeError(normalized.errors[0]);
+  return normalized.payload;
+};
+
+export const buildLocalRemotionTimelinePayload = buildRemotionTimelinePayload;
 
 export const LOCAL_SCREEN_CAPTURE_LIMITS = {
   minDurationMs: 1_000,
@@ -1118,14 +1425,53 @@ export const isLocalTimelineJobForSelection = (
   const runId = text(field(['run_id', 'runId']) ?? pick(result, ['run_id', 'runId']), '');
   const stage = normalizeStudioStageName(field(['stage', 'step', 'type', 'kind']));
   const jobType = normalizeStudioStageName(text(field(['type', 'kind']), ''));
+  const provider = normalizeStudioStageName(text(
+    field(['provider']) ?? pick(result, ['provider']),
+    '',
+  ));
   const stageAttemptId = text(
     field(['stage_attempt_id', 'stageAttemptId'])
       ?? pick(result, ['stage_attempt_id', 'stageAttemptId']),
     '',
   );
-  const stageMatches = stage === 'timeline' || jobType === 'local_timeline';
+  const remotionJob = jobType === 'remotion_timeline'
+    || jobType === 'local_remotion_timeline'
+    || provider === 'local_remotion_timeline';
+  const stageMatches = !remotionJob && (stage === 'timeline' || jobType === 'local_timeline');
   return Boolean(
     stageMatches
+      && (!selection.runId || runId === selection.runId)
+      && (!selection.stageAttemptId || stageAttemptId === selection.stageAttemptId),
+  );
+};
+
+/** Match only Remotion timeline jobs, keeping legacy timeline polling isolated. */
+export const isRemotionTimelineJobForSelection = (
+  value: unknown,
+  selection: { runId?: string; stageAttemptId?: string },
+): boolean => {
+  const record = asRecord(value);
+  const result = asRecord(pick(record, ['result', 'job_result', 'output']));
+  const payload = asRecord(pick(record, ['payload', 'request', 'meta']));
+  const field = (keys: string[]): unknown => pick(record, keys) ?? pick(payload, keys);
+  const runId = text(field(['run_id', 'runId']) ?? pick(result, ['run_id', 'runId']), '');
+  const stageAttemptId = text(
+    field(['stage_attempt_id', 'stageAttemptId'])
+      ?? pick(result, ['stage_attempt_id', 'stageAttemptId']),
+    '',
+  );
+  const stage = normalizeStudioStageName(field(['stage', 'step']));
+  const jobType = normalizeStudioStageName(text(field(['type', 'kind']), ''));
+  const provider = normalizeStudioStageName(text(
+    field(['provider']) ?? pick(result, ['provider']),
+    '',
+  ));
+  const kindMatches = jobType === 'remotion_timeline'
+    || jobType === 'local_remotion_timeline'
+    || provider === 'local_remotion_timeline';
+  return Boolean(
+    kindMatches
+      && (!stage || stage === 'timeline')
       && (!selection.runId || runId === selection.runId)
       && (!selection.stageAttemptId || stageAttemptId === selection.stageAttemptId),
   );
@@ -2277,6 +2623,14 @@ export const api = {
     const value = await post<unknown>(
       `/api/runs/${encodeURIComponent(runId)}/execute-local-timeline`,
       buildLocalTimelinePayload(body.clips),
+    );
+    return normalizeJob(value);
+  },
+
+  async executeRemotionTimeline(runId: string, body: LocalRemotionTimelineRequest): Promise<Job> {
+    const value = await post<unknown>(
+      `/api/runs/${encodeURIComponent(runId)}/execute-remotion-timeline`,
+      buildRemotionTimelinePayload(body),
     );
     return normalizeJob(value);
   },

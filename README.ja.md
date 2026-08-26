@@ -13,9 +13,17 @@
 .\run-studio.ps1
 ```
 
-通常は`http://127.0.0.1:8765`を開きます。現在のMVPは既存制作台帳の閲覧、再実行計画、Run記録、有料工程の費用上限承認、監査exportに加え、Windows SAPIによる無課金のローカルナレーション生成、固定ComfyUIによるローカル動画生成、isolated Chromiumによるloopback Web画面収録、FFmpegによるカット編集とclean／字幕焼き込みmasterのローカル合成、完成masterのローカルtechnical QCを扱えます。字幕、segment timing、発音置換、工程cache、codec／stream／duration／full-decode／全編無音の検査、ffprobe・manifestも記録します。ElevenLabs外部TTSは別の承認済みprofileで扱い、MiniMax外部APIのStudio workerは未接続です。Web収録は`127.0.0.1`の明示portだけを対象とし、Windowsデスクトップ、system audio、外部サイト、既存ログインsessionは未対応です。詳細とセキュリティ境界は[STUDIO_MVP_JA.md](STUDIO_MVP_JA.md)を参照してください。
+通常は`http://127.0.0.1:8765`を開きます。現在のMVPは既存制作台帳の閲覧、再実行計画、Run記録、有料工程の費用上限承認、監査exportに加え、Windows SAPIによる無課金のローカルナレーション生成、固定ComfyUIによるローカル動画生成、isolated Chromiumによるloopback Web画面収録、FFmpegによるハードカット、Remotionによる詳細timeline preview、clean／字幕焼き込みmasterのローカル合成、完成masterのローカルtechnical QCを扱えます。字幕、segment timing、発音置換、工程cache、codec／stream／duration／full-decode／全編無音の検査、ffprobe・manifestも記録します。ElevenLabs外部TTSは別の承認済みprofileで扱い、MiniMax外部APIのStudio workerは未接続です。Web収録は`127.0.0.1`の明示portだけを対象とし、Windowsデスクトップ、system audio、外部サイト、既存ログインsessionは未対応です。詳細とセキュリティ境界は[STUDIO_MVP_JA.md](STUDIO_MVP_JA.md)を参照してください。
 
 `local_playwright`で実行できる工程は`screen_capture`と`timeline`です。`assembly`と`qc`は影響工程としてRun計画に残りますが、このprofileでは実行しません。画面収録とtimelineのジョブ状態・進捗率はUIが2秒pollingで再取得します。
+
+### Remotion詳細timeline
+
+カット編集画面では、既存の`高速ハードカット`と`Remotion詳細preview`を切り替えられます。後者はschema v1の`POST /api/runs/{run_id}/execute-remotion-timeline`を使い、同じproductionの登録済み動画1〜16件／最大60秒へtrim、素材音量0〜100%、50〜2,000msのfade、固定`shorts_ja_large_v1`テロップを設定します。UIの`@remotion/player`とrendererは同じcompositionを使い、1080×1920／24fpsのMP4、recipe、render report、ffprobe、manifestの5成果物を保存します。画面収録と同じbrowser FIFO laneでconcurrency 1のため、両jobは直列です。
+
+素材音量はまず詳細previewへ反映されます。そのpreviewをassemblyへ渡す場合は、既定の`narration_only_v1`で素材音をナレーションへ置換するか、`source_under_narration_v1`でpreview音声をさらに25%へ下げ、ナレーション100%と固定limiterで混ぜるかを選べます。mixは素材音声1 streamと素材／ナレーション双方の非無音を必須とし、不足時はfail closedです。任意gain、BGM、duckingはまだ扱いません。Remotion packageは`4.0.517`へexact pinし、setup済みPlaywright Chromiumを再利用します。利用は個人用途を前提としているため、主体・用途・配布形態が変わる場合は[第三者ライセンス](THIRD_PARTY_NOTICES.md)と現行Remotion licenseを再確認してください。
+
+SetupはRemotion 5 packageとPlaywrightの実`node_modules` dependency closureをattestし、worker開始時とrender後に再照合します。path非公開のclosure digestはcache tool identityへ入るため、dependencyが変わった場合は成果物publish前にfail closedし、setupの再実行を求めます。
 
 ### `一括生成`（local_pipeline）
 
@@ -23,7 +31,7 @@ Studioの`一括生成`タブはschema v4の`POST /api/productions/{production_i
 
 workflow preset、prompt、seed、segments、rate、字幕preset、variantなどの公開bodyは固定allowlistで検証されます。seedは0〜2^63−1のJSON integerです。ElevenLabs、MiniMax API、API key、cost approvalはこの経路で使いません。UIは2秒pollingで進捗を再取得し、最終master artifactとtechnical QC verdictを表示します。raw prompt/scriptはSQLite、event、job metadataへ複製しませんが、明示的な`workflow.json`、`timings`、`manifest` artifactにはcontentが含まれ得ます。
 
-現行local_pipelineは2026-08-25にroot検証済みです。Python全263件は262件合格＋Windows上のnon-Windows専用1件skip、frontendは35/35合格し、production buildも成功しました。fake-backed統合では5 child stage、captioned master、QC文書3件、外部TTS非到達、全中間artifactの改変検知とsame-run自己修復を確認しています。この検証ではComfyUIへ新規promptをPOSTしていないため、実GPU一括完走時間と完成映像の目視品質は未確認です。
+現行local_pipelineは2026-08-25にroot検証済みです。Python全263件は262件合格＋Windows上のnon-Windows専用1件skip、frontendは35/35合格し、production buildも成功しました。fake-backed統合では5 child stage、captioned master、QC文書3件、外部TTS非到達、全中間artifactの改変検知とsame-run自己修復を確認しています。その後、公式INT8＋Q4の実GPU一括生成も480×864／24fps／5.167秒で完走し、H3生成7分06秒、一括pipeline全体7分24秒、H.264＋AAC stereoのmasterとQC証跡を確認しました。現行one-clipハードカットtimelineはvideo-onlyなので、一括生成のassemblyは引き続き`narration_only_v1`固定です。
 
 <div align="center">
   <img width="100%" src="assets/minimax-h3-header.gif" alt="MiniMax H3">

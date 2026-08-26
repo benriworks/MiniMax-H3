@@ -88,18 +88,21 @@ test('normalizeNarrationInput removes empty lines and enforces segment and text 
   assert.ok(tooMuch.errors.some((error) => error.includes(`${limits.maxTotalLength.toLocaleString()}文字以内`)));
 });
 
-test('normalizeLocalAssemblyInput trims source IDs and accepts only closed caption presets', () => {
+test('normalizeLocalAssemblyInput trims source IDs and accepts only closed caption/audio presets', () => {
   assert.equal(api.DEFAULT_LOCAL_ASSEMBLY_CAPTION_STYLE_PRESET, 'studio_default_v1');
   assert.equal(api.RECOMMENDED_LOCAL_ASSEMBLY_CAPTION_STYLE_PRESET, 'shorts_ja_large_v1');
   assert.deepEqual(api.LOCAL_ASSEMBLY_CAPTION_STYLE_PRESETS, ['studio_default_v1', 'shorts_ja_large_v1']);
+  assert.equal(api.DEFAULT_LOCAL_ASSEMBLY_AUDIO_MIX_PRESET, 'narration_only_v1');
+  assert.deepEqual(api.LOCAL_ASSEMBLY_AUDIO_MIX_PRESETS, ['narration_only_v1', 'source_under_narration_v1']);
 
-  const valid = api.normalizeLocalAssemblyInput(' video-1 ', ' attempt-1 ', true, 'shorts_ja_large_v1');
+  const valid = api.normalizeLocalAssemblyInput(' video-1 ', ' attempt-1 ', true, 'shorts_ja_large_v1', 'source_under_narration_v1');
   assert.deepEqual(valid.errors, []);
   assert.deepEqual(valid.request, {
     videoArtifactId: 'video-1',
     narrationAttemptId: 'attempt-1',
     includeCaptioned: true,
     captionStylePreset: 'shorts_ja_large_v1',
+    audioMixPreset: 'source_under_narration_v1',
   });
 
   const invalid = api.normalizeLocalAssemblyInput('  ', '', false, 'studio_default_v1');
@@ -108,6 +111,7 @@ test('normalizeLocalAssemblyInput trims source IDs and accepts only closed capti
     narrationAttemptId: '',
     includeCaptioned: false,
     captionStylePreset: 'studio_default_v1',
+    audioMixPreset: 'narration_only_v1',
   });
   assert.equal(invalid.errors.length, 2);
   assert.ok(invalid.errors[0].includes('動画artifact'));
@@ -115,14 +119,18 @@ test('normalizeLocalAssemblyInput trims source IDs and accepts only closed capti
 
   assert.ok(api.normalizeLocalAssemblyInput('video-1', 'attempt-1', true, 'raw-ass').errors.some((error) => error.includes('字幕プリセット')));
   assert.ok(api.normalizeLocalAssemblyInput('video-1', 'attempt-1', false, 'shorts_ja_large_v1').errors.some((error) => error.includes('字幕付き版')));
+  assert.ok(api.normalizeLocalAssemblyInput('video-1', 'attempt-1', true, 'studio_default_v1', 'custom_gain').errors.some((error) => error.includes('音声mixプリセット')));
 });
 
-test('buildLocalAssemblyPayload emits the exact caption preset wire body', () => {
+test('buildLocalAssemblyPayload emits the exact closed preset wire body', () => {
   const payload = api.buildLocalAssemblyPayload({
     videoArtifactId: ' video-1 ',
     narrationAttemptId: ' attempt-1 ',
     includeCaptioned: true,
     captionStylePreset: 'shorts_ja_large_v1',
+    audioMixPreset: 'source_under_narration_v1',
+    sourceGain: 0.8,
+    narrationGain: 0.4,
     captionStyle: { font: 'untrusted' },
     filter: 'subtitles=unsafe.ass',
   });
@@ -131,8 +139,10 @@ test('buildLocalAssemblyPayload emits the exact caption preset wire body', () =>
     narration_attempt_id: 'attempt-1',
     include_captioned: true,
     caption_style_preset: 'shorts_ja_large_v1',
+    audio_mix_preset: 'source_under_narration_v1',
   });
   assert.deepEqual(Object.keys(payload).sort(), [
+    'audio_mix_preset',
     'caption_style_preset',
     'include_captioned',
     'narration_attempt_id',
@@ -144,6 +154,13 @@ test('buildLocalAssemblyPayload emits the exact caption preset wire body', () =>
     includeCaptioned: true,
     captionStylePreset: 'custom',
   }), /字幕プリセット/);
+  assert.throws(() => api.buildLocalAssemblyPayload({
+    videoArtifactId: 'video-1',
+    narrationAttemptId: 'attempt-1',
+    includeCaptioned: true,
+    captionStylePreset: 'studio_default_v1',
+    audioMixPreset: 'custom_gain',
+  }), /音声mixプリセット/);
 
   assert.deepEqual(api.buildLocalAssemblyPayload({
     videoArtifactId: 'video-1',
@@ -154,5 +171,6 @@ test('buildLocalAssemblyPayload emits the exact caption preset wire body', () =>
     narration_attempt_id: 'attempt-1',
     include_captioned: false,
     caption_style_preset: 'studio_default_v1',
+    audio_mix_preset: 'narration_only_v1',
   });
 });
