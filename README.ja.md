@@ -25,6 +25,24 @@
 
 SetupはRemotion 5 packageとPlaywrightの実`node_modules` dependency closureをattestし、worker開始時とrender後に再照合します。path非公開のclosure digestはcache tool identityへ入るため、dependencyが変わった場合は成果物publish前にfail closedし、setupの再実行を求めます。
 
+### `告知動画`（HOOK・MESSAGE・CTAテンプレート）
+
+Studioの`告知動画`タブは、同じproductionへ登録済みの動画を使って、10〜20秒（推奨15秒）の縦型告知を短い入力で作る入口です。構成はHOOK→MESSAGE→CTAの3シーン固定で、各シーンに素材、trim、素材音量、1〜2行の大見出し、必須の1行ナレーションを指定します。新規recipeの既定trimは5,167ms／5,167ms／5,166msで、最初の2境界の250ms fade overlapを差し引くと完成尺は15.000秒です。見出し位置はHOOK中央／MESSAGE上／CTA中央へ固定され、既存のDetailed Test Video v1へcompileしてWindows SAPI→Remotion→assembly→technical QCを実行します。告知実行では、各trimとfadeをRemotionと同じ24fpsで個別にframe丸めして求めた出力scene開始へ、各ナレーションとSRTを揃えます。前sceneの発話が次sceneへはみ出す場合は重ねずに停止します。ブラウザpreviewは素材と見出しだけの消音確認で、ナレーション、焼き込み字幕、最終音声mixは完成masterで確認します。
+
+recipeは保存のたびにimmutableなversionをproduction eventへ追加し、`expected_revision`によるCASで古い画面からの上書きを拒否します。保存済み版は元を変更せず複製でき、`保存して告知動画を作る`は必要なら先に保存してから、そのexact revisionを実行します。実行時のDetailed top Job作成／再利用とrecipe execution linkは同じSQLite transactionで確定します。名前だけを変えたコピーのようにcompile後の内容が同じ場合はDetailed側で同じrequest keyとなり、再利用可能なtopがあれば同じRun／Jobを使いつつ、各recipe versionからの実行リンクは別々に残します。
+
+実行中はJob一覧を2秒間隔、重いproduction detailを初回とおおむね6秒間隔で再取得します。告知用の保存・複製・実行・Job／production照合requestは15秒でabortするため、serverが応答しない場合もフォームを永久にロックしません。保存の応答が不明なら同じrecipe ID・`expected_revision`・内容を1回だけ再送します。複製ではsource production／recipe／version／revisionとコピー名から128-bit clone IDを決定的に導出し、そのintent専用のversioned `localStorage` keyへPOST前に同期保存します。パネルのunmount、production切替、ページ再読込を挟んでも同じIDを再利用し、複数tabが同時操作しても同じbackend recipe IDへ収束します。成功応答またはimmutable版履歴のexact clone lineageを確認したときだけ保留を消し、timeout、network error、再送後の4xxでは消しません。壊れた／利用不能な保存領域は新ID発行へ読み替えずfail closedにし、明示破棄はブラウザ側の保留だけを消してserver上のrecipeを削除しません。保存内容はschema version、各ID、revision、コピー名、作成時刻だけで、media、台本、API keyは含みません。backendのlost-response dedupeと組み合わせ、別revision／別cloneを増やしません。実行応答が曖昧な場合、送信前には存在しなかったexecution linkだけを受理証拠とし、exact Job IDを`GET /api/jobs/{job_id}`で厳密に照合します。新しいlinkがなければ、同じimmutable recipe ID／revisionを1回だけ自動再送します。backendは同一content claimを使い、成功済みJobの全child lineageと全成果物のbytes／SHA-256を再検証してから再利用するため、正常なレンダーを重複作成しません。2回目のPOSTまたはfresh linkのexact Job照合がtimeoutなどで不明なら自動処理を止め、`同一revisionを再照合`を明示したときだけ同じPOSTを1回行います。既知の古い成功履歴だけで曖昧状態を解除しません。production切替時は旧detail requestをabortし、最新request generationと選択中production IDが一致した応答だけを表示します。
+
+完全なcanonical recipeは再調整と監査のため`announcement.recipe.saved` eventへBase64で保存され、hash-chain JSONL mirrorと監査exportに含まれ得ます。Base64は暗号化ではなく平文相当です。API key、token、password、公開不要の個人情報はrecipe名、見出し、ナレーション、発音置換へ書かないでください。v1はBGM、ロゴ画像、任意renderer／CSS／React component、新規H3生成を扱いません。
+
+### `詳細一括`（既存素材からのテスト動画）
+
+Studioの`詳細一括`タブは`POST /api/productions/{production_id}/execute-detailed-test-video`から、同じproductionへ登録済みの動画だけを使うテスト動画を開始します。request schema v1は`schema_version`、`clips`、`segments`、任意の`voice`／`rate`／`pronunciations`、`include_captioned`、`caption_style_preset`、`audio_mix_preset`、`variant`だけを受け付けます。immutableな0円`local_sapi` RunにWindows SAPIナレーション→Remotion詳細timeline→FFmpeg assembly→technical QCの4 childを作り、pipeline laneが順序を管理します。Remotionはbrowser lane、SAPI／assembly／QCはdefault laneで実行します。
+
+SQLite schema v7のcontent-addressed claimは、正規化recipe、素材bytes／SHA-256、Remotion tool identity、字幕preflight policyから作るrequest keyで同じRun／top jobをdedupeします。failed／interruptedの明示再実行は同じRunへ新しいtop jobを追加し、成功topの再利用前には4 childのjob／attempt lineageと成果物実体を再検証します。UIはtop jobを2秒ごとに再取得し、工程、cache hit、最終master、QC passを表示します。POST応答が曖昧な場合は、送信前のcanonical payload SHA-256と一致するfreshなdirect Jobだけを受理証拠にし、既知Job、別内容、告知専用timing付きJobではlockを解除しません。Shorts大字幕では1〜6 segment、1 segmentあたり表示幅38単位以内、連続ASCII 20文字以内、不可視／双方向制御文字なしの固定preflightをqueue前に行います。
+
+`audio_mix_preset`は`narration_only_v1`または`source_under_narration_v1`だけです。後者は素材25%＋ナレーション100%＋固定limiterで、任意gainやBGMは指定できません。この経路はH3／ComfyUI、MiniMax API、ElevenLabs、任意path／URL／CSS／React componentを呼びません。GPU動画を新規生成する既存`local_pipeline`の契約とone-clip hard-cut経路は変更していません。
+
 ### `一括生成`（local_pipeline）
 
 Studioの`一括生成`タブはschema v4の`POST /api/productions/{production_id}/execute-local-pipeline`から固定local-onlyの制作を一つのimmutableな0円Runとして開始します。`video_generation`、`narration`、`captions`、`timeline`、`assembly`、`qc`の6 requested stageを記録し、ComfyUI動画生成→Windows SAPI→生成動画1本のone-clip timeline→assembly→technical QCの5 stageを専用pipeline laneで実行します。GPU childとdefault childを協調し、DB-levelのRun/top-job dedupe、failed／interruptedのsame-run retry、parent-child cancellation wait、local stage成果物のatomic確定を行います。

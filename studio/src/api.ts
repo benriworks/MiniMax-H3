@@ -1,8 +1,14 @@
 import type {
   Approval,
+  AnnouncementExecutionRecord,
+  AnnouncementRecipeRecord,
+  AnnouncementSceneRole,
+  AnnouncementVideoRecipe,
+  AnnouncementVideoScene,
   Artifact,
   ArtifactKind,
   CostEntry,
+  DetailedTestVideoRequest,
   ExternalNarrationPayload,
   ExternalNarrationRequest,
   ExternalVoiceSettings,
@@ -1241,6 +1247,483 @@ export const serializeLocalPipelinePayload = (payload: LocalPipelinePayload): st
   return `{${fields.join(',')}}`;
 };
 
+export const DETAILED_TEST_VIDEO_SCHEMA_VERSION = 1 as const;
+export const DETAILED_TEST_VIDEO_SHORTS_PREFLIGHT_POLICY = 'shorts_ja_large_preflight_v1' as const;
+
+const DETAILED_TEST_VIDEO_FORBIDDEN_CAPTION_CHARACTERS = new Set([
+  '\u00a0', '\u200b', '\u200c', '\u200d', '\u200e', '\u200f',
+  '\u202a', '\u202b', '\u202c', '\u202d', '\u202e', '\u2060',
+  '\u2066', '\u2067', '\u2068', '\u2069', '\ufeff',
+]);
+const DETAILED_TEST_VIDEO_ASCII_TOKEN = /[!-~]+/g;
+
+/** Mirror the backend's deterministic, font-independent Shorts caption gate. */
+export const detailedTestVideoShortsCaptionErrors = (segments: readonly string[]): string[] => {
+  const errors: string[] = [];
+  if (segments.length > 6) errors.push('Shorts向け大字幕は6セグメント以内にしてください。');
+  segments.forEach((segment, index) => {
+    const label = `字幕${index + 1}`;
+    if ([...segment].some((character) => DETAILED_TEST_VIDEO_FORBIDDEN_CAPTION_CHARACTERS.has(character))) {
+      errors.push(`${label}に表示できない不可視文字が含まれています。`);
+    }
+    const displayUnits = [...segment].reduce((total, character) => {
+      const point = character.codePointAt(0) ?? 0;
+      return total + ((point >= 0x20 && point <= 0x7e) || (point >= 0xff61 && point <= 0xff9f) ? 1 : 2);
+    }, 0);
+    if (displayUnits > 38) errors.push(`${label}が長すぎます。短いセグメントに分けてください（表示幅38以内）。`);
+    const tokens = segment.match(DETAILED_TEST_VIDEO_ASCII_TOKEN) ?? [];
+    if (tokens.some((token) => token.length > 20)) errors.push(`${label}の半角英数字は20文字以内で区切ってください。`);
+  });
+  return errors;
+};
+
+export interface DetailedTestVideoPayload {
+  schema_version: typeof DETAILED_TEST_VIDEO_SCHEMA_VERSION;
+  clips: RemotionTimelinePayload['clips'];
+  segments: Array<{ text: string }>;
+  voice?: string;
+  rate: number;
+  pronunciations?: Array<{ source: string; target: string }>;
+  include_captioned: boolean;
+  caption_style_preset: LocalAssemblyCaptionStylePreset;
+  audio_mix_preset: LocalAssemblyAudioMixPreset;
+  variant: LocalQcVariant;
+}
+
+export interface NormalizedDetailedTestVideoInput {
+  request: DetailedTestVideoRequest;
+  payload: DetailedTestVideoPayload;
+  outputDurationMs: number;
+  errors: string[];
+}
+
+/** Normalize the complete existing-artifact detailed test-video recipe. */
+export const normalizeDetailedTestVideoInput = (value: unknown): NormalizedDetailedTestVideoInput => {
+  const source = asRecord(value);
+  const rawSchemaVersion = pickIncludingNull(source, ['schemaVersion', 'schema_version']);
+  const remotion = normalizeRemotionTimelineInput({
+    schemaVersion: DETAILED_TEST_VIDEO_SCHEMA_VERSION,
+    clips: pick(source, ['clips']),
+  });
+  const rateValue = pickIncludingNull(source, ['rate']);
+  const rate = rateValue === undefined || rateValue === '' ? 0 : number(rateValue);
+  const narration = normalizeNarrationInput(localPipelineScript(source), rate ?? 0);
+  const pronunciationResult = localPipelinePronunciations(source);
+  const includeCaptionedValue = pickIncludingNull(source, ['includeCaptioned', 'include_captioned']);
+  const includeCaptioned = includeCaptionedValue === undefined ? true : includeCaptionedValue === true;
+  const captionStyleValue = pick(source, ['captionStylePreset', 'caption_style_preset']);
+  const captionStylePreset = isLocalAssemblyCaptionStylePreset(captionStyleValue)
+    ? captionStyleValue
+    : captionStyleValue === undefined
+      ? includeCaptioned ? RECOMMENDED_LOCAL_ASSEMBLY_CAPTION_STYLE_PRESET : DEFAULT_LOCAL_ASSEMBLY_CAPTION_STYLE_PRESET
+      : DEFAULT_LOCAL_ASSEMBLY_CAPTION_STYLE_PRESET;
+  const audioMixValue = pick(source, ['audioMixPreset', 'audio_mix_preset']);
+  const audioMixPreset = isLocalAssemblyAudioMixPreset(audioMixValue)
+    ? audioMixValue
+    : DEFAULT_LOCAL_ASSEMBLY_AUDIO_MIX_PRESET;
+  const variantValue = pick(source, ['variant']);
+  const variant: LocalQcVariant = variantValue === 'clean' || variantValue === 'captioned'
+    ? variantValue
+    : includeCaptioned ? 'captioned' : 'clean';
+  const errors = [
+    ...remotion.errors,
+    ...narration.errors,
+    ...pronunciationResult.errors,
+  ];
+  if (includeCaptioned && captionStylePreset === 'shorts_ja_large_v1') {
+    errors.push(...detailedTestVideoShortsCaptionErrors(narration.segments));
+  }
+  if (rawSchemaVersion !== undefined && rawSchemaVersion !== DETAILED_TEST_VIDEO_SCHEMA_VERSION) {
+    errors.push(`schema_versionは${DETAILED_TEST_VIDEO_SCHEMA_VERSION}を指定してください。`);
+  }
+  if (rateValue !== undefined && rateValue !== '' && rate === undefined) errors.push('読み上げ速度は整数で指定してください。');
+  if (rate !== undefined && (!Number.isInteger(rate) || rate < LOCAL_NARRATION_LIMITS.minRate || rate > LOCAL_NARRATION_LIMITS.maxRate)) {
+    errors.push(`読み上げ速度は整数 ${LOCAL_NARRATION_LIMITS.minRate}〜${LOCAL_NARRATION_LIMITS.maxRate} の範囲で指定してください。`);
+  }
+  if (includeCaptionedValue !== undefined && typeof includeCaptionedValue !== 'boolean') errors.push('字幕付き版の指定はbooleanで指定してください。');
+  if (captionStyleValue !== undefined && !isLocalAssemblyCaptionStylePreset(captionStyleValue)) {
+    errors.push('字幕プリセットはstudio_default_v1またはshorts_ja_large_v1を指定してください。');
+  }
+  if (!includeCaptioned && captionStylePreset !== DEFAULT_LOCAL_ASSEMBLY_CAPTION_STYLE_PRESET) {
+    errors.push('字幕なし設定ではcaption_style_preset=studio_default_v1を指定してください。');
+  }
+  if (audioMixValue !== undefined && !isLocalAssemblyAudioMixPreset(audioMixValue)) {
+    errors.push('音声mixプリセットはnarration_only_v1またはsource_under_narration_v1を指定してください。');
+  }
+  if (variantValue !== undefined && variantValue !== 'clean' && variantValue !== 'captioned') {
+    errors.push('variantはcleanまたはcaptionedを指定してください。');
+  }
+  if (!includeCaptioned && variant === 'captioned') errors.push('字幕なし設定ではvariant=cleanを指定してください。');
+  if (audioMixPreset === 'source_under_narration_v1'
+    && remotion.request.clips.length > 0
+    && !remotion.request.clips.some((clip) => clip.volumePercent > 0)) {
+    errors.push('素材音を残す場合は、少なくとも1カットの素材音量を1%以上にしてください。');
+  }
+
+  const segments = narration.segments.map((textValue) => ({ text: textValue }));
+  const request: DetailedTestVideoRequest = {
+    schemaVersion: DETAILED_TEST_VIDEO_SCHEMA_VERSION,
+    clips: remotion.request.clips,
+    segments,
+    rate: rate ?? 0,
+    ...(pronunciationResult.pronunciations ? { pronunciations: pronunciationResult.pronunciations } : {}),
+    includeCaptioned,
+    captionStylePreset,
+    audioMixPreset,
+    variant,
+  };
+  const voiceValue = pickIncludingNull(source, ['voice']);
+  if (voiceValue !== undefined && voiceValue !== null && voiceValue !== '') {
+    if (typeof voiceValue !== 'string') errors.push('音声名は文字列で指定してください。');
+    else if (voiceValue.trim().length > 128) errors.push('音声名は128文字以内にしてください。');
+    else request.voice = voiceValue.trim();
+  }
+  const payload: DetailedTestVideoPayload = {
+    schema_version: DETAILED_TEST_VIDEO_SCHEMA_VERSION,
+    clips: remotion.payload.clips,
+    segments,
+    ...(request.voice ? { voice: request.voice } : {}),
+    rate: request.rate,
+    ...(request.pronunciations ? { pronunciations: request.pronunciations } : {}),
+    include_captioned: includeCaptioned,
+    caption_style_preset: captionStylePreset,
+    audio_mix_preset: audioMixPreset,
+    variant,
+  };
+  return { request, payload, outputDurationMs: remotion.outputDurationMs, errors };
+};
+
+/** Return the exact schema-v1 wire body; arbitrary renderer fields are discarded. */
+export const buildDetailedTestVideoPayload = (value: unknown): DetailedTestVideoPayload => {
+  const normalized = normalizeDetailedTestVideoInput(value);
+  if (normalized.errors.length > 0) throw new TypeError(normalized.errors[0]);
+  return normalized.payload;
+};
+
+const canonicalJson = (value: unknown): string => {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean' || typeof value === 'number') {
+    const encoded = JSON.stringify(value);
+    if (encoded === undefined) throw new TypeError('detailed test video payload is not JSON serializable');
+    return encoded;
+  }
+  if (Array.isArray(value)) return `[${value.map((item) => canonicalJson(item)).join(',')}]`;
+  if (typeof value !== 'object') throw new TypeError('detailed test video payload is not JSON serializable');
+  const record = value as Record<string, unknown>;
+  return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`).join(',')}}`;
+};
+
+/** Mirror the backend canonical payload digest without exposing narration text in Job audit records. */
+export const detailedTestVideoRequestPayloadSha256 = async (value: unknown): Promise<string> => {
+  const subtle = globalThis.crypto?.subtle;
+  if (!subtle) throw new Error('Web Crypto is unavailable');
+  const payload = buildDetailedTestVideoPayload(value);
+  const backendNormalizedPayload = {
+    ...payload,
+    voice: payload.voice ?? null,
+    pronunciations: payload.pronunciations ?? [],
+  };
+  const digest = new Uint8Array(await subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(canonicalJson(backendNormalizedPayload)),
+  ));
+  return [...digest].map((byte) => byte.toString(16).padStart(2, '0')).join('').toUpperCase();
+};
+
+export interface DetailedTestVideoSubmissionGuard {
+  productionId: string;
+  requestPayloadSha256: string;
+  knownJobIds: ReadonlySet<string>;
+}
+
+export const createDetailedTestVideoSubmissionGuard = async (
+  productionId: string,
+  request: unknown,
+  knownJobs: readonly Job[],
+): Promise<DetailedTestVideoSubmissionGuard> => {
+  if (!productionId || /[\u0000-\u001f\u007f]/.test(productionId)) {
+    throw new TypeError('production ID is invalid');
+  }
+  return {
+    productionId,
+    requestPayloadSha256: await detailedTestVideoRequestPayloadSha256(request),
+    knownJobIds: new Set(knownJobs.map((job) => job.id)),
+  };
+};
+
+export const ANNOUNCEMENT_VIDEO_SCHEMA_VERSION = 1 as const;
+export const ANNOUNCEMENT_VIDEO_TEMPLATE_PRESET = 'shorts_ja_15s_v1' as const;
+export const ANNOUNCEMENT_VIDEO_ROLES = ['hook', 'message', 'cta'] as const;
+export const ANNOUNCEMENT_VIDEO_TRANSITION_MS = 250 as const;
+
+const ANNOUNCEMENT_RECIPE_ID = /^announcement_[0-9a-f]{32}$/;
+const ANNOUNCEMENT_ARTIFACT_ID = /^art_[0-9a-f]{32}$/;
+
+export interface AnnouncementVideoRecipePayload {
+  schema_version: typeof ANNOUNCEMENT_VIDEO_SCHEMA_VERSION;
+  name: string;
+  template_preset: typeof ANNOUNCEMENT_VIDEO_TEMPLATE_PRESET;
+  scenes: Array<{
+    role: AnnouncementSceneRole;
+    video_artifact_id: string;
+    start_ms: number;
+    end_ms: number;
+    volume_percent: number;
+    headline: string;
+    narration: string;
+  }>;
+  voice: string | null;
+  rate: number;
+  pronunciations: Array<{ source: string; target: string }>;
+  include_captioned: boolean;
+  caption_style_preset: LocalAssemblyCaptionStylePreset;
+  audio_mix_preset: LocalAssemblyAudioMixPreset;
+  variant: LocalQcVariant;
+}
+
+export interface NormalizedAnnouncementVideoInput {
+  recipe: AnnouncementVideoRecipe;
+  payload: AnnouncementVideoRecipePayload;
+  detailedRequest: DetailedTestVideoRequest;
+  outputDurationMs: number;
+  errors: string[];
+}
+
+const announcementDisplayUnits = (value: string): number => [...value].reduce((total, character) => {
+  const point = character.codePointAt(0) ?? 0;
+  return total + ((point >= 0x20 && point <= 0x7e) || (point >= 0xff61 && point <= 0xff9f) ? 1 : 2);
+}, 0);
+
+export const announcementHeadlineErrors = (headline: string, label: string): string[] => {
+  const errors: string[] = [];
+  const normalized = headline.replaceAll('\r\n', '\n').replaceAll('\r', '\n').trim();
+  const lines = normalized.split('\n');
+  if (!normalized) errors.push(`${label}の大見出しを入力してください。`);
+  if (normalized.length > 80) errors.push(`${label}の大見出しは80文字以内にしてください。`);
+  if (lines.length > 2 || lines.some((line) => !line.trim())) errors.push(`${label}の大見出しは空行なしの2行以内にしてください。`);
+  if ([...normalized].some((character) => DETAILED_TEST_VIDEO_FORBIDDEN_CAPTION_CHARACTERS.has(character))) {
+    errors.push(`${label}の大見出しに表示できない不可視文字が含まれています。`);
+  }
+  if (lines.some((line) => announcementDisplayUnits(line) > 20)) {
+    errors.push(`${label}の大見出しは1行あたり表示幅20以内にしてください。`);
+  }
+  if (lines.some((line) => (line.match(DETAILED_TEST_VIDEO_ASCII_TOKEN) ?? []).some((token) => token.length > 20))) {
+    errors.push(`${label}の半角英数字は20文字以内で区切ってください。`);
+  }
+  return errors;
+};
+
+const announcementRoleLabel = (role: AnnouncementSceneRole): string => ({
+  hook: 'HOOK',
+  message: 'MESSAGE',
+  cta: 'CTA',
+})[role];
+
+/** Normalize and compile the product template without exposing renderer knobs. */
+export const normalizeAnnouncementVideoInput = (value: unknown): NormalizedAnnouncementVideoInput => {
+  const source = asRecord(value);
+  const rawScenes = list(pick(source, ['scenes']));
+  const errors: string[] = [];
+  const scenes: AnnouncementVideoScene[] = ANNOUNCEMENT_VIDEO_ROLES.map((expectedRole, index) => {
+    const raw = asRecord(rawScenes[index]);
+    const roleValue = text(pick(raw, ['role']), '');
+    const label = announcementRoleLabel(expectedRole);
+    if (roleValue !== expectedRole) errors.push(`${label}のroleが不正です。HOOK → MESSAGE → CTAの順序は固定です。`);
+    const artifactId = text(pick(raw, ['videoArtifactId', 'video_artifact_id']), '').trim();
+    const startMs = number(pickIncludingNull(raw, ['startMs', 'start_ms']));
+    const endMs = number(pickIncludingNull(raw, ['endMs', 'end_ms']));
+    const volumePercent = number(pickIncludingNull(raw, ['volumePercent', 'volume_percent']));
+    const headline = text(pick(raw, ['headline']), '').replaceAll('\r\n', '\n').replaceAll('\r', '\n').trim();
+    const narration = text(pick(raw, ['narration']), '').trim();
+    if (!ANNOUNCEMENT_ARTIFACT_ID.test(artifactId)) errors.push(`${label}の動画artifactを選択してください。`);
+    if (startMs === undefined || !Number.isInteger(startMs) || startMs < 0 || startMs > 60_000) errors.push(`${label}の開始は0〜60000msの整数で指定してください。`);
+    if (endMs === undefined || !Number.isInteger(endMs) || endMs < 0 || endMs > 60_000) errors.push(`${label}の終了は0〜60000msの整数で指定してください。`);
+    const duration = (endMs ?? 0) - (startMs ?? 0);
+    if (duration < 1_000 || duration > 10_000) errors.push(`${label}の素材尺は1〜10秒にしてください。`);
+    if (volumePercent === undefined || !Number.isInteger(volumePercent) || volumePercent < 0 || volumePercent > 100) errors.push(`${label}の素材音量は0〜100%の整数で指定してください。`);
+    errors.push(...announcementHeadlineErrors(headline, label));
+    if (!narration) errors.push(`${label}のナレーションを入力してください。`);
+    if (narration.length > 200 || /[\r\n]/.test(narration)) errors.push(`${label}のナレーションは改行なしの200文字以内にしてください。`);
+    return {
+      role: expectedRole,
+      videoArtifactId: artifactId,
+      startMs: startMs ?? 0,
+      endMs: endMs ?? 0,
+      volumePercent: volumePercent ?? 0,
+      headline,
+      narration,
+    };
+  });
+  if (rawScenes.length !== 3) errors.push('告知動画はHOOK・MESSAGE・CTAの3シーン固定です。');
+
+  const schemaValue = pickIncludingNull(source, ['schemaVersion', 'schema_version']);
+  if (schemaValue !== ANNOUNCEMENT_VIDEO_SCHEMA_VERSION) errors.push('schema_versionは1を指定してください。');
+  const templateValue = pick(source, ['templatePreset', 'template_preset']);
+  if (templateValue !== ANNOUNCEMENT_VIDEO_TEMPLATE_PRESET) errors.push('template_presetはshorts_ja_15s_v1を指定してください。');
+  const name = text(pick(source, ['name']), '').trim();
+  if (!name || name.length > 120 || /[\r\n]/.test(name)) errors.push('recipe名は改行なしの1〜120文字で入力してください。');
+  const rateValue = pickIncludingNull(source, ['rate']);
+  const rate = rateValue === undefined || rateValue === '' ? 0 : number(rateValue);
+  if (rate === undefined || !Number.isInteger(rate) || rate < -10 || rate > 10) errors.push('読み上げ速度は整数 -10〜10 の範囲で指定してください。');
+  const voiceValue = pickIncludingNull(source, ['voice']);
+  const voice = voiceValue === undefined || voiceValue === null || voiceValue === '' ? undefined : text(voiceValue).trim();
+  if (voiceValue !== undefined && voiceValue !== null && typeof voiceValue !== 'string') errors.push('音声名は文字列で指定してください。');
+  if (voice && voice.length > 128) errors.push('音声名は128文字以内にしてください。');
+  const pronunciationValue = pickIncludingNull(source, ['pronunciations']);
+  if (!Array.isArray(pronunciationValue)) errors.push('発音置換は配列で指定してください。');
+  const rawPronunciations = list(pronunciationValue);
+  const pronunciationResult = localPipelinePronunciations({
+    ...source,
+    pronunciations: rawPronunciations.filter((item) => {
+      const record = asRecord(item);
+      return Boolean(text(pick(record, ['source']), '').trim() || text(pick(record, ['target']), '').trim());
+    }),
+  });
+  errors.push(...pronunciationResult.errors);
+  const pronunciations = pronunciationResult.pronunciations ?? [];
+  const includeCaptionedValue = pickIncludingNull(source, ['includeCaptioned', 'include_captioned']);
+  const includeCaptioned = includeCaptionedValue === true;
+  if (typeof includeCaptionedValue !== 'boolean') errors.push('字幕付き版の指定はbooleanで指定してください。');
+  const captionStyleValue = pick(source, ['captionStylePreset', 'caption_style_preset']);
+  const captionStylePreset = isLocalAssemblyCaptionStylePreset(captionStyleValue)
+    ? captionStyleValue
+    : includeCaptioned ? RECOMMENDED_LOCAL_ASSEMBLY_CAPTION_STYLE_PRESET : DEFAULT_LOCAL_ASSEMBLY_CAPTION_STYLE_PRESET;
+  if (captionStyleValue !== undefined && !isLocalAssemblyCaptionStylePreset(captionStyleValue)) errors.push('字幕プリセットが不正です。');
+  const audioMixValue = pick(source, ['audioMixPreset', 'audio_mix_preset']);
+  const audioMixPreset = isLocalAssemblyAudioMixPreset(audioMixValue) ? audioMixValue : DEFAULT_LOCAL_ASSEMBLY_AUDIO_MIX_PRESET;
+  if (audioMixValue !== undefined && !isLocalAssemblyAudioMixPreset(audioMixValue)) errors.push('音声mixプリセットが不正です。');
+  const variantValue = pick(source, ['variant']);
+  const variant: LocalQcVariant = variantValue === 'clean' || variantValue === 'captioned' ? variantValue : includeCaptioned ? 'captioned' : 'clean';
+  if (variantValue !== 'clean' && variantValue !== 'captioned') errors.push('QC対象が不正です。');
+  if (!includeCaptioned && captionStylePreset !== 'studio_default_v1') errors.push('字幕なしでは標準字幕presetを指定してください。');
+  if (!includeCaptioned && variant === 'captioned') errors.push('字幕なしではQC対象をcleanにしてください。');
+
+  const clips = scenes.map((scene, index): LocalRemotionTimelineClip => ({
+    videoArtifactId: scene.videoArtifactId,
+    startMs: scene.startMs,
+    endMs: scene.endMs,
+    volumePercent: scene.volumePercent,
+    transitionToNext: index === 2 ? null : { type: 'fade', durationMs: ANNOUNCEMENT_VIDEO_TRANSITION_MS },
+    overlay: {
+      text: scene.headline,
+      startMs: 125,
+      endMs: Math.max(126, scene.endMs - scene.startMs - 125),
+      position: scene.role === 'message' ? 'top' : 'center',
+      stylePreset: 'shorts_ja_large_v1',
+    },
+  }));
+  const detailed = normalizeDetailedTestVideoInput({
+    schemaVersion: 1,
+    clips,
+    segments: scenes.map((scene) => ({ text: scene.narration })),
+    voice,
+    rate: rate ?? 0,
+    pronunciations,
+    includeCaptioned,
+    captionStylePreset,
+    audioMixPreset,
+    variant,
+  });
+  errors.push(...detailed.errors);
+  if (detailed.outputDurationMs < 10_000 || detailed.outputDurationMs > 20_000) errors.push('完成尺は10〜20秒にしてください（推奨15秒）。');
+
+  const recipe: AnnouncementVideoRecipe = {
+    schemaVersion: ANNOUNCEMENT_VIDEO_SCHEMA_VERSION,
+    name,
+    templatePreset: ANNOUNCEMENT_VIDEO_TEMPLATE_PRESET,
+    scenes,
+    ...(voice ? { voice } : {}),
+    rate: rate ?? 0,
+    pronunciations,
+    includeCaptioned,
+    captionStylePreset,
+    audioMixPreset,
+    variant,
+  };
+  const payload: AnnouncementVideoRecipePayload = {
+    schema_version: ANNOUNCEMENT_VIDEO_SCHEMA_VERSION,
+    name,
+    template_preset: ANNOUNCEMENT_VIDEO_TEMPLATE_PRESET,
+    scenes: scenes.map((scene) => ({
+      role: scene.role,
+      video_artifact_id: scene.videoArtifactId,
+      start_ms: scene.startMs,
+      end_ms: scene.endMs,
+      volume_percent: scene.volumePercent,
+      headline: scene.headline,
+      narration: scene.narration,
+    })),
+    voice: voice ?? null,
+    rate: rate ?? 0,
+    pronunciations,
+    include_captioned: includeCaptioned,
+    caption_style_preset: captionStylePreset,
+    audio_mix_preset: audioMixPreset,
+    variant,
+  };
+  return { recipe, payload, detailedRequest: detailed.request, outputDurationMs: detailed.outputDurationMs, errors: [...new Set(errors)] };
+};
+
+export const buildAnnouncementVideoRecipePayload = (value: unknown): AnnouncementVideoRecipePayload => {
+  const normalized = normalizeAnnouncementVideoInput(value);
+  if (normalized.errors.length > 0) throw new TypeError(normalized.errors[0]);
+  return normalized.payload;
+};
+
+export const buildAnnouncementSavePayload = (expectedRevision: number, recipe: unknown) => ({
+  schema_version: ANNOUNCEMENT_VIDEO_SCHEMA_VERSION,
+  expected_revision: expectedRevision,
+  recipe: buildAnnouncementVideoRecipePayload(recipe),
+});
+
+export const buildAnnouncementDuplicatePayload = (sourceRevision: number, newRecipeId: string, name: string) => {
+  if (!Number.isInteger(sourceRevision) || sourceRevision < 1) throw new TypeError('source_revisionが不正です。');
+  if (!ANNOUNCEMENT_RECIPE_ID.test(newRecipeId)) throw new TypeError('new_recipe_idが不正です。');
+  const normalizedName = name.trim();
+  if (!normalizedName || normalizedName.length > 120 || /[\r\n]/.test(normalizedName)) throw new TypeError('recipe名が不正です。');
+  return { schema_version: 1 as const, source_revision: sourceRevision, new_recipe_id: newRecipeId, name: normalizedName };
+};
+
+export const buildAnnouncementExecutePayload = (revision: number) => {
+  if (!Number.isInteger(revision) || revision < 1) throw new TypeError('revisionが不正です。');
+  return { schema_version: 1 as const, revision };
+};
+
+export const normalizeAnnouncementRecipeRecord = (value: unknown): AnnouncementRecipeRecord => {
+  const record = asRecord(value);
+  const recipeValue = asRecord(pick(record, ['recipe']));
+  const normalized = normalizeAnnouncementVideoInput(recipeValue);
+  return {
+    id: text(pick(record, ['id', 'recipe_id'])),
+    versionId: text(pick(record, ['version_id', 'recipe_version_id'])),
+    productionId: text(pick(record, ['production_id', 'productionId'])),
+    revision: number(pick(record, ['revision'])) ?? 0,
+    parentVersionId: text(pick(record, ['parent_version_id', 'parentVersionId']), '') || undefined,
+    cloneSourceVersionId: text(pick(record, ['clone_source_version_id', 'cloneSourceVersionId']), '') || undefined,
+    digest: text(pick(record, ['digest', 'recipe_digest'])),
+    createdAt: text(pick(record, ['created_at', 'createdAt']), '') || undefined,
+    versionCount: number(pick(record, ['version_count', 'versionCount'])) ?? 1,
+    recipe: normalized.recipe,
+    raw: record,
+  };
+};
+
+export const normalizeAnnouncementExecutionRecord = (value: unknown): AnnouncementExecutionRecord => {
+  const record = asRecord(value);
+  return {
+    recipeId: text(pick(record, ['recipe_id', 'recipeId'])),
+    recipeVersionId: text(pick(record, ['recipe_version_id', 'recipeVersionId'])),
+    recipeRevision: number(pick(record, ['recipe_revision', 'recipeRevision'])) ?? 0,
+    recipeDigest: text(pick(record, ['recipe_digest', 'recipeDigest'])),
+    jobId: text(pick(record, ['job_id', 'jobId'])),
+    runId: text(pick(record, ['run_id', 'runId'])),
+    revisionId: text(pick(record, ['revision_id', 'revisionId'])),
+    requestKey: text(pick(record, ['request_key', 'requestKey'])),
+    deduplicated: boolean(pick(record, ['deduplicated']), false),
+    createdAt: text(pick(record, ['created_at', 'createdAt']), '') || undefined,
+    raw: record,
+  };
+};
+
 export const reorderTimelineClips = <T>(clips: readonly T[], fromIndex: number, toIndex: number): T[] => {
   const output = [...clips];
   if (!Number.isInteger(fromIndex) || !Number.isInteger(toIndex) || fromIndex < 0 || fromIndex >= output.length || toIndex < 0 || toIndex >= output.length || fromIndex === toIndex) return output;
@@ -1595,12 +2078,72 @@ export const isLocalPipelineExecutionActive = (value: unknown): boolean => {
   if (isLocalComfyUiExecutionActive(value)) return true;
   const record = asRecord(value);
   const result = asRecord(pick(record, ['result', 'job_result', 'output']));
-  const jobs = pick(record, ['jobs', 'stage_jobs', 'child_jobs']) ?? pick(result, ['jobs', 'stage_jobs', 'child_jobs']);
+  const jobs = pick(record, ['jobs', 'children', 'stage_jobs', 'child_jobs'])
+    ?? pick(result, ['jobs', 'children', 'stage_jobs', 'child_jobs']);
   return Object.values(asRecord(jobs)).some((item) => isLocalComfyUiExecutionActive(item));
 };
 
 export const isLocalPipelineExecutionActiveAcross = (values: readonly unknown[]): boolean =>
   values.some((value) => isLocalPipelineExecutionActive(value));
+
+/** Match only the top-level Detailed Test Video v1 job for one production. */
+export const isDetailedTestVideoJobForSelection = (
+  value: unknown,
+  selection: { productionId?: string; jobId?: string },
+): boolean => {
+  const record = asRecord(value);
+  const result = asRecord(pick(record, ['result', 'job_result', 'output']));
+  const payload = asRecord(pick(record, ['payload', 'request', 'meta']));
+  const field = (keys: string[]): unknown => pick(record, keys) ?? pick(payload, keys);
+  const jobId = text(field(['id', 'job_id', 'jobId']), '');
+  const productionId = text(field(['production_id', 'productionId']) ?? pick(result, ['production_id', 'productionId']), '');
+  const type = normalizeStudioStageName(field(['type', 'kind', 'name']));
+  return Boolean(
+    type === 'detailed_test_video'
+      && (!selection.jobId || jobId === selection.jobId)
+      && (!selection.productionId || productionId === selection.productionId),
+  );
+};
+
+const DETAILED_TEST_VIDEO_SHA256 = /^[0-9A-F]{64}$/;
+const DETAILED_TEST_VIDEO_ANNOUNCEMENT_ALIGNMENT_FIELDS = [
+  'narration_alignment_policy',
+  'narration_timing_policy',
+  'narration_segment_start_ms',
+] as const;
+
+/**
+ * A fresh Job can resolve an ambiguous direct Detailed POST only when its
+ * canonical payload digest matches and no announcement-only timing capability
+ * is present. Production plus a newly observed Job ID is not sufficient.
+ */
+export const detailedTestVideoJobMatchesSubmissionGuard = (
+  job: Job,
+  guard: DetailedTestVideoSubmissionGuard,
+): boolean => {
+  const payload = asRecord(job.raw.payload);
+  const requestPayloadSha256 = text(pick(payload, ['request_payload_sha256', 'requestPayloadSha256']), '');
+  const requestKey = text(pick(payload, ['request_key', 'requestKey']), '');
+  const productionId = text(pick(payload, ['production_id', 'productionId']), '');
+  const profile = normalizeStudioStageName(pick(payload, ['execution_profile', 'executionProfile']));
+  const stage = normalizeStudioStageName(pick(payload, ['stage']));
+  const hasAnnouncementAlignment = DETAILED_TEST_VIDEO_ANNOUNCEMENT_ALIGNMENT_FIELDS.some((key) => (
+    Object.prototype.hasOwnProperty.call(payload, key)
+  ));
+  return !guard.knownJobIds.has(job.id)
+    && job.type === 'detailed_test_video'
+    && job.productionId === guard.productionId
+    && productionId === guard.productionId
+    && profile === 'local_sapi'
+    && stage === 'detailed_test_video'
+    && DETAILED_TEST_VIDEO_SHA256.test(requestKey)
+    && DETAILED_TEST_VIDEO_SHA256.test(requestPayloadSha256)
+    && requestPayloadSha256 === guard.requestPayloadSha256
+    && !hasAnnouncementAlignment;
+};
+
+export const isDetailedTestVideoExecutionActive = (value: unknown): boolean =>
+  isLocalPipelineExecutionActive(value);
 
 const rawAttemptArtifacts = (value: unknown): unknown[] => {
   const record = asRecord(value);
@@ -2194,6 +2737,9 @@ const normalizeLocalPipelineStageResult = (value: unknown, fallbackStage: string
     jobId: text(pick(record, ['job_id', 'jobId']) ?? pick(result, ['job_id', 'jobId']), '') || undefined,
     stageAttemptId: text(pick(record, ['stage_attempt_id', 'stageAttemptId']) ?? pick(result, ['stage_attempt_id', 'stageAttemptId']), '') || undefined,
     attempt: number(pick(record, ['attempt', 'attempt_number', 'try']) ?? pick(result, ['attempt', 'attempt_number', 'try'])),
+    cacheHit: pick(record, ['cache_hit', 'cacheHit', 'cached']) === undefined
+      ? (pick(result, ['cache_hit', 'cacheHit', 'cached']) === undefined ? undefined : boolean(pick(result, ['cache_hit', 'cacheHit', 'cached'])))
+      : boolean(pick(record, ['cache_hit', 'cacheHit', 'cached'])),
     progress: number(pick(record, ['progress', 'percent', 'percentage']) ?? pick(result, ['progress', 'percent', 'percentage'])),
     message: text(pick(record, ['message', 'detail', 'error']) ?? pick(result, ['message', 'detail', 'error']), '') || undefined,
     artifacts: (artifactValues.length > 0 ? artifactValues : resultArtifactValues).map(normalizeArtifact),
@@ -2258,7 +2804,8 @@ const normalizeJobResult = (value: unknown, outerRecord: UnknownRecord = {}): Jo
   const error = normalizeError(record, normalizeError(result).message ?? '');
   const directRecord = { ...outerRecord, ...record };
   const comfyMetadata = normalizeLocalComfyUiMetadata(directRecord, result);
-  const pipelineJobsValue = pick(record, ['jobs', 'stage_jobs', 'child_jobs']) ?? pick(result, ['jobs', 'stage_jobs', 'child_jobs']);
+  const pipelineJobsValue = pick(record, ['jobs', 'children', 'stage_jobs', 'child_jobs'])
+    ?? pick(result, ['jobs', 'children', 'stage_jobs', 'child_jobs']);
   const pipelineJobs = pipelineJobsValue === undefined ? undefined : normalizeLocalPipelineJobs(pipelineJobsValue);
   return {
     runId: text(pick(directRecord, ['run_id', 'runId']) ?? pick(result, ['run_id', 'runId']), '') || undefined,
@@ -2294,7 +2841,7 @@ export const normalizeJob = (value: unknown, index = 0): Job => {
   const payload = asRecord(pick(record, ['payload', 'request', 'meta']));
   const field = (keys: string[]): unknown => pick(record, keys) ?? pick(payload, keys);
   const directResult = pick(record, ['result', 'job_result', 'output']) ?? pick(root, ['result', 'job_result', 'output']);
-  const hasInlinePipelineResult = ['artifacts', 'jobs', 'technical_verdict', 'technicalVerdict', 'revision_id', 'revisionId']
+  const hasInlinePipelineResult = ['artifacts', 'jobs', 'children', 'technical_verdict', 'technicalVerdict', 'revision_id', 'revisionId']
     .some((key) => record[key] !== undefined);
   const resultValue = directResult ?? (hasInlinePipelineResult ? record : undefined);
   const result = normalizeJobResult(resultValue, record);
@@ -2455,8 +3002,8 @@ const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
   return (await response.json()) as T;
 };
 
-const post = <T>(path: string, body?: unknown): Promise<T> =>
-  request<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) });
+const post = <T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> =>
+  request<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body), signal });
 
 export const serializeLocalComfyUiPayload = (payload: LocalComfyUiPayload): string => {
   // JSON.stringify rounds numbers above Number.MAX_SAFE_INTEGER. The backend
@@ -2489,8 +3036,8 @@ export const api = {
     return items(value, ['items', 'productions', 'data']).map(normalizeProduction);
   },
 
-  async production(id: string): Promise<ProductionDetail> {
-    const value = await request<unknown>(`/api/productions/${encodeURIComponent(id)}`);
+  async production(id: string, signal?: AbortSignal): Promise<ProductionDetail> {
+    const value = await request<unknown>(`/api/productions/${encodeURIComponent(id)}`, { signal });
     const root = asRecord(value);
     const productionRecord = asRecord(pick(root, ['production', 'item', 'data']));
     const source = Object.keys(productionRecord).length > 0 ? productionRecord : root;
@@ -2522,13 +3069,21 @@ export const api = {
       approvals,
       costs,
       providerTasks: normalizeProviderTasks(section('provider_tasks') ?? section('providerTasks')),
+      announcementRecipes: items(section('announcement_recipes') ?? section('announcementRecipes'), ['items', 'recipes']).map(normalizeAnnouncementRecipeRecord),
+      announcementRecipeVersions: items(section('announcement_recipe_versions') ?? section('announcementRecipeVersions'), ['items', 'recipes']).map(normalizeAnnouncementRecipeRecord),
+      announcementExecutions: items(section('announcement_executions') ?? section('announcementExecutions'), ['items', 'executions']).map(normalizeAnnouncementExecutionRecord),
       specification: asRecord(pick(root, ['specification', 'spec', 'production_spec'])),
     };
   },
 
-  async jobs(): Promise<Job[]> {
-    const value = await request<unknown>('/api/jobs');
+  async jobs(signal?: AbortSignal): Promise<Job[]> {
+    const value = await request<unknown>('/api/jobs', { signal });
     return items(value, ['items', 'jobs', 'data']).map(normalizeJob);
+  },
+
+  async job(jobId: string, signal?: AbortSignal): Promise<Job> {
+    const value = await request<unknown>(`/api/jobs/${encodeURIComponent(jobId)}`, { signal });
+    return normalizeJob(value);
   },
 
   async providers(): Promise<ProviderStatus[]> {
@@ -2671,6 +3226,68 @@ export const api = {
         method: 'POST',
         body: serializeLocalPipelinePayload(payload),
       },
+    );
+    return normalizeJob(value);
+  },
+
+  async executeDetailedTestVideo(productionId: string, body: DetailedTestVideoRequest): Promise<Job> {
+    const value = await post<unknown>(
+      `/api/productions/${encodeURIComponent(productionId)}/execute-detailed-test-video`,
+      buildDetailedTestVideoPayload(body),
+    );
+    return normalizeJob(value);
+  },
+
+  async announcementRecipes(productionId: string): Promise<{
+    recipes: AnnouncementRecipeRecord[];
+    recipeVersions: AnnouncementRecipeRecord[];
+    executions: AnnouncementExecutionRecord[];
+  }> {
+    const value = await request<unknown>(`/api/productions/${encodeURIComponent(productionId)}/announcement-recipes`);
+    const record = asRecord(value);
+    return {
+      recipes: items(pick(record, ['recipes']), ['items', 'recipes']).map(normalizeAnnouncementRecipeRecord),
+      recipeVersions: items(pick(record, ['recipe_versions', 'recipeVersions']), ['items', 'recipes']).map(normalizeAnnouncementRecipeRecord),
+      executions: items(pick(record, ['executions']), ['items', 'executions']).map(normalizeAnnouncementExecutionRecord),
+    };
+  },
+
+  async saveAnnouncementRecipe(
+    productionId: string,
+    recipeId: string,
+    expectedRevision: number,
+    recipe: AnnouncementVideoRecipe,
+    signal?: AbortSignal,
+  ): Promise<AnnouncementRecipeRecord> {
+    const value = await post<unknown>(
+      `/api/productions/${encodeURIComponent(productionId)}/announcement-recipes/${encodeURIComponent(recipeId)}/save`,
+      buildAnnouncementSavePayload(expectedRevision, recipe),
+      signal,
+    );
+    return normalizeAnnouncementRecipeRecord(value);
+  },
+
+  async duplicateAnnouncementRecipe(
+    productionId: string,
+    recipeId: string,
+    sourceRevision: number,
+    newRecipeId: string,
+    name: string,
+    signal?: AbortSignal,
+  ): Promise<AnnouncementRecipeRecord> {
+    const value = await post<unknown>(
+      `/api/productions/${encodeURIComponent(productionId)}/announcement-recipes/${encodeURIComponent(recipeId)}/duplicate`,
+      buildAnnouncementDuplicatePayload(sourceRevision, newRecipeId, name),
+      signal,
+    );
+    return normalizeAnnouncementRecipeRecord(value);
+  },
+
+  async executeAnnouncementRecipe(productionId: string, recipeId: string, revision: number, signal?: AbortSignal): Promise<Job> {
+    const value = await post<unknown>(
+      `/api/productions/${encodeURIComponent(productionId)}/announcement-recipes/${encodeURIComponent(recipeId)}/execute`,
+      buildAnnouncementExecutePayload(revision),
+      signal,
     );
     return normalizeJob(value);
   },

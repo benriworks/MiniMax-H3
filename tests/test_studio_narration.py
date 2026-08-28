@@ -21,6 +21,12 @@ from tools.studio.narration import (
 )
 from tools.studio import narration as narration_module
 from tools.studio.jobs import JobCancelled, JobExecutionContext
+from tools.studio.execution import (
+    LocalNarrationValidationError,
+    audit_payload,
+    narration_cache_key,
+    validate_local_narration_payload,
+)
 from tools.studio.security import SecurityError
 
 
@@ -115,6 +121,72 @@ class NarrationTests(unittest.TestCase):
         self.assertEqual(manifest["manifest_sha256"], hashlib.sha256(
             (json.dumps({key: value for key, value in manifest.items() if key != "manifest_sha256"}, ensure_ascii=False, sort_keys=True, separators=(",", ":"))).encode("utf-8")
         ).hexdigest().upper())
+
+    def test_private_schedule_aligns_wav_and_captions_and_changes_cache_identity(self) -> None:
+        payload = {
+            "segments": [
+                {"text": "フック"},
+                {"text": "メッセージ"},
+                {"text": "案内"},
+            ],
+            "rate": 0,
+        }
+        schedule = (0, 1_000, 2_000)
+        fake = FakeSynthesizer([500, 500, 500])
+        result = generate_local_narration(
+            self.workspace,
+            production_id="PROD_TEST",
+            run_id="RUN_SCHEDULED",
+            payload=payload,
+            segment_start_ms=schedule,
+            synthesizer=fake,
+        )
+        normalized = validate_local_narration_payload(payload)
+        self.assertEqual(
+            result["cache_key"],
+            narration_cache_key(normalized, segment_start_ms=schedule),
+        )
+        self.assertNotEqual(result["cache_key"], narration_cache_key(normalized))
+        self.assertEqual(result["duration_ms"], 2_500)
+        artifact_paths = {
+            artifact["name"]: self.workspace / artifact["path"]
+            for artifact in result["artifacts"]
+        }
+        with wave.open(str(artifact_paths["narration.wav"]), "rb") as handle:
+            self.assertEqual(handle.getnframes(), 2_500)
+        captions = artifact_paths["captions.srt"].read_text(encoding="utf-8")
+        self.assertIn("00:00:01,000 --> 00:00:01,500", captions)
+        self.assertIn("00:00:02,000 --> 00:00:02,500", captions)
+        timings = json.loads(
+            artifact_paths["timings.json"].read_text(encoding="utf-8")
+        )
+        self.assertEqual(
+            [item["start_ms"] for item in timings["segments"]],
+            [0, 1_000, 2_000],
+        )
+        self.assertEqual(
+            timings["timing_policy"]["segment_start_ms"],
+            [0, 1_000, 2_000],
+        )
+        audit = audit_payload(normalized, segment_start_ms=schedule)
+        self.assertEqual(audit["narration_segment_start_ms"], [0, 1_000, 2_000])
+
+        with self.assertRaisesRegex(
+            NarrationSynthesisError, "overlaps the next scheduled scene"
+        ):
+            generate_local_narration(
+                self.workspace,
+                production_id="PROD_TEST",
+                run_id="RUN_OVERLAP",
+                payload=payload,
+                segment_start_ms=(0, 400, 2_000),
+                synthesizer=FakeSynthesizer([500, 500, 500]),
+            )
+
+        with self.assertRaises(LocalNarrationValidationError):
+            validate_local_narration_payload(
+                {**payload, "segment_start_ms": list(schedule)}
+            )
 
     def test_cache_hit_revalidates_all_hashes(self) -> None:
         first_fake = FakeSynthesizer()

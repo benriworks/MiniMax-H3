@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Photorealistic live-action 9:16 corporate campaign in the bright contemporary office established by <Picture 1>. Preserve exactly the single adult Japanese woman's facial identity, short softly waved medium-brown bob, natural makeup, pale pink-beige ribbed top, light beige tailored pantsuit, gold hoop earrings, skin tone, body proportions, folder, lighting, and background. She remains in a chest-up composition slightly right of center with clean negative space to the left, her lips naturally closed. At first she looks slightly to the side with a calm, attentive expression. From 00:00.400 to 00:03.400, she slowly shifts only her eyes and then her head toward the lens, ending in direct eye contact, with one subtle eyebrow lift. From 00:00.200 to 00:04.700, the camera performs one very slow small-amplitude push-in while the horizon, focus, exposure, office geometry, and framing remain stable. From 00:03.400 to 00:05.000, she holds the direct attentive gaze and settles naturally. No speech, lip movement, cut, identity change, wardrobe change, exaggerated expression, large body movement, generated text, readable document, logo, or watermark.
+
+overall_soundscape: Very quiet modern office room tone with soft HVAC and barely audible natural fabric movement. No voice or vocalization occurs.
+
+non_diegetic_music: N/A

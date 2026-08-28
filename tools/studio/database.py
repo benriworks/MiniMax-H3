@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import base64
 import json
 import os
 import re
@@ -24,8 +25,9 @@ from .security import (
 )
 
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 MAX_EVENT_LINE_BYTES = 2 * 1024 * 1024
+MAX_ANNOUNCEMENT_RECIPE_BYTES = 256 * 1024
 _RUN_EXECUTION_PROFILES = {
     "external",
     "local_sapi",
@@ -814,7 +816,7 @@ class StudioDatabase:
             )
             # SQLite's CREATE TABLE IF NOT EXISTS does not add columns to an
             # existing database. Keep every incremental change and the schema
-            # version write in one transaction so a failed v6 migration is
+            # version write in one transaction so a failed migration is
             # retried instead of being advertised as complete.
             connection.execute("BEGIN IMMEDIATE")
             try:
@@ -948,6 +950,30 @@ class StudioDatabase:
                 connection.execute(
                     "CREATE INDEX IF NOT EXISTS local_pipeline_claims_state_idx "
                     "ON local_pipeline_claims(state, updated_at, run_id)"
+                )
+
+                # v7 adds a content-addressed claim for the local_sapi detailed
+                # test-video top job. The request body itself is intentionally
+                # not persisted here; only its canonical digest and immutable
+                # run/revision provenance cross this boundary.
+                connection.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS detailed_test_video_claims (
+                        production_id TEXT NOT NULL REFERENCES productions(id),
+                        request_key TEXT NOT NULL CHECK(length(request_key)=64),
+                        run_id TEXT NOT NULL UNIQUE REFERENCES runs(id),
+                        revision_id TEXT NOT NULL REFERENCES revisions(id),
+                        active_job_id TEXT REFERENCES jobs(id),
+                        created_at TEXT NOT NULL,
+                        updated_at TEXT NOT NULL,
+                        PRIMARY KEY(production_id, request_key)
+                    )
+                    """
+                )
+                connection.execute(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS detailed_test_video_active_job_uq "
+                    "ON detailed_test_video_claims(active_job_id) "
+                    "WHERE active_job_id IS NOT NULL"
                 )
 
                 connection.execute(
@@ -1681,6 +1707,584 @@ class StudioDatabase:
         with self.transaction() as connection:
             return self._append_event(connection, scope_type, scope_id, event_type, payload)
 
+    @staticmethod
+    def _announcement_recipe_record(row: sqlite3.Row) -> dict[str, Any]:
+        """Decode and verify one exact recipe carried by an append-only event."""
+
+        payload = _loads(row["payload_json"], {})
+        expected_keys = {
+            "schema_version",
+            "recipe_id",
+            "recipe_version_id",
+            "revision",
+            "parent_version_id",
+            "clone_source_version_id",
+            "recipe_digest",
+            "recipe_bytes",
+            "recipe_base64",
+            "summary",
+        }
+        if not isinstance(payload, dict) or set(payload) != expected_keys:
+            raise sqlite3.IntegrityError("announcement recipe event is invalid")
+        recipe_id = payload.get("recipe_id")
+        version_id = payload.get("recipe_version_id")
+        revision = payload.get("revision")
+        parent_version_id = payload.get("parent_version_id")
+        clone_source_version_id = payload.get("clone_source_version_id")
+        digest = payload.get("recipe_digest")
+        byte_count = payload.get("recipe_bytes")
+        encoded = payload.get("recipe_base64")
+        if (
+            payload.get("schema_version") != 1
+            or not isinstance(recipe_id, str)
+            or re.fullmatch(r"announcement_[0-9a-f]{32}", recipe_id) is None
+            or not isinstance(version_id, str)
+            or re.fullmatch(r"annv_[0-9a-f]{32}", version_id) is None
+            or isinstance(revision, bool)
+            or not isinstance(revision, int)
+            or revision < 1
+            or (
+                parent_version_id is not None
+                and (
+                    not isinstance(parent_version_id, str)
+                    or re.fullmatch(r"annv_[0-9a-f]{32}", parent_version_id) is None
+                )
+            )
+            or (
+                clone_source_version_id is not None
+                and (
+                    not isinstance(clone_source_version_id, str)
+                    or re.fullmatch(r"annv_[0-9a-f]{32}", clone_source_version_id)
+                    is None
+                )
+            )
+            or not isinstance(digest, str)
+            or re.fullmatch(r"[0-9A-F]{64}", digest) is None
+            or isinstance(byte_count, bool)
+            or not isinstance(byte_count, int)
+            or not 1 <= byte_count <= MAX_ANNOUNCEMENT_RECIPE_BYTES
+            or not isinstance(encoded, str)
+        ):
+            raise sqlite3.IntegrityError("announcement recipe event is invalid")
+        try:
+            raw = base64.b64decode(encoded.encode("ascii"), validate=True)
+            recipe = json.loads(raw.decode("utf-8"))
+        except (UnicodeEncodeError, UnicodeDecodeError, ValueError, json.JSONDecodeError):
+            raise sqlite3.IntegrityError("announcement recipe event is invalid") from None
+        if (
+            len(raw) != byte_count
+            or hashlib.sha256(raw).hexdigest().upper() != digest
+            or not isinstance(recipe, dict)
+            or canonical_json(recipe).encode("utf-8") != raw
+        ):
+            raise sqlite3.IntegrityError("announcement recipe event is invalid")
+        try:
+            from .announcement_video import (
+                announcement_recipe_audit_summary,
+                validate_announcement_recipe_payload,
+            )
+
+            normalized_recipe = validate_announcement_recipe_payload(recipe)
+            expected_summary = sanitize_for_storage(
+                announcement_recipe_audit_summary(normalized_recipe)
+            )
+        except (ImportError, TypeError, ValueError):
+            raise sqlite3.IntegrityError(
+                "announcement recipe event is invalid"
+            ) from None
+        if normalized_recipe != recipe or payload.get("summary") != expected_summary:
+            raise sqlite3.IntegrityError("announcement recipe event is invalid")
+        return {
+            "id": recipe_id,
+            "version_id": version_id,
+            "production_id": row["scope_id"],
+            "revision": revision,
+            "parent_version_id": parent_version_id,
+            "clone_source_version_id": clone_source_version_id,
+            "digest": digest,
+            "created_at": row["created_at"],
+            "recipe": recipe,
+            "event_id": row["id"],
+        }
+
+    @classmethod
+    def _announcement_recipe_records(
+        cls, connection: sqlite3.Connection, production_id: str
+    ) -> list[dict[str, Any]]:
+        rows = connection.execute(
+            "SELECT * FROM events WHERE scope_type='production' AND scope_id=? "
+            "AND event_type='announcement.recipe.saved' ORDER BY id",
+            (production_id,),
+        ).fetchall()
+        records = [cls._announcement_recipe_record(row) for row in rows]
+        seen_versions: set[str] = set()
+        latest_revision: dict[str, int] = {}
+        latest_version: dict[str, str] = {}
+        for record in records:
+            recipe_id = record["id"]
+            revision = record["revision"]
+            parent = record["parent_version_id"]
+            clone_source = record["clone_source_version_id"]
+            if (
+                record["version_id"] in seen_versions
+                or revision != latest_revision.get(recipe_id, 0) + 1
+                or (
+                    revision == 1
+                    and parent is not None
+                )
+                or (
+                    revision > 1
+                    and parent != latest_version.get(recipe_id)
+                )
+                or (revision > 1 and clone_source is not None)
+                or (
+                    revision == 1
+                    and clone_source is not None
+                    and clone_source not in seen_versions
+                )
+            ):
+                raise sqlite3.IntegrityError(
+                    "announcement recipe event lineage is invalid"
+                )
+            seen_versions.add(record["version_id"])
+            latest_revision[recipe_id] = revision
+            latest_version[recipe_id] = record["version_id"]
+        return records
+
+    def save_announcement_recipe(
+        self,
+        production_id: str,
+        recipe_id: str,
+        *,
+        expected_revision: int,
+        recipe: dict[str, Any],
+        summary: dict[str, Any],
+        clone_source_version_id: str | None = None,
+    ) -> tuple[dict[str, Any], bool]:
+        """Append one exact recipe revision with CAS and lost-response dedupe."""
+
+        validate_identifier(production_id, label="production id")
+        validate_identifier(recipe_id, label="announcement recipe id")
+        if (
+            re.fullmatch(r"announcement_[0-9a-f]{32}", recipe_id) is None
+            or isinstance(expected_revision, bool)
+            or not isinstance(expected_revision, int)
+            or not 0 <= expected_revision <= 1_000_000
+            or not isinstance(recipe, dict)
+            or not isinstance(summary, dict)
+            or (
+                clone_source_version_id is not None
+                and (
+                    not isinstance(clone_source_version_id, str)
+                    or re.fullmatch(r"annv_[0-9a-f]{32}", clone_source_version_id)
+                    is None
+                )
+            )
+        ):
+            raise ValueError("announcement recipe save is invalid")
+        raw = canonical_json(recipe).encode("utf-8")
+        if not 1 <= len(raw) <= MAX_ANNOUNCEMENT_RECIPE_BYTES:
+            raise ValueError("announcement recipe is too large")
+        digest = hashlib.sha256(raw).hexdigest().upper()
+        encoded = base64.b64encode(raw).decode("ascii")
+        with self.transaction() as connection:
+            if not connection.execute(
+                "SELECT 1 FROM productions WHERE id=?", (production_id,)
+            ).fetchone():
+                raise KeyError("production not found")
+            records = self._announcement_recipe_records(connection, production_id)
+            current = next(
+                (item for item in reversed(records) if item["id"] == recipe_id),
+                None,
+            )
+            if current is not None and current["digest"] == digest:
+                replay_revisions = {
+                    current["revision"],
+                    max(0, current["revision"] - 1),
+                }
+                if (
+                    expected_revision in replay_revisions
+                    and current["clone_source_version_id"]
+                    == clone_source_version_id
+                ):
+                    return current, False
+                raise ValueError("announcement recipe revision conflict")
+            current_revision = current["revision"] if current is not None else 0
+            if expected_revision != current_revision:
+                raise ValueError("announcement recipe revision conflict")
+            revision = current_revision + 1
+            version_id = f"annv_{uuid.uuid4().hex}"
+            timestamp = utc_now()
+            event = self._append_event(
+                connection,
+                "production",
+                production_id,
+                "announcement.recipe.saved",
+                {
+                    "schema_version": 1,
+                    "recipe_id": recipe_id,
+                    "recipe_version_id": version_id,
+                    "revision": revision,
+                    "parent_version_id": (
+                        current["version_id"] if current is not None else None
+                    ),
+                    "clone_source_version_id": clone_source_version_id,
+                    "recipe_digest": digest,
+                    "recipe_bytes": len(raw),
+                    "recipe_base64": encoded,
+                    "summary": summary,
+                },
+                created_at=timestamp,
+            )
+            return self._announcement_recipe_record(
+                connection.execute(
+                    "SELECT * FROM events WHERE id=?", (event["id"],)
+                ).fetchone()
+            ), True
+
+    def list_announcement_recipe_versions(
+        self, production_id: str
+    ) -> list[dict[str, Any]]:
+        validate_identifier(production_id, label="production id")
+        with self.session() as connection:
+            return self._announcement_recipe_records(connection, production_id)
+
+    def list_announcement_recipes(
+        self, production_id: str
+    ) -> list[dict[str, Any]]:
+        records = self.list_announcement_recipe_versions(production_id)
+        latest: dict[str, dict[str, Any]] = {}
+        counts: dict[str, int] = {}
+        for record in records:
+            latest[record["id"]] = record
+            counts[record["id"]] = counts.get(record["id"], 0) + 1
+        return sorted(
+            (
+                {**record, "version_count": counts[recipe_id]}
+                for recipe_id, record in latest.items()
+            ),
+            key=lambda item: (item["created_at"], item["event_id"]),
+            reverse=True,
+        )
+
+    @staticmethod
+    def _validate_announcement_execution_recipe_links(
+        versions: Sequence[dict[str, Any]], executions: Sequence[dict[str, Any]]
+    ) -> None:
+        by_version = {item["version_id"]: item for item in versions}
+        for execution in executions:
+            recipe = by_version.get(execution["recipe_version_id"])
+            if (
+                recipe is None
+                or recipe["id"] != execution["recipe_id"]
+                or recipe["revision"] != execution["recipe_revision"]
+                or recipe["digest"] != execution["recipe_digest"]
+            ):
+                raise sqlite3.IntegrityError(
+                    "announcement execution recipe lineage is invalid"
+                )
+
+    def announcement_snapshot(self, production_id: str) -> dict[str, Any]:
+        """Read latest recipes, all versions, and links from one DB snapshot."""
+
+        validate_identifier(production_id, label="production id")
+        with self.session() as connection:
+            if not connection.execute(
+                "SELECT 1 FROM productions WHERE id=?", (production_id,)
+            ).fetchone():
+                raise KeyError("production not found")
+            versions = self._announcement_recipe_records(connection, production_id)
+            latest: dict[str, dict[str, Any]] = {}
+            counts: dict[str, int] = {}
+            for record in versions:
+                latest[record["id"]] = record
+                counts[record["id"]] = counts.get(record["id"], 0) + 1
+            recipes = sorted(
+                (
+                    {**record, "version_count": counts[recipe_id]}
+                    for recipe_id, record in latest.items()
+                ),
+                key=lambda item: (item["created_at"], item["event_id"]),
+                reverse=True,
+            )
+            executions = list(
+                reversed(
+                    self._announcement_execution_records(connection, production_id)
+                )
+            )
+            self._validate_announcement_execution_recipe_links(
+                versions, executions
+            )
+            return {
+                "recipes": recipes,
+                "recipe_versions": versions,
+                "executions": executions,
+            }
+
+    def get_announcement_recipe(
+        self, production_id: str, recipe_id: str, *, revision: int | None = None
+    ) -> dict[str, Any] | None:
+        validate_identifier(production_id, label="production id")
+        validate_identifier(recipe_id, label="announcement recipe id")
+        records = self.list_announcement_recipe_versions(production_id)
+        matches = [item for item in records if item["id"] == recipe_id]
+        if revision is None:
+            return matches[-1] if matches else None
+        if isinstance(revision, bool) or not isinstance(revision, int):
+            raise ValueError("announcement recipe revision is invalid")
+        return next((item for item in matches if item["revision"] == revision), None)
+
+    @staticmethod
+    def _announcement_execution_records(
+        connection: sqlite3.Connection, production_id: str
+    ) -> list[dict[str, Any]]:
+        rows = connection.execute(
+            "SELECT * FROM events WHERE scope_type='production' AND scope_id=? "
+            "AND event_type='announcement.recipe.executed' ORDER BY id",
+            (production_id,),
+        ).fetchall()
+        output: list[dict[str, Any]] = []
+        required = {
+            "schema_version",
+            "link_key",
+            "recipe_id",
+            "recipe_version_id",
+            "recipe_revision",
+            "recipe_digest",
+            "job_id",
+            "run_id",
+            "revision_id",
+            "request_key",
+            "deduplicated",
+        }
+        for row in rows:
+            payload = _loads(row["payload_json"], {})
+            if not isinstance(payload, dict) or set(payload) != required:
+                raise sqlite3.IntegrityError(
+                    "announcement execution event is invalid"
+                )
+            recipe_id = payload.get("recipe_id")
+            recipe_version_id = payload.get("recipe_version_id")
+            recipe_revision = payload.get("recipe_revision")
+            recipe_digest = payload.get("recipe_digest")
+            job_id = payload.get("job_id")
+            run_id = payload.get("run_id")
+            revision_id = payload.get("revision_id")
+            request_key = payload.get("request_key")
+            deduplicated = payload.get("deduplicated")
+            link_key = payload.get("link_key")
+            expected_link_key = (
+                hashlib.sha256(
+                    f"{recipe_version_id}\0{job_id}".encode("utf-8")
+                ).hexdigest().upper()
+                if isinstance(recipe_version_id, str) and isinstance(job_id, str)
+                else None
+            )
+            if (
+                payload.get("schema_version") != 1
+                or not isinstance(recipe_id, str)
+                or re.fullmatch(r"announcement_[0-9a-f]{32}", recipe_id) is None
+                or not isinstance(recipe_version_id, str)
+                or re.fullmatch(r"annv_[0-9a-f]{32}", recipe_version_id) is None
+                or isinstance(recipe_revision, bool)
+                or not isinstance(recipe_revision, int)
+                or recipe_revision < 1
+                or not isinstance(recipe_digest, str)
+                or re.fullmatch(r"[0-9A-F]{64}", recipe_digest) is None
+                or not isinstance(job_id, str)
+                or re.fullmatch(r"job_[0-9a-f]{32}", job_id) is None
+                or not isinstance(run_id, str)
+                or re.fullmatch(r"run_[0-9a-f]{32}", run_id) is None
+                or not isinstance(revision_id, str)
+                or re.fullmatch(r"rev_[0-9a-f]{32}", revision_id) is None
+                or not isinstance(request_key, str)
+                or re.fullmatch(r"[0-9A-F]{64}", request_key) is None
+                or not isinstance(deduplicated, bool)
+                or link_key != expected_link_key
+            ):
+                raise sqlite3.IntegrityError(
+                    "announcement execution event is invalid"
+                )
+            output.append(
+                {
+                    **payload,
+                    "production_id": production_id,
+                    "created_at": row["created_at"],
+                    "event_id": row["id"],
+                }
+            )
+        return output
+
+    def _record_announcement_execution_in_transaction(
+        self,
+        connection: sqlite3.Connection,
+        production_id: str,
+        *,
+        recipe: dict[str, Any],
+        job: sqlite3.Row,
+        run_id: str,
+        revision_id: str,
+        request_key: str,
+        deduplicated: bool,
+    ) -> tuple[dict[str, Any], bool]:
+        """Verify and link a saved recipe to one Detailed job atomically."""
+
+        recipe_records = self._announcement_recipe_records(connection, production_id)
+        stored_recipe = next(
+            (
+                item
+                for item in recipe_records
+                if item["version_id"] == recipe.get("version_id")
+            ),
+            None,
+        )
+        job_payload = _loads(job["payload_json"], {})
+        claim = connection.execute(
+            "SELECT * FROM detailed_test_video_claims "
+            "WHERE production_id=? AND request_key=?",
+            (production_id, request_key),
+        ).fetchone()
+        run = connection.execute("SELECT * FROM runs WHERE id=?", (run_id,)).fetchone()
+        if (
+            stored_recipe is None
+            or recipe != stored_recipe
+            or job["kind"] != "detailed_test_video"
+            or job["production_id"] != production_id
+            or not isinstance(job_payload, dict)
+            or job_payload.get("production_id") != production_id
+            or job_payload.get("run_id") != run_id
+            or job_payload.get("revision_id") != revision_id
+            or job_payload.get("request_key") != request_key
+            or job_payload.get("execution_profile") != "local_sapi"
+            or job_payload.get("stage") != "detailed_test_video"
+            or claim is None
+            or claim["run_id"] != run_id
+            or claim["revision_id"] != revision_id
+            or run is None
+            or run["production_id"] != production_id
+            or run["revision_id"] != revision_id
+            or run["execution_profile"] != "local_sapi"
+            or not isinstance(deduplicated, bool)
+        ):
+            raise sqlite3.IntegrityError(
+                "announcement execution provenance is invalid"
+            )
+        link_key = hashlib.sha256(
+            f"{stored_recipe['version_id']}\0{job['id']}".encode("utf-8")
+        ).hexdigest().upper()
+        existing = next(
+            (
+                item
+                for item in self._announcement_execution_records(
+                    connection, production_id
+                )
+                if item.get("link_key") == link_key
+            ),
+            None,
+        )
+        if existing is not None:
+            return existing, False
+        payload = {
+            "schema_version": 1,
+            "link_key": link_key,
+            "recipe_id": stored_recipe["id"],
+            "recipe_version_id": stored_recipe["version_id"],
+            "recipe_revision": stored_recipe["revision"],
+            "recipe_digest": stored_recipe["digest"],
+            "job_id": job["id"],
+            "run_id": run_id,
+            "revision_id": revision_id,
+            "request_key": request_key,
+            "deduplicated": deduplicated,
+        }
+        event = self._append_event(
+            connection,
+            "production",
+            production_id,
+            "announcement.recipe.executed",
+            payload,
+        )
+        return {
+            **payload,
+            "production_id": production_id,
+            "created_at": event["created_at"],
+            "event_id": event["id"],
+        }, True
+
+    def record_announcement_execution(
+        self,
+        production_id: str,
+        *,
+        recipe: dict[str, Any],
+        job_id: str,
+        run_id: str,
+        revision_id: str,
+        request_key: str,
+        deduplicated: bool,
+    ) -> tuple[dict[str, Any], bool]:
+        validate_identifier(production_id, label="production id")
+        for label, value in (
+            ("job id", job_id),
+            ("run id", run_id),
+            ("revision id", revision_id),
+        ):
+            validate_identifier(value, label=label)
+        if (
+            not isinstance(recipe, dict)
+            or not isinstance(request_key, str)
+            or re.fullmatch(r"[0-9A-F]{64}", request_key) is None
+            or not isinstance(deduplicated, bool)
+        ):
+            raise ValueError("announcement execution link is invalid")
+        with self.transaction() as connection:
+            job = connection.execute(
+                "SELECT * FROM jobs WHERE id=?", (job_id,)
+            ).fetchone()
+            if job is None:
+                raise sqlite3.IntegrityError(
+                    "announcement execution job is unavailable"
+                )
+            return self._record_announcement_execution_in_transaction(
+                connection,
+                production_id,
+                recipe=recipe,
+                job=job,
+                run_id=run_id,
+                revision_id=revision_id,
+                request_key=request_key,
+                deduplicated=deduplicated,
+            )
+
+    def get_announcement_execution(
+        self, production_id: str, recipe_version_id: str, job_id: str
+    ) -> dict[str, Any] | None:
+        validate_identifier(production_id, label="production id")
+        validate_identifier(recipe_version_id, label="announcement recipe version id")
+        validate_identifier(job_id, label="job id")
+        with self.session() as connection:
+            return next(
+                (
+                    item
+                    for item in reversed(
+                        self._announcement_execution_records(connection, production_id)
+                    )
+                    if item["recipe_version_id"] == recipe_version_id
+                    and item["job_id"] == job_id
+                ),
+                None,
+            )
+
+    def list_announcement_executions(
+        self, production_id: str
+    ) -> list[dict[str, Any]]:
+        validate_identifier(production_id, label="production id")
+        with self.session() as connection:
+            return list(
+                reversed(
+                    self._announcement_execution_records(connection, production_id)
+                )
+            )
+
     def index_production(self, metadata: dict[str, Any], artifacts: Sequence[dict[str, Any]]) -> dict[str, int]:
         production_id = metadata["id"]
         timestamp = utc_now()
@@ -2061,6 +2665,36 @@ class StudioDatabase:
             "ORDER BY created_at DESC, rowid DESC",
             (production_id,),
         ).fetchall()
+        announcement_versions = self._announcement_recipe_records(
+            connection, production_id
+        )
+        announcement_latest: dict[str, dict[str, Any]] = {}
+        announcement_version_counts: dict[str, int] = {}
+        for recipe_record in announcement_versions:
+            recipe_id = recipe_record["id"]
+            announcement_latest[recipe_id] = recipe_record
+            announcement_version_counts[recipe_id] = (
+                announcement_version_counts.get(recipe_id, 0) + 1
+            )
+        announcement_recipes = sorted(
+            (
+                {
+                    **record,
+                    "version_count": announcement_version_counts[recipe_id],
+                }
+                for recipe_id, record in announcement_latest.items()
+            ),
+            key=lambda item: (item["created_at"], item["event_id"]),
+            reverse=True,
+        )
+        announcement_executions = list(
+            reversed(
+                self._announcement_execution_records(connection, production_id)
+            )
+        )
+        self._validate_announcement_execution_recipe_links(
+            announcement_versions, announcement_executions
+        )
         return {
             "production": self._production_dict(production),
             "artifacts": [self._artifact_dict(row) for row in artifacts],
@@ -2075,6 +2709,9 @@ class StudioDatabase:
             "provider_tasks": [
                 self._provider_task_dict(row) for row in provider_tasks
             ],
+            "announcement_recipes": announcement_recipes,
+            "announcement_recipe_versions": announcement_versions,
+            "announcement_executions": announcement_executions,
             "events": [self._event_dict(row) for row in events],
             "approvals": [
                 {
@@ -2218,6 +2855,32 @@ class StudioDatabase:
                 (production_id, pipeline_key),
             ).fetchone()
         return self._local_pipeline_continuation_dict(row) if row else None
+
+    def get_detailed_test_video_claim(
+        self, production_id: str, request_key: str
+    ) -> dict[str, Any] | None:
+        validate_identifier(production_id, label="production id")
+        if not isinstance(request_key, str) or re.fullmatch(
+            r"[0-9A-F]{64}", request_key
+        ) is None:
+            raise ValueError("invalid detailed test video key")
+        with self.session() as connection:
+            row = connection.execute(
+                "SELECT * FROM detailed_test_video_claims "
+                "WHERE production_id=? AND request_key=?",
+                (production_id, request_key),
+            ).fetchone()
+        if row is None:
+            return None
+        return {
+            "production_id": row["production_id"],
+            "request_key": row["request_key"],
+            "run_id": row["run_id"],
+            "revision_id": row["revision_id"],
+            "active_job_id": row["active_job_id"],
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+        }
 
     def get_local_pipeline_continuation_material(
         self, production_id: str, pipeline_key: str
@@ -2383,6 +3046,7 @@ class StudioDatabase:
         pipeline_request_protection: str | None = None,
         pipeline_request_ciphertext: bytes | None = None,
         rearm_pipeline_continuation: bool = False,
+        detailed_test_video_key: str | None = None,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         requested_stages = (
             rerun_plan.get("requested_stages", rerun_plan.get("affected_stages"))
@@ -2393,6 +3057,8 @@ class StudioDatabase:
             raise ValueError("execution profile is invalid")
         if not isinstance(rearm_pipeline_continuation, bool):
             raise ValueError("pipeline continuation rearm flag must be a boolean")
+        if pipeline_key is not None and detailed_test_video_key is not None:
+            raise ValueError("run claim keys are mutually exclusive")
         if pipeline_key is not None:
             if (
                 execution_profile != "local_pipeline"
@@ -2421,6 +3087,17 @@ class StudioDatabase:
                     "pipeline continuation material requires a local_pipeline run"
                 )
             pipeline_protection, pipeline_ciphertext = "none", None
+        if detailed_test_video_key is not None:
+            if (
+                execution_profile != "local_sapi"
+                or not isinstance(detailed_test_video_key, str)
+                or re.fullmatch(r"[0-9A-F]{64}", detailed_test_video_key) is None
+                or estimated_cost_minor != 0
+                or not isinstance(requested_stages, list)
+                or set(requested_stages) != _LOCAL_SAPI_ZERO_COST_STAGES
+                or len(requested_stages) != len(_LOCAL_SAPI_ZERO_COST_STAGES)
+            ):
+                raise ValueError("detailed test video key is invalid")
         revision_id = f"rev_{uuid.uuid4().hex}"
         run_id = f"run_{uuid.uuid4().hex}"
         timestamp = utc_now()
@@ -2518,6 +3195,45 @@ class StudioDatabase:
                             )
                             claimed_run = self._run_dict(run_row, connection)
                     return claimed_revision, claimed_run
+            if detailed_test_video_key is not None:
+                claimed = connection.execute(
+                    "SELECT * FROM detailed_test_video_claims "
+                    "WHERE production_id=? AND request_key=?",
+                    (production_id, detailed_test_video_key),
+                ).fetchone()
+                if claimed:
+                    revision_row = connection.execute(
+                        "SELECT * FROM revisions WHERE id=?", (claimed["revision_id"],)
+                    ).fetchone()
+                    run_row = connection.execute(
+                        "SELECT * FROM runs WHERE id=?", (claimed["run_id"],)
+                    ).fetchone()
+                    if revision_row is None or run_row is None:
+                        raise sqlite3.IntegrityError(
+                            "detailed test video claim provenance is missing"
+                        )
+                    claimed_revision = self._revision_dict(revision_row)
+                    claimed_run = self._run_dict(run_row, connection)
+                    if (
+                        claimed_revision.get("production_id") != production_id
+                        or claimed_run.get("production_id") != production_id
+                        or claimed_run.get("revision_id") != claimed_revision.get("id")
+                        or claimed_run.get("execution_profile") != "local_sapi"
+                        or claimed_run.get("pipeline_key") is not None
+                        or claimed_run.get("estimated_cost")
+                        != money_from_minor(
+                            0,
+                            claimed_run.get("estimated_cost", {}).get(
+                                "currency", "USD"
+                            ),
+                        )
+                        or set(claimed_run.get("requested_stages", []))
+                        != _LOCAL_SAPI_ZERO_COST_STAGES
+                    ):
+                        raise sqlite3.IntegrityError(
+                            "detailed test video claim provenance is invalid"
+                        )
+                    return claimed_revision, claimed_run
             latest = connection.execute(
                 "SELECT id, sequence FROM revisions WHERE production_id=? ORDER BY sequence DESC LIMIT 1",
                 (production_id,),
@@ -2611,6 +3327,20 @@ class StudioDatabase:
                         timestamp,
                     ),
                 )
+            if detailed_test_video_key is not None:
+                connection.execute(
+                    "INSERT INTO detailed_test_video_claims("
+                    "production_id, request_key, run_id, revision_id, active_job_id, "
+                    "created_at, updated_at) VALUES(?, ?, ?, ?, NULL, ?, ?)",
+                    (
+                        production_id,
+                        detailed_test_video_key,
+                        run_id,
+                        revision_id,
+                        timestamp,
+                        timestamp,
+                    ),
+                )
             self._append_event(
                 connection,
                 "production",
@@ -2629,6 +3359,19 @@ class StudioDatabase:
                         "immutable_digest": run_digest,
                         **({"pipeline_key": pipeline_key} if pipeline_key is not None else {}),
                     },
+                    **(
+                        {
+                            "detailed_test_video_claim": {
+                                "schema_version": 1,
+                                "production_id": production_id,
+                                "request_key": detailed_test_video_key,
+                                "run_id": run_id,
+                                "revision_id": revision_id,
+                            }
+                        }
+                        if detailed_test_video_key is not None
+                        else {}
+                    ),
                 },
                 created_at=timestamp,
             )
@@ -4274,6 +5017,7 @@ class StudioDatabase:
         restored = {
             "revisions": 0,
             "runs": 0,
+            "detailed_test_video_claims": 0,
             "stage_attempts": 0,
             "artifacts": 0,
             "approvals": 0,
@@ -4286,6 +5030,11 @@ class StudioDatabase:
                 payload = _loads(event["payload_json"], {})
                 revision = payload.get("revision") if isinstance(payload, dict) else None
                 run = payload.get("run") if isinstance(payload, dict) else None
+                detailed_claim = (
+                    payload.get("detailed_test_video_claim")
+                    if isinstance(payload, dict)
+                    else None
+                )
                 if not isinstance(revision, dict) or not isinstance(run, dict):
                     continue
                 try:
@@ -4448,6 +5197,55 @@ class StudioDatabase:
                                 run["created_at"],
                                 run["created_at"],
                             ),
+                        )
+                    if detailed_claim is not None:
+                        if (
+                            not isinstance(detailed_claim, dict)
+                            or set(detailed_claim)
+                            != {
+                                "schema_version",
+                                "production_id",
+                                "request_key",
+                                "run_id",
+                                "revision_id",
+                            }
+                            or detailed_claim.get("schema_version") != 1
+                            or detailed_claim.get("production_id")
+                            != run["production_id"]
+                            or detailed_claim.get("run_id") != run["id"]
+                            or detailed_claim.get("revision_id")
+                            != run["revision_id"]
+                            or not isinstance(
+                                detailed_claim.get("request_key"), str
+                            )
+                            or re.fullmatch(
+                                r"[0-9A-F]{64}", detailed_claim["request_key"]
+                            )
+                            is None
+                            or execution_profile != "local_sapi"
+                            or estimated_minor != 0
+                            or set(requested_stages)
+                            != _LOCAL_SAPI_ZERO_COST_STAGES
+                            or len(requested_stages)
+                            != len(_LOCAL_SAPI_ZERO_COST_STAGES)
+                        ):
+                            continue
+                        before = connection.total_changes
+                        connection.execute(
+                            "INSERT OR IGNORE INTO detailed_test_video_claims("
+                            "production_id, request_key, run_id, revision_id, active_job_id, "
+                            "created_at, updated_at) VALUES(?, ?, ?, ?, NULL, ?, ?)",
+                            (
+                                run["production_id"],
+                                detailed_claim["request_key"],
+                                run["id"],
+                                run["revision_id"],
+                                run["created_at"],
+                                run["created_at"],
+                            ),
+                        )
+                        restored["detailed_test_video_claims"] += int(
+                            connection.total_changes > before
                         )
                 except (KeyError, TypeError, ValueError, sqlite3.IntegrityError):
                     continue
@@ -4738,6 +5536,261 @@ class StudioDatabase:
         result = self.get_job(job_id)
         assert result is not None
         return result
+
+    def create_or_get_detailed_test_video_job(
+        self,
+        *,
+        production_id: str,
+        run_id: str,
+        request_key: str,
+        payload: Any,
+        reuse_succeeded: bool = True,
+        announcement_recipe: dict[str, Any] | None = None,
+    ) -> tuple[dict[str, Any], bool]:
+        """Atomically deduplicate one detailed-test-video top job."""
+
+        validate_identifier(production_id, label="production id")
+        validate_identifier(run_id, label="run id")
+        if not isinstance(request_key, str) or re.fullmatch(
+            r"[0-9A-F]{64}", request_key
+        ) is None:
+            raise ValueError("invalid detailed test video key")
+        if not isinstance(reuse_succeeded, bool):
+            raise ValueError("reuse_succeeded must be a boolean")
+        if announcement_recipe is not None and not isinstance(
+            announcement_recipe, dict
+        ):
+            raise ValueError("announcement recipe link is invalid")
+        safe_payload = sanitize_for_storage(payload)
+        if (
+            not isinstance(safe_payload, dict)
+            or safe_payload.get("production_id") != production_id
+            or safe_payload.get("run_id") != run_id
+            or safe_payload.get("request_key") != request_key
+            or safe_payload.get("execution_profile") != "local_sapi"
+            or safe_payload.get("stage") != "detailed_test_video"
+            or not isinstance(safe_payload.get("revision_id"), str)
+        ):
+            raise ValueError("invalid detailed test video job payload")
+
+        timestamp = utc_now()
+        with self.transaction() as connection:
+            claim = connection.execute(
+                "SELECT * FROM detailed_test_video_claims "
+                "WHERE production_id=? AND request_key=?",
+                (production_id, request_key),
+            ).fetchone()
+            if (
+                claim is None
+                or claim["run_id"] != run_id
+                or safe_payload.get("revision_id") != claim["revision_id"]
+            ):
+                raise ValueError("detailed test video run claim is unavailable")
+            run = connection.execute(
+                "SELECT * FROM runs WHERE id=?", (run_id,)
+            ).fetchone()
+            if (
+                run is None
+                or run["production_id"] != production_id
+                or run["execution_profile"] != "local_sapi"
+                or run["pipeline_key"] is not None
+                or run["revision_id"] != claim["revision_id"]
+                or run["estimated_cost_minor"] != 0
+                or set(_loads(run["requested_stages_json"], []))
+                != _LOCAL_SAPI_ZERO_COST_STAGES
+            ):
+                raise ValueError("detailed test video run claim is invalid")
+
+            active_job_id = claim["active_job_id"]
+            if isinstance(active_job_id, str):
+                existing = connection.execute(
+                    "SELECT * FROM jobs WHERE id=?", (active_job_id,)
+                ).fetchone()
+                if existing is None:
+                    raise sqlite3.IntegrityError(
+                        "detailed test video job claim is missing"
+                    )
+                existing_payload = _loads(existing["payload_json"], {})
+                existing_result = _loads(existing["result_json"], None)
+                if (
+                    existing["kind"] != "detailed_test_video"
+                    or existing["production_id"] != production_id
+                    or existing_payload != safe_payload
+                ):
+                    raise sqlite3.IntegrityError(
+                        "detailed test video job claim is invalid"
+                    )
+                if existing["status"] in {"queued", "running"} or (
+                    existing["status"] == "succeeded" and reuse_succeeded
+                ):
+                    children = (
+                        existing_result.get("children")
+                        if isinstance(existing_result, dict)
+                        else None
+                    )
+                    if existing["status"] == "succeeded" and (
+                        not isinstance(existing_result, dict)
+                        or existing_result.get("schema_version") != 1
+                        or existing_result.get("production_id") != production_id
+                        or existing_result.get("run_id") != run_id
+                        or existing_result.get("revision_id") != claim["revision_id"]
+                        or existing_result.get("request_key") != request_key
+                        or existing_result.get("execution_profile") != "local_sapi"
+                        or existing_result.get("technical_verdict") != "pass"
+                        or not isinstance(children, dict)
+                        or set(children) != {"narration", "timeline", "assembly", "qc"}
+                    ):
+                        raise sqlite3.IntegrityError(
+                            "detailed test video job result provenance is invalid"
+                        )
+                    if announcement_recipe is not None:
+                        self._record_announcement_execution_in_transaction(
+                            connection,
+                            production_id,
+                            recipe=announcement_recipe,
+                            job=existing,
+                            run_id=run_id,
+                            revision_id=claim["revision_id"],
+                            request_key=request_key,
+                            deduplicated=True,
+                        )
+                    return self._job_dict(existing), False
+
+            job_id = f"job_{uuid.uuid4().hex}"
+            connection.execute(
+                "INSERT INTO jobs(id, kind, status, production_id, created_at, payload_json) "
+                "VALUES(?, 'detailed_test_video', 'queued', ?, ?, ?)",
+                (job_id, production_id, timestamp, _json(safe_payload)),
+            )
+            connection.execute(
+                "UPDATE detailed_test_video_claims SET active_job_id=?, updated_at=? "
+                "WHERE production_id=? AND request_key=? AND run_id=? "
+                "AND active_job_id IS ? AND updated_at=?",
+                (
+                    job_id,
+                    timestamp,
+                    production_id,
+                    request_key,
+                    run_id,
+                    active_job_id,
+                    claim["updated_at"],
+                ),
+            )
+            if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                raise sqlite3.IntegrityError(
+                    "detailed test video job claim changed concurrently"
+                )
+            self._append_event(
+                connection,
+                "job",
+                job_id,
+                "job.queued",
+                {"kind": "detailed_test_video", "production_id": production_id},
+                created_at=timestamp,
+            )
+            row = connection.execute(
+                "SELECT * FROM jobs WHERE id=?", (job_id,)
+            ).fetchone()
+            assert row is not None
+            if announcement_recipe is not None:
+                self._record_announcement_execution_in_transaction(
+                    connection,
+                    production_id,
+                    recipe=announcement_recipe,
+                    job=row,
+                    run_id=run_id,
+                    revision_id=claim["revision_id"],
+                    request_key=request_key,
+                    deduplicated=False,
+                )
+            return self._job_dict(row), True
+
+    def abort_detailed_test_video_job_admission(
+        self,
+        job_id: str,
+        *,
+        error_code: str = "job_setup_failed",
+        error_message: str = "The background job could not be prepared.",
+    ) -> dict[str, Any]:
+        """Atomically fail one detailed top job that never reached its queue."""
+
+        validate_identifier(job_id, label="job id")
+        safe_code = str(sanitize_for_storage(error_code or "job_setup_failed"))[:128]
+        safe_message = str(sanitize_for_storage(error_message or ""))[:1000] or None
+        timestamp = utc_now()
+        with self.transaction() as connection:
+            job = connection.execute(
+                "SELECT * FROM jobs WHERE id=?", (job_id,)
+            ).fetchone()
+            claim = connection.execute(
+                "SELECT * FROM detailed_test_video_claims WHERE active_job_id=?",
+                (job_id,),
+            ).fetchone()
+            if job is None:
+                raise KeyError("job not found")
+            if (
+                claim is None
+                or job["kind"] != "detailed_test_video"
+                or job["production_id"] != claim["production_id"]
+            ):
+                raise ValueError("detailed test video job claim is unavailable")
+            if job["status"] == "failed" and job["error_code"] == safe_code:
+                return self._job_dict(job)
+            if job["status"] != "queued":
+                raise AtomicCompletionError(
+                    "detailed test video admission is no longer queued",
+                    code="atomic_failure_not_active",
+                    job_status=job["status"],
+                    stage_status="detailed_test_video",
+                )
+            connection.execute(
+                "UPDATE jobs SET status='failed', completed_at=?, result_json=NULL, "
+                "error_code=?, error_message=? WHERE id=? AND status='queued'",
+                (timestamp, safe_code, safe_message, job_id),
+            )
+            if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                raise AtomicCompletionError(
+                    "detailed test video job changed before admission abort",
+                    code="atomic_failure_not_active",
+                    job_status="unknown",
+                    stage_status="detailed_test_video",
+                )
+            connection.execute(
+                "UPDATE detailed_test_video_claims SET updated_at=? "
+                "WHERE production_id=? AND request_key=? AND active_job_id=? "
+                "AND updated_at=?",
+                (
+                    timestamp,
+                    claim["production_id"],
+                    claim["request_key"],
+                    job_id,
+                    claim["updated_at"],
+                ),
+            )
+            if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                raise AtomicCompletionError(
+                    "detailed test video claim changed before admission abort",
+                    code="atomic_failure_not_active",
+                    job_status="failed",
+                    stage_status="unknown",
+                )
+            self._append_event(
+                connection,
+                "job",
+                job_id,
+                "job.failed",
+                {
+                    "result": None,
+                    "error_code": safe_code,
+                    "error_message": safe_message,
+                },
+                created_at=timestamp,
+            )
+            updated = connection.execute(
+                "SELECT * FROM jobs WHERE id=?", (job_id,)
+            ).fetchone()
+            assert updated is not None
+            return self._job_dict(updated)
 
     def create_or_get_local_pipeline_job(
         self,

@@ -218,6 +218,9 @@ export interface ProductionDetail extends ProductionSummary {
   approvals: Approval[];
   costs: CostEntry[];
   providerTasks?: ProviderTask[];
+  announcementRecipes: AnnouncementRecipeRecord[];
+  announcementRecipeVersions: AnnouncementRecipeRecord[];
+  announcementExecutions: AnnouncementExecutionRecord[];
   specification?: Record<string, unknown>;
 }
 
@@ -350,6 +353,75 @@ export interface LocalRemotionTimelineRequest {
   clips: LocalRemotionTimelineClip[];
 }
 
+/** Browser-facing recipe for one audited narration -> Remotion -> assembly -> QC job. */
+export interface DetailedTestVideoRequest {
+  schemaVersion: 1;
+  clips: LocalRemotionTimelineClip[];
+  segments: LocalNarrationSegment[];
+  voice?: string;
+  rate: number;
+  pronunciations?: PronunciationOverride[];
+  includeCaptioned: boolean;
+  captionStylePreset: LocalAssemblyCaptionStylePreset;
+  audioMixPreset: LocalAssemblyAudioMixPreset;
+  variant: LocalQcVariant;
+}
+
+export type AnnouncementSceneRole = 'hook' | 'message' | 'cta';
+
+export interface AnnouncementVideoScene {
+  role: AnnouncementSceneRole;
+  videoArtifactId: string;
+  startMs: number;
+  endMs: number;
+  volumePercent: number;
+  headline: string;
+  narration: string;
+}
+
+/** Editable browser form for the closed HOOK -> MESSAGE -> CTA template. */
+export interface AnnouncementVideoRecipe {
+  schemaVersion: 1;
+  name: string;
+  templatePreset: 'shorts_ja_15s_v1';
+  scenes: AnnouncementVideoScene[];
+  voice?: string;
+  rate: number;
+  pronunciations: PronunciationOverride[];
+  includeCaptioned: boolean;
+  captionStylePreset: LocalAssemblyCaptionStylePreset;
+  audioMixPreset: LocalAssemblyAudioMixPreset;
+  variant: LocalQcVariant;
+}
+
+export interface AnnouncementRecipeRecord {
+  id: string;
+  versionId: string;
+  productionId: string;
+  revision: number;
+  parentVersionId?: string;
+  cloneSourceVersionId?: string;
+  digest: string;
+  createdAt?: string;
+  versionCount: number;
+  recipe: AnnouncementVideoRecipe;
+  raw: Record<string, unknown>;
+}
+
+export interface AnnouncementExecutionRecord {
+  recipeId: string;
+  recipeVersionId: string;
+  recipeRevision: number;
+  recipeDigest: string;
+  jobId: string;
+  runId: string;
+  revisionId: string;
+  requestKey: string;
+  deduplicated: boolean;
+  createdAt?: string;
+  raw: Record<string, unknown>;
+}
+
 export type LocalScreenCaptureAction =
   | { type: 'scroll'; atMs: number; deltaY: number }
   | { type: 'click'; atMs: number; selector: string }
@@ -453,6 +525,7 @@ export interface LocalPipelineStageResult {
   jobId?: string;
   stageAttemptId?: string;
   attempt?: number;
+  cacheHit?: boolean;
   progress?: number;
   message?: string;
   artifacts: Artifact[];

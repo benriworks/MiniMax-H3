@@ -1,0 +1,7 @@
+Create the third clean photorealistic vertical 9:16 first-frame still for the same Japanese corporate social-media announcement.
+
+Use the persona sheet only as the original visual identity and wardrobe reference. Use CUT01 as the strongest continuity anchor. Depict the same single adult Japanese woman, with the same facial identity, short softly waved medium-brown bob, natural makeup, pale pink-beige ribbed top, light beige tailored pantsuit, and simple gold hoop earrings. Ignore and never reproduce any text, profile facts, labels, collage layout, or typography from the persona sheet.
+
+Use the same contemporary Japanese office, now with subtly warmer late-afternoon daylight for a concluding call-to-action. Medium waist-up framing. Place her slightly right of center with clean negative space across the left and central torso region. She holds a plain unbranded light-beige folder open slightly at waist level, ready to close it. Lips naturally closed. Her expression is composed and neutral with the beginning of a warm, assured smile, looking directly at the camera. Accurate hands and anatomy, realistic skin texture, premium understated commercial photography.
+
+No motion blur, readable documents, screens, signage, on-image text, letters, logos, watermarks, UI, borders, split panels, duplicated people, or extra limbs. Keep the rightmost 160 px and bottom 370 px visually nonessential.

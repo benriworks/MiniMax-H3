@@ -1,0 +1,116 @@
+{
+  "production_id": "SHORT_20260828_ai_content_15s",
+  "status": "complete_independently_reviewed",
+  "technical_status": "master_pass",
+  "creative_status": "master_independent_visual_safe_area_pass",
+  "public_release_status": "blocked_pending_rights_review",
+  "source_assets": [
+    {
+      "asset_id": "PRESENTER_PERSONA_PRIVATE",
+      "path": "outputs/private-sources/SHORT_20260828_ai_content_15s/PERSONA_SHEET_ORIGINAL.jpg",
+      "bytes": 167025,
+      "sha256": "1C9AF56E8C1514257430913FF10ED8AB9D831BC2DE597B31183E5D397BCA5D7C",
+      "width": 1078,
+      "height": 1280,
+      "source_type": "user_provided_attachment",
+      "usage": "visual_identity_and_wardrobe_only",
+      "public_rights_status": "unverified"
+    }
+  ],
+  "keyframes": [
+    {"cut":"CUT01","raw_bytes":1623280,"raw_sha256":"8066570DB5FE2E1CEDE9978276F04B207E606CA5F058D99659B2832CC8B74B66","runtime_bytes":445825,"runtime_sha256":"4271FC0F650EA69ED7C860603943EB3E3C6CFBAC3EB3B4A43E1CBAE669C4B7CF","runtime_media":"480x864 RGB"},
+    {"cut":"CUT02","raw_bytes":1503012,"raw_sha256":"00B4515094649B731607613B6830D95A32994C095FE0F6FFA6C0EE27272772A9","runtime_bytes":414842,"runtime_sha256":"41E8147AEAFC3CA33DFCC0143DD34AA87A8A50D3A5F3E4967AB2BE1EB78BDC04","runtime_media":"480x864 RGB"},
+    {"cut":"CUT03","raw_bytes":1685970,"raw_sha256":"26E7C3F45FC6536B3BFC97F546982242FD187A19A72ED1A938B57D45425E936C","runtime_bytes":468489,"runtime_sha256":"D10C1CBC76707383EF839E8615B1DF142DBEE73DDAC313E844C5D15E5B6006D7","runtime_media":"480x864 RGB"}
+  ],
+  "runtime": {
+    "profile": "official_q4_manual_i2va_dynamic_vram",
+    "resolution": "480x864",
+    "fps": 24,
+    "requested_seconds": 5.0,
+    "expected_raw_frames": 124,
+    "sampler": "res_multistep",
+    "scheduler": "simple",
+    "steps": 20,
+    "denoise": 1.0,
+    "seed": 529716596879763,
+    "successful_render_elapsed_seconds": 1350.515,
+    "renders": [
+      {
+        "cut": "CUT01",
+        "prompt_id": "2337fa78-af40-4403-aaee-4ad57c400516",
+        "queue_number": 0,
+        "started_at": "2026-08-28T17:18:58.3875636+09:00",
+        "completed_at": "2026-08-28T17:26:58.6007847+09:00",
+        "elapsed_seconds": 480.213,
+        "prompt_sha256": "7527F86D51632D98424B9F711293AD69FDA8433D30438757FF25BB1D63FF007A",
+        "graph_sha256": "1560C6F1541D42CD3611C2D72866D4EECBF7C9781279C1EB49B36790E4379FE3",
+        "artifact": {"path":"outputs/productions/SHORT_20260828_ai_content_15s/02_cuts/CUT01/candidate/CUT01_00001_.mp4","bytes":645982,"sha256":"CBAE760AA3995446A244A612CD2B70301A396DE69801784B40D8D62964F2E305","media":"H.264 High yuv420p 480x864 24fps 124f 5.167s + AAC-LC 32kHz stereo","full_decode":"pass","visual_contact":"pass"}
+      },
+      {
+        "cut": "CUT02",
+        "prompt_id": "2460a022-d9b4-4af6-9861-18ac02c0f00e",
+        "queue_number": 1,
+        "started_at": "2026-08-28T17:27:01.0724101+09:00",
+        "completed_at": "2026-08-28T17:34:31.2195856+09:00",
+        "elapsed_seconds": 450.147,
+        "prompt_sha256": "BF3B94F7FAE6B38F27B4C4CDF906E783E4181BE48BC8BB0E5177D3B84FB6142C",
+        "graph_sha256": "A1AFFFD0DA14679975B0766B88D03BB892ED01D3D158758610FC7785AAA009CB",
+        "artifact": {"path":"outputs/productions/SHORT_20260828_ai_content_15s/02_cuts/CUT02/candidate/CUT02_00001_.mp4","bytes":605678,"sha256":"9E79440CF5E47F116217D880E459BA568703B56C357BA0367AA1F10F92B7913A","media":"H.264 High yuv420p 480x864 24fps 124f 5.167s + AAC-LC 32kHz stereo","full_decode":"pass","visual_contact":"pass"}
+      },
+      {
+        "cut": "CUT03",
+        "prompt_id": "14a737de-b08e-4597-8a67-5fde39356a19",
+        "queue_number": 2,
+        "started_at": "2026-08-28T17:34:32.6390014+09:00",
+        "completed_at": "2026-08-28T17:41:32.7941733+09:00",
+        "elapsed_seconds": 420.155,
+        "prompt_sha256": "3FB21ED1E0C4440D5DD80343A111DB1E406C3F193B079BAD89CBEBCD68201E7D",
+        "graph_sha256": "475FC1A92681CBE03729DDB29C696D5E903C661E49FDB820BE3DE4EDAA962C83",
+        "artifact": {"path":"outputs/productions/SHORT_20260828_ai_content_15s/02_cuts/CUT03/candidate/CUT03_00001_.mp4","bytes":863045,"sha256":"035AFEABF88EE0A4513AAD6397F0D6784C7AF34BBF2ED0C6440D053FA43CC716","media":"H.264 High yuv420p 480x864 24fps 124f 5.167s + AAC-LC 32kHz stereo","full_decode":"pass","visual_contact":"pass"}
+      }
+    ]
+  },
+  "assembly": {
+    "profile": "announcement_video_v1",
+    "recipe_id": "announcement_e7e70c73304a42a7a67e94ad84024f8e",
+    "recipe_version_id": "annv_20928281e8eb4708895b51e4f18edb20",
+    "recipe_revision": 1,
+    "top_job_id": "job_99fcc3f223324833979903438a0d0527",
+    "run_id": "run_84988f2a370548b1b7011a7bc96239d1",
+    "execution_seconds": 116.78,
+    "audio_mix_preset": "narration_only_v1",
+    "caption_style_preset": "shorts_ja_large_v1",
+    "narration_segment_start_ms": [0, 4917, 9833],
+    "non_diegetic_music": "none",
+    "status": "succeeded",
+    "technical_verdict": "pass",
+    "actual_cost": 0
+  },
+  "master": {
+    "path": "outputs/productions/SHORT_20260828_ai_content_15s/03_assembly/master/SHORT_20260828_ai_content_15s_delivery_captioned_1080x1920_24fps_bt709.mp4",
+    "bytes": 6100462,
+    "sha256": "3BCE7BB08EED7AF3E88EC916933EFB593EB4F123CCE6084CD2DB7E3BF191B27A",
+    "media": "H.264 High yuv420p bt709 1080x1920 24fps 360f 15.000s + AAC-LC 48kHz stereo",
+    "full_decode": "pass",
+    "black_events": 0,
+    "freeze_events_over_1s": 0,
+    "decoded_video_matches_studio_master": true,
+    "decoded_audio_matches_studio_master": true,
+    "audio_qc": "-17.48 LUFS-I / -3.81 dBTP / LRA 10.40 / not silent",
+    "visual_contact_qc": "independent_pass_three_cuts_fades_headlines_captions_identity_hands_safe_area",
+    "conservative_youtube_action_rail_note": "longest_caption_passes_96px_project_preset_but_160px_margin_would_require_rewrap",
+    "human_listening": "not_performed",
+    "public_release_status": "blocked_pending_rights_review"
+  },
+  "alternate_masters": [
+    {
+      "variant": "clean_no_headlines_or_captions",
+      "path": "outputs/productions/SHORT_20260828_ai_content_15s/03_assembly/master/SHORT_20260828_ai_content_15s_delivery_clean_1080x1920_24fps_bt709.mp4",
+      "bytes": 5869119,
+      "sha256": "B105CA02BE0609CA5F383082BDBC6A92C8334DCFC9C23B489D4E7083BC49C1B1",
+      "media": "H.264 High yuv420p bt709 1080x1920 24fps 15.000s + AAC-LC 48kHz stereo",
+      "audio_source": "same_sapi_narration",
+      "full_decode": "pass"
+    }
+  ]
+}

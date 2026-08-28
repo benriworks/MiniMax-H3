@@ -689,6 +689,10 @@ class DatabaseMigrationTests(unittest.TestCase):
                 provider_tasks = connection.execute(
                     "SELECT name FROM sqlite_master WHERE type='table' AND name='provider_tasks'"
                 ).fetchone()
+                detailed_claims = connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' "
+                    "AND name='detailed_test_video_claims'"
+                ).fetchone()
                 provider_columns = {
                     row["name"]
                     for row in connection.execute("PRAGMA table_info(provider_tasks)")
@@ -719,6 +723,7 @@ class DatabaseMigrationTests(unittest.TestCase):
             )
             self.assertIn("job_id", stage_attempt_columns)
             self.assertIsNotNone(provider_tasks)
+            self.assertIsNotNone(detailed_claims)
             self.assertTrue(
                 {
                     "provider_task_id",
@@ -761,7 +766,7 @@ class DatabaseMigrationTests(unittest.TestCase):
                 ).fetchone()[0]
             self.assertEqual(version, "999")
 
-    def test_v6_migration_rolls_back_schema_and_version_together(self) -> None:
+    def test_v7_migration_rolls_back_schema_and_version_together(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             workspace = Path(temporary).resolve()
             database_path = workspace / "studio.sqlite3"
@@ -773,9 +778,9 @@ class DatabaseMigrationTests(unittest.TestCase):
                         value TEXT NOT NULL
                     );
                     INSERT INTO schema_meta(key, value) VALUES('schema_version', '1');
-                    CREATE TRIGGER reject_schema_v6
+                    CREATE TRIGGER reject_schema_v7
                     BEFORE UPDATE OF value ON schema_meta
-                    WHEN NEW.key='schema_version' AND NEW.value='6'
+                    WHEN NEW.key='schema_version' AND NEW.value='7'
                     BEGIN
                         SELECT RAISE(ABORT, 'test migration rollback');
                     END;
@@ -805,9 +810,14 @@ class DatabaseMigrationTests(unittest.TestCase):
                     "SELECT name FROM sqlite_master WHERE type='table' "
                     "AND name='provider_tasks'"
                 ).fetchone()
+                detailed_claims = connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' "
+                    "AND name='detailed_test_video_claims'"
+                ).fetchone()
             self.assertEqual(version, "1")
             self.assertNotIn("execution_profile", run_columns)
             self.assertIsNone(provider_tasks)
+            self.assertIsNone(detailed_claims)
 
     def test_v5_pipeline_claim_row_migrates_to_unavailable_ledger(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

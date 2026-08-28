@@ -2,9 +2,9 @@
 
 ## 目的
 
-MiniMaxH3 Studioは、制作案件、ログ、中間成果物、費用、承認履歴を1か所で確認するためのローカルWebアプリです。チャットは企画と監督の窓口、Studioは実行状態と証跡を保持する制御盤として分離します。`一括生成`タブからは、固定されたlocal-only経路を一つのRunとして実行できます。
+MiniMaxH3 Studioは、制作案件、ログ、中間成果物、費用、承認履歴を1か所で確認するためのローカルWebアプリです。チャットは企画と監督の窓口、Studioは実行状態と証跡を保持する制御盤として分離します。`一括生成`タブからは新しいH3素材を含む固定local-only経路を、`詳細一括`タブからは登録済み素材を使うSAPI／Remotion／assembly／QC経路を、それぞれ一つのRunとして実行できます。`告知動画`タブは後者をHOOK／MESSAGE／CTAの固定3シーンへ絞り、保存・複製・一括実行できる実用テンプレートとして提供します。
 
-このMVPはPowerDirectorのような汎用ノンリニア編集ソフトではありません。既存の`productions/`と`outputs/productions/`を読み込み、制作記録の閲覧、再実行計画、承認、監査exportを扱う土台です。Windows SAPIによるローカルナレーションworker、ElevenLabs Multilingual v2の文字時刻付き外部TTS worker、固定workflowによるローカルComfyUI MiniMax H3動画worker、isolated Chromiumでloopback Webページを縦動画へ記録するPlaywright画面収録worker、登録済み動画をトリムして順序付きハードカットへ連結するFFmpeg timeline worker、fade／素材音量／固定テロップと同一compositionのPlayer previewを備えたRemotion詳細timeline worker、音声・字幕合成worker、完成masterのローカルtechnical QC workerまでを実装済みです。Windowsデスクトップ／ネイティブアプリ収録、任意track／effect／componentを扱う汎用編集、MiniMax外部APIのStudio workerは後続段階です。
+このMVPはPowerDirectorのような汎用ノンリニア編集ソフトではありません。既存の`productions/`と`outputs/productions/`を読み込み、制作記録の閲覧、再実行計画、承認、監査exportを扱う土台です。Windows SAPIによるローカルナレーションworker、ElevenLabs Multilingual v2の文字時刻付き外部TTS worker、固定workflowによるローカルComfyUI MiniMax H3動画worker、isolated Chromiumでloopback Webページを縦動画へ記録するPlaywright画面収録worker、登録済み動画をトリムして順序付きハードカットへ連結するFFmpeg timeline worker、fade／素材音量／固定テロップと同一compositionのPlayer previewを備えたRemotion詳細timeline worker、既存4 workerを束ねる詳細テスト動画orchestrator、そのcontractへcompileする告知動画recipe、音声・字幕合成worker、完成masterのローカルtechnical QC workerまでを実装済みです。Windowsデスクトップ／ネイティブアプリ収録、任意track／effect／componentを扱う汎用編集、MiniMax外部APIのStudio workerは後続段階です。
 
 ## MVPでできること
 
@@ -29,7 +29,7 @@ MiniMaxH3 Studioは、制作案件、ログ、中間成果物、費用、承認�
 - `local_comfyui`の0円runを作り、固定`minimax_h3_t2v_official_q4_v1` workflowへpromptとseedだけを渡して動画生成を明示実行する。
 - 公式INT8 ConvRot diffusion、Q4 text encoder、video/audio VAE、20 steps、約480×864、124 frames／24fpsの固定graphから、`generated-video.mp4`、`workflow.json`、`ffprobe.json`、`manifest.json`を生成する。
 - 長時間GPU生成をdefault jobから分離した1 worker FIFO laneで直列化し、prompt ID、prompt SHA-256、exact seed decimal、workflow/model/runtime/tool identity、成果物hashを追跡する。
-- ComfyUI taskとpipeline continuationをschema v6へ永続化し、Studio終了時はprovider側の生成を継続する。次回起動ではHTTP serverを待たせないbackground照合を行い、旧attemptを履歴として残した同じRunの新attemptから重複POSTなしで回収する。
+- ComfyUI taskとpipeline continuationをschema v7へ永続化し、Studio終了時はprovider側の生成を継続する。次回起動ではHTTP serverを待たせないbackground照合を行い、旧attemptを履歴として残した同じRunの新attemptから重複POSTなしで回収する。
 - 同一Run／cache key／payload digestの動画生成requestはSQLiteの永続claimで1つのactive jobへ集約し、複数画面から同時実行しても新しいComfyUI POSTを増やさない。Studioはactive-active構成ではなく、workspace単一起動lockで第二processを先に拒否する。
 - `local_playwright`の0円runを作り、明示したloopback Web URLをfresh Chromium contextで1〜30秒収録する。
 - 収録中の操作は時刻付き`scroll`、`click`、allowlist済み`press`だけを最大16件受け付け、任意JavaScript、cookie、storage state、header、browser flag、出力pathは受け付けない。
@@ -44,6 +44,13 @@ MiniMaxH3 Studioは、制作案件、ログ、中間成果物、費用、承認�
 - timeline previewを1080×1920、24fps、H.264／yuv420p、video-only MP4へ固定し、`timeline-preview.mp4`、`timeline.json`、`ffprobe.json`、`manifest.json`を生成する。
 - ハードカットを残したまま`Remotion詳細preview`を選び、登録済み動画1〜16カット、最大60秒のschema v1 recipeへtrim、素材音量0〜100%、50〜2,000msのfade、固定`shorts_ja_large_v1`テロップを設定する。
 - UIの`@remotion/player`とbackend rendererで同じtracked compositionを使い、1080×1920／24fpsの`remotion-preview.mp4`、recipe、render report、ffprobe、manifestの固定5成果物を生成する。
+- `詳細一括`タブから、登録済み動画1〜16件とナレーション台本を一度だけ確定し、Windows SAPI→Remotion詳細timeline→assembly→technical QCを一つのimmutableな0円`local_sapi` Runで実行する。
+- 詳細一括topはpipeline lane、Remotion childはbrowser lane、SAPI／assembly／QC childはdefault laneを使う。UIはtop jobを2秒pollingし、4 childのjob／attempt、cache hit、完成master、QC verdictを表示する。
+- SQLite schema v7の`detailed_test_video_claims`で同一production／content-addressed requestを一つのRunとactive topへ集約し、failed／interrupted後は同じRunへ新しいtop jobを追加する。成功topの再利用前にはchild lineageと成果物bytes／SHA-256を再検証する。
+- `shorts_ja_large_v1`字幕を選んだ詳細一括では、segment数、表示幅、長いASCII token、不可視／双方向制御文字をqueue前に固定policyで検査する。
+- `告知動画`タブでHOOK／MESSAGE／CTAの3シーン、登録済み動画、trim、素材音量、大見出し、必須ナレーションを設定し、10〜20秒（推奨15秒）の固定テンプレートとして保存・複製・一括実行する。
+- 告知recipeは`expected_revision` CAS付きのimmutableなexact revisionとしてproduction eventへ追記し、clone元versionとDetailed Job／Runへのexecution linkを保持する。同じcompile結果はDetailed側でdedupeし、別recipeからの実行リンクは失わない。
+- 告知動画の実行中はJobを2秒間隔、production detailを初回とおおむね6秒間隔で取得する。応答が曖昧な場合は新しいexecution linkのexact Jobを照合し、なければ同じimmutable revisionを1回だけ冪等再送する。2回目も曖昧なら自動処理を止め、手動再照合だけを許可する。
 - 同じproductionの登録済み動画と、同じRunの成功済みナレーションattemptを選び、source audioを置換した`master-clean.mp4`をローカル生成する。
 - 任意で、SRTを制御タグ不能な固定style ASSへ変換し、`studio_default_v1`またはShorts向け大字幕`shorts_ja_large_v1`で`master-captioned.mp4`を追加生成する。
 - `ffprobe.json`と自己hash付き`manifest.json`へ入力hash、FFmpeg/ffprobeの実体・version・binary hash、音声方針、出力方針を記録する。
@@ -58,11 +65,147 @@ MVPが行わないこと:
 - ElevenLabs以外の外部有料provider、MiniMax外部APIの実行
 - Windowsデスクトップ／ネイティブアプリ、system audio、microphone、外部Webサイト、既存ログインsessionの収録
 - 複数audio track、任意transition／effect、free-form CSS／font／React component、keyframe、任意resolution／fpsを含む汎用タイムライン編集
+- 詳細一括からのH3／ComfyUI生成、外部provider呼出し、任意path／URL／gain指定
+- 告知動画v1でのBGM、ロゴ画像、任意renderer／CSS／React component、任意のシーン構成、ナレーションなし実行
 - ブラウザから任意ローカルpathを読むこと
 - creativeまたは公開権利を自動承認すること
 
 「run作成」は監査可能な実行計画を保存する操作で、それだけではworkerや課金APIを開始しません。`local_sapi` runでは、作成後にナレーション、カット編集、編集・合成、品質検査の各画面または対応する専用APIで明示したときだけローカルworkerを開始します。`local_comfyui` runも、生成映像画面でpromptとseedを確認して実行した場合だけGPU workerを開始します。`local_playwright` runは、画面収録画面でURL、尺、操作を確認して明示実行した場合だけbrowser workerを開始します。`elevenlabs_tts` runは、作成、正の費用見積、上限承認に加え、外部音声画面で送信内容を確認して`confirm_billable=true`を明示した場合だけ外部TTS workerを開始します。FFmpegハードカットとRemotion詳細timelineはいずれも同じproductionの登録済み動画artifactだけを受け付け、`timeline`をrequested stageに含む対応profileから明示実行します。合成は同じRunの成功済みナレーションを、QCは同じRunの成功済みassembly attemptを必須とします。両timeline previewは通常の登録済み動画と同じ入力候補としてassemblyへ渡せます。
-通常の課金対象requested stageを含むrunには正の見積額が必須です。0以下または未指定の見積はfail closedで拒否し、runを残しません。`local_sapi`はnarration、captions、timeline、assembly、qcだけを対象にする0円profileです。`elevenlabs_tts`はnarrationを必須とし、narration、captions、assembly、qcだけを対象にする課金profileです。`local_comfyui`はvideo_generationを必須とし、video_generation、timeline、assembly、qcを対象にする0円profileです。`local_playwright`はscreen_captureを必須とし、screen_captureとtimelineだけを実行可能にする0円profileです。`local_playwright`のassembly／qcは影響工程としてRun計画に残りますが、このprofileでは実行しません。`local_pipeline`は専用endpointからのみ作成する、6 requested stage／5 executed stageの固定local-only 0円profileです。ElevenLabs、MiniMax API、費用approvalはこの経路へ到達しません。
+通常の課金対象requested stageを含むrunには正の見積額が必須です。0以下または未指定の見積はfail closedで拒否し、runを残しません。`local_sapi`はnarration、captions、timeline、assembly、qcだけを対象にする0円profileです。詳細一括は専用endpointからこのprofileのimmutable Runを作り、4 workerを束ねます。`elevenlabs_tts`はnarrationを必須とし、narration、captions、assembly、qcだけを対象にする課金profileです。`local_comfyui`はvideo_generationを必須とし、video_generation、timeline、assembly、qcを対象にする0円profileです。`local_playwright`はscreen_captureを必須とし、screen_captureとtimelineだけを実行可能にする0円profileです。`local_playwright`のassembly／qcは影響工程としてRun計画に残りますが、このprofileでは実行しません。`local_pipeline`は専用endpointからのみ作成する、6 requested stage／5 executed stageの固定local-only 0円profileです。ElevenLabs、MiniMax API、費用approvalは詳細一括と`local_pipeline`のどちらにも到達しません。
+
+告知recipeの保存と複製はversion eventを追記するだけで、media workerを開始しません。`execute`で保存済みexact revisionを指定した場合だけDetailed Test Videoの0円`local_sapi` Run／top Jobを作成または再利用します。告知動画からもElevenLabs、MiniMax API、ComfyUI、費用approvalへ到達しません。
+
+## 告知動画テンプレート（Announcement Video v1）
+
+`告知動画`タブは、汎用編集画面を開かずに既存素材から短い告知を完成させる入口です。同じproductionにavailableな動画artifactが必要です。素材はシーンごとに選び、同じartifactを複数シーンで再利用することもできます。新しいH3素材の生成は行いません。
+
+画面上の基本操作は次のとおりです。
+
+1. HOOK、MESSAGE、CTAの順に、動画artifact、開始／終了、素材音量、大見出し、ナレーションを入力する。
+2. 必要に応じてSAPI voice、読み上げ速度、発音置換、焼き込み字幕、音声mix、QC対象variantを設定する。
+3. `保存`でexact revisionを残す。保存済みrevisionを元のまま残して試案を作る場合は`複製して編集`を使う。
+4. 消音の3シーンpreviewで素材、trim、fade、大見出しを確認する。
+5. `保存して告知動画を作る`で、必要な保存の後にそのexact revisionをDetailed Test Videoへ投入する。完成masterでナレーション、字幕、音声mix、technical QCを確認する。
+
+HTTP境界は次の4本です。変更系は通常のStudio session token／Origin検査を通ります。
+
+| Method / path | exact request | 役割 |
+|---|---|---|
+| `GET /api/productions/{production_id}/announcement-recipes` | bodyなし | 最新recipe、全immutable version、execution linkを1つのDB snapshotで返す |
+| `POST /api/productions/{production_id}/announcement-recipes/{recipe_id}/save` | `schema_version`、`expected_revision`、`recipe` | 新規作成またはCAS付きrevision追記 |
+| `POST /api/productions/{production_id}/announcement-recipes/{recipe_id}/duplicate` | `schema_version`、`source_revision`、`new_recipe_id`、`name` | exact source revisionを新しいrecipe identityへ複製 |
+| `POST /api/productions/{production_id}/announcement-recipes/{recipe_id}/execute` | `schema_version`、`revision` | 保存済みexact revisionをcompileしてDetailed top Jobを作成または再利用 |
+
+recipeのpublic schema v1は余分なfieldを拒否します。外形は次のとおりです。
+
+```json
+{
+  "schema_version": 1,
+  "name": "新機能の15秒告知",
+  "template_preset": "shorts_ja_15s_v1",
+  "scenes": [
+    {
+      "role": "hook",
+      "video_artifact_id": "art_0123456789abcdef0123456789abcdef",
+      "start_ms": 0,
+      "end_ms": 5000,
+      "volume_percent": 0,
+      "headline": "その情報、\n届いていますか？",
+      "narration": "十五秒で、しっかり伝える。"
+    },
+    {
+      "role": "message",
+      "video_artifact_id": "art_1123456789abcdef0123456789abcdef",
+      "start_ms": 0,
+      "end_ms": 5000,
+      "volume_percent": 0,
+      "headline": "大切なことを\nひと目で",
+      "narration": "大切な情報を、ひと目で。"
+    },
+    {
+      "role": "cta",
+      "video_artifact_id": "art_2123456789abcdef0123456789abcdef",
+      "start_ms": 0,
+      "end_ms": 5000,
+      "volume_percent": 0,
+      "headline": "詳しくは\nプロフィールへ",
+      "narration": "続きはプロフィールから。"
+    }
+  ],
+  "voice": null,
+  "rate": 0,
+  "pronunciations": [],
+  "include_captioned": true,
+  "caption_style_preset": "shorts_ja_large_v1",
+  "audio_mix_preset": "narration_only_v1",
+  "variant": "captioned"
+}
+```
+
+sceneは`hook`、`message`、`cta`の3件をこの順序で必須とし、各trimは1〜10秒です。2つの250ms fadeを差し引いた完成尺を10〜20秒に制限し、UIは15秒を推奨します。compile時は最初の2 clipへ固定250ms fadeを入れ、大見出しを各trimの125ms後から終了125ms前まで表示します。位置はHOOK=`center`、MESSAGE=`top`、CTA=`center`、styleは`shorts_ja_large_v1`固定です。見出しは1〜2行、各行20表示単位以内、連続ASCII token 20文字以内で、不可視／bidi制御文字を拒否します。各ナレーションは空でない1行、最大200文字で、3件のSAPI segmentになります。
+
+新規フォームの既定trimは5,167ms／5,167ms／5,166msです。合計15,500msから250msのfade overlapを2回差し引き、24fpsのRemotion出力を360 frame、15.000秒にします。素材がこれより短い場合は判明しているsource尺までに抑え、保存・実行時のbackend検証を正本とします。
+
+告知recipeからの実行に限り、内部policy `announcement_scene_starts_v1`でSAPI segment開始をRemotion出力上のscene開始へ揃えます。開始は、各trimと各250ms fadeをRemotion compilerと同じ24fpsでそれぞれhalf-up丸めし、frame cursorへ個別に加減算してからmsへ戻して導出します。raw msの累積だけでは求めません。narration WAVには必要な無音frameを挿入し、SRTも同じ実WAV frame時刻を使います。前segmentの実音声が次scene開始を越える場合は音声を重ねたり切ったりせず、`narration segment overlaps the next scheduled scene`でfail closedにします。通常の公開SAPI APIと通常cache identityは変更せず、この内部schedule、そのpolicy、開始時刻を告知のnarration／Detailed request key、job／attempt監査、timing／manifestへ含めるため、同期前の旧成果物は再利用しません。
+
+compile結果は既存Detailed Test Video v1のexact schemaへ再検証されます。`voice`は任意、`rate`は−10〜10、発音置換は最大100件です。字幕は`studio_default_v1`または`shorts_ja_large_v1`、音声は`narration_only_v1`または固定の`source_under_narration_v1`、QC対象は`clean`または`captioned`だけです。素材音mixを選ぶ場合は少なくとも1シーンの`volume_percent`を1以上にし、後続assemblyで素材音声1 streamと素材／ナレーション双方の非無音を確認します。BGM、ロゴ画像、自由なgain／ducking、任意transition、任意overlay位置、CSS、font、React component、renderer propsはv1に存在しません。
+
+保存時は`expected_revision`が現在版と一致する場合だけ、`announcement.recipe.saved`をproductionのhash-chain eventへ追記します。eventはrecipe ID／version ID、revision、親version、任意のclone元version、canonical JSONのbytes／SHA-256、監査用summaryに加え、完全なcanonical JSONをBase64で保持します。同じ内容へのlost-response再送はdedupeしますが、古いrevisionからの異なる内容は`announcement_recipe_conflict`で拒否します。
+
+> [!CAUTION]
+> Base64は可逆なencodingであり、暗号化でもredactionでもありません。recipe名、見出し、ナレーション、発音置換はSQLite、event JSONL mirror、production detail API、監査exportから読める平文相当の情報です。API key、token、password、秘密、公開不要の個人情報を入力しないでください。
+
+実行ではrecipe名を除くcompile済みDetailed payload、scene由来のnarration開始時刻とpolicyが、従来の素材hash／tool identity／字幕policyを含むrequest keyへ入ります。名前だけを変えたcloneなどcompile結果とscene timingが同じ場合、queued／runningまたは物理再検証済みsucceededのDetailed top JobとRunを再利用します。一方、CTA見出し、ナレーション、trimなどを変更すれば別request keyです。各recipe versionとJobの関係は`announcement.recipe.executed`として別々に追記します。Detailed top Jobの作成または再利用決定と、このexecution linkは同じSQLite transactionで確定するため、recipeから追跡できない新規topを受理しません。
+
+UIは実行中のJob一覧を2秒間隔で取得し、production detailは最初のpollと3回ごと、すなわちおおむね6秒間隔へ抑えます。告知用の保存・複製・実行・Job／production照合requestはprivateな`AbortSignal`を必ずforwardし、15秒でabortします。保存の応答が不明なら同じrecipe ID・`expected_revision`・canonical内容を1回だけ再送します。複製はsource identity／コピー名から128-bit clone IDを決定的に導出し、intent固有のversioned `localStorage` keyへPOST前に保存します。画面移動／再読込後も同じIDを使い、複数tabの同時操作も同じbackend recipe IDへ収束します。成功応答またはimmutable版履歴のexact clone lineageを確認した場合だけ消去し、timeout／通信／再送後4xxでは保持します。保存領域のruntime検証またはread-after-writeに失敗した場合はPOSTせず、明示破棄もbrowser intentだけを対象にします。backendのCAS／digest／clone-source lost-response dedupeと合わせ、応答消失で別revisionや別cloneを作りません。実行POST応答を受け取れなかった場合、送信前snapshotになかったexact recipe versionのexecution linkだけを受理証拠とし、そのJob IDを`GET /api/jobs/{job_id}`で取得してproduction、Run、revision、request keyまで照合します。既知の成功Jobは、今回のPOST到達や現在の成果物健全性を証明しないため、履歴表示だけに使い曖昧状態を解除しません。新しいlinkが確認できなければ、同じimmutable recipe ID／revisionを1回だけ自動再送します。この再送はDetailedのcontent claimへ直列化され、queued／runningと、全child lineage・全成果物のbytes／SHA-256を物理再検証できたsucceeded Jobだけを再利用し、欠損・改変時だけ同じRunの修復Jobを作ります。2回目のPOSTまたはfresh linkのexact Job照合がtimeout／通信／5xxで不明なら自動requestを止め、フォームの永久lockを避けて`同一revisionを再照合`を表示し、明示した場合だけ1回ずつ同じPOSTを行います。実行requestで受信済みの4xxは未受理としてlockを解除します。別tabで最新revisionが進んだ場合は、cleanかつidleなら自動同期し、編集中または実行中なら内容を上書きせず警告して保存・実行を止めます。未保存変更がある状態でrecipeを切り替える、productionを移動する、別タブへ移る操作は確認を挟み、未保存状態では複製を無効にします。productionを切り替えると旧detail requestをabortし、request generationと現在の選択IDが一致した応答だけをstateへ反映・描画します。
+
+## 詳細一括（Detailed Test Video v1）
+
+`詳細一括`タブは、すでに同じproductionへ登録されている動画を、ナレーション、詳細カット編集、音声・字幕合成、technical QCまで仕上げる入口です。HTTP境界は`POST /api/productions/{production_id}/execute-detailed-test-video`です。新しいH3映像は生成せず、既存の手動ナレーション／timeline／assembly／QC APIと`local_pipeline`も変更しません。
+
+public bodyは次のsnake_case schema v1だけを受け付け、余分なfieldを拒否します。`schema_version`、`clips`、`segments`、`include_captioned`、`caption_style_preset`、`audio_mix_preset`、`variant`は必須、`voice`、`rate`、`pronunciations`は任意です。省略時はSAPIの既定voice、`rate=0`、発音置換なしへ正規化されます。各clipも6 fieldをすべて持ち、transitionとoverlayを使わない場合は`null`を明示します。
+
+```json
+{
+  "schema_version": 1,
+  "clips": [
+    {
+      "video_artifact_id": "art_0123456789abcdef0123456789abcdef",
+      "start_ms": 0,
+      "end_ms": 5000,
+      "volume_percent": 100,
+      "transition_to_next": null,
+      "overlay": {
+        "text": "CLAUDE.md",
+        "start_ms": 200,
+        "end_ms": 1800,
+        "position": "top",
+        "style_preset": "shorts_ja_large_v1"
+      }
+    }
+  ],
+  "segments": [{"text": "重要な設定を、毎回自動で読み込みます。"}],
+  "voice": "Microsoft Haruka Desktop",
+  "rate": 0,
+  "pronunciations": [{"source": "AI", "target": "エーアイ"}],
+  "include_captioned": true,
+  "caption_style_preset": "shorts_ja_large_v1",
+  "audio_mix_preset": "source_under_narration_v1",
+  "variant": "captioned"
+}
+```
+
+`clips`はRemotion schema v1と同じ登録済みartifact ID、trim、0〜100%の素材音量、任意の固定fade、任意の固定テロップだけを許します。動画は1〜16件、合成後最大60秒です。最後のclipの`transition_to_next`は`null`で、fadeは隣接clipより短くします。overlayは`text`、`start_ms`、`end_ms`、`position=top | center | bottom`、`style_preset=shorts_ja_large_v1`だけです。path、URL、renderer props、CSS、font、React component、FFmpeg filterはrequestに存在しません。
+
+`include_captioned=true`かつ`caption_style_preset=shorts_ja_large_v1`では、固定`shorts_ja_large_preflight_v1`をqueue前に適用します。segmentは1〜6件、各textは表示幅38単位以内です。ASCIIと半角カナは1単位、それ以外は2単位で数え、連続ASCII tokenは20文字以内とします。zero-width／bidi isolate・override／BOMなどの不可視・双方向制御文字も拒否します。これは固定大字幕に対する保守的なcontractで、任意の自動縮小、自由な改行、font差し替えは行いません。標準字幕では既存`studio_default_v1` contractを使います。`variant=captioned`には`include_captioned=true`が必要で、字幕を作らない場合は`variant=clean`と`caption_style_preset=studio_default_v1`を指定します。
+
+`audio_mix_preset`は`narration_only_v1`または`source_under_narration_v1`だけです。前者は素材音を置換し、後者はRemotion previewの素材音を25%、ナレーションを100%に固定してlimiterへ通します。後者は素材audio 1 streamと素材／ナレーション双方の非無音を必須にし、任意gain、BGM、duckingは受け付けません。UIも全clipが`volume_percent=0`のmix要求を事前に拒否します。
+
+受理時は正規化payload、素材artifactのbytes／SHA-256、Remotion tool cache identity、字幕preflight policyを含むcontent-addressed request keyを作ります。正規化payload単体のcanonical SHA-256も、本文を複製しない照合用audit fieldとしてtop Jobへ保存します。SQLite schema v7の`detailed_test_video_claims`は`production_id + request_key`を主キーに、immutableな0円`local_sapi` Run／revisionとactive top jobを結びます。同じ要求のqueued／running topはそのまま返し、検証済みsucceeded topも再利用します。failed／interrupted、queue admission失敗、または成功成果物の欠落・改変時はRunを増やさず、新しい`detailed_test_video` top jobを同じRunへ追加します。`revision.created` event mirrorにはclaimのproduction／request／Run／revision identityを含め、SQLite索引再構築時は厳密なschema／profile／0円／requested-stage検証後にclaimを`active_job_id=null`で復元します。過去の一時的top jobを推測復元せず、次の明示実行で新jobへ安全にretryします。
+
+top jobは専用pipeline laneで順序を管理し、`narration`、`timeline`、`assembly`、`qc`の4 childを既存APIへ投入します。Remotion timelineだけはPlaywright収録と共有するbrowser FIFO lane、SAPI／assembly／QCはdefault FIFO laneです。各childについてexact job ID、attempt ID、production、`execution_profile=local_sapi`、Run、stage、cache key、resultを再照合し、次工程へ渡すartifact ID／相対path／bytes／SHA-256をallowlistします。top成功条件は4 child成功、Remotion recipeとassembly／QCの期待尺一致、選択variantのmaster、QC report 3件、`technical_verdict=pass`です。top resultの`children`は`narration | timeline | assembly | qc`だけを返します。停止／timeout／失敗時は現在のchildを`cancel_and_wait`で退役させてからtopをterminalにし、後続stageをqueueしません。
+
+UIはtop jobを2秒間隔でpollingし、narration→timeline→assembly→QCの進捗、各childのjob／attemptとcache hit、完成master、QC passを表示します。完了Jobがある場合のrecipe尺は未入力フォームではなくimmutableなJob結果を優先します。HTTP応答が曖昧な場合は、送信前snapshotになく、production、kind、stage、`local_sapi` profile、canonical payload SHA-256、request keyが一致するdirect Detailed Jobだけを受理済みとして扱います。告知専用のnarration alignment fieldが一つでもあるJob、既知Job、digest欠落・不一致Jobでは曖昧状態を解除せず、自動再送を止めます。この経路はローカルSAPI、Remotion、FFmpeg／ffprobeだけを使い、H3／ComfyUI、MiniMax API、ElevenLabs、secret、費用approvalへ到達しません。
 
 ## 一括生成（`local_pipeline`）
 
@@ -89,7 +232,7 @@ bodyは次のpublic fieldだけを受け付けます。workflow graph、model pa
 
 raw prompt/scriptはSQLite、event、job metadataへ複製しません。prompt hash、文字数、seed decimal、stage lineageだけを公開記録します。ただし、明示的に生成する`workflow.json`、`timings`、`manifest`などのartifactにはcontentが含まれ得るため、監査exportや共有前に確認してください。
 
-実行中はUIが2秒間隔でjob／stage attempt、provider task、公開`pipeline_continuation` stateを再読込します。pipeline概要は真のtop jobに固定し、復旧用video childが古いtop表示を上書きしません。provider照合日時はbackendが実際にComfyUIを確認した`last_observed_at`だけを表示し、画面のpolling日時では代用しません。復旧したvideo generationが成功すると、schema v6台帳がsource job/attemptと同じRunを`ready`へ原子的に確定し、background coordinatorが新topを一件だけ自動投入します。video stageはそのsourceを含む物理検証済みcache chainだけを使い、欠損・改ざん・lineage不一致なら`pipeline_recovered_video_unavailable`で停止してComfyUIへ再POSTしません。SAPI、timeline、assembly、QCは通常どおり後続し、完了後はmaster artifact、clean／captioned variant、technical QC verdictを確認できます。`active`、`waiting_provider`、`ready`、`continuing`、`cancel_requested`中はフォームをロックします。
+実行中はUIが2秒間隔でjob／stage attempt、provider task、公開`pipeline_continuation` stateを再読込します。pipeline概要は真のtop jobに固定し、復旧用video childが古いtop表示を上書きしません。provider照合日時はbackendが実際にComfyUIを確認した`last_observed_at`だけを表示し、画面のpolling日時では代用しません。復旧したvideo generationが成功すると、schema v7台帳がsource job/attemptと同じRunを`ready`へ原子的に確定し、background coordinatorが新topを一件だけ自動投入します。video stageはそのsourceを含む物理検証済みcache chainだけを使い、欠損・改ざん・lineage不一致なら`pipeline_recovered_video_unavailable`で停止してComfyUIへ再POSTしません。SAPI、timeline、assembly、QCは通常どおり後続し、完了後はmaster artifact、clean／captioned variant、technical QC verdictを確認できます。`active`、`waiting_provider`、`ready`、`continuing`、`cancel_requested`中はフォームをロックします。
 
 外部ナレーションのHTTP境界は`POST /api/runs/{run_id}/execute-external-narration`です。bodyは次の形だけを受け付けます。endpoint、API key、timeout、出力path、FFmpeg optionは指定できません。
 
@@ -283,7 +426,7 @@ tools/studio/                   Python backendと索引・監査処理
 productions/<production-id>/    Git管理する既存の制作仕様と台帳
 outputs/productions/<id>/       ignoredの画像・音声・動画・詳細QC
 outputs/studio/
-  studio.sqlite3                schema v6のSQLite検索索引、Studio記録、provider task／pipeline continuation台帳
+  studio.sqlite3                schema v7のSQLite検索索引、Studio記録、provider task／pipeline／detailed-test claim台帳
   events/<scope>/<id>.jsonl     hash chain付きevent mirror
   secrets/<provider>.dpapi      Windowsユーザーに紐づく暗号化secret
   external-submissions/elevenlabs/<production>/<cache>/.submission-unknown.json
@@ -312,6 +455,9 @@ outputs/studio/
 Production
   ├─ Artifact / Artifact version
   ├─ Event hash chain
+  ├─ Announcement recipe
+  │    ├─ Immutable exact version / parent / clone source
+  │    └─ Execution link -> Detailed top Job / Run / Revision
   └─ Revision
        └─ Run
             ├─ Requested stages
@@ -324,6 +470,7 @@ Production
 - 既存revisionとrunは上書きしません。修正は新しいrunとして残します。
 - artifactは相対path、byte数、media type、生成元を常時記録します。SHA-256は既存manifestから得られる場合、または小容量sidecarを索引時に実測できる場合に記録し、大容量mediaでは`null`の場合があります。監査ZIPへ実際に格納したentryは別途すべて実測hashを持ちます。
 - イベントと判断は追記し、過去の採否を書き換えません。
+- 告知recipeは例外的に、再調整できるexact canonical JSONを`announcement.recipe.saved` eventへBase64で保持します。Base64は暗号化ではなく、event mirrorと監査exportから復号できるため、秘密を入力しません。
 - eventは`previous_hash`と`event_hash`を持ち、起動時と追記時にJSONL mirrorの全chainを検査します。破損時はhealthとUIをdegraded表示にし、該当mirrorを監査ZIPから除外します。これはローカル改変の検出であり、第三者に対する電子署名ではありません。
 - hash chainの途中改変や不正な追記は検出しますが、正しいevent境界で末尾だけを削る操作は、外部固定済みtailがなければ単独では検出できません。重要時点の監査ZIPと`.zip.sha256`を別媒体にも保管してください。
 - SQLiteはUI検索とMVP操作用です。既存のtracked台帳を置き換えません。
@@ -332,13 +479,15 @@ Production
 
 MVPは変更種別から`requested_stages`と再利用工程を計画します。ローカルnarrationのcache keyは正規化segment、voice、rate、発音置換、Windows SAPIに固定した実装versionから作り、成功attemptと4成果物のpath、bytes、SHA-256がすべて一致するときだけ再利用します。外部TTSはprovider、固定model/output、voice、全voice setting、seed、正規化segment、実装versionからcache keyを作り、同じproduction内の成功attempt chainを物理成果物のownerまで辿って4成果物とmanifest自己hashを再検証します。課金POST直前にはproduction/cache identityごとの永続markerを排他的に作り、成功成果物の確定後だけ削除します。通信結果が曖昧な失敗や中断でmarkerが残った場合は別Runを含む自動再送をfail closedで止めます。
 
-ローカルComfyUIはprompt hash、seed、固定workflow、4 model、2 runtime lock、3 repository revision、FFprobe identity、出力policyからcache keyを作ります。GPU lane内で同じproductionの成功attempt chainを物理ownerまで辿り、4成果物、manifest自己hash、fresh ffprobeを再検証します。新規taskではStudioがUUIDを事前発行し、schema v6の`provider_tasks`とfsync済みmarkerへ保存した後、同じ値をComfyUIの`prompt_id`へ渡して応答完全一致を要求します。Studio再起動時は旧jobを`interrupted`、旧attemptを`failed(process_interrupted)`として保持し、ownerを解放した同じtaskへ新しいattempt/jobをCASで1件だけ追加します。marker、暗号化request、payload digest、cache key、Run、固定runtime、`GET /api/jobs/{id}`を照合し、既知taskは再POSTしません。明示cancelはprovider taskを`cancel_requested`へ移す処理とjob／attemptの中断を同じSQLite transaction・同じ時刻で確定し、暗号文とmarkerを残します。再起動または手動再照合では同じUUIDへのGETとtargeted cancelだけを行い、terminalを確認してから暗号文を消去します。IDなし旧marker、通常復旧時の404、runtime不一致、改変は`ambiguous`または`recovery_blocked`で止め、cancel照合時の404は`cancel_requested`を保持します。
+ローカルComfyUIはprompt hash、seed、固定workflow、4 model、2 runtime lock、3 repository revision、FFprobe identity、出力policyからcache keyを作ります。GPU lane内で同じproductionの成功attempt chainを物理ownerまで辿り、4成果物、manifest自己hash、fresh ffprobeを再検証します。新規taskではStudioがUUIDを事前発行し、schema v7の`provider_tasks`とfsync済みmarkerへ保存した後、同じ値をComfyUIの`prompt_id`へ渡して応答完全一致を要求します。Studio再起動時は旧jobを`interrupted`、旧attemptを`failed(process_interrupted)`として保持し、ownerを解放した同じtaskへ新しいattempt/jobをCASで1件だけ追加します。marker、暗号化request、payload digest、cache key、Run、固定runtime、`GET /api/jobs/{id}`を照合し、既知taskは再POSTしません。明示cancelはprovider taskを`cancel_requested`へ移す処理とjob／attemptの中断を同じSQLite transaction・同じ時刻で確定し、暗号文とmarkerを残します。再起動または手動再照合では同じUUIDへのGETとtargeted cancelだけを行い、terminalを確認してから暗号文を消去します。IDなし旧marker、通常復旧時の404、runtime不一致、改変は`ambiguous`または`recovery_blocked`で止め、cancel照合時の404は`cancel_requested`を保持します。
 
 ローカルPlaywright画面収録は正規化timing／actionsと、URL／selectorのhash、固定network policy、Node／Playwright／Chromium／worker script／FFmpeg／ffprobeの実体hash、固定出力policyにrequestごとのnonceを加えてcapture keyを作ります。ページ内容が同一である保証はないため、並行requestや過去の成功captureをcontent cacheとして再利用しません。成功時とartifact restore時は7成果物のexact集合、manifest自己hash、各file bytes／SHA-256、MP4のfresh ffprobeとfull decodeを再検証します。
 
 ローカルFFmpeg timelineは順序付きartifact ID、trim、入力bytes／SHA-256、固定出力policy、解決済みFFmpeg／ffprobeの実体versionとbinary SHA-256からcache keyを作り、同じproduction内の成功attempt chainと4成果物を再検証します。Remotion詳細timelineはschema v1 recipe、入力bytes／SHA-256、固定出力policy、tracked composition／model／render script、Remotion package、Playwright Chromium、Node、FFmpeg／ffprobeのidentityからcache keyを作り、exact 5成果物、manifest自己hash、full decode、fresh ffprobeを再検証します。ローカルassemblyはsource動画、WAV、SRT、字幕preset、字幕有無、閉じた音声mix preset、音声・出力方針、FFmpeg/ffprobeの実体versionとbinary SHA-256からcache keyを作り、manifest自己hash、登録済みartifact、実fileを再検証します。ローカルQCはassembly attempt、選択variant、masterのhash／bytes、期待尺、QC policy、FFmpeg/ffprobeの実体identityからcache keyを作ります。cache再利用時も対象mediaと成果物を再検証します。字幕または音声mixだけを変更した場合は映像、timeline、ナレーションを再利用し、合成とQCだけを新runで実行できる土台です。
 
-`local_pipeline`は全入力のcanonical keyをschema v6 DB claimへ束ね、同一production・同一入力のRun/top jobを再利用します。正規化requestはDPAPI暗号文だけを保持し、動画成功時はsource job/attemptをcheckpointします。shutdown／crash後にproviderまたはcheckpointが成功済みなら`ready`へ移し、単一coordinatorが同じRunへ新topをCASで一件だけ投入します。checkpoint付きvideo childは指定sourceを含むcache chainと物理artifactを検証し、再生成へfallbackしません。親cancelはchild job/processのjoinを待ち、後からproviderが成功してもclaimを`cancelled`へ閉じます。各local stage、provider terminal／video checkpoint、top terminal／claimは対応するatomic transactionで確定し、UIはstage lineage、continuation state、最終master／QCを再読込できます。
+`local_pipeline`は全入力のcanonical keyをschema v7 DB claimへ束ね、同一production・同一入力のRun/top jobを再利用します。正規化requestはDPAPI暗号文だけを保持し、動画成功時はsource job/attemptをcheckpointします。shutdown／crash後にproviderまたはcheckpointが成功済みなら`ready`へ移し、単一coordinatorが同じRunへ新topをCASで一件だけ投入します。checkpoint付きvideo childは指定sourceを含むcache chainと物理artifactを検証し、再生成へfallbackしません。親cancelはchild job/processのjoinを待ち、後からproviderが成功してもclaimを`cancelled`へ閉じます。各local stage、provider terminal／video checkpoint、top terminal／claimは対応するatomic transactionで確定し、UIはstage lineage、continuation state、最終master／QCを再読込できます。
+
+告知recipeは独立したmedia cacheを持たず、exact revisionを既存Detailed payloadへcompileします。compile済みpayloadが同一ならDetailedのcontent-addressed claimをそのまま再利用し、recipe名だけ異なるcloneからも同じRun／top Jobへ到達できます。ただし、各recipe versionとJobを結ぶ`announcement.recipe.executed` eventは別に残します。top Jobの新規作成または再利用とexecution linkを同じSQLite transactionへ入れ、片方だけがproduction historyへ現れる状態を拒否します。
 
 queue admission補償は失敗を実際に観測したexact IDに限定し、worker dequeueとのhandshakeで正常なqueued／running jobを誤停止しません。別processの所有権はprivateな`_active` mapから推測せず、起動時のDB interruptionとworkspace単一起動lockを正本にします。
 
@@ -348,7 +497,7 @@ Studioでは次を別々に扱います。
 
 | 種類 | 記録例 |
 |---|---|
-| event | 索引、revision/run、job、費用承認の時刻、状態、hash chain |
+| event | 索引、revision/run、job、費用承認、告知recipe version／execution linkの時刻、状態、hash chain |
 | artifact | path、bytes、MIME、origin、version、取得できた場合のSHA-256 |
 | run cost | 見積、通貨、承認上限、承認／却下履歴 |
 | stage attempt | stage、attempt番号、cache key、状態、所要時間、provider、task ID、実費、timing source |
@@ -358,12 +507,15 @@ Studioでは次を別々に扱います。
 
 監査exportは、SQLiteを1つのread transactionで固定した時点の記録をZIPへまとめる派生成果物です。event mirrorもそのsnapshotと一致する検証済みprefixをmemoryへ固定してから格納します。一般テキスト副生成物はZIP格納前に既知の秘密情報patternをredactし、変更対象をpackage manifestの`redacted_text_files`へ記録します。安全な構造化処理を保証できないYAML/YML、INI/CFG/CONF、TOML、CSV/TSV、XML、HTML/XHTML、SVGは`structured_text_requires_local_review`として除外します。未知形式と外部archiveも`unsupported_artifact_kind`として除外します。Studio生成のSRT、timings、manifestは既定で含め、WAVは他のaudio/video/imageと同様に`include_media=true`のときだけ含めます。監査ZIP自身は再帰的に含めません。package manifest自身を除く格納entryごとの実bytes/SHA-256、scope別event chain末尾、検証できず除外したmirrorを記録し、ZIP閉鎖後に全entryを再検証します。ZIP全体のSHA-256は隣接sidecarへ保存します。DB snapshot後に元artifactが更新された場合、artifact metadataの時点とcopy時点は異なり得るため、ZIP内実体については`archive_entries`のbytes/hashを正本とします。監査ZIPが存在するだけで公開権利や人の通し試聴が確認済みになったとは扱いません。
 
+告知recipeのevent payloadには完全なcanonical JSONがBase64で入ります。構造化redactionがevent payload全体を秘密なしへ変換する保証はなく、Base64は既知の秘密情報patternを隠してしまう場合もあります。したがって「後で監査時に消す」運用にはせず、入力時点で秘密を含めないことを境界とします。
+
 ## セキュリティ境界
 
 - HTTPは`127.0.0.1`だけにbindします。
 - 変更系POSTは起動ごとのsession tokenとloopback Originで保護し、tokenを永続ログへ保存しません。認証拒否時は上限内の宣言済みrequest bodyだけを破棄してから接続を閉じ、WindowsでもHTTP 403を安定して返します。長さ不正・上限超過bodyは読み込まずfail closedにします。読取GETはloopback bindとHost検査を境界とします。
 - 同じworkspaceへ2つのStudio serverを起動しません。Windowsではworkspace内lock fileを`LockFileEx`でsystem-wideに排他保持し、同一process／別process／別sessionの2台目を起動時に拒否します。全responseは`Connection: close`で1 request／1 handlerへ限定します。終了時はlistenerとrequest解析中socketだけを閉じ、解析済みnon-daemon HTTP handler、background provider recovery、job worker lane、SQLite interruption writerをdrainしてからlockを解放します。未解析requestはWindowsでも1秒のinactivity timeoutで有界化し、解析済みservice処理にはこの時間制限を適用しません。worker／writerのtimeoutまたはclose例外時は再試行またはprocess終了までlockを保持するため、旧writerと新processのSQLite多重writerを許しません。
 - frontendへAPIキーを返すendpointはありません。
+- 告知recipeの保存APIは大見出し、ナレーション、発音置換をexact revisionとして返し、production eventにもBase64で保持します。これはローカルの再調整・監査機能であってsecret storeではありません。秘密を入力せず、監査ZIPを外部共有する前にevent mirrorも確認します。
 - 外部TTSのprofile、narration工程、正の見積、費用承認、literal booleanの`confirm_billable=true`をすべて検証してから、外部contract module、秘密鍵、HTTP workerへ到達します。どれか1つでも欠ければprovider codeを読み込まずfail closedにします。
 - ElevenLabsのproduction endpointは`https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/with-timestamps`へ固定し、redirectを拒否します。test用endpoint注入はliteral loopback originだけに限定します。API keyは`xi-api-key` header以外へ入れず、URL、cache key、manifest、例外、job payloadへ保存しません。
 - provider応答、MP3、alignment、WAV、metadata、segment文字数、総文字数、総尺、timeoutへ上限を設けます。HTTP／processの生出力やprovider bodyを公開エラーへ含めません。
@@ -383,7 +535,7 @@ Studioでは次を別々に扱います。
 - QC request bodyは`assembly_attempt_id`と`variant`だけを許可します。指定attempt自身は選択中Runの成功済みassemblyに限定します。content-addressed assembly cacheの実fileが同じproduction内の先行Runにある場合は、その`cache_source_attempt_id` chainを循環なしで終端まで辿り、全attemptのcache key、入力hash、artifact ID/path/bytes/SHA-256が一致したときだけ意図的なcross-run再利用として許可します。backendが対象artifactと期待尺を導出し、workspace内通常file、symlink不使用、bytes／SHA-256一致を検証してから、固定argv・`shell=False`のFFmpeg/ffprobeへ渡します。
 - QCはprobe成功、MP4、video 1本＋audio 1本、H.264／yuv420p、AAC 48 kHz stereo、container/video/audio各尺、期待尺、full decode、全編無音ではないことを独立checkとして記録します。短尺mediaでは無音検出windowを媒体尺に合わせて1msまで縮めます。codec不一致や壊れたmediaは解析完了の`technical_verdict=fail`であり、creative、rights、public release statusを自動変更しません。tool timeoutなど解析自体が完了しない場合だけattempt／jobを失敗にします。
 - QC cacheは登録済みartifact、実file、manifest自己hashだけでなく、対象masterの再解析結果も再照合します。改変したreportを自己hashごと作り直してもpassへ偽装できません。
-- attemptとbackground jobはjobをworker queueへ入れる前に同一ID関係を永続化し、`stage.attempt.job_linked` eventとしてmirrorへ残します。同じリンクの再適用はeventを重複させません。schema v1〜v5の既存DBは起動時にschema v6へtransactionalに移行し、event mirrorから再構築してもattempt側の履歴Job IDを復元します。jobs検索表そのものは再構築対象ではないため、DB再構築後の完了状態・成果物はattempt記録を正本として表示します。`local_pipeline`のRun/top job claim、child lineage、公開continuation state、source job/attempt、再開回数、DPAPI暗号化済み正規化requestと、ComfyUIのprovider task state／CAS owner／暗号化resume payloadをschema v6のDB transactionで管理します。
+- attemptとbackground jobはjobをworker queueへ入れる前に同一ID関係を永続化し、`stage.attempt.job_linked` eventとしてmirrorへ残します。同じリンクの再適用はeventを重複させません。schema v1〜v6の既存DBは起動時にschema v7へtransactionalに移行し、event mirrorから再構築してもattempt側の履歴Job IDを復元します。jobs検索表そのものは再構築対象ではないため、DB再構築後の完了状態・成果物はattempt記録を正本として表示します。`local_pipeline`のRun/top job claim、child lineage、公開continuation state、source job/attempt、再開回数、DPAPI暗号化済み正規化request、ComfyUIのprovider task state／CAS owner／暗号化resume payload、およびDetailed Test Videoのcontent-addressed Run/top claimをschema v7のDB transactionで管理します。
 - cache hit時も各stageのmanifest自己hash、期待される全成果物のhash、DBに記録済みbytes/hashを再検証します。QCでは対象masterのfresh解析も行います。欠落、symlink、path逸脱、改変、worker契約違反は再利用または成功扱いにしません。
 - 異常出力によるメモリ圧迫を抑えるため、1 segmentのWAVは32 MiB、結合WAVは128 MiB、総尺は30分を上限としてfail closedにします。これは短尺制作向けの安全上限で、長尺音声配信を保証する値ではありません。
 - worker-backed stageの成功時は、jobとリンク済みstage attemptおよび両success eventを同じSQLite transactionで確定します。ComfyUIではprovider task、4 artifact row、version、`artifact.created` eventも同じtransactionへ含め、terminal successより先に見せません。artifact登録、success commit、通常worker error、job／attemptリンク不一致、provider lineage欠落、原子的completion envelope欠落／不一致でもjob／attemptを同じfailure transactionで閉じます。停止との競合は「provider task／job／attemptがsuccess」または「job=`interrupted`かつstage attempt=`failed(process_interrupted)`、provider taskは次回復旧可能」のどちらかに限定します。Studio通常終了ではComfyUI provider jobをcancelせずpollだけを停止します。ユーザーの明示cancelはjob=`interrupted`、attempt=`failed(process_interrupted)`、provider task=`cancel_requested`を同じtransaction・同じ時刻で確定し、同じUUIDへのGETとtargeted cancelだけで再照合します。FFmpeg／ffprobe／PowerShell subprocessは従来どおり子process treeごと停止します。DBがbusyでもprocess停止を先行・並行し、worker laneとSQLite interruption writerの終了を確認します。
@@ -402,15 +554,18 @@ Studioは個人用loopbackツールです。LANからの攻撃面を作らない
 3. Studioが索引・監査job、ローカルComfyUI動画生成、Playwright画面収録、ローカル／ElevenLabs narration、FFmpeg／Remotion timeline、assembly、QC attempt、成果物、費用計画、ログを保持する。後続workerも同じ台帳へ保持する。
 4. ユーザーはStudioで候補や中間成果物を確認する。
 5. Codexは完了、失敗、承認待ちなど節目だけを確認する。
-6. `local_pipeline`の`一括生成`タブでprompt、seed、script、音声、字幕preset、variantを確認して、固定local-onlyの6 requested／5 executed stageを明示実行する。StudioはComfyUI→SAPI→one-clip timeline→assembly→QCの順序、child job、cache、artifact hash、technical verdictを保持する。単独の`local_comfyui`、`local_sapi`、`elevenlabs_tts`は工程単位の再実行や比較に使い、local pipelineではElevenLabs、MiniMax API、費用approvalを使わない。
+6. 既存素材から早く告知を作る場合は`告知動画`タブで3シーンを保存・previewし、exact revisionを一括実行する。Studioはrecipe history、Detailed child lineage、master、QCを保持する。
+7. 新しいH3素材から始める場合は`local_pipeline`の`一括生成`タブでprompt、seed、script、音声、字幕preset、variantを確認して、固定local-onlyの6 requested／5 executed stageを明示実行する。StudioはComfyUI→SAPI→one-clip timeline→assembly→QCの順序、child job、cache、artifact hash、technical verdictを保持する。単独の`local_comfyui`、`local_sapi`、`elevenlabs_tts`は工程単位の再実行や比較に使い、local pipelineではElevenLabs、MiniMax API、費用approvalを使わない。
 
-現MVPは索引・監査jobに加えてローカルComfyUI動画生成、Playwright Web画面収録、`local_pipeline`一括生成、ローカル／ElevenLabs narration、FFmpegハードカット／Remotion詳細timeline、assembly、technical QCもバックグラウンド実行します。profile単位では、`local_playwright`はscreen_captureとtimelineだけを実行可能とし、assembly／qcは影響工程として計画に残しますが実行しません。dashboard全体のhealth/job一覧は15秒間隔、実行中の画面収録と両timeline、pipeline top job／child、および選択RunのComfyUI provider taskとpipeline continuation stateは2秒間隔で取得し、ジョブ状態と進捗率を表示します。production detailの一時取得失敗でも最後に確認できたフォームと復旧stateを保持します。専用browser laneはChromium captureとRemotion renderをdefault laneから分離し、両者をFIFOで直列実行します。専用pipeline laneはGPU childをdefault childから分離します。Studio再起動後にComfyUI生成が成功へ復旧した場合は、単一coordinatorが同じRunの新topを一度だけenqueueし、検証済み動画cacheからSAPI以降を自動継続します。チャットは節目だけを確認することで監視トークンを抑えられます。Studioへ記録済みの状態はチャットを閉じてもローカルに残ります。
+現MVPは索引・監査jobに加えてローカルComfyUI動画生成、Playwright Web画面収録、`local_pipeline`一括生成、告知動画テンプレート、ローカル／ElevenLabs narration、FFmpegハードカット／Remotion詳細timeline、assembly、technical QCもバックグラウンド実行します。profile単位では、`local_playwright`はscreen_captureとtimelineだけを実行可能とし、assembly／qcは影響工程として計画に残しますが実行しません。dashboard全体のhealth/job一覧は15秒間隔、実行中の画面収録と両timeline、pipeline top job／child、および選択RunのComfyUI provider taskとpipeline continuation stateは2秒間隔で取得し、ジョブ状態と進捗率を表示します。告知動画は軽いJob一覧を2秒間隔、production detailを初回と3回ごとのおおむね6秒間隔で取得し、曖昧な実行応答はfresh execution linkのexact Job GET、続く同一immutable revisionの1回限定冪等再送で復旧します。複製clone IDはsource identityから決定的に導出してintent固有のversioned `localStorage` keyへPOST前に保存し、画面移動／再読込／複数tabでも同じIDを再利用します。exact cloneの成功または版履歴照合まで保持し、timeout／4xxでは消さず、壊れた保存領域ではPOST前に停止します。production detailの一時取得失敗でも最後に確認できたフォームと復旧stateを保持します。専用browser laneはChromium captureとRemotion renderをdefault laneから分離し、両者をFIFOで直列実行します。専用pipeline laneはGPU childをdefault childから分離します。Studio再起動後にComfyUI生成が成功へ復旧した場合は、単一coordinatorが同じRunの新topを一度だけenqueueし、検証済み動画cacheからSAPI以降を自動継続します。チャットは節目だけを確認することで監視トークンを抑えられます。Studioへ記録済みの状態はチャットを閉じてもローカルに残ります。
 
 ローカルナレーション画面は操作性のため1行2,000文字・合計50,000文字を先に警告します。backendの正本上限は1 segment 4,000文字・合計100,000文字・100 segmentです。外部TTSもbackendで同じsegment／総文字数上限を適用し、さらにvoice ID、全voice setting、seed、provider応答、媒体size／尺を検証します。UIを迂回したrequestにも必ず適用します。
 
 2026-08-24時点では、ElevenLabs transportとFFmpeg境界をmockしたE2Eで、承認済みRun、job／attempt、4成果物、provider metadata、成功cache、ローカルassembly入力まで確認しています。実ElevenLabs APIへのpaid smokeは行っていません。最初の実送信は、ユーザーがAPI keyをローカル登録し、対象voiceと見積上限を確認したうえで、短い日本語原稿を1回だけ明示承認して行う検証項目です。
 
 同日の`test-video`実制作E2Eでは、既存15秒clean masterからWindows SAPI 3 segment、1カットtimeline、captioned assembly、technical QCを86.315秒で完走しました。完成MP4は1080x1920／24fps／15.000秒、H.264／yuv420p + AAC 48kHz stereo、4,524,600 bytes、SHA-256 `3A4A4EDB170F2A1D826231772BD56D1F998B7B31A1DA03C6D8C6A898C1F4A92E`で、technical QC 10/10 passです。同じrecipeの2回目は11.893秒で、narration／timeline／assemblyをcache利用し、QCは新しいattemptとして再解析してpassしました。この結果はローカル技術経路の証拠であり、音声の自然さ、creative、人物・素材の権利、公開可否を自動承認するものではありません。
+
+2026-08-28の告知動画実制作E2Eでは、先に5,000ms×3のmechanical baselineを生成し、technical QCはpassしたものの、目視でナレーションが先頭から連続しCTA音声がMESSAGE映像中に終わる同期不良を検出しました。この成果物は実用受入には使っていません。24fpsの個別frame丸めを含む`announcement_scene_starts_v1`導入後、同じ3素材を5,167ms／5,167ms／5,166msで再実行したjob `job_b640f88bf1fa4e5597610892002b6ecb`は約229.2秒で完走しました。完成masterは`outputs/studio/runs/run_4316184c9dae489d8f72df30a56c67d4/assembly/FB904FAEDC7FC103A6A9AA373B237A42008018057B1629F842902DC40950AFF2/master-captioned.mp4`、1080×1920／24fps／15.000秒、H.264 High／yuv420p + AAC-LC 48kHz stereo、4,469,223 bytes、SHA-256 `A7958A2D0A1D326B8C609768B0824ED1B353F6C2B25B7323DA14FF92358E609F`で、full decodeとtechnical QC passを確認しました。SRTとWAV実frame由来の3開始は0ms／4,917ms／9,833ms、終了は3,313ms／7,945ms／12,036msで、1秒／6.5秒／11秒の代表frameでもHOOK／MESSAGE／CTAと字幕の一致を目視確認しています。同じrev 2の再実行は約3.19秒で同じRun／top Job／既存execution linkへdedupeし、名前だけ異なるcloneも約3.15秒で同じRun／top Jobへdedupeしながら別execution eventを残しました。これはscene同期、再利用、媒体技術条件の証拠であり、訴求内容、人物へのテロップ重なり、音声の自然さ、権利、公開可否は引き続きhuman review対象です。
 
 2026-08-25のローカルComfyUI受入では、Python自動テスト247件を実行し、246件合格＋non-Windows専用race test 1件をWindowsでskipしました。固定API graph、GPU workerでのcache key再束縛、完全なruntime argv、`extra_model_paths.yaml`拒否、Windowsのmodel handle保護、loopback-only transport、送信marker、production-wide cache、GPU lane、artifactとjob／attemptの原子的確定、seedの64-bit保持、Shorts字幕presetを確認しています。稼働中ComfyUIのread-only照合ではversion、path、repository状態は一致しましたが、安全引数導入前に起動された現在のlistenerは完全なcanonical argvを満たさず、`invalid_comfyui_runtime`として意図どおり拒否されました。この実装受入では新しいpromptをPOSTせず、実GPU生成と完成映像の目視確認はまだ行っていません。
 
@@ -432,7 +587,7 @@ Run契約修正後の再受入では、run `run_c0745a922f814b67b1c45f7fbac8fd80
 
 ## 次段階
 
-実装済み: Windows SAPI adapter、ElevenLabs Multilingual v2 `with-timestamps` adapter、文字alignmentからのsegment字幕、費用承認＋payload確認gate、成功cache＋曖昧送信marker、provider request ID／character cost／未確定USD欄、発音置換、固定公式INT8＋Q4 ComfyUI graph、閉じたruntime argv／model／live process照合、Windows model handle保護、GPU FIFO lane、pre-issued UUID、schema v6 provider task／pipeline continuation、DPAPI resume／pipeline request payload、Studio起動時の自動照合、新attempt追記、CAS重複防止、手動resume UI、復旧済み動画のcache-only自動継続、atomic `cancel_requested`＋GET-only targeted cancel再照合、provider／job／attempt／artifactの原子的確定、isolated Chromiumによるloopback Web収録、登録済み動画1〜32カットのtrim／並べ替え／ハードカットpreview、schema v1のRemotion詳細timeline、共通compositionのPlayer preview、fade／素材音量／固定テロップ、exact 5成果物、画面収録とRemotion renderを直列化するbrowser FIFO lane、FFmpeg clean／captioned master、`shorts_ja_large_v1`字幕preset、codec／stream／duration／full-decode／全編無音のローカルtechnical QC、ffprobe／manifest、stage attempt/cache。専用`local_pipeline` lane、6 requested／5 executed stage、DB-level Run/top-job dedupe、same-run failed／interrupted retry、parent-child cancellation wait、local stage artifactのatomic completion、HTTP／worker／SQLite writerのdrain成功時だけworkspace lockを解放する単一writer境界。
+実装済み: Windows SAPI adapter、ElevenLabs Multilingual v2 `with-timestamps` adapter、文字alignmentからのsegment字幕、費用承認＋payload確認gate、成功cache＋曖昧送信marker、provider request ID／character cost／未確定USD欄、発音置換、固定公式INT8＋Q4 ComfyUI graph、閉じたruntime argv／model／live process照合、Windows model handle保護、GPU FIFO lane、pre-issued UUID、schema v7 provider task／pipeline continuation／detailed-test claim、DPAPI resume／pipeline request payload、Studio起動時の自動照合、新attempt追記、CAS重複防止、手動resume UI、復旧済み動画のcache-only自動継続、atomic `cancel_requested`＋GET-only targeted cancel再照合、provider／job／attempt／artifactの原子的確定、isolated Chromiumによるloopback Web収録、登録済み動画1〜32カットのtrim／並べ替え／ハードカットpreview、schema v1のRemotion詳細timeline、共通compositionのPlayer preview、fade／素材音量／固定テロップ、exact 5成果物、画面収録とRemotion renderを直列化するbrowser FIFO lane、FFmpeg clean／captioned master、`shorts_ja_large_v1`字幕preset、codec／stream／duration／full-decode／全編無音のローカルtechnical QC、ffprobe／manifest、stage attempt/cache。専用`local_pipeline` lane、6 requested／5 executed stage、DB-level Run/top-job dedupe、same-run failed／interrupted retry、parent-child cancellation wait、local stage artifactのatomic completion、Detailed Test Video v1のSAPI→Remotion→assembly→QC一括、固定字幕preflight、content dedupe、same-run retry、2秒UI監視、およびHOOK／MESSAGE／CTA告知recipeのCAS保存、immutable exact version、複製、Detailed compile、atomic execution link、fresh exact Job復旧と1回限定の同一revision冪等再送。HTTP／worker／SQLite writerのdrain成功時だけworkspace lockを解放する単一writer境界。
 
 1. Windowsデスクトップ／ネイティブアプリ、system audioを扱う画面収録worker
 2. 実ComfyUIでのStudio強制終了／再起動→`local_pipeline`自動継続E2E、ComfyUI自体の再起動でtaskが404になった場合と旧IDなしmarkerの手動判断・破棄UI

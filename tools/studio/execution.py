@@ -25,6 +25,9 @@ MAX_VOICE_CHARS = 128
 MAX_PROVIDER_CHARS = 128
 MAX_CACHE_KEY_CHARS = 256
 MAX_DURATION_MS = 30 * 60 * 1000
+NARRATION_TIMING_POLICY_ABSOLUTE_SEGMENT_STARTS_V1 = (
+    "absolute_segment_starts_v1"
+)
 
 _CACHE_KEY_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,256}$")
 _ALLOWED_BODY_KEYS = {"segments", "voice", "rate", "pronunciations"}
@@ -147,7 +150,65 @@ def validate_local_narration_payload(body: Any) -> dict[str, Any]:
     return normalized
 
 
-def narration_cache_key(payload: dict[str, Any]) -> str:
+def validate_internal_narration_segment_starts(
+    value: Any,
+    *,
+    segment_count: int,
+) -> tuple[int, ...]:
+    """Validate the private absolute-start capability used by orchestration.
+
+    The schedule deliberately remains outside the public local-SAPI request
+    body.  Callers must possess an in-process service capability before this
+    value can reach the worker.
+    """
+
+    if (
+        isinstance(segment_count, bool)
+        or not isinstance(segment_count, int)
+        or segment_count < 1
+        or segment_count > MAX_SEGMENTS
+        or not isinstance(value, (list, tuple))
+        or len(value) != segment_count
+    ):
+        raise LocalNarrationValidationError(
+            "the internal narration timing schedule is invalid"
+        )
+    starts: list[int] = []
+    for start_ms in value:
+        if (
+            isinstance(start_ms, bool)
+            or not isinstance(start_ms, int)
+            or start_ms < 0
+            or start_ms > MAX_DURATION_MS
+            or (starts and start_ms <= starts[-1])
+        ):
+            raise LocalNarrationValidationError(
+                "the internal narration timing schedule is invalid"
+            )
+        starts.append(start_ms)
+    return tuple(starts)
+
+
+def narration_timing_identity(
+    segment_start_ms: Any,
+    *,
+    segment_count: int,
+) -> dict[str, Any]:
+    starts = validate_internal_narration_segment_starts(
+        segment_start_ms,
+        segment_count=segment_count,
+    )
+    return {
+        "policy": NARRATION_TIMING_POLICY_ABSOLUTE_SEGMENT_STARTS_V1,
+        "segment_start_ms": list(starts),
+    }
+
+
+def narration_cache_key(
+    payload: dict[str, Any],
+    *,
+    segment_start_ms: Any = None,
+) -> str:
     """Return a deterministic request key independent of object ordering."""
 
     identity = {
@@ -155,14 +216,23 @@ def narration_cache_key(payload: dict[str, Any]) -> str:
         "implementation_version": "local-sapi-v1",
         "payload": payload,
     }
+    if segment_start_ms is not None:
+        identity["timing_policy"] = narration_timing_identity(
+            segment_start_ms,
+            segment_count=len(payload.get("segments", [])),
+        )
     return hashlib.sha256(canonical_json(identity).encode("utf-8")).hexdigest().upper()
 
 
-def audit_payload(payload: dict[str, Any]) -> dict[str, Any]:
+def audit_payload(
+    payload: dict[str, Any],
+    *,
+    segment_start_ms: Any = None,
+) -> dict[str, Any]:
     """Return a bounded, non-secret request summary for SQLite/events."""
 
     segments = payload.get("segments", [])
-    return {
+    audit = {
         "segment_count": len(segments),
         "text_chars": sum(len(item.get("text", "")) for item in segments),
         "segment_text_sha256": [
@@ -173,6 +243,14 @@ def audit_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "rate": payload.get("rate"),
         "pronunciation_count": len(payload.get("pronunciations", [])),
     }
+    if segment_start_ms is not None:
+        timing = narration_timing_identity(
+            segment_start_ms,
+            segment_count=len(segments),
+        )
+        audit["narration_timing_policy"] = timing["policy"]
+        audit["narration_segment_start_ms"] = timing["segment_start_ms"]
+    return audit
 
 
 def public_result(

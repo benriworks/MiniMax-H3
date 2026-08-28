@@ -47,6 +47,21 @@ _RERUN_PLAN_RE = re.compile(r"^/api/productions/([^/]+)/rerun-plan$")
 _LOCAL_PIPELINE_RE = re.compile(
     r"^/api/productions/([^/]+)/execute-local-pipeline$"
 )
+_DETAILED_TEST_VIDEO_RE = re.compile(
+    r"^/api/productions/([^/]+)/execute-detailed-test-video$"
+)
+_ANNOUNCEMENT_RECIPES_RE = re.compile(
+    r"^/api/productions/([^/]+)/announcement-recipes$"
+)
+_ANNOUNCEMENT_RECIPE_SAVE_RE = re.compile(
+    r"^/api/productions/([^/]+)/announcement-recipes/([^/]+)/save$"
+)
+_ANNOUNCEMENT_RECIPE_DUPLICATE_RE = re.compile(
+    r"^/api/productions/([^/]+)/announcement-recipes/([^/]+)/duplicate$"
+)
+_ANNOUNCEMENT_RECIPE_EXECUTE_RE = re.compile(
+    r"^/api/productions/([^/]+)/announcement-recipes/([^/]+)/execute$"
+)
 _RUN_CREATE_RE = re.compile(r"^/api/productions/([^/]+)/runs$")
 _RUN_APPROVE_RE = re.compile(r"^/api/runs/([^/]+)/approve$")
 _RUN_LOCAL_NARRATION_RE = re.compile(r"^/api/runs/([^/]+)/execute-local-narration$")
@@ -436,6 +451,13 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
             self._error(400, "invalid_path", "The requested path is invalid.", send_body=send_body)
         except RequestValidationError as exc:
             self._error(422, exc.code, str(exc), send_body=send_body)
+        except KeyError:
+            self._error(
+                404,
+                "not_found",
+                "The requested resource was not found.",
+                send_body=send_body,
+            )
         except Exception:
             self._error(500, "internal_error", "The request could not be completed.", send_body=send_body)
 
@@ -466,6 +488,14 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
             return
         if path == "/api/providers/status":
             self._send_json(200, service.providers_status(), send_body=send_body)
+            return
+        match = _ANNOUNCEMENT_RECIPES_RE.fullmatch(path)
+        if match:
+            self._send_json(
+                200,
+                service.list_announcement_recipes(match.group(1)),
+                send_body=send_body,
+            )
             return
         match = _PRODUCTION_DETAIL_RE.fullmatch(path)
         if match:
@@ -515,6 +545,39 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
         match = _LOCAL_PIPELINE_RE.fullmatch(path)
         if match:
             self._send_json(202, service.execute_local_pipeline(match.group(1), body))
+            return
+        match = _DETAILED_TEST_VIDEO_RE.fullmatch(path)
+        if match:
+            self._send_json(
+                202, service.execute_detailed_test_video(match.group(1), body)
+            )
+            return
+        match = _ANNOUNCEMENT_RECIPE_SAVE_RE.fullmatch(path)
+        if match:
+            self._send_json(
+                201,
+                service.save_announcement_recipe(
+                    match.group(1), match.group(2), body
+                ),
+            )
+            return
+        match = _ANNOUNCEMENT_RECIPE_DUPLICATE_RE.fullmatch(path)
+        if match:
+            self._send_json(
+                201,
+                service.duplicate_announcement_recipe(
+                    match.group(1), match.group(2), body
+                ),
+            )
+            return
+        match = _ANNOUNCEMENT_RECIPE_EXECUTE_RE.fullmatch(path)
+        if match:
+            self._send_json(
+                202,
+                service.execute_announcement_recipe(
+                    match.group(1), match.group(2), body
+                ),
+            )
             return
         match = _RUN_CREATE_RE.fullmatch(path)
         if match:

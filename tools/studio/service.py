@@ -48,7 +48,31 @@ from .execution import (
     narration_cache_key,
     public_result,
     safe_error,
+    validate_internal_narration_segment_starts,
     validate_local_narration_payload,
+)
+from .announcement_video import (
+    ANNOUNCEMENT_VIDEO_SCHEMA_VERSION,
+    AnnouncementVideoValidationError,
+    announcement_narration_segment_starts,
+    announcement_recipe_audit_summary,
+    announcement_recipe_to_detailed_payload,
+    validate_announcement_duplicate_payload,
+    validate_announcement_execute_payload,
+    validate_announcement_recipe_id,
+    validate_announcement_recipe_payload,
+    validate_announcement_save_payload,
+)
+from .detailed_test_video import (
+    DETAILED_TEST_VIDEO_JOB_KIND,
+    DETAILED_TEST_VIDEO_PROFILE,
+    DetailedTestVideoError,
+    DetailedTestVideoValidationError,
+    detailed_test_video_audit_payload,
+    detailed_test_video_key,
+    detailed_test_video_public_result,
+    run_detailed_test_video,
+    validate_detailed_test_video_payload,
 )
 from .indexer import ProductionIndexer
 from .jobs import AuditExporter, JobCancelled, JobExecutionContext, JobManager
@@ -526,8 +550,10 @@ class StudioService:
         self.jobs = JobManager(self.database)
         self.audit_exporter = AuditExporter(self.workspace, self.database)
         self._pipeline_submit_lock = threading.Lock()
+        self._detailed_test_video_submit_lock = threading.Lock()
         self._local_video_submit_lock = threading.Lock()
         self._pipeline_capability = object()
+        self._announcement_narration_timing_capability = object()
         self._provider_recovery_lock = threading.Lock()
         self._provider_cancellation_lock = threading.Lock()
         self._provider_cancellation_jobs: dict[str, str] = {}
@@ -755,6 +781,136 @@ class StudioService:
             artifact_limit=max(1, min(int(artifact_limit), 10_000)),
             artifact_offset=max(0, int(artifact_offset)),
         )
+
+    def list_announcement_recipes(self, production_id: str) -> dict[str, Any]:
+        """Return editable latest recipes plus immutable version/link history."""
+
+        validate_identifier(production_id, label="production id")
+        snapshot = self.database.announcement_snapshot(production_id)
+        recipes = snapshot["recipes"]
+        versions = snapshot["recipe_versions"]
+        executions = snapshot["executions"]
+        return {
+            "schema_version": ANNOUNCEMENT_VIDEO_SCHEMA_VERSION,
+            "production_id": production_id,
+            "recipes": recipes,
+            "recipe_versions": versions,
+            "executions": executions,
+            "count": len(recipes),
+        }
+
+    def save_announcement_recipe(
+        self, production_id: str, recipe_id: str, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Create or append one CAS-protected editable recipe revision."""
+
+        validate_identifier(production_id, label="production id")
+        if self.database.get_production(production_id) is None:
+            raise KeyError("production not found")
+        try:
+            normalized_id = validate_announcement_recipe_id(recipe_id)
+            expected_revision, recipe = validate_announcement_save_payload(body)
+            summary = announcement_recipe_audit_summary(recipe)
+            record, created = self.database.save_announcement_recipe(
+                production_id,
+                normalized_id,
+                expected_revision=expected_revision,
+                recipe=recipe,
+                summary=summary,
+            )
+        except AnnouncementVideoValidationError as exc:
+            raise RequestValidationError(str(exc), code=exc.code) from exc
+        except ValueError as exc:
+            if str(exc) == "announcement recipe revision conflict":
+                raise RequestValidationError(
+                    "The announcement recipe changed after it was loaded.",
+                    code="announcement_recipe_conflict",
+                ) from exc
+            raise
+        return {**record, "deduplicated": not created}
+
+    def duplicate_announcement_recipe(
+        self, production_id: str, recipe_id: str, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Clone one immutable revision to a new editable recipe identity."""
+
+        validate_identifier(production_id, label="production id")
+        if self.database.get_production(production_id) is None:
+            raise KeyError("production not found")
+        try:
+            source_id = validate_announcement_recipe_id(recipe_id)
+            request = validate_announcement_duplicate_payload(body)
+        except AnnouncementVideoValidationError as exc:
+            raise RequestValidationError(str(exc), code=exc.code) from exc
+        source = self.database.get_announcement_recipe(
+            production_id,
+            source_id,
+            revision=request["source_revision"],
+        )
+        if source is None:
+            raise KeyError("announcement recipe not found")
+        cloned_body = {**source["recipe"], "name": request["name"]}
+        try:
+            recipe = validate_announcement_recipe_payload(cloned_body)
+            record, created = self.database.save_announcement_recipe(
+                production_id,
+                request["new_recipe_id"],
+                expected_revision=0,
+                recipe=recipe,
+                summary=announcement_recipe_audit_summary(recipe),
+                clone_source_version_id=source["version_id"],
+            )
+        except AnnouncementVideoValidationError as exc:
+            raise RequestValidationError(str(exc), code=exc.code) from exc
+        except ValueError as exc:
+            if str(exc) == "announcement recipe revision conflict":
+                raise RequestValidationError(
+                    "The duplicate recipe identity is already in use.",
+                    code="announcement_recipe_conflict",
+                ) from exc
+            raise
+        return {**record, "deduplicated": not created}
+
+    def execute_announcement_recipe(
+        self, production_id: str, recipe_id: str, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Compile and execute one saved recipe on the unchanged Detailed path."""
+
+        validate_identifier(production_id, label="production id")
+        if self.database.get_production(production_id) is None:
+            raise KeyError("production not found")
+        try:
+            normalized_id = validate_announcement_recipe_id(recipe_id)
+            recipe_revision = validate_announcement_execute_payload(body)
+        except AnnouncementVideoValidationError as exc:
+            raise RequestValidationError(str(exc), code=exc.code) from exc
+        record = self.database.get_announcement_recipe(
+            production_id, normalized_id, revision=recipe_revision
+        )
+        if record is None:
+            raise KeyError("announcement recipe not found")
+        try:
+            recipe = validate_announcement_recipe_payload(record["recipe"])
+            detailed_payload = announcement_recipe_to_detailed_payload(recipe)
+        except AnnouncementVideoValidationError as exc:
+            raise RequestValidationError(str(exc), code=exc.code) from exc
+        submitted = self.execute_detailed_test_video(
+            production_id,
+            detailed_payload,
+            _announcement_recipe=record,
+        )
+        link = self.database.get_announcement_execution(
+            production_id, record["version_id"], submitted["id"]
+        )
+        if link is None:
+            raise RuntimeError("The announcement execution link was not committed.")
+        return {
+            **submitted,
+            "announcement_recipe_id": record["id"],
+            "announcement_recipe_version_id": record["version_id"],
+            "announcement_recipe_revision": record["revision"],
+            "announcement_execution": link,
+        }
 
     def artifact(self, artifact_id: str) -> dict[str, Any] | None:
         validate_identifier(artifact_id, label="artifact id")
@@ -1681,6 +1837,226 @@ class StudioService:
         # and every child artifact was physically rehashed above.
         return True
 
+    def _reusable_succeeded_detailed_test_video_job(
+        self,
+        job: dict[str, Any],
+        run: dict[str, Any],
+        revision: dict[str, Any],
+        request_key: str,
+        payload: dict[str, Any],
+        expected_job_payload: dict[str, Any],
+        narration_segment_start_ms: tuple[int, ...] | None = None,
+    ) -> bool:
+        """Rehash every child artifact before reusing a succeeded top job."""
+
+        result = job.get("result")
+        if (
+            job.get("kind") != DETAILED_TEST_VIDEO_JOB_KIND
+            or job.get("status") != "succeeded"
+            or job.get("production_id") != run.get("production_id")
+            or job.get("payload") != expected_job_payload
+            or not isinstance(result, dict)
+        ):
+            return False
+        try:
+            public = detailed_test_video_public_result(
+                result,
+                production_id=run["production_id"],
+                run_id=run["id"],
+                revision_id=revision["id"],
+                request_key=request_key,
+                payload=payload,
+                narration_segment_start_ms=narration_segment_start_ms,
+            )
+        except (DetailedTestVideoError, DetailedTestVideoValidationError):
+            return False
+
+        expected_child_kinds = {
+            "narration": "local_narration",
+            "timeline": "local_remotion_timeline",
+            "assembly": "local_assembly",
+            "qc": "local_qc",
+        }
+        children = public.get("children")
+        if not isinstance(children, dict) or set(children) != set(
+            expected_child_kinds
+        ):
+            return False
+        seen_jobs: set[str] = set()
+        seen_attempts: set[str] = set()
+        attempt_results: dict[str, dict[str, Any]] = {}
+        child_payloads: dict[str, dict[str, Any]] = {}
+        for stage, expected_kind in expected_child_kinds.items():
+            child = children.get(stage)
+            if not isinstance(child, dict):
+                return False
+            child_job_id = child.get("job_id")
+            attempt_id = child.get("stage_attempt_id")
+            try:
+                validate_identifier(child_job_id, label="child job id")
+                validate_identifier(attempt_id, label="child stage attempt id")
+            except (SecurityError, TypeError, ValueError):
+                return False
+            if child_job_id in seen_jobs or attempt_id in seen_attempts:
+                return False
+            seen_jobs.add(child_job_id)
+            seen_attempts.add(attempt_id)
+            child_job = self.database.get_job(child_job_id)
+            attempt = self.database.get_stage_attempt(attempt_id)
+            child_payload = (
+                child_job.get("payload") if isinstance(child_job, dict) else None
+            )
+            child_result = (
+                child_job.get("result") if isinstance(child_job, dict) else None
+            )
+            attempt_result = (
+                attempt.get("result") if isinstance(attempt, dict) else None
+            )
+            if (
+                not isinstance(child_job, dict)
+                or child_job.get("kind") != expected_kind
+                or child_job.get("status") != "succeeded"
+                or child_job.get("production_id") != run["production_id"]
+                or not isinstance(child_payload, dict)
+                or child_payload.get("run_id") != run["id"]
+                or child_payload.get("production_id") != run["production_id"]
+                or child_payload.get("stage") != stage
+                or child_payload.get("stage_attempt_id") != attempt_id
+                or child_payload.get("execution_profile")
+                != DETAILED_TEST_VIDEO_PROFILE
+                or not isinstance(child_result, dict)
+                or child_result.get("stage_attempt_id") != attempt_id
+                or child_result.get("cache_hit") != child.get("cache_hit")
+                or not isinstance(attempt_result, dict)
+                or {
+                    key: value
+                    for key, value in child_result.items()
+                    if key != "stage_attempt_id"
+                }
+                != attempt_result
+                or not isinstance(attempt, dict)
+                or attempt.get("id") != attempt_id
+                or attempt.get("job_id") != child_job_id
+                or attempt.get("run_id") != run["id"]
+                or attempt.get("production_id") != run["production_id"]
+                or attempt.get("stage") != stage
+                or attempt.get("status") != "succeeded"
+            ):
+                return False
+            attempt_results[stage] = attempt_result
+            child_payloads[stage] = child_payload
+
+        assembly_artifacts = dict(_LOCAL_ASSEMBLY_ARTIFACTS)
+        if not payload["include_captioned"]:
+            assembly_artifacts.pop("master-captioned.mp4", None)
+        expected_stage_artifacts = {
+            "narration": _LOCAL_NARRATION_ARTIFACTS,
+            "timeline": _LOCAL_REMOTION_TIMELINE_ARTIFACTS,
+            "assembly": assembly_artifacts,
+            "qc": _LOCAL_QC_ARTIFACTS,
+        }
+        stage_artifacts: dict[str, dict[str, dict[str, Any]]] = {}
+        for stage, expected_specs in expected_stage_artifacts.items():
+            raw_artifacts = attempt_results[stage].get("artifacts")
+            if not isinstance(raw_artifacts, list) or len(raw_artifacts) != len(
+                expected_specs
+            ):
+                return False
+            by_name: dict[str, dict[str, Any]] = {}
+            for artifact in raw_artifacts:
+                view = self._pipeline_artifact_view(artifact)
+                if view is None or view["name"] in by_name:
+                    return False
+                by_name[view["name"]] = view
+            if set(by_name) != set(expected_specs) or any(
+                view["kind"] != expected_specs[name][0]
+                or view["media_type"] != expected_specs[name][1]
+                or not self._pipeline_artifact_is_intact(
+                    run["production_id"], view
+                )
+                for name, view in by_name.items()
+            ):
+                return False
+            stage_artifacts[stage] = by_name
+
+        master_name = (
+            "master-captioned.mp4"
+            if payload["variant"] == "captioned"
+            else "master-clean.mp4"
+        )
+        public_timeline = self._pipeline_artifact_view(public.get("timeline"))
+        public_master = self._pipeline_artifact_view(public.get("master"))
+        public_qc = public.get("qc")
+        public_reports = (
+            public_qc.get("report_artifacts")
+            if isinstance(public_qc, dict)
+            else None
+        )
+        report_views = (
+            {
+                view["name"]: view
+                for value in public_reports
+                if (view := self._pipeline_artifact_view(value)) is not None
+            }
+            if isinstance(public_reports, list)
+            else {}
+        )
+        narration_payload = child_payloads["narration"]
+        assembly_payload = child_payloads["assembly"]
+        qc_payload = child_payloads["qc"]
+        qc_child_verdict = attempt_results["qc"].get(
+            "technical_verdict", attempt_results["qc"].get("verdict")
+        )
+        narration_fields = (
+            "voice",
+            "rate",
+            "segment_count",
+            "text_chars",
+            "segment_text_sha256",
+            "pronunciation_count",
+            "narration_timing_policy",
+            "narration_segment_start_ms",
+        )
+        if (
+            public_timeline
+            != stage_artifacts["timeline"].get("remotion-preview.mp4")
+            or public_master != stage_artifacts["assembly"].get(master_name)
+            or set(report_views) != set(_LOCAL_QC_ARTIFACTS)
+            or report_views != stage_artifacts["qc"]
+            or any(
+                narration_payload.get(field) != expected_job_payload.get(field)
+                for field in narration_fields
+            )
+            or child_payloads["timeline"].get("cache_key")
+            != expected_job_payload.get("remotion_cache_key")
+            or assembly_payload.get("video_artifact_id")
+            != stage_artifacts["timeline"]["remotion-preview.mp4"]["id"]
+            or assembly_payload.get("narration_attempt_id")
+            != children["narration"]["stage_attempt_id"]
+            or assembly_payload.get("include_captioned")
+            != payload["include_captioned"]
+            or assembly_payload.get("caption_style_preset")
+            != payload["caption_style_preset"]
+            or assembly_payload.get("audio_mix_preset")
+            != payload["audio_mix_preset"]
+            or qc_payload.get("assembly_attempt_id")
+            != children["assembly"]["stage_attempt_id"]
+            or qc_payload.get("assembly_artifact_id")
+            != stage_artifacts["assembly"][master_name]["id"]
+            or qc_payload.get("variant") != payload["variant"]
+            or attempt_results["qc"].get("analysis_status") != "succeeded"
+            or qc_child_verdict != "pass"
+            or attempt_results["timeline"].get("duration_ms")
+            != public.get("duration_ms")
+            or attempt_results["assembly"].get("duration_ms")
+            != public.get("duration_ms")
+            or qc_payload.get("expected_duration_ms") != public.get("duration_ms")
+        ):
+            return False
+        # The public final set is now exactly bound to physically rehashed child
+        # artifacts. Every intermediate child artifact was also rehashed above.
+        return True
+
     def _validated_local_pipeline_result(
         self,
         result: Any,
@@ -2123,6 +2499,224 @@ class StudioService:
                 reuse_succeeded=reusable_success,
                 continuation_material=continuation_material,
             )
+
+    def execute_detailed_test_video(
+        self,
+        production_id: str,
+        body: dict[str, Any],
+        *,
+        _announcement_recipe: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Queue one deduplicated SAPI -> Remotion -> assembly -> QC top job."""
+
+        validate_identifier(production_id, label="production id")
+        if self.database.get_production(production_id) is None:
+            raise KeyError("production not found")
+        try:
+            payload = validate_detailed_test_video_payload(body)
+            announcement_segment_start_ms: tuple[int, ...] | None = None
+            if _announcement_recipe is not None:
+                if not isinstance(_announcement_recipe, dict):
+                    raise DetailedTestVideoValidationError(
+                        "announcement recipe provenance is invalid"
+                    )
+                raw_recipe = _announcement_recipe.get("recipe")
+                try:
+                    announcement_recipe = validate_announcement_recipe_payload(
+                        raw_recipe
+                    )
+                except AnnouncementVideoValidationError as exc:
+                    raise DetailedTestVideoValidationError(
+                        "announcement recipe provenance is invalid"
+                    ) from exc
+                if announcement_recipe_to_detailed_payload(
+                    announcement_recipe
+                ) != payload:
+                    raise DetailedTestVideoValidationError(
+                        "announcement recipe provenance is invalid"
+                    )
+                announcement_segment_start_ms = (
+                    announcement_narration_segment_starts(announcement_recipe)
+                )
+            timeline_payload = {
+                "schema_version": payload["schema_version"],
+                "clips": payload["clips"],
+            }
+            source_inputs = self._validated_remotion_timeline_inputs(
+                {"production_id": production_id}, timeline_payload
+            )
+            try:
+                from . import remotion_timeline as remotion_worker
+            except (ImportError, AttributeError) as exc:
+                raise DetailedTestVideoError(
+                    "The local Remotion worker is not installed.",
+                    code="remotion_unavailable",
+                ) from exc
+            tool_identity = _call_local_worker(
+                remotion_worker.resolve_remotion_tool_identity, self.workspace
+            )
+            remotion_cache_key = remotion_timeline_cache_key(
+                source_inputs["cache_clips"], tool_identity=tool_identity
+            )
+            request_key = detailed_test_video_key(
+                payload,
+                source_clips=source_inputs["cache_clips"],
+                remotion_cache_key=remotion_cache_key,
+                narration_segment_start_ms=announcement_segment_start_ms,
+            )
+            audit = detailed_test_video_audit_payload(
+                payload,
+                request_key=request_key,
+                source_clips=source_inputs["cache_clips"],
+                remotion_cache_key=remotion_cache_key,
+                narration_segment_start_ms=announcement_segment_start_ms,
+            )
+        except DetailedTestVideoValidationError as exc:
+            raise RequestValidationError(
+                "The detailed test video request is invalid.", code=exc.code
+            ) from exc
+        except RemotionTimelineValidationError as exc:
+            raise RequestValidationError(
+                "The detailed test video request is invalid.", code=exc.error_code
+            ) from exc
+        except DetailedTestVideoError as exc:
+            raise RequestValidationError(
+                exc.public_message, code=exc.error_code
+            ) from exc
+        except RemotionTimelineError as exc:
+            raise RequestValidationError(
+                exc.public_message, code=exc.error_code
+            ) from exc
+
+        changes = [{"type": "script"}, {"type": "timeline"}]
+        plan = build_rerun_plan(production_id, changes)
+        if (
+            set(plan.get("affected_stages", [])) != _LOCAL_SAPI_ZERO_COST_STAGES
+            or len(plan.get("affected_stages", []))
+            != len(_LOCAL_SAPI_ZERO_COST_STAGES)
+        ):
+            raise RequestValidationError(
+                "The detailed test video plan is invalid.",
+                code="local_profile_stage_not_allowed",
+            )
+
+        with self._detailed_test_video_submit_lock:
+            revision, run = self.database.create_revision_and_run(
+                production_id,
+                changes,
+                plan,
+                0,
+                "USD",
+                execution_profile=DETAILED_TEST_VIDEO_PROFILE,
+                detailed_test_video_key=request_key,
+            )
+            job_payload = {
+                "production_id": production_id,
+                "run_id": run["id"],
+                "revision_id": revision["id"],
+                "stage": "detailed_test_video",
+                **audit,
+            }
+            previous_top = self.database.find_latest_job_for_run(
+                DETAILED_TEST_VIDEO_JOB_KIND,
+                production_id,
+                run["id"],
+            )
+            reusable_success = bool(
+                isinstance(previous_top, dict)
+                and self._reusable_succeeded_detailed_test_video_job(
+                    previous_top,
+                    run,
+                    revision,
+                    request_key,
+                    payload,
+                    job_payload,
+                    announcement_segment_start_ms,
+                )
+            )
+
+            def execute(
+                _job_id: str, cancel_event: JobExecutionContext
+            ) -> dict[str, Any]:
+                cancel_event.raise_if_cancelled()
+                try:
+                    current_inputs = self._validated_remotion_timeline_inputs(
+                        run, timeline_payload
+                    )
+                    current_tool_identity = _call_local_worker(
+                        remotion_worker.resolve_remotion_tool_identity,
+                        self.workspace,
+                    )
+                    current_remotion_key = remotion_timeline_cache_key(
+                        current_inputs["cache_clips"],
+                        tool_identity=current_tool_identity,
+                    )
+                except (RequestValidationError, RemotionTimelineValidationError) as exc:
+                    raise DetailedTestVideoError(
+                        "A detailed test video input changed before execution.",
+                        code="input_changed",
+                    ) from exc
+                except RemotionTimelineError as exc:
+                    raise DetailedTestVideoError(
+                        "The Remotion tool changed before detailed test video execution.",
+                        code="tool_changed",
+                    ) from exc
+                if current_remotion_key != remotion_cache_key:
+                    raise DetailedTestVideoError(
+                        "A detailed test video input or tool changed before execution.",
+                        code="input_changed",
+                    )
+                current_request_key = detailed_test_video_key(
+                    payload,
+                    source_clips=current_inputs["cache_clips"],
+                    remotion_cache_key=current_remotion_key,
+                    narration_segment_start_ms=announcement_segment_start_ms,
+                )
+                if current_request_key != request_key:
+                    raise DetailedTestVideoError(
+                        "The detailed test video request changed before execution.",
+                        code="cache_key_mismatch",
+                    )
+                raw = run_detailed_test_video(
+                    self,
+                    production_id=production_id,
+                    run_id=run["id"],
+                    revision_id=revision["id"],
+                    payload=payload,
+                    source_clips=current_inputs["cache_clips"],
+                    expected_remotion_cache_key=current_remotion_key,
+                    expected_request_key=request_key,
+                    expected_duration_ms=current_inputs["compiled"]["duration_ms"],
+                    cancel_event=cancel_event,
+                    narration_segment_start_ms=announcement_segment_start_ms,
+                )
+                cancel_event.raise_if_cancelled()
+                return detailed_test_video_public_result(
+                    raw,
+                    production_id=production_id,
+                    run_id=run["id"],
+                    revision_id=revision["id"],
+                    request_key=request_key,
+                    payload=payload,
+                    narration_segment_start_ms=announcement_segment_start_ms,
+                )
+
+            job, created = self.jobs.submit_detailed_test_video_once(
+                production_id=production_id,
+                run_id=run["id"],
+                request_key=request_key,
+                payload=job_payload,
+                callback=execute,
+                reuse_succeeded=reusable_success,
+                announcement_recipe=_announcement_recipe,
+            )
+            return {
+                **job,
+                "run_id": run["id"],
+                "revision_id": revision["id"],
+                "request_key": request_key,
+                "deduplicated": not created,
+            }
 
     def _protect_comfyui_resume_payload(
         self, payload: dict[str, Any]
@@ -3987,6 +4581,8 @@ class StudioService:
         payload: dict[str, Any],
         cache_key: str,
         cancel_event: JobExecutionContext | None = None,
+        *,
+        announcement_segment_start_ms: tuple[int, ...] | None = None,
     ) -> dict[str, Any] | AtomicStageCompletion:
         _raise_if_cancelled(cancel_event)
         try:
@@ -4005,13 +4601,20 @@ class StudioService:
                         code="local_worker_unavailable",
                     ) from exc
                 try:
+                    worker_kwargs: dict[str, Any] = {
+                        "production_id": production_id,
+                        "run_id": run_id,
+                        "payload": payload,
+                    }
+                    if announcement_segment_start_ms is not None:
+                        worker_kwargs["segment_start_ms"] = (
+                            announcement_segment_start_ms
+                        )
                     raw = _call_local_worker(
                         narration.generate_local_narration,
                         self.workspace,
-                        production_id=production_id,
-                        run_id=run_id,
-                        payload=payload,
                         cancel_event=cancel_event,
+                        **worker_kwargs,
                     )
                 except LocalNarrationError:
                     raise
@@ -4064,6 +4667,9 @@ class StudioService:
         _pipeline_capability: object | None = None,
         _pipeline_key: str | None = None,
         _pipeline_lineage: dict[str, Any] | None = None,
+        _announcement_narration_timing_capability: object | None = None,
+        _announcement_segment_start_ms: list[int] | None = None,
+        _announcement_detailed_test_video_key: str | None = None,
     ) -> dict[str, Any]:
         """Queue a zero-cost local narration attempt for a local_sapi run."""
 
@@ -4089,11 +4695,55 @@ class StudioService:
             payload = validate_local_narration_payload(body)
         except LocalNarrationValidationError as exc:
             raise RequestValidationError(str(exc), code=exc.code) from exc
-        cache_key = narration_cache_key(payload)
+        announcement_schedule: tuple[int, ...] | None = None
+        has_announcement_timing = (
+            _announcement_narration_timing_capability is not None
+            or _announcement_segment_start_ms is not None
+            or _announcement_detailed_test_video_key is not None
+        )
+        if has_announcement_timing:
+            claim = (
+                self.database.get_detailed_test_video_claim(
+                    run["production_id"],
+                    _announcement_detailed_test_video_key,
+                )
+                if isinstance(_announcement_detailed_test_video_key, str)
+                and re.fullmatch(
+                    r"[0-9A-F]{64}", _announcement_detailed_test_video_key
+                )
+                else None
+            )
+            if (
+                _announcement_narration_timing_capability
+                is not self._announcement_narration_timing_capability
+                or run.get("execution_profile") != DETAILED_TEST_VIDEO_PROFILE
+                or not isinstance(claim, dict)
+                or claim.get("run_id") != run_id
+                or claim.get("revision_id") != run.get("revision_id")
+            ):
+                raise RequestValidationError(
+                    "Announcement narration timing provenance is invalid.",
+                    code="invalid_provenance",
+                )
+            try:
+                announcement_schedule = validate_internal_narration_segment_starts(
+                    _announcement_segment_start_ms,
+                    segment_count=len(payload["segments"]),
+                )
+            except LocalNarrationValidationError as exc:
+                raise RequestValidationError(str(exc), code=exc.code) from exc
+        cache_key = narration_cache_key(
+            payload,
+            segment_start_ms=announcement_schedule,
+        )
+        narration_audit = audit_payload(
+            payload,
+            segment_start_ms=announcement_schedule,
+        )
         attempt_payload = {
             "execution_profile": run["execution_profile"],
             "cache_key": cache_key,
-            **audit_payload(payload),
+            **narration_audit,
             **pipeline_metadata,
         }
         attempt = self.database.create_stage_attempt(
@@ -4108,7 +4758,7 @@ class StudioService:
                     "stage": _LOCAL_NARRATION_STAGE,
                     "execution_profile": run["execution_profile"],
                     "cache_key": cache_key,
-                    **audit_payload(payload),
+                    **narration_audit,
                     **pipeline_metadata,
                     "stage_attempt_id": attempt["id"],
                 },
@@ -4119,6 +4769,7 @@ class StudioService:
                     payload,
                     cache_key,
                     cancel_event,
+                    announcement_segment_start_ms=announcement_schedule,
                 ),
                 production_id=run["production_id"],
                 before_enqueue=lambda created_job: self.database.link_stage_attempt_job(

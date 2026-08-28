@@ -75,6 +75,10 @@ _PUBLIC_ERROR_CODES = frozenset(
         "comfyui_timeout",
         "cost_approval_not_required",
         "cost_estimate_required",
+        "detailed_test_video_failed",
+        "detailed_test_video_stage_failed",
+        "detailed_test_video_timeout",
+        "detailed_test_video_unavailable",
         "execution_profile_required",
         "input_changed",
         "input_hash_mismatch",
@@ -86,6 +90,7 @@ _PUBLIC_ERROR_CODES = frozenset(
         "invalid_comfyui_request",
         "invalid_comfyui_response",
         "invalid_comfyui_runtime",
+        "invalid_detailed_test_video_request",
         "invalid_ffprobe_result",
         "invalid_identifier",
         "invalid_input_path",
@@ -947,6 +952,73 @@ class JobManager:
             ):
                 settled += 1
         return settled
+
+    def submit_detailed_test_video_once(
+        self,
+        *,
+        production_id: str,
+        run_id: str,
+        request_key: str,
+        payload: Any,
+        callback: JobCallable,
+        reuse_succeeded: bool = True,
+        announcement_recipe: dict[str, Any] | None = None,
+    ) -> tuple[dict[str, Any], bool]:
+        """Atomically deduplicate and admit one local detailed-video top."""
+
+        work_queue = self._queues["pipeline"]
+        with self._lock:
+            if self._closed:
+                raise JobManagerClosed("Studio background jobs are closed.")
+            job, created = self.database.create_or_get_detailed_test_video_job(
+                production_id=production_id,
+                run_id=run_id,
+                request_key=request_key,
+                payload=payload,
+                reuse_succeeded=reuse_succeeded,
+                announcement_recipe=announcement_recipe,
+            )
+            if not created:
+                # A queue admission can fail after the durable claim is made.
+                # A queued row without a context owned by this manager is an
+                # orphan in this single-process Studio and must not dedupe the
+                # explicit retry forever.
+                if job.get("status") == "queued" and job["id"] not in self._active:
+                    self.database.abort_detailed_test_video_job_admission(
+                        job["id"],
+                        error_code="job_setup_failed",
+                        error_message="The background job could not be prepared.",
+                    )
+                    job, created = self.database.create_or_get_detailed_test_video_job(
+                        production_id=production_id,
+                        run_id=run_id,
+                        request_key=request_key,
+                        payload=payload,
+                        reuse_succeeded=reuse_succeeded,
+                        announcement_recipe=announcement_recipe,
+                    )
+                if not created:
+                    return job, False
+            context = JobExecutionContext(job["id"])
+            self._finished[job["id"]] = threading.Event()
+            self._active[job["id"]] = context
+            try:
+                work_queue.put(_QueuedJob(job["id"], callback, context))
+            except Exception:
+                try:
+                    self.database.abort_detailed_test_video_job_admission(
+                        job["id"],
+                        error_code="job_setup_failed",
+                        error_message="The background job could not be prepared.",
+                    )
+                except Exception:
+                    pass
+                self._active.pop(job["id"], None)
+                event = self._finished.get(job["id"])
+                if event:
+                    event.set()
+                raise
+            return job, True
 
     def submit_local_pipeline_once(
         self,

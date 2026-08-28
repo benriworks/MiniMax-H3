@@ -23,6 +23,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
+from .execution import (
+    LocalNarrationValidationError,
+    narration_cache_key,
+    narration_timing_identity,
+    validate_internal_narration_segment_starts,
+)
 from .security import canonical_json, validate_identifier, workspace_path
 
 
@@ -75,6 +81,7 @@ class _NarrationInput:
     voice: str | None
     rate: int
     pronunciations: tuple[dict[str, str], ...]
+    segment_start_ms: tuple[int, ...] | None
     payload: dict[str, Any]
     payload_digest: str
 
@@ -141,7 +148,11 @@ def _validate_text(value: Any, *, label: str, maximum: int) -> str:
     return value
 
 
-def _validate_narration_payload(payload: dict[str, Any]) -> _NarrationInput:
+def _validate_narration_payload(
+    payload: dict[str, Any],
+    *,
+    segment_start_ms: Any = None,
+) -> _NarrationInput:
     if not isinstance(payload, dict):
         raise NarrationError("payload must be an object")
     if any(not isinstance(key, str) for key in payload):
@@ -226,7 +237,27 @@ def _validate_narration_payload(payload: dict[str, Any]) -> _NarrationInput:
         "rate": rate,
         "pronunciations": pronunciations,
     }
-    payload_digest = _sha256_bytes(canonical_json(normalized_payload).encode("utf-8"))
+    normalized_starts: tuple[int, ...] | None = None
+    if segment_start_ms is not None:
+        try:
+            normalized_starts = validate_internal_narration_segment_starts(
+                segment_start_ms,
+                segment_count=len(segments),
+            )
+        except LocalNarrationValidationError as exc:
+            raise NarrationError(str(exc)) from exc
+    digest_material: dict[str, Any] = normalized_payload
+    if normalized_starts is not None:
+        digest_material = {
+            "payload": normalized_payload,
+            "timing_policy": narration_timing_identity(
+                normalized_starts,
+                segment_count=len(segments),
+            ),
+        }
+    payload_digest = _sha256_bytes(
+        canonical_json(digest_material).encode("utf-8")
+    )
     synthesis_segments = tuple(
         _apply_pronunciations(text, pronunciations) for text in segments
     )
@@ -238,6 +269,7 @@ def _validate_narration_payload(payload: dict[str, Any]) -> _NarrationInput:
         voice=voice,
         rate=rate,
         pronunciations=tuple(pronunciations),
+        segment_start_ms=normalized_starts,
         payload=normalized_payload,
         payload_digest=payload_digest,
     )
@@ -251,12 +283,10 @@ def _apply_pronunciations(text: str, pronunciations: list[dict[str, str]]) -> st
 
 
 def _cache_key(settings: _NarrationInput) -> str:
-    value = {
-        "schema_version": NARRATION_SCHEMA_VERSION,
-        "implementation_version": IMPLEMENTATION_VERSION,
-        "payload": settings.payload,
-    }
-    return _sha256_bytes(canonical_json(value).encode("utf-8"))
+    return narration_cache_key(
+        settings.payload,
+        segment_start_ms=settings.segment_start_ms,
+    )
 
 
 def _narration_root(workspace: Path, run_id: str) -> Path:
@@ -341,6 +371,19 @@ def _validate_manifest(
         return None
     if manifest.get("cache_key") != cache_key or manifest.get("payload_digest") != settings.payload_digest:
         return None
+    expected_timing = (
+        narration_timing_identity(
+            settings.segment_start_ms,
+            segment_count=len(settings.segments),
+        )
+        if settings.segment_start_ms is not None
+        else None
+    )
+    if expected_timing is None:
+        if "timing_policy" in manifest:
+            return None
+    elif manifest.get("timing_policy") != expected_timing:
+        return None
     if manifest.get("provider") != "windows_sapi":
         return None
     files = manifest.get("files")
@@ -382,6 +425,10 @@ def _validate_manifest(
         if not isinstance(segment, dict):
             return None
         if segment.get("index") != index or segment.get("text") != settings.segments[index]:
+            return None
+        if settings.segment_start_ms is not None and segment.get(
+            "requested_start_ms"
+        ) != settings.segment_start_ms[index]:
             return None
     try:
         artifacts = [
@@ -460,7 +507,11 @@ def _read_wav(data: bytes, *, label: str) -> _WavSegment:
     )
 
 
-def _join_wav(segments: list[_WavSegment]) -> tuple[bytes, list[dict[str, int]], int]:
+def _join_wav(
+    segments: list[_WavSegment],
+    *,
+    segment_start_ms: tuple[int, ...] | None = None,
+) -> tuple[bytes, list[dict[str, int]], int]:
     if not segments:
         raise NarrationSynthesisError("narration has no audio segments")
     first = segments[0]
@@ -477,14 +528,63 @@ def _join_wav(segments: list[_WavSegment]) -> tuple[bytes, list[dict[str, int]],
             first.compression,
         ):
             raise NarrationSynthesisError("all narration WAV segments must share one format")
-    total_frame_bytes = sum(len(segment.frames) for segment in segments)
-    total_frames = sum(segment.frame_count for segment in segments)
-    duration_ms = (total_frames * 1_000) // first.sample_rate
+    if segment_start_ms is not None and len(segment_start_ms) != len(segments):
+        raise NarrationSynthesisError("narration timing schedule is invalid")
+    frame_parts: list[bytes] = []
+    frame_cursor = 0
+    total_frame_bytes = 0
+    timings: list[dict[str, int]] = []
+    silence_frame = (
+        b"\x80" * first.channels
+        if first.sample_width == 1
+        else b"\x00" * (first.channels * first.sample_width)
+    )
+    for index, segment in enumerate(segments):
+        requested_start_ms = (
+            segment_start_ms[index] if segment_start_ms is not None else None
+        )
+        if requested_start_ms is not None:
+            target_frame = (
+                requested_start_ms * first.sample_rate + 999
+            ) // 1_000
+            if frame_cursor > target_frame:
+                raise NarrationSynthesisError(
+                    "narration segment overlaps the next scheduled scene"
+                )
+            silence_frames = target_frame - frame_cursor
+            if silence_frames:
+                silence_bytes = silence_frames * len(silence_frame)
+                if total_frame_bytes + silence_bytes > MAX_NARRATION_WAV_BYTES:
+                    raise NarrationSynthesisError("narration WAV is too large")
+                frame_parts.append(silence_frame * silence_frames)
+                total_frame_bytes += silence_bytes
+                frame_cursor = target_frame
+        start_frame = frame_cursor
+        if total_frame_bytes + len(segment.frames) > MAX_NARRATION_WAV_BYTES:
+            raise NarrationSynthesisError("narration WAV is too large")
+        frame_parts.append(segment.frames)
+        total_frame_bytes += len(segment.frames)
+        frame_cursor += segment.frame_count
+        if (frame_cursor * 1_000) // first.sample_rate > MAX_NARRATION_DURATION_MS:
+            raise NarrationSynthesisError("narration duration is too long")
+        start_ms = (start_frame * 1_000) // first.sample_rate
+        end_ms = (frame_cursor * 1_000) // first.sample_rate
+        timing = {
+            "index": index,
+            "start_ms": start_ms,
+            "end_ms": end_ms,
+            "duration_ms": end_ms - start_ms,
+            "frames": segment.frame_count,
+        }
+        if requested_start_ms is not None:
+            timing["requested_start_ms"] = requested_start_ms
+        timings.append(timing)
+    duration_ms = (frame_cursor * 1_000) // first.sample_rate
     if total_frame_bytes > MAX_NARRATION_WAV_BYTES:
         raise NarrationSynthesisError("narration WAV is too large")
     if duration_ms > MAX_NARRATION_DURATION_MS:
         raise NarrationSynthesisError("narration duration is too long")
-    frames = b"".join(segment.frames for segment in segments)
+    frames = b"".join(frame_parts)
     output = io.BytesIO()
     try:
         with wave.open(output, "wb") as handle:
@@ -495,22 +595,6 @@ def _join_wav(segments: list[_WavSegment]) -> tuple[bytes, list[dict[str, int]],
             handle.writeframes(frames)
     except (wave.Error, ValueError) as exc:
         raise NarrationSynthesisError("could not create narration WAV") from exc
-    frame_cursor = 0
-    timings: list[dict[str, int]] = []
-    for index, segment in enumerate(segments):
-        start_ms = (frame_cursor * 1_000) // first.sample_rate
-        frame_cursor += segment.frame_count
-        end_ms = (frame_cursor * 1_000) // first.sample_rate
-        timings.append(
-            {
-                "index": index,
-                "start_ms": start_ms,
-                "end_ms": end_ms,
-                "duration_ms": end_ms - start_ms,
-                "frames": segment.frame_count,
-            }
-        )
-    duration_ms = (frame_cursor * 1_000) // first.sample_rate
     return output.getvalue(), timings, duration_ms
 
 
@@ -585,6 +669,11 @@ def _build_manifest(
         "pronunciations": list(settings.pronunciations),
         "files": files,
     }
+    if settings.segment_start_ms is not None:
+        manifest_without_digest["timing_policy"] = narration_timing_identity(
+            settings.segment_start_ms,
+            segment_count=len(settings.segments),
+        )
     # ``sample_rate`` is part of the WAV format, not timing rows.  Keep the
     # manifest deterministic without duplicating a value that is unavailable
     # here; timings.json carries the authoritative sample rate.
@@ -941,6 +1030,7 @@ def generate_local_narration(
     production_id: str,
     run_id: str,
     payload: dict[str, Any],
+    segment_start_ms: tuple[int, ...] | list[int] | None = None,
     synthesizer: Any = None,
     cancel_event: Any = None,
 ) -> dict[str, Any]:
@@ -955,7 +1045,10 @@ def generate_local_narration(
     validate_identifier(run_id, label="run id")
     _raise_if_cancelled(cancel_event)
     workspace = workspace.resolve(strict=True)
-    settings = _validate_narration_payload(payload)
+    settings = _validate_narration_payload(
+        payload,
+        segment_start_ms=segment_start_ms,
+    )
     cache_key = _cache_key(settings)
     root = _narration_root(workspace, run_id)
     root.mkdir(parents=True, exist_ok=True)
@@ -997,7 +1090,10 @@ def generate_local_narration(
                 )
             _raise_if_cancelled(cancel_event)
             wav_segments.append(_read_wav(data, label=f"segment {index}"))
-        narration_wav, timing_rows, duration_ms = _join_wav(wav_segments)
+        narration_wav, timing_rows, duration_ms = _join_wav(
+            wav_segments,
+            segment_start_ms=settings.segment_start_ms,
+        )
         timing_rows = [
             {**row, "text": settings.segments[row["index"]]}
             for row in timing_rows
@@ -1013,6 +1109,11 @@ def generate_local_narration(
             "duration_ms": duration_ms,
             "segments": timing_rows,
         }
+        if settings.segment_start_ms is not None:
+            timings_document["timing_policy"] = narration_timing_identity(
+                settings.segment_start_ms,
+                segment_count=len(settings.segments),
+            )
         _atomic_write(stage_directory / "narration.wav", narration_wav)
         _atomic_write(stage_directory / "captions.srt", _build_captions(settings.segments, timing_rows))
         _atomic_write(
