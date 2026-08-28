@@ -2880,7 +2880,7 @@ function AnnouncementVideoPanel({ detail, jobs, onReload, onDirtyChange }: { det
           setManualReconciliationAvailable(true);
           setMessage({
             type: 'error',
-            text: '新しい受理記録はありますが、対応するexact Jobを確認できませんでした。自動照合を停止しました。必要なときだけ同一revisionを手動再照合してください。',
+            text: '新しい受理記録はありますが、対応するexact Jobを確認できませんでした。自動再送と同じ候補への追加GETを停止しました。監査状態の確認は継続し、必要なときだけ同一revisionを手動再照合できます。',
           });
         }
       }

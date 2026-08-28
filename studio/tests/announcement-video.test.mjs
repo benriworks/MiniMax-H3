@@ -510,7 +510,7 @@ test('timeout and received 4xx retain the durable clone intent until explicit di
 test('fresh-link exact Job failures stop automatic fetches and expose manual exact reconciliation', () => {
   assert.match(announcementSource, /recoveryJobFetchRef\.current === fetchToken \|\| recoveryJobBlockedRef\.current === fetchToken/);
   assert.match(announcementSource, /if \(!recovered && executionGuardRef\.current === guard\) \{[\s\S]{0,160}recoveryJobBlockedRef\.current = fetchToken;[\s\S]{0,180}setManualReconciliationAvailable\(true\)/);
-  assert.match(announcementSource, /新しい受理記録はありますが、対応するexact Jobを確認できませんでした。自動照合を停止しました。/);
+  assert.match(announcementSource, /新しい受理記録はありますが、対応するexact Jobを確認できませんでした。自動再送と同じ候補への追加GETを停止しました。/);
 });
 
 test('production detail requests abort stale generations and never render another selected production', () => {

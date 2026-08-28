@@ -33,6 +33,8 @@ recipeは保存のたびにimmutableなversionをproduction eventへ追加し、
 
 実行中はJob一覧を2秒間隔、重いproduction detailを初回とおおむね6秒間隔で再取得します。告知用の保存・複製・実行・Job／production照合requestは15秒でabortするため、serverが応答しない場合もフォームを永久にロックしません。保存の応答が不明なら同じrecipe ID・`expected_revision`・内容を1回だけ再送します。複製ではsource production／recipe／version／revisionとコピー名から128-bit clone IDを決定的に導出し、そのintent専用のversioned `localStorage` keyへPOST前に同期保存します。パネルのunmount、production切替、ページ再読込を挟んでも同じIDを再利用し、複数tabが同時操作しても同じbackend recipe IDへ収束します。成功応答またはimmutable版履歴のexact clone lineageを確認したときだけ保留を消し、timeout、network error、再送後の4xxでは消しません。壊れた／利用不能な保存領域は新ID発行へ読み替えずfail closedにし、明示破棄はブラウザ側の保留だけを消してserver上のrecipeを削除しません。保存内容はschema version、各ID、revision、コピー名、作成時刻だけで、media、台本、API keyは含みません。backendのlost-response dedupeと組み合わせ、別revision／別cloneを増やしません。実行応答が曖昧な場合、送信前には存在しなかったexecution linkだけを受理証拠とし、exact Job IDを`GET /api/jobs/{job_id}`で厳密に照合します。新しいlinkがなければ、同じimmutable recipe ID／revisionを1回だけ自動再送します。backendは同一content claimを使い、成功済みJobの全child lineageと全成果物のbytes／SHA-256を再検証してから再利用するため、正常なレンダーを重複作成しません。2回目のPOSTまたはfresh linkのexact Job照合がtimeoutなどで不明なら自動処理を止め、`同一revisionを再照合`を明示したときだけ同じPOSTを1回行います。既知の古い成功履歴だけで曖昧状態を解除しません。production切替時は旧detail requestをabortし、最新request generationと選択中production IDが一致した応答だけを表示します。
 
+ここで「自動処理を止める」とは、追加POSTと同じ候補へのexact Job GETを止めることです。2秒のJob／おおむね6秒のproduction detail照合は継続し、後からfreshなexact linkを確認できれば再POSTせず復旧します。また、複製intent用`localStorage`が壊れているか利用できない場合は、安全なIDを保持できないため告知フォーム全体を明示破棄または環境復旧までロックします。
+
 完全なcanonical recipeは再調整と監査のため`announcement.recipe.saved` eventへBase64で保存され、hash-chain JSONL mirrorと監査exportに含まれ得ます。Base64は暗号化ではなく平文相当です。API key、token、password、公開不要の個人情報はrecipe名、見出し、ナレーション、発音置換へ書かないでください。v1はBGM、ロゴ画像、任意renderer／CSS／React component、新規H3生成を扱いません。
 
 ### `詳細一括`（既存素材からのテスト動画）
