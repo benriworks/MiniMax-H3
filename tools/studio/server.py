@@ -535,6 +535,9 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
 
     def _dispatch_post(self, path: str, body: dict[str, Any]) -> None:
         service = self.server.service
+        if path == "/api/capabilities/windows-capture/inspect":
+            self._send_json(200, service.inspect_windows_capture_capability(body))
+            return
         if path == "/api/index/refresh":
             self._send_json(202, service.refresh_index())
             return

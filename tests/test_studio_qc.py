@@ -51,7 +51,14 @@ class LocalQcMediaTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.temporary.cleanup()
 
-    def _make_mp4(self, path: Path, audio: str, *, duration: str = "1") -> None:
+    def _make_mp4(
+        self,
+        path: Path,
+        audio: str,
+        *,
+        duration: str = "1",
+        video: str | None = None,
+    ) -> None:
         ffmpeg = _tool("ffmpeg")
         assert ffmpeg is not None
         completed = subprocess.run(
@@ -63,7 +70,7 @@ class LocalQcMediaTests(unittest.TestCase):
                 "-f",
                 "lavfi",
                 "-i",
-                "color=c=black:s=160x96:r=24",
+                video or f"testsrc2=s=160x96:r=24:d={duration}",
                 "-f",
                 "lavfi",
                 "-i",
@@ -283,12 +290,76 @@ class LocalQcMediaTests(unittest.TestCase):
     def test_leading_and_trailing_silence_with_speech_is_not_all_silent(self) -> None:
         self._make_mp4(
             self.input_path,
-            "aevalsrc=if(between(t\\,0.4\\,0.6)\\,0.2*sin(2*PI*800*t)\\,0):s=48000:d=1",
+            "aevalsrc=if(between(t\\,0.2\\,0.8)\\,0.3*sin(2*PI*800*t)\\,0):s=48000:d=1",
         )
         _, result = self._request()
         self.assertEqual(result["analysis_status"], "succeeded")
         self.assertEqual(result["technical_verdict"], "pass")
         self.assertFalse(result["media_facts"]["silence"]["all_silent"])
+
+    def test_too_quiet_audio_fails_loudness_without_worker_exception(self) -> None:
+        self._make_mp4(
+            self.input_path,
+            "sine=frequency=800:duration=1,volume=0.01",
+        )
+        _, result = self._request()
+        self.assertEqual(result["analysis_status"], "succeeded")
+        self.assertEqual(result["technical_verdict"], "fail")
+        self.assertFalse(result["checks"]["audio_loudness"]["passed"])
+        self.assertTrue(result["checks"]["audio_true_peak"]["passed"])
+        self.assertLess(
+            result["media_facts"]["loudness"]["integrated_lufs"],
+            qc_module.LOUDNESS_MIN_LUFS,
+        )
+
+    def test_too_loud_clipping_audio_fails_loudness_and_true_peak(self) -> None:
+        self._make_mp4(
+            self.input_path,
+            "sine=frequency=800:duration=1,volume=10",
+        )
+        _, result = self._request()
+        self.assertEqual(result["analysis_status"], "succeeded")
+        self.assertEqual(result["technical_verdict"], "fail")
+        self.assertFalse(result["checks"]["audio_loudness"]["passed"])
+        self.assertFalse(result["checks"]["audio_true_peak"]["passed"])
+        self.assertGreater(
+            result["media_facts"]["loudness"]["true_peak_dbfs"],
+            qc_module.TRUE_PEAK_MAX_DBFS,
+        )
+
+    def test_black_interval_is_hard_fail(self) -> None:
+        self._make_mp4(
+            self.input_path,
+            "sine=frequency=800:duration=1",
+            video="color=c=black:s=160x96:r=24:d=1",
+        )
+        _, result = self._request()
+        self.assertEqual(result["analysis_status"], "succeeded")
+        self.assertEqual(result["technical_verdict"], "fail")
+        self.assertFalse(result["checks"]["black_frames"]["passed"])
+        self.assertTrue(result["media_facts"]["black_frames"]["detected"])
+        self.assertGreaterEqual(
+            result["media_facts"]["black_frames"]["max_duration_seconds"],
+            qc_module.BLACK_MIN_DURATION_SECONDS,
+        )
+
+    def test_long_static_is_advisory_and_does_not_fail_verdict(self) -> None:
+        self._make_mp4(
+            self.input_path,
+            "sine=frequency=800:duration=2",
+            duration="2",
+            video="color=c=blue:s=160x96:r=24:d=2",
+        )
+        _, result = self._request(expected_duration_ms=2_000)
+        self.assertEqual(result["technical_verdict"], "pass")
+        advisory = result["media_facts"]["long_static"]
+        self.assertTrue(advisory["advisory_only"])
+        self.assertTrue(advisory["warning"])
+        self.assertGreaterEqual(
+            advisory["max_duration_seconds"],
+            qc_module.LONG_STATIC_MIN_DURATION_SECONDS,
+        )
+        self.assertNotIn("long_static", result["checks"])
 
     def test_unreadable_media_is_analysis_success_with_fail_verdict(self) -> None:
         self.input_path.write_bytes(b"not an MP4")
@@ -455,6 +526,111 @@ class LocalQcContractTests(unittest.TestCase):
         )
         self.assertEqual(result["technical_verdict"], "fail")
         self.assertEqual(result["provider"], "local_ffmpeg_qc")
+
+    def test_v2_policy_is_fixed_and_splits_old_cache_identity(self) -> None:
+        identity = {
+            "ffmpeg": {"path": "ffmpeg", "version": "ffmpeg version", "sha256": "A" * 64},
+            "ffprobe": {"path": "ffprobe", "version": "ffprobe version", "sha256": "B" * 64},
+        }
+        arguments = {
+            "production_id": "PROD_TEST",
+            "run_id": "RUN_QC",
+            "assembly_attempt_id": ATTEMPT_ID,
+            "assembly_artifact_id": ARTIFACT_ID,
+            "variant": "clean",
+            "input_sha256": "C" * 64,
+            "input_bytes": 12,
+            "expected_duration_ms": 1_000,
+            "tool_identity": identity,
+        }
+        current = qc_cache_key(**arguments)
+        policy = qc_module._qc_policy()
+        self.assertEqual(policy["policy_version"], "technical-qc-mp4-v2")
+        self.assertEqual(
+            policy["audio_loudness"],
+            {
+                "filter": "ebur128_peak_true_framelog_quiet",
+                "integrated_lufs_min": -24.0,
+                "integrated_lufs_max": -10.0,
+                "true_peak_max_dbfs": -1.0,
+            },
+        )
+        self.assertEqual(policy["black_frames"]["verdict"], "hard_fail")
+        self.assertEqual(policy["long_static"]["verdict"], "advisory_only")
+        with mock.patch.object(qc_module, "IMPLEMENTATION_VERSION", "local-ffmpeg-qc-v1"):
+            previous = qc_cache_key(**arguments)
+        with mock.patch.object(qc_module, "LOUDNESS_MIN_LUFS", -30.0):
+            changed_policy = qc_cache_key(**arguments)
+        self.assertNotEqual(current, previous)
+        self.assertNotEqual(current, changed_policy)
+
+    def test_filter_parsers_handle_final_summary_and_open_intervals(self) -> None:
+        loudness = qc_module._loudness_facts(
+            qc_module._ProcessResult(
+                return_code=0,
+                stdout=b"",
+                stderr=(
+                    b"Summary:\n"
+                    b"  Integrated loudness:\n    I: -16.7 LUFS\n"
+                    b"  Loudness range:\n    LRA: 12.2 LU\n"
+                    b"  True peak:\n    Peak: -5.0 dBFS\n"
+                ),
+            )
+        )
+        self.assertTrue(loudness["analysis_complete"])
+        self.assertEqual(loudness["integrated_lufs"], -16.7)
+        self.assertEqual(loudness["loudness_range_lu"], 12.2)
+        self.assertEqual(loudness["true_peak_dbfs"], -5.0)
+
+        below_floor = qc_module._loudness_facts(
+            qc_module._ProcessResult(
+                return_code=0,
+                stdout=b"",
+                stderr=(
+                    b"I: -inf LUFS\n"
+                    b"LRA: 0.0 LU\n"
+                    b"Peak: -inf dBFS\n"
+                ),
+            )
+        )
+        self.assertTrue(below_floor["analysis_complete"])
+        self.assertFalse(below_floor["finite_measurements"])
+        self.assertIsNone(below_floor["integrated_lufs"])
+        self.assertEqual(below_floor["integrated_lufs_raw"], "-inf")
+        self.assertIsNone(below_floor["true_peak_dbfs"])
+
+        black = qc_module._black_facts(
+            qc_module._ProcessResult(
+                return_code=0,
+                stdout=b"",
+                stderr=b"black_start:0\n",
+            ),
+            duration_ms=1_000,
+        )
+        self.assertTrue(black["detected"])
+        self.assertEqual(black["max_duration_seconds"], 1.0)
+        unresolved_black = qc_module._black_facts(
+            qc_module._ProcessResult(
+                return_code=0,
+                stdout=b"",
+                stderr=b"black_start:0\n",
+            ),
+            duration_ms=None,
+        )
+        self.assertTrue(unresolved_black["detected"])
+        self.assertFalse(unresolved_black["analysis_complete"])
+        self.assertTrue(unresolved_black["unresolved_open_interval"])
+
+        long_static = qc_module._long_static_facts(
+            qc_module._ProcessResult(
+                return_code=0,
+                stdout=b"",
+                stderr=b"lavfi.freezedetect.freeze_start: 0\n",
+            ),
+            duration_ms=2_000,
+        )
+        self.assertTrue(long_static["warning"])
+        self.assertTrue(long_static["advisory_only"])
 
     def test_safe_error_is_bounded(self) -> None:
         error = LocalQcError("private path", code="local_ffmpeg_qc_timeout")

@@ -153,3 +153,76 @@ test('local_playwright run creation remains zero-cost and explicit', async () =>
     globalThis.fetch = originalFetch;
   }
 });
+
+test('Windows native capability inspection posts an empty body and never enables capture', async () => {
+  const originalFetch = globalThis.fetch;
+  let capturedUrl;
+  let capturedInit;
+  globalThis.fetch = async (url, init) => {
+    capturedUrl = String(url);
+    capturedInit = init;
+    return new Response(JSON.stringify({
+      schema_version: 1,
+      implementation_version: 'windows-capture-capability-v1',
+      status: 'foundation_ready',
+      foundation_ready: true,
+      capture_execution_enabled: false,
+      screen_capture_ready: true,
+      system_audio_loopback_ready: true,
+      explicit_confirmation_required: true,
+      actual_capture_performed: false,
+      reasons: [],
+      helper: {
+        available: true,
+        doctor_ok: true,
+        endpoint_active: true,
+        loopback_initialized: true,
+        recording_started: false,
+      },
+      ffmpeg: { available: true, gdigrab_available: true },
+      tool_identity_digest: 'A'.repeat(64),
+    }), { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+  try {
+    const capability = await api.api.inspectWindowsCaptureCapability();
+    assert.equal(capturedUrl, '/api/capabilities/windows-capture/inspect');
+    assert.equal(capturedInit.method, 'POST');
+    assert.equal(capturedInit.body, '{}');
+    assert.equal(capability.foundationReady, true);
+    assert.equal(capability.captureExecutionEnabled, false);
+    assert.equal(capability.actualCapturePerformed, false);
+    assert.equal(capability.helper.recordingStarted, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('Windows native capability UI states that inspection does not capture data', () => {
+  assert.match(appSource, /この操作は環境確認のみです。画面・音声を取得、保存、送信しません。/);
+  assert.match(appSource, /実収録は未実装で、現在は常に無効です。/);
+  assert.match(appSource, /収録せずに環境を確認/);
+  assert.match(appSource, /画面とシステム音声を別々に明示確認/);
+});
+
+test('Windows native capability response fails closed if capture was enabled or performed', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    schema_version: 1,
+    implementation_version: 'windows-capture-capability-v1',
+    status: 'foundation_ready',
+    foundation_ready: true,
+    capture_execution_enabled: true,
+    screen_capture_ready: true,
+    system_audio_loopback_ready: true,
+    explicit_confirmation_required: true,
+    actual_capture_performed: false,
+    reasons: [],
+    helper: { recording_started: false },
+    ffmpeg: {},
+  }), { status: 200, headers: { 'content-type': 'application/json' } });
+  try {
+    await assert.rejects(() => api.api.inspectWindowsCaptureCapability(), /安全契約/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

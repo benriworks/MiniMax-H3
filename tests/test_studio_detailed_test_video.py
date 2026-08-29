@@ -411,6 +411,24 @@ class _FakeDetailedService:
 
 
 class DetailedTestVideoContractTests(unittest.TestCase):
+    def test_visual_preset_is_closed_and_defaults_to_preserve(self) -> None:
+        normalized = validate_detailed_test_video_payload(_payload())
+        self.assertEqual(
+            "preserve_v1", normalized["clips"][0]["visual_preset"]
+        )
+        sharpened = _payload()
+        sharpened["clips"][0]["visual_preset"] = "h3_low_res_sharp_v1"
+        self.assertEqual(
+            "h3_low_res_sharp_v1",
+            validate_detailed_test_video_payload(sharpened)["clips"][0][
+                "visual_preset"
+            ],
+        )
+        injected = _payload()
+        injected["clips"][0]["visual_preset"] = "unsharp=1.0"
+        with self.assertRaises(DetailedTestVideoValidationError):
+            validate_detailed_test_video_payload(injected)
+
     def test_request_payload_digest_matches_frontend_vectors_with_optional_fields_present_or_omitted(self) -> None:
         artifact_id = "art_" + "a" * 32
         payload = {
@@ -442,7 +460,7 @@ class DetailedTestVideoContractTests(unittest.TestCase):
         cases = (
             (
                 payload,
-                "1D335289265FFC5DF17ECD216AC4B503AA64B2BF11199F17B64FD88DA652843B",
+                "14204AF12EE99E320788268F716CF3D2990AB4BC5F64000E9CB45A78C5EA9A6A",
             ),
             (
                 {
@@ -450,7 +468,7 @@ class DetailedTestVideoContractTests(unittest.TestCase):
                     "voice": "Voice",
                     "pronunciations": [{"source": "AI", "target": "A I"}],
                 },
-                "A932AD8E86885571F64229A64C637032DA9F30D90D2827FCEB8D64C9CD00EC98",
+                "728040BC2E6ABD4B5BE6576467120A6830AC7F600E590A114B96C16E082464B3",
             ),
         )
         for request, expected in cases:
@@ -502,7 +520,7 @@ class DetailedTestVideoContractTests(unittest.TestCase):
             .hexdigest()
             .upper(),
         )
-        self.assertEqual(audit["implementation_version"], "detailed-test-video-v2")
+        self.assertEqual(audit["implementation_version"], "detailed-test-video-v3")
         self.assertNotIn("あ" * 19, repr(audit))
 
     def test_preflight_is_scoped_and_public_result_has_exact_safe_child_fields(self) -> None:

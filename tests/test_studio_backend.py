@@ -6847,6 +6847,50 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(json.loads(body), queued)
         execute.assert_called_once_with(run_id, request_body)
 
+    def test_windows_capture_capability_route_is_authenticated_and_inspection_only(self) -> None:
+        result = {
+            "schema_version": 1,
+            "implementation_version": "windows-capture-capability-v1",
+            "status": "foundation_ready",
+            "foundation_ready": True,
+            "capture_execution_enabled": False,
+            "screen_capture_ready": True,
+            "system_audio_loopback_ready": True,
+            "explicit_confirmation_required": True,
+            "actual_capture_performed": False,
+            "reasons": [],
+        }
+        with mock.patch(
+            "tools.studio.service.inspect_windows_capture_capability_environment",
+            return_value=result,
+        ) as inspect:
+            status, _headers, _body = self.request(
+                "POST",
+                "/api/capabilities/windows-capture/inspect",
+                body={},
+            )
+            self.assertEqual(status, 403)
+
+            status, _headers, body = self.request(
+                "POST",
+                "/api/capabilities/windows-capture/inspect",
+                body={},
+                headers={"X-Studio-Token": self.token},
+            )
+            self.assertEqual(status, 200)
+            self.assertEqual(json.loads(body), result)
+            inspect.assert_called_once_with(self.fixture.root.resolve())
+
+            status, _headers, body = self.request(
+                "POST",
+                "/api/capabilities/windows-capture/inspect",
+                body={"capture": True},
+                headers={"X-Studio-Token": self.token},
+            )
+        self.assertEqual(status, 422)
+        self.assertEqual(json.loads(body)["error"]["code"], "invalid_request")
+        inspect.assert_called_once_with(self.fixture.root.resolve())
+
     def test_local_screen_capture_http_route_forwards_exact_body(self) -> None:
         created = self.server.service.create_run(
             PRODUCTION_ID,

@@ -5,6 +5,7 @@ import {
   ANNOUNCEMENT_VIDEO_SCHEMA_VERSION,
   ANNOUNCEMENT_VIDEO_TEMPLATE_PRESET,
   DEFAULT_LOCAL_ASSEMBLY_AUDIO_MIX_PRESET,
+  DEFAULT_REMOTION_TIMELINE_VISUAL_PRESET,
   DETAILED_TEST_VIDEO_SCHEMA_VERSION,
   LOCAL_NARRATION_LIMITS,
   RECOMMENDED_LOCAL_ASSEMBLY_CAPTION_STYLE_PRESET,
@@ -102,6 +103,7 @@ import type {
   LocalTimelineRequest,
   LocalRemotionTimelineOverlayPosition,
   LocalRemotionTimelineRequest,
+  LocalRemotionTimelineVisualPreset,
   LocalQcRequest,
   LocalQcVariant,
   LocalNarrationRequest,
@@ -117,6 +119,7 @@ import type {
   StageAttempt,
   StudioEvent,
   StudioStatus,
+  WindowsCaptureCapability,
 } from './types';
 
 type DetailTab = 'overview' | 'pipeline' | 'announcement' | 'detailed-test' | 'video' | 'capture' | 'narration' | 'timeline' | 'assembly' | 'qc' | 'artifacts' | 'compare' | 'logs' | 'audit';
@@ -1474,6 +1477,67 @@ function ProviderTaskRecoveryCard({
   );
 }
 
+const WINDOWS_CAPTURE_REASON_LABELS: Record<string, string> = {
+  unsupported_platform: 'Windows環境ではありません',
+  native_helper_not_built: 'ネイティブhelperが未ビルドです',
+  dotnet_unavailable: '.NETランタイムが見つかりません',
+  helper_doctor_failed: 'WASAPI doctorが完了しませんでした',
+  helper_contract_invalid: 'helperの診断結果を検証できませんでした',
+  ffmpeg_unavailable: 'FFmpegが見つかりません',
+  gdigrab_unavailable: 'FFmpegのWindows画面入力が利用できません',
+  wasapi_loopback_unavailable: '既定再生音声のloopbackが利用できません',
+};
+
+function WindowsCaptureCapabilityCard() {
+  const [checking, setChecking] = useState(false);
+  const [capability, setCapability] = useState<WindowsCaptureCapability>();
+  const [error, setError] = useState<string>();
+
+  const inspect = async () => {
+    if (checking) return;
+    setChecking(true);
+    setError(undefined);
+    try {
+      const next = await api.inspectWindowsCaptureCapability();
+      if (next.actualCapturePerformed || next.captureExecutionEnabled || next.helper.recordingStarted) {
+        setCapability(undefined);
+        setError('安全契約と異なる診断結果を受信したため、表示を停止しました。');
+        return;
+      }
+      setCapability(next);
+    } catch (inspectionError) {
+      setCapability(undefined);
+      setError(inspectionError instanceof Error ? inspectionError.message : 'Windows収録環境を確認できませんでした。');
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  return (
+    <section className="panel compact-panel" aria-live="polite" aria-busy={checking}>
+      <div className="panel-header">
+        <div><span className="section-kicker">WINDOWS NATIVE FOUNDATION</span><h3>Windows画面・システム音声</h3></div>
+        {capability
+          ? <StatusBadge status={capability.foundationReady ? 'approved' : 'blocked'} label={capability.foundationReady ? '基盤利用可能' : '利用不可'} />
+          : <span className="muted">未確認</span>}
+      </div>
+      <p className="panel-lead">この操作は環境確認のみです。画面・音声を取得、保存、送信しません。実収録は未実装で、現在は常に無効です。</p>
+      <button className="button button-secondary" type="button" disabled={checking} onClick={() => void inspect()}>{checking ? '環境確認中…' : '収録せずに環境を確認'}</button>
+      {capability && <>
+        <dl className="narration-metrics">
+          <div><dt>画面入力</dt><dd>{capability.screenCaptureReady ? '利用可能' : '利用不可'}</dd></div>
+          <div><dt>既定再生音声</dt><dd>{capability.systemAudioLoopbackReady ? 'loopback利用可能' : '利用不可'}</dd></div>
+          <div><dt>実収録</dt><dd>{capability.captureExecutionEnabled ? '有効' : '無効'}</dd></div>
+          <div><dt>今回の取得</dt><dd>{capability.actualCapturePerformed ? 'あり' : 'なし'}</dd></div>
+        </dl>
+        {capability.reasons.length > 0 && <div className="validation-list" role="status">{capability.reasons.map((reason) => <div key={reason}>・{WINDOWS_CAPTURE_REASON_LABELS[reason] ?? reason}</div>)}</div>}
+        <p className="gate-separation-note">将来の実収録でも、画面とシステム音声を別々に明示確認する固定契約を必須にします。ウィンドウ名、device ID、マイク、任意パス、任意FFmpeg引数は受け付けません。</p>
+      </>}
+      {error && <div className="inline-message is-error" role="status">{error}</div>}
+    </section>
+  );
+}
+
 function ScreenCapturePanel({ detail, jobs, onReload }: { detail: ProductionDetail; jobs: Job[]; onReload: () => Promise<void> }) {
   const eligibleRuns = useMemo(
     () => [...detail.runs]
@@ -1657,7 +1721,7 @@ function ScreenCapturePanel({ detail, jobs, onReload }: { detail: ProductionDeta
   };
 
   if (eligibleRuns.length === 0) {
-    return <section className="panel"><div className="panel-header"><div><span className="section-kicker">LOCAL PLAYWRIGHT</span><h3>画面収録</h3></div></div><EmptyState title="local_playwrightの画面収録Runがありません" description="概要の再調整で画面収録を選び、local_playwrightプロファイルのRunを作成してください。" /></section>;
+    return <div className="narration-stack"><WindowsCaptureCapabilityCard /><section className="panel"><div className="panel-header"><div><span className="section-kicker">LOCAL PLAYWRIGHT</span><h3>画面収録</h3></div></div><EmptyState title="local_playwrightの画面収録Runがありません" description="概要の再調整で画面収録を選び、local_playwrightプロファイルのRunを作成してください。" /></section></div>;
   }
 
   const artifacts = visibleJob?.result?.artifacts ?? (submitting || submissionUncertain ? [] : currentAttempt?.artifacts ?? []);
@@ -1668,7 +1732,9 @@ function ScreenCapturePanel({ detail, jobs, onReload }: { detail: ProductionDeta
     : Math.max(0, Math.min(100, visibleJob.progress));
   const locked = submitting || active || submissionUncertain;
   return (
-    <div className="timeline-grid">
+    <div className="narration-stack">
+      <WindowsCaptureCapabilityCard />
+      <div className="timeline-grid">
       <div>
         <section className="panel">
           <div className="panel-header"><div><span className="section-kicker">LOCAL PLAYWRIGHT</span><h3>Web実画面収録</h3></div><span className="tag">費用 0円</span></div>
@@ -1699,6 +1765,7 @@ function ScreenCapturePanel({ detail, jobs, onReload }: { detail: ProductionDeta
         </section>
         <section className="panel compact-panel"><div className="panel-header"><div><span className="section-kicker">STAGE ATTEMPTS</span><h3>画面収録試行履歴</h3></div><span className="count-chip">{attempts.length}</span></div>{attempts.length === 0 ? <p className="muted">stage attempt記録はまだありません。</p> : <div className="attempt-list">{attempts.map((attempt) => <article className="attempt-row" key={attempt.id}><div><strong>#{attempt.attempt ?? '—'} · {attempt.id}</strong><small>{formatDate(attempt.createdAt)}</small></div><StatusBadge status={attempt.status} label={jobStatusLabel(attempt.status)} /><div><span>{formatDuration(attempt.durationSeconds)}</span><span>{attempt.artifacts.length} artifact</span></div></article>)}</div>}</section>
       </aside>
+      </div>
     </div>
   );
 }
@@ -1982,6 +2049,7 @@ type TimelineDraftClip = {
   startMs: string;
   endMs: string;
   volumePercent: string;
+  visualPreset: LocalRemotionTimelineVisualPreset;
   transitionEnabled: boolean;
   transitionDurationMs: string;
   overlayEnabled: boolean;
@@ -2000,6 +2068,7 @@ const timelineDraftForArtifact = (artifact?: Artifact): TimelineDraftClip => {
     startMs: '0',
     endMs: durationMs === undefined ? '' : String(durationMs),
     volumePercent: '100',
+    visualPreset: DEFAULT_REMOTION_TIMELINE_VISUAL_PRESET,
     transitionEnabled: false,
     transitionDurationMs: '300',
     overlayEnabled: false,
@@ -2117,6 +2186,7 @@ function TimelinePanel({ detail, jobs, onReload }: { detail: ProductionDetail; j
       startMs: clip.startMs,
       endMs: clip.endMs,
       volumePercent: clip.volumePercent,
+      visualPreset: clip.visualPreset,
       transitionToNext: index === clips.length - 1 || !clip.transitionEnabled ? null : {
         type: 'fade',
         durationMs: clip.transitionDurationMs,
@@ -2313,6 +2383,7 @@ function TimelinePanel({ detail, jobs, onReload }: { detail: ProductionDetail; j
                   <div className="timeline-time-grid"><label className="field"><span>開始（ms）</span><input type="number" min="0" step="1" value={clip.startMs} disabled={busy || submitting} onChange={(event) => updateClip(index, 'startMs', event.target.value)} aria-label={`カット${index + 1}の開始ミリ秒`} /></label><label className="field"><span>終了（ms）</span><input type="number" min="0" step="1" value={clip.endMs} disabled={busy || submitting} onChange={(event) => updateClip(index, 'endMs', event.target.value)} aria-label={`カット${index + 1}の終了ミリ秒`} /></label></div>
                   {remotionMode && <div className="remotion-clip-controls">
                     <label className="field"><span>素材音量（0〜100%）</span><input type="number" min="0" max="100" step="1" value={clip.volumePercent} disabled={busy || submitting} onChange={(event) => updateClip(index, 'volumePercent', event.target.value)} aria-label={`カット${index + 1}の素材音量`} /></label>
+                    <label className="field"><span>映像補正preset</span><select value={clip.visualPreset} disabled={busy || submitting} onChange={(event) => updateClip(index, 'visualPreset', event.target.value as LocalRemotionTimelineVisualPreset)} aria-label={`カット${index + 1}の映像補正preset`}><option value="preserve_v1">補正なし（preserve_v1）</option><option value="h3_low_res_sharp_v1">H3低解像度を鮮明化</option></select><small className="field-help">固定強度です。任意filterは指定できません。</small></label>
                     <label className={`remotion-toggle ${index === clips.length - 1 ? 'is-disabled' : ''}`}><input type="checkbox" checked={index < clips.length - 1 && clip.transitionEnabled} disabled={busy || submitting || index === clips.length - 1} onChange={(event) => updateClip(index, 'transitionEnabled', event.target.checked)} /><span><strong>次カットへfade</strong><small>{index === clips.length - 1 ? '最終カットには設定できません' : '50〜2000ms'}</small></span></label>
                     {index < clips.length - 1 && clip.transitionEnabled && <label className="field"><span>fade時間（ms）</span><input type="number" min="50" max="2000" step="1" value={clip.transitionDurationMs} disabled={busy || submitting} onChange={(event) => updateClip(index, 'transitionDurationMs', event.target.value)} aria-label={`カット${index + 1}のfade時間`} /></label>}
                     <label className="remotion-toggle"><input type="checkbox" checked={clip.overlayEnabled} disabled={busy || submitting} onChange={(event) => updateClip(index, 'overlayEnabled', event.target.checked)} /><span><strong>固定テロップ</strong><small>shorts_ja_large_v1／最大4行</small></span></label>
@@ -2339,7 +2410,7 @@ function TimelinePanel({ detail, jobs, onReload }: { detail: ProductionDetail; j
         {remotionMode && <section className="panel compact-panel remotion-player-panel">
           <div className="panel-header"><div><span className="section-kicker">INTERACTIVE PLAYER</span><h3>詳細preview</h3></div><span className="tag">1080×1920 · 24fps</span></div>
           {playerProps ? <div className="remotion-player-shell"><Player component={TimelineComposition} inputProps={playerProps} durationInFrames={playerProps.durationInFrames} compositionWidth={1080} compositionHeight={1920} fps={24} controls loop style={{ width: '100%', aspectRatio: '9 / 16' }} /></div> : <p className="muted">入力を整えると、同じcompositionをここで再生できます。</p>}
-          <p className="gate-separation-note">素材音量はこのRemotion previewに反映します。後続assemblyで「素材音を小さく残す」を選ぶと、その結果にさらに素材25%を適用します。「ナレーションのみ」では従来どおり素材音を置き換えます。</p>
+          <p className="gate-separation-note">Playerは映像補正presetの前処理を再現しません。鮮明化は完成artifactを正として確認してください。素材音量はpreviewに反映し、後続assemblyで「素材音を小さく残す」を選ぶとさらに素材25%を適用します。</p>
         </section>}
         <TimelineJobStatus job={visibleJob} attempt={currentAttempt} artifacts={resultArtifacts} />
         <section className="panel compact-panel">
@@ -2425,6 +2496,7 @@ type AnnouncementSceneDraft = {
   startMs: string;
   endMs: string;
   volumePercent: string;
+  visualPreset: LocalRemotionTimelineVisualPreset;
   headline: string;
   narration: string;
 };
@@ -2470,9 +2542,9 @@ const newAnnouncementDraft = (artifacts: Artifact[]): AnnouncementRecipeDraft =>
     name: '15秒告知動画',
     templatePreset: ANNOUNCEMENT_VIDEO_TEMPLATE_PRESET,
     scenes: [
-      { role: 'hook', videoArtifactId: source(0)?.id ?? '', startMs: '0', endMs: announcementEndMs(source(0), 0), volumePercent: '0', headline: 'その情報、\n届いていますか？', narration: '十五秒で、しっかり伝える。' },
-      { role: 'message', videoArtifactId: source(1)?.id ?? '', startMs: '0', endMs: announcementEndMs(source(1), 1), volumePercent: '0', headline: '大切なことを\nひと目で', narration: '大切な情報を、ひと目で。' },
-      { role: 'cta', videoArtifactId: source(2)?.id ?? '', startMs: '0', endMs: announcementEndMs(source(2), 2), volumePercent: '0', headline: '詳しくは\nプロフィールへ', narration: '続きはプロフィールから。' },
+      { role: 'hook', videoArtifactId: source(0)?.id ?? '', startMs: '0', endMs: announcementEndMs(source(0), 0), volumePercent: '0', visualPreset: DEFAULT_REMOTION_TIMELINE_VISUAL_PRESET, headline: 'その情報、\n届いていますか？', narration: '十五秒で、しっかり伝える。' },
+      { role: 'message', videoArtifactId: source(1)?.id ?? '', startMs: '0', endMs: announcementEndMs(source(1), 1), volumePercent: '0', visualPreset: DEFAULT_REMOTION_TIMELINE_VISUAL_PRESET, headline: '大切なことを\nひと目で', narration: '大切な情報を、ひと目で。' },
+      { role: 'cta', videoArtifactId: source(2)?.id ?? '', startMs: '0', endMs: announcementEndMs(source(2), 2), volumePercent: '0', visualPreset: DEFAULT_REMOTION_TIMELINE_VISUAL_PRESET, headline: '詳しくは\nプロフィールへ', narration: '続きはプロフィールから。' },
     ],
     voice: '',
     rate: '0',
@@ -2490,6 +2562,7 @@ const announcementDraftFromRecord = (record: AnnouncementRecipeRecord): Announce
   templatePreset: ANNOUNCEMENT_VIDEO_TEMPLATE_PRESET,
   scenes: record.recipe.scenes.map((scene) => ({
     ...scene,
+    visualPreset: scene.visualPreset ?? DEFAULT_REMOTION_TIMELINE_VISUAL_PRESET,
     startMs: String(scene.startMs),
     endMs: String(scene.endMs),
     volumePercent: String(scene.volumePercent),
@@ -3164,6 +3237,7 @@ function AnnouncementVideoPanel({ detail, jobs, onReload, onDirtyChange }: { det
               <div className="announcement-scene-heading"><span>{meta.index}</span><div><strong>{meta.label}</strong><small>{meta.guide}</small></div><em>{index < 2 ? 'fade 250ms' : 'END'}</em></div>
               <label className="field"><span>動画artifact</span><select value={scene.videoArtifactId} disabled={formLocked || videoArtifacts.length === 0} onChange={(event) => selectSceneArtifact(index, event.target.value)}><option value="">動画artifactを選択</option>{scene.videoArtifactId && !videoArtifacts.some((item) => item.id === scene.videoArtifactId) && <option value={scene.videoArtifactId}>[利用不可] {scene.videoArtifactId}</option>}{videoArtifacts.map((item) => <option key={item.id} value={item.id}>{item.name} · {formatBytes(item.sizeBytes)}</option>)}</select></label>
               <div className="announcement-time-grid"><label className="field"><span>開始（ms）</span><input type="number" min="0" max="60000" step="1" value={scene.startMs} disabled={formLocked} onChange={(event) => updateScene(index, 'startMs', event.target.value)} /></label><label className="field"><span>終了（ms）</span><input type="number" min="0" max="60000" step="1" value={scene.endMs} disabled={formLocked} onChange={(event) => updateScene(index, 'endMs', event.target.value)} /></label><label className="field"><span>素材音量（%）</span><input type="number" min="0" max="100" step="1" value={scene.volumePercent} disabled={formLocked} onChange={(event) => updateScene(index, 'volumePercent', event.target.value)} /></label></div>
+              <label className="field"><span>映像補正preset</span><select value={scene.visualPreset} disabled={formLocked} onChange={(event) => updateScene(index, 'visualPreset', event.target.value as LocalRemotionTimelineVisualPreset)}><option value="preserve_v1">補正なし（preserve_v1）</option><option value="h3_low_res_sharp_v1">H3低解像度を鮮明化</option></select><small className="field-help">固定強度です。完成artifactで効果を確認します。</small></label>
               <label className="field"><span>大見出し（2行まで）</span><textarea rows={2} maxLength={80} value={scene.headline} disabled={formLocked} onChange={(event) => updateScene(index, 'headline', event.target.value)} /></label>
               <label className="field"><span>ナレーション（1文）</span><textarea rows={2} maxLength={200} value={scene.narration} disabled={formLocked} onChange={(event) => updateScene(index, 'narration', event.target.value)} /></label>
               <div className="timeline-artifact-meta"><span>source尺 {formatDuration(artifact?.durationSeconds)}</span><span>大見出し {scene.role === 'message' ? '上' : '中央'}</span></div>
@@ -3182,7 +3256,7 @@ function AnnouncementVideoPanel({ detail, jobs, onReload, onDirtyChange }: { det
         </section>
       </div>
       <aside>
-        <section className="panel compact-panel remotion-player-panel"><div className="panel-header"><div><span className="section-kicker">TEMPLATE PLAYER</span><h3>3シーンpreview</h3></div><span className="tag">1080×1920</span></div>{playerProps ? <div className="remotion-player-shell"><Player component={TimelineComposition} inputProps={playerProps} durationInFrames={playerProps.durationInFrames} compositionWidth={1080} compositionHeight={1920} fps={24} controls loop style={{ width: '100%', aspectRatio: '9 / 16' }} /></div> : <p className="muted">3シーンの入力を整えるとpreviewできます。</p>}<p className="gate-separation-note">previewは素材と大見出しのみ・消音です。ナレーション、焼き込み字幕、最終mixはmasterで確認します。</p></section>
+        <section className="panel compact-panel remotion-player-panel"><div className="panel-header"><div><span className="section-kicker">TEMPLATE PLAYER</span><h3>3シーンpreview</h3></div><span className="tag">1080×1920</span></div>{playerProps ? <div className="remotion-player-shell"><Player component={TimelineComposition} inputProps={playerProps} durationInFrames={playerProps.durationInFrames} compositionWidth={1080} compositionHeight={1920} fps={24} controls loop style={{ width: '100%', aspectRatio: '9 / 16' }} /></div> : <p className="muted">3シーンの入力を整えるとpreviewできます。</p>}<p className="gate-separation-note">previewは映像補正presetを再現せず、素材と大見出しのみ・消音です。鮮明化、ナレーション、焼き込み字幕、最終mixは完成masterを正として確認します。</p></section>
         <section className="panel compact-panel local-pipeline-progress-panel" aria-live="polite" aria-busy={executionActive}><div className="panel-header"><div><span className="section-kicker">ANNOUNCEMENT JOB</span><h3>4段階の進捗</h3></div>{visibleJob ? <StatusBadge status={visibleJob.status} label={executionActive ? '監視中' : jobStatusLabel(visibleJob.status)} /> : <span className="muted">未実行</span>}</div><ol className="local-pipeline-progress">{DETAILED_TEST_VIDEO_STEPS.map((step, index) => { const item = stageResults[step.key] as LocalPipelineStageResult | undefined; const status = item?.status ?? (visibleJob ? 'pending' : 'unknown'); return <li className={`local-pipeline-step step-${status}`} key={step.key}><div className="local-pipeline-step-rail"><span>{index + 1}</span></div><div className="local-pipeline-step-body"><div><strong>{step.label}</strong><StatusBadge status={status} label={item ? jobStatusLabel(status) : '未開始'} /></div>{item?.progress !== undefined && <div className="progress-track"><span style={{ width: `${Math.max(0, Math.min(100, item.progress))}%` }} /></div>}<small>{item?.jobId ? `Job ${item.jobId}` : item?.stageAttemptId ? `Attempt ${item.stageAttemptId}` : 'stage記録を待機中'}{item?.cacheHit === undefined ? '' : item.cacheHit ? ' · cache hit' : ' · cache miss'}</small>{item?.message && <p>{item.message}</p>}</div></li>; })}</ol><dl className="narration-metrics"><div><dt>Top Job</dt><dd className="mono">{visibleJob?.id ?? '—'}</dd></div><div><dt>Run</dt><dd className="mono">{runId ?? '—'}</dd></div><div><dt>recipe</dt><dd>rev {recipeRevision || '—'}</dd></div><div><dt>完成尺</dt><dd>{formatMilliseconds(displayedRecipeDurationMs)}</dd></div></dl></section>
         <section className="panel compact-panel local-pipeline-result-panel"><div className="panel-header"><div><span className="section-kicker">FINAL RESULT</span><h3>master・QC</h3></div>{technicalVerdict ? <StatusBadge status={technicalVerdict === 'pass' ? 'succeeded' : 'failed'} label={`technical verdict: ${technicalVerdict}`} /> : <span className="muted">判定待ち</span>}</div>{finalArtifacts.length === 0 ? <p className="muted">最終artifactはまだありません。</p> : <div className="narration-artifact-list">{finalArtifacts.map((artifact) => <a key={artifact.id} href={artifact.url} target="_blank" rel="noreferrer"><strong>{artifact.name}</strong><span>{artifact.kind} · {formatBytes(artifact.sizeBytes)} ↗</span></a>)}</div>}<p className="gate-separation-note">safe-areaは固定presetの技術条件です。文字の読みやすさ、表現、権利、公開可否は完成masterを目視確認してください。</p></section>
       </aside>
@@ -3248,6 +3322,7 @@ function DetailedTestVideoPanel({ detail, jobs, onReload }: { detail: Production
     startMs: clip.startMs,
     endMs: clip.endMs,
     volumePercent: clip.volumePercent,
+    visualPreset: clip.visualPreset,
     transitionToNext: index === clips.length - 1 || !clip.transitionEnabled ? null : {
       type: 'fade',
       durationMs: clip.transitionDurationMs,
@@ -3480,6 +3555,7 @@ function DetailedTestVideoPanel({ detail, jobs, onReload }: { detail: Production
               <div className="timeline-time-grid"><label className="field"><span>開始（ms）</span><input type="number" min="0" step="1" value={clip.startMs} disabled={formLocked} onChange={(event) => updateClip(index, 'startMs', event.target.value)} /></label><label className="field"><span>終了（ms）</span><input type="number" min="0" step="1" value={clip.endMs} disabled={formLocked} onChange={(event) => updateClip(index, 'endMs', event.target.value)} /></label></div>
               <div className="remotion-clip-controls">
                 <label className="field"><span>素材音量（0〜100%）</span><input type="number" min="0" max="100" step="1" value={clip.volumePercent} disabled={formLocked} onChange={(event) => updateClip(index, 'volumePercent', event.target.value)} /></label>
+                <label className="field"><span>映像補正preset</span><select value={clip.visualPreset} disabled={formLocked} onChange={(event) => updateClip(index, 'visualPreset', event.target.value as LocalRemotionTimelineVisualPreset)}><option value="preserve_v1">補正なし（preserve_v1）</option><option value="h3_low_res_sharp_v1">H3低解像度を鮮明化</option></select><small className="field-help">固定強度です。任意filterは指定できません。</small></label>
                 <label className={`remotion-toggle ${index === clips.length - 1 ? 'is-disabled' : ''}`}><input type="checkbox" checked={index < clips.length - 1 && clip.transitionEnabled} disabled={formLocked || index === clips.length - 1} onChange={(event) => updateClip(index, 'transitionEnabled', event.target.checked)} /><span><strong>次カットへfade</strong><small>50〜2000ms</small></span></label>
                 {index < clips.length - 1 && clip.transitionEnabled && <label className="field"><span>fade時間（ms）</span><input type="number" min="50" max="2000" step="1" value={clip.transitionDurationMs} disabled={formLocked} onChange={(event) => updateClip(index, 'transitionDurationMs', event.target.value)} /></label>}
                 <label className="remotion-toggle"><input type="checkbox" checked={clip.overlayEnabled} disabled={formLocked} onChange={(event) => updateClip(index, 'overlayEnabled', event.target.checked)} /><span><strong>固定テロップ</strong><small>shorts_ja_large_v1</small></span></label>
@@ -3504,7 +3580,7 @@ function DetailedTestVideoPanel({ detail, jobs, onReload }: { detail: Production
         </section>
       </div>
       <aside>
-        <section className="panel compact-panel remotion-player-panel"><div className="panel-header"><div><span className="section-kicker">RECIPE PLAYER</span><h3>素材・固定テロップpreview</h3></div><span className="tag">1080×1920</span></div>{playerProps ? <div className="remotion-player-shell"><Player component={TimelineComposition} inputProps={playerProps} durationInFrames={playerProps.durationInFrames} compositionWidth={1080} compositionHeight={1920} fps={24} controls loop style={{ width: '100%', aspectRatio: '9 / 16' }} /></div> : <p className="muted">カット入力を整えるとpreviewできます。</p>}<p className="gate-separation-note">ナレーション、SRT字幕、最終mixはrender後のmasterで確認します。</p></section>
+        <section className="panel compact-panel remotion-player-panel"><div className="panel-header"><div><span className="section-kicker">RECIPE PLAYER</span><h3>素材・固定テロップpreview</h3></div><span className="tag">1080×1920</span></div>{playerProps ? <div className="remotion-player-shell"><Player component={TimelineComposition} inputProps={playerProps} durationInFrames={playerProps.durationInFrames} compositionWidth={1080} compositionHeight={1920} fps={24} controls loop style={{ width: '100%', aspectRatio: '9 / 16' }} /></div> : <p className="muted">カット入力を整えるとpreviewできます。</p>}<p className="gate-separation-note">Playerは映像補正presetを再現しません。鮮明化は完成artifactを正とし、ナレーション、SRT字幕、最終mixもrender後のmasterで確認します。</p></section>
         <section className="panel compact-panel local-pipeline-progress-panel" aria-live="polite" aria-busy={executionActive}><div className="panel-header"><div><span className="section-kicker">DETAILED JOB</span><h3>4段階の進捗</h3></div>{visibleJob ? <StatusBadge status={visibleJob.status} label={executionActive ? '監視中' : jobStatusLabel(visibleJob.status)} /> : <span className="muted">未実行</span>}</div><ol className="local-pipeline-progress">{DETAILED_TEST_VIDEO_STEPS.map((step, index) => { const item = stageResults[step.key] as LocalPipelineStageResult | undefined; const status = item?.status ?? (visibleJob ? 'pending' : 'unknown'); return <li className={`local-pipeline-step step-${status}`} key={step.key}><div className="local-pipeline-step-rail"><span>{index + 1}</span></div><div className="local-pipeline-step-body"><div><strong>{step.label}</strong><StatusBadge status={status} label={item ? jobStatusLabel(status) : '未開始'} /></div>{item?.progress !== undefined && <div className="progress-track"><span style={{ width: `${Math.max(0, Math.min(100, item.progress))}%` }} /></div>}<small>{item?.jobId ? `Job ${item.jobId}` : item?.stageAttemptId ? `Attempt ${item.stageAttemptId}` : 'stage記録を待機中'}{item?.cacheHit === undefined ? '' : item.cacheHit ? ' · cache hit' : ' · cache miss'}</small>{item?.message && <p>{item.message}</p>}</div></li>; })}</ol><dl className="narration-metrics"><div><dt>Top Job</dt><dd className="mono">{visibleJob?.id ?? '—'}</dd></div><div><dt>Run</dt><dd className="mono">{runId ?? '—'}</dd></div><div><dt>recipe尺</dt><dd>{formatMilliseconds(displayedRecipeDurationMs)}</dd></div><div><dt>更新</dt><dd>{formatDate(visibleJob?.updatedAt)}</dd></div></dl></section>
         <section className="panel compact-panel local-pipeline-result-panel"><div className="panel-header"><div><span className="section-kicker">FINAL RESULT</span><h3>master・QC</h3></div>{technicalVerdict ? <StatusBadge status={technicalVerdict === 'pass' ? 'succeeded' : 'failed'} label={`technical verdict: ${technicalVerdict}`} /> : <span className="muted">判定待ち</span>}</div>{technicalVerdict === 'fail' && <div className="notice notice-warning"><div><strong>技術QCは不合格です</strong><p>Job完了とtechnical passは別判定です。</p></div></div>}{finalArtifacts.length === 0 ? <p className="muted">最終artifactはまだありません。</p> : <div className="narration-artifact-list">{finalArtifacts.map((artifact) => <a key={artifact.id} href={artifact.url} target="_blank" rel="noreferrer"><strong>{artifact.name}</strong><span>{artifact.kind} · {formatBytes(artifact.sizeBytes)} ↗</span></a>)}</div>}<p className="gate-separation-note">表現、権利、公開可否はtechnical QCとは別に確認してください。</p></section>
       </aside>
@@ -3862,7 +3938,7 @@ function QcPanel({ detail, jobs, onReload }: { detail: ProductionDetail; jobs: J
       : localRuns.length === 0
         ? 'assembly＋qcを要求したRunがlocal_sapi / elevenlabs_ttsではありません。対応するプロファイルでRunを作成してください。'
         : '成功済みlocal_ffmpeg assembly attemptと、cleanまたはcaptionedの実在master artifactがありません。先にローカル編集・合成を成功させてください。';
-    return <section className="panel qc-panel"><div className="panel-header"><div><span className="section-kicker">LOCAL TECHNICAL QC</span><h3>ローカル技術QC</h3></div><span className="tag">費用 0円</span></div><p className="panel-lead">合成済みmasterのcodec、duration、decode、無音などをローカルで検査します。</p><div className="qc-policy-note" role="note"><strong>判定範囲の注意</strong><p>ジョブ成功は解析完了を示しますが、技術検査の合格を意味しません。technical verdictがfailなら技術検査不合格です。creative QC、権利確認、公開可否は自動判定しません。</p></div><EmptyState title="品質検査の対象masterがありません" description={description} /></section>;
+    return <section className="panel qc-panel"><div className="panel-header"><div><span className="section-kicker">LOCAL TECHNICAL QC</span><h3>ローカル技術QC</h3></div><span className="tag">費用 0円</span></div><p className="panel-lead">合成済みmasterのcodec、duration、decode、音量、黒画面、無音などをローカルで検査します。</p><div className="qc-policy-note" role="note"><strong>判定範囲の注意（technical-qc-mp4-v2）</strong><p>ジョブ成功は解析完了を示しますが、技術検査の合格を意味しません。Integrated loudness -24.0〜-10.0 LUFS、true peak -1.0 dBFS以下、0.5秒以上の黒画面はhard checkです。1.0秒以上の長い静止区間はwarningだけで、technical verdictには影響しません。creative QC、権利確認、公開可否は自動判定しません。</p></div><EmptyState title="品質検査の対象masterがありません" description={description} /></section>;
   }
 
   const resultArtifacts = visibleJob?.result?.artifacts ?? currentQcAttempt?.artifacts ?? [];
@@ -3872,7 +3948,7 @@ function QcPanel({ detail, jobs, onReload }: { detail: ProductionDetail; jobs: J
         <section className="panel qc-panel">
           <div className="panel-header"><div><span className="section-kicker">LOCAL TECHNICAL QC</span><h3>ローカル技術QC</h3></div><span className="tag">費用 0円</span></div>
           <p className="panel-lead">成功済みlocal_ffmpeg assemblyが生成した実在masterだけを選び、loopback内で技術的な再生可能性を検査します。elevenlabs_tts Runでも合成とQCはローカルです。</p>
-          <div className="qc-policy-note" role="note"><strong>判定範囲の注意</strong><p>ジョブ成功 = 解析完了です。ただしtechnical verdictは別の判定で、fail = 技術検査不合格です。creative QC、権利確認、公開可否をこの画面やjob結果から自動決定することはありません。</p></div>
+          <div className="qc-policy-note" role="note"><strong>判定範囲の注意（technical-qc-mp4-v2）</strong><p>ジョブ成功 = 解析完了です。ただしtechnical verdictは別の判定で、fail = 技術検査不合格です。Integrated loudness -24.0〜-10.0 LUFS、true peak -1.0 dBFS以下、0.5秒以上の黒画面はhard checkです。1.0秒以上の長い静止区間はwarningだけで、technical verdictには影響しません。creative QC、権利確認、公開可否をこの画面やjob結果から自動決定することはありません。</p></div>
           <label className="field"><span>対象Run（assembly＋qcを要求したlocal_sapi / elevenlabs_tts）</span><select value={selectedRunId} disabled={busy || submitting} onChange={(event) => { setSelectedRunId(event.target.value); setSelectedAttemptId(''); setVariant('clean'); setJob(undefined); setMessage(undefined); }} aria-label="品質検査対象Run">
             {eligibleRuns.map((run) => <option key={run.id} value={run.id}>{run.label} · {run.id} · {run.executionProfile}</option>)}
           </select></label>
@@ -3912,6 +3988,15 @@ function QcJobStatus({ job, attempt, artifacts }: { job?: Job; attempt?: StageAt
   const durationMs = result?.durationMs ?? attempt?.durationMs;
   const checks = result?.checks?.length ? result.checks : attempt?.checks ?? [];
   const mediaFacts = result?.mediaFacts && Object.keys(result.mediaFacts).length > 0 ? result.mediaFacts : attempt?.mediaFacts ?? {};
+  const longStaticFact = mediaFacts.long_static;
+  const longStaticRecord = longStaticFact !== null && typeof longStaticFact === 'object' && !Array.isArray(longStaticFact)
+    ? longStaticFact as Record<string, unknown>
+    : undefined;
+  const longStaticWarning = longStaticRecord?.warning === true;
+  const longStaticDuration = longStaticRecord?.max_duration_seconds;
+  const longStaticAdvisory = longStaticWarning
+    ? <div className="qc-result-callout is-warning" role="status"><strong>長い静止区間の注意</strong><span>{typeof longStaticDuration === 'number' ? `最大${longStaticDuration.toFixed(2)}秒の静止区間を検出しました。` : '1.0秒以上の静止区間を検出しました。'}これは警告のみで、technical verdictの合否には影響しません。公開前にテンポと意図した演出を目視確認してください。</span></div>
+    : undefined;
   const active = status === 'pending' || status === 'running';
   const jobError = statusSummary.phase === 'job_failed' || status === 'failed';
   const callout = statusSummary.phase === 'job_succeeded_analysis_complete_fail'
@@ -3929,12 +4014,13 @@ function QcJobStatus({ job, attempt, artifacts }: { job?: Job; attempt?: StageAt
     <div className="panel-header"><div><span className="section-kicker">QC RESULT</span><h3>技術QC結果</h3></div>{status ? <StatusBadge status={status} label={jobStatusLabel(status)} /> : <span className="muted">未実行</span>}</div>
     {!job && !attempt && <p className="muted">実行すると、2秒間隔でjobを監視し、解析完了後に結果を表示します。</p>}
     {callout}
+    {longStaticAdvisory}
     <dl className="narration-metrics qc-metrics"><div><dt>Job</dt><dd className="mono">{job?.id ?? attempt?.jobId ?? '—'}</dd></div><div><dt>Provider</dt><dd>{provider ?? '—'}</dd></div><div><dt>実費</dt><dd>{actualCost === undefined ? '—' : `${actualCost}（local）`}</dd></div><div><dt>analysis_status</dt><dd>{analysisStatus ?? '—'}</dd></div><div><dt>technical_verdict</dt><dd>{technicalVerdict ? <span className={`qc-verdict is-${technicalVerdict}`}>{technicalVerdict === 'pass' ? 'pass（合格）' : 'fail（不合格）'}</span> : '—'}</dd></div><div><dt>duration_ms</dt><dd>{durationMs === undefined ? '—' : `${durationMs.toLocaleString()} ms`}</dd></div></dl>
     {job?.message && <p className={jobError ? 'narration-error-text' : 'muted'}>{job.message}{job.errorCode ? ` · ${job.errorCode}` : ''}</p>}
     <div className="qc-detail-block"><strong>checks</strong>{checks.length === 0 ? <span className="muted">まだありません</span> : <div className="qc-check-list">{checks.map((check, index) => { const name = displayQcValue(check.name ?? check.id ?? check.key ?? `check-${index + 1}`); const checkStatus = displayQcValue(check.status ?? check.verdict ?? check.result); const checkMessage = check.message ?? check.detail ?? check.reason; return <div className="qc-check-row" key={`${name}-${index}`}><span>{name}</span><b className={String(checkStatus).toLowerCase() === 'fail' ? 'is-fail' : String(checkStatus).toLowerCase() === 'pass' ? 'is-pass' : ''}>{checkStatus}</b>{checkMessage !== undefined && <small>{displayQcValue(checkMessage)}</small>}</div>; })}</div>}</div>
     <div className="qc-detail-block"><strong>media_facts</strong>{Object.keys(mediaFacts).length === 0 ? <span className="muted">まだありません</span> : <dl className="qc-facts">{Object.entries(mediaFacts).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{displayQcValue(value)}</dd></div>)}</dl>}</div>
     <div className="narration-artifact-list"><strong>QC artifact</strong>{artifacts.length === 0 ? <span className="muted">まだありません</span> : artifacts.map((artifact) => <a key={artifact.id} href={artifact.url} target="_blank" rel="noreferrer">{artifact.name} ↗</a>)}</div>
-    <p className="gate-separation-note">技術QCはcodec・尺・decode等の技術検査だけを記録します。creative QC、権利確認、公開可否を自動判定・承認する機能ではありません。</p>
+    <p className="gate-separation-note">技術QCは固定policy（schema v2 / local-ffmpeg-qc-v2）でcodec・尺・decode・音量・黒画面等を検査します。長い静止区間はwarningのみでtechnical verdictを変えません。creative QC、権利確認、公開可否を自動判定・承認する機能ではありません。</p>
   </section>;
 }
 

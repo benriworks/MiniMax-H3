@@ -2,6 +2,8 @@
 
 この図は、tracked workspace、untracked local runtime、Studio、外部配布元、MiniMax API、ElevenLabs APIの信頼境界と主要データフローを示します。責務と制約の詳細は[ARCHITECTURE.md](ARCHITECTURE.md)を参照してください。
 
+RemotionのPNG frame scratchは、開始前にsharpカットを各2GiB、preserveカットを実source bytesとして予約し、source staging後に実staged bytesと残容量を再検査します。残りの必要量はRGBA frame bytes×1.25＋raw出力2GiB＋正規化出力2GiB＋安全余白1GiBです。`TEMP`／`TMP`／`TMPDIR`をatomic stage内へ閉じてNode側でもattestし、成功・失敗・cancelの全経路でstageを削除します。両検査値と実staged bytesをreport／manifestへ記録します。
+
 ```mermaid
 flowchart LR
     Operator["Operator<br/>PowerShell / browser"]
@@ -46,13 +48,16 @@ flowchart LR
         ScreenCaptureContract["browser_capture_execution.py<br/>local_playwright: screen_capture + timeline<br/>assembly / qc remain plan-only"]
         ScreenCaptureWorker["browser_capture.py + playwright_capture.mjs<br/>isolated Chromium / bounded capture<br/>fixed MP4 conversion + atomic publish"]
         PlaywrightDoctor["playwright_doctor.mjs<br/>pinned package / Chromium launch check"]
+        WindowsCaptureCapability["windows_capture.py<br/>POST empty-object capability inspector<br/>execution always disabled"]
+        WindowsCaptureHelperSource["native/windows-capture-helper<br/>Core Audio doctor source<br/>no external NuGet package"]
         TimelineWorker["tools/studio/timeline.py<br/>local_sapi + local_playwright timeline<br/>validated hard-cut worker / cache"]
-        RemotionContract["remotion_timeline_execution.py<br/>schema v1 / closed edit recipe<br/>local_remotion_timeline"]
-        RemotionWorker["remotion_timeline.py + remotion_render.mjs<br/>Remotion 4.0.517 / concurrency 1<br/>cache + atomic registration"]
+        RemotionContract["remotion_timeline_execution.py<br/>schema v1 / closed edit + visual preset<br/>local_remotion_timeline"]
+        SourceFidelityPolicy["remotion-source-fidelity-v2<br/>preserve / low-res portrait sharp<br/>fixed cache + audit + manifest policy"]
+        RemotionWorker["remotion_timeline.py + remotion_render.mjs<br/>pre-overlay FFmpeg + Remotion 4.0.517<br/>PNG frames / CRF 16 / concurrency 1"]
         RemotionComposition["studio/src/remotion<br/>shared Player / renderer composition"]
         RemotionDoctor["remotion_doctor.mjs<br/>dependency closure attestation<br/>exact packages / Chromium reuse check"]
         AssemblyWorker["tools/studio/assembly.py<br/>validated FFmpeg worker / cache<br/>closed caption + audio mix presets"]
-        QcWorker["tools/studio/qc.py<br/>validated technical QC / cache"]
+        QcWorker["tools/studio/qc.py<br/>technical QC v2 / cache<br/>loudness + peak + black hard checks<br/>long-static advisory"]
         SapiHelper["sapi_synthesize.ps1<br/>UTF-8 JSON IPC"]
         StudioCli["tools.studio.cli<br/>secret + local test-video control"]
         TestVideoOrchestrator["test_video.py<br/>ordered local orchestration<br/>bounded result"]
@@ -100,6 +105,8 @@ flowchart LR
         ProductionArtifacts["outputs/productions<br/>media / logs / QC"]
         WindowsSapi["Windows System.Speech<br/>installed local voices"]
         MediaTools["FFmpeg / ffprobe<br/>resolved binary identity"]
+        WindowsCaptureHelper["Release net8.0-windows helper DLL<br/>doctor only / no Start or buffer read"]
+        WindowsDefaultRender["Windows Core Audio<br/>default render / console endpoint<br/>identity never returned"]
     end
 
     subgraph ExternalSources["External supply-chain boundary"]
@@ -173,6 +180,8 @@ flowchart LR
     PackageIndexes -->|"npm registry"| StudioSetup
     StudioFrontend --> StudioSetup
     StudioSetup --> StudioBuild
+    WindowsCaptureHelperSource --> StudioSetup
+    StudioSetup -->|"Release build only<br/>doctor waits for explicit UI action"| WindowsCaptureHelper
     StudioSetup -->|"install + fail-closed launch check"| PlaywrightDoctor
     PlaywrightDoctor --> PinnedChromium
     StudioSetup -->|"npm ci後にclosure attestation生成<br/>exact 4.0.517 package check"| RemotionDoctor
@@ -266,6 +275,11 @@ flowchart LR
     ElevenLabsWorker -->|"MP3 decode / shell=false"| MediaTools
     ElevenLabsWorker -->|"atomic WAV / SRT / timing / manifest<br/>actual_cost remains null"| NarrationOutputs
     StudioBackend -->|"POST /api/runs/{id}/execute-local-screen-capture<br/>local_playwright / explicit zero-cost execute"| ScreenCaptureContract
+    StudioUi -->|"POST /api/capabilities/windows-capture/inspect<br/>exact empty object / explicit button"| StudioBackend
+    StudioBackend -->|"no DB / Job / artifact / event<br/>10s + 64KiB bounded probes"| WindowsCaptureCapability
+    WindowsCaptureCapability -->|"fixed DLL SHA-256 + doctor contract<br/>capture_execution_enabled=false"| WindowsCaptureHelper
+    WindowsCaptureCapability -->|"device-list probe: gdigrab only<br/>no screen sample"| MediaTools
+    WindowsCaptureHelper -->|"GetDefaultAudioEndpoint + loopback Initialize<br/>no Start / no GetBuffer / no device ID"| WindowsDefaultRender
     ScreenCaptureContract -->|"canonical origin + hashes only persisted<br/>raw URL remains transient"| BrowserLane
     BrowserLane -->|"bounded child process tree"| ScreenCaptureWorker
     ScreenCaptureWorker -->|"new isolated context<br/>same exact loopback port only<br/>redirect/subresource checked"| PinnedChromium
@@ -281,18 +295,19 @@ flowchart LR
     MediaTools -->|"H.264 video-only / fresh ffprobe"| TimelineWorker
     TimelineWorker -->|"atomic output + SHA-256"| TimelineOutputs
     TimelineOutputs -->|"exact path / kind / MIME / hash allowlist"| StudioBackend
-    StudioUi -->|"@remotion/player<br/>same schema v1 composition preview"| RemotionComposition
+    StudioUi -->|"@remotion/player<br/>same schema v1 composition<br/>raw-source preview; no FFmpeg preprocessing"| RemotionComposition
     StudioBackend -->|"POST /api/runs/{id}/execute-remotion-timeline<br/>timeline stage / explicit zero-cost execute"| RemotionContract
-    RemotionContract -->|"registered video IDs only<br/>1-16 clips / max 60s / closed controls"| BrowserLane
+    RemotionContract -->|"registered video IDs only<br/>1-16 clips / max 60s<br/>preserve_v1 or h3_low_res_sharp_v1"| BrowserLane
     BrowserLane -->|"FIFO / bounded child process tree"| RemotionWorker
+    SourceFidelityPolicy -->|"legacy omission -> preserve<br/>no arbitrary filter / strength"| RemotionWorker
     RemotionComposition -->|"tracked composition + model"| RemotionWorker
     ProductionArtifacts -->|"same-production videos<br/>bytes + SHA-256 verified"| RemotionWorker
     ScreenCaptureOutputs -->|"registered capture video"| RemotionWorker
     TimelineOutputs -->|"registered hard-cut preview"| RemotionWorker
-    RemotionWorker -->|"programmatic render / explicit executable"| PinnedChromium
+    RemotionWorker -->|"programmatic render / explicit executable<br/>PNG intermediate / H.264 CRF 16"| PinnedChromium
     RemotionDoctor -->|"closure digest / counts<br/>cache tool identity"| RemotionWorker
     RemotionWorker -->|"render後にclosure再照合<br/>変更時はpublish拒否"| RemotionDoctor
-    RemotionWorker -->|"audio normalization + full decode<br/>fresh ffprobe"| MediaTools
+    RemotionWorker -->|"sharp preset: required-frame trim<br/>Lanczos cover 1080x1920 + luma unsharp 0.25<br/>PNG scratch preflight + bounded staged TEMP cleanup<br/>residual fails closed; final normalize + full decode / fresh ffprobe"| MediaTools
     RemotionWorker -->|"exact 5 artifacts / atomic publish<br/>then atomic DB registration"| RemotionOutputs
     RemotionOutputs -->|"exact path / kind / MIME / hash allowlist"| StudioBackend
     StudioBackend -->|"same production/run IDs<br/>persist job-attempt link before queue"| AssemblyWorker
@@ -307,7 +322,7 @@ flowchart LR
     StudioBackend -->|"current-run attempt + variant only<br/>verified same-production cache chain"| QcWorker
     AssemblyOutputs -->|"verified clean / captioned master<br/>content-addressed owner may be a prior run"| QcWorker
     QcWorker -->|"shell=false / fixed checks"| MediaTools
-    MediaTools -->|"probe / full decode / silence facts"| QcWorker
+    MediaTools -->|"probe / full decode / loudness / peak / black / freeze facts"| QcWorker
     QcWorker -->|"atomic JSON + SHA-256"| QcOutputs
     QcOutputs -->|"exact path / kind / MIME / hash allowlist"| StudioBackend
     StudioBackend -->|"entry hashes + scope tails<br/>text redaction / media opt-in"| AuditExports
@@ -324,8 +339,8 @@ flowchart LR
     classDef external fill:#fff3df,stroke:#9a6300,color:#432b00;
     classDef secret fill:#ffe8ee,stroke:#9c284b,color:#481023;
 
-    class Setup,RuntimeLock,Downloader,ModelManifest,Doctor,Launcher,Metrics,LowWorkflow,TurboWorkflow,Q4TurboWorkflow,OfficialQ4Workflow,OfficialQ4TurboWorkflow,StudioApiWorkflow,ApiWrapper,ApiCli,ProductionLedgers,StudioSetup,StudioLauncher,StudioFrontend,StudioBackend,HttpLifecycle,ShutdownGate,ProviderRecovery,PipelineContinuationCoordinator,LocalPipelineContract,LocalPipelineOrchestrator,DetailedTestContract,DetailedTestOrchestrator,AnnouncementContract,AnnouncementTemplateUi,AnnouncementRequestGuard,StudioComfyContract,StudioComfyWorker,NarrationWorker,ExternalTtsContract,ElevenLabsWorker,ScreenCaptureContract,ScreenCaptureWorker,PlaywrightDoctor,TimelineWorker,RemotionContract,RemotionWorker,RemotionComposition,RemotionDoctor,AssemblyWorker,QcWorker,SapiHelper,StudioCli,TestVideoOrchestrator tracked;
-    class Venv,Comfy,GgufNode,TurboNode,Models,OfficialWorkflow,Outputs,HardwareMetrics,StudioBuild,StudioUi,StudioDb,VideoClaims,ProviderTasks,PipelineClaims,DetailedTestClaims,AnnouncementEvents,StudioEvents,ExternalSubmissionState,GpuLane,PipelineLane,BrowserLane,DefaultLane,PinnedChromium,LoopbackWebTarget,ScreenCaptureOutputs,VideoGenerationOutputs,NarrationOutputs,TimelineOutputs,RemotionOutputs,AssemblyOutputs,QcOutputs,AuditExports,ProductionArtifacts,WindowsSapi,MediaTools local;
+    class Setup,RuntimeLock,Downloader,ModelManifest,Doctor,Launcher,Metrics,LowWorkflow,TurboWorkflow,Q4TurboWorkflow,OfficialQ4Workflow,OfficialQ4TurboWorkflow,StudioApiWorkflow,ApiWrapper,ApiCli,ProductionLedgers,StudioSetup,StudioLauncher,StudioFrontend,StudioBackend,HttpLifecycle,ShutdownGate,ProviderRecovery,PipelineContinuationCoordinator,LocalPipelineContract,LocalPipelineOrchestrator,DetailedTestContract,DetailedTestOrchestrator,AnnouncementContract,AnnouncementTemplateUi,AnnouncementRequestGuard,StudioComfyContract,StudioComfyWorker,NarrationWorker,ExternalTtsContract,ElevenLabsWorker,ScreenCaptureContract,ScreenCaptureWorker,PlaywrightDoctor,WindowsCaptureCapability,WindowsCaptureHelperSource,TimelineWorker,RemotionContract,SourceFidelityPolicy,RemotionWorker,RemotionComposition,RemotionDoctor,AssemblyWorker,QcWorker,SapiHelper,StudioCli,TestVideoOrchestrator tracked;
+    class Venv,Comfy,GgufNode,TurboNode,Models,OfficialWorkflow,Outputs,HardwareMetrics,StudioBuild,StudioUi,StudioDb,VideoClaims,ProviderTasks,PipelineClaims,DetailedTestClaims,AnnouncementEvents,StudioEvents,ExternalSubmissionState,GpuLane,PipelineLane,BrowserLane,DefaultLane,PinnedChromium,LoopbackWebTarget,ScreenCaptureOutputs,VideoGenerationOutputs,NarrationOutputs,TimelineOutputs,RemotionOutputs,AssemblyOutputs,QcOutputs,AuditExports,ProductionArtifacts,WindowsSapi,MediaTools,WindowsCaptureHelper,WindowsDefaultRender local;
     class GitHub,PackageIndexes,HuggingFace,MiniMaxApi,OutputCdn,ElevenLabsApi external;
     class Env,StudioSecrets secret;
 ```
@@ -334,9 +349,11 @@ HTTP終了境界は`HttpLifecycle`と`ShutdownGate`に分けています。全re
 
 Playwright画面収録は`ScreenCaptureContract`でcanonicalなloopback URLと閉じた操作集合へ正規化し、raw URL／selectorを永続payloadから除外します。専用`BrowserLane`はrequestごとにfresh Chromium contextを起動し、redirect、subresource、WebSocket、popupを同じ明示portの内側へ制限します。raw WebMは固定FFmpeg policyでMP4へ変換し、full decode、fresh ffprobe、7成果物のbytes／SHA-256を満たした場合だけ`ScreenCaptureOutputs`をatomic publishします。これはWeb viewportの境界であり、Windowsデスクトップ、system audio、既存browser profileは扱いません。
 
-Remotion詳細timelineは既存の`TimelineWorker`によるハードカットを残したまま、別の`RemotionContract`／`RemotionWorker`として同じ`timeline` stageに接続します。schema v1は登録済み動画、trim、素材音量、fade、固定テロップだけを許し、`BrowserLane`で画面収録とFIFO直列化します。UIの`@remotion/player`とbackend rendererは同じ`RemotionComposition`を使い、setup済み`PinnedChromium`を再利用します。`RemotionDoctor`はsetup時にRemotion 5 packageとPlaywrightの実dependency closureをattestし、worker開始時とrender後にfile treeを再計算します。pathを含まないdigest／package・file・bytes数はcache tool identityへ入り、変更時はpublish前に失敗します。5成果物はcache／manifest／入力・tool hash、full decode、fresh ffprobeを再検証してからatomic登録します。`RemotionOutputs`の素材音声は詳細previewで確認でき、`AssemblyWorker`の互換既定ではナレーションへ置換、固定mix presetではpreview音声をさらに25%へ下げてナレーションと合成します。mixは素材音声1 streamと両入力の非無音を必須とし、任意gainやBGMは受け付けません。
+`WindowsCaptureCapability`は将来のWindowsデスクトップ／system audio収録から独立した診断境界です。認証済みの空object POSTだけで固定`WindowsCaptureHelper`とFFmpeg `gdigrab`を有界検査し、`WindowsDefaultRender`ではrender/console endpointのWASAPI loopback初期化までで停止します。`Start`、buffer read、device identity、画面取得、音声取得、永続化、worker laneへのedgeはありません。public resultも実行無効・取得なしを固定します。
 
-`DetailedTestContract`は`POST /api/productions/{id}/execute-detailed-test-video`のschema v1を、登録済みclip、SAPI segment、固定字幕／mix／variantだけへ閉じます。Shorts大字幕は1〜6 segment、表示幅38単位、ASCII token 20文字、不可視／bidi制御文字の固定preflightをqueue前に通します。schema v7の`DetailedTestClaims`は正規化payload、source bytes／SHA-256、Remotion tool identity、preflight policyから作るrequest keyをimmutableな0円Runとactive topへ結び、同時要求をdedupeします。内部実装世代`detailed-test-video-v2`はpayload監査ダイジェスト追加前のローカルclaimとkeyを分離します。failed／interruptedや成果物改変は同じRunの新topでretryし、event mirrorはstrictなclaim identityだけをactive jobなしで復元します。direct POSTが曖昧終了した場合、UIのrequest guardは送信前Job集合と正規化requestのcanonical SHA-256を保持し、fresh ID、production、kind、stage、profile、request key形式、監査ダイジェストの完全一致を要求します。告知専用timing fieldを持つJob、既知Job、ダイジェスト欠落は採用しません。`DetailedTestOrchestrator`は`PipelineLane`からSAPI／assembly／QCを`DefaultLane`へ、Remotionを`BrowserLane`へ順番に投入し、exact child job／attempt lineageとartifactを再hashしてQC passだけを公開します。UIはtop jobを2秒pollingし、cancel／failure時はcurrent childのjoinを待ちます。この経路から`GpuLane`、ComfyUI、MiniMax API、ElevenLabsへedgeはなく、既存`local_pipeline`は変更しません。
+Remotion詳細timelineは既存の`TimelineWorker`によるハードカットを残したまま、別の`RemotionContract`／`RemotionWorker`として同じ`timeline` stageに接続します。schema v1は登録済み動画、trim、素材音量、fade、固定テロップと、カットごとの閉じた`preserve_v1 | h3_low_res_sharp_v1`だけを許し、旧recipeのpreset省略は`preserve_v1`として読み続けます。`h3_low_res_sharp_v1`は幅1080未満・高さ1920未満、両辺64px以上、幅÷高さ0.50〜0.625、cover拡大後300万画素以下の低解像度縦長sourceだけを許可し、条件外はFFmpeg起動前に拒否します。`MediaTools`で必要frameへ先にtrimし、固定Lanczos cover 1080×1920＋luma-only unsharp 5×5／0.25をテロップ前に適用します。任意filter／強度／chroma sharpenは受け付けません。これは欠落detailを復元する超解像ではなく、追加のCPU時間、一時I/O、encode時間を使います。`BrowserLane`で画面収録とFIFO直列化し、UIの`@remotion/player`とbackend rendererは同じ`RemotionComposition`を使いますが、PlayerはFFmpeg前処理を再現しないため完成artifactを正本にします。rendererはsetup済み`PinnedChromium`を再利用し、PNG中間frame、H.264 CRF 16へ固定します。`RemotionDoctor`はsetup時にRemotion 5 packageとPlaywrightの実dependency closureをattestし、worker開始時とrender後にfile treeを再計算します。pathを含まないdigest／package・file・bytes数に加え、Source Fidelity v2のpreset／固定前処理／出力policyがcacheと監査summaryへ入り、各clipの実適用結果はrender reportとmanifestへ入ります。policy変更時は旧cacheを再利用せず、tool変更時はpublish前に失敗します。5成果物はcache／manifest／入力・tool hash、full decode、fresh ffprobeを再検証してからatomic登録します。`RemotionOutputs`の素材音声は詳細previewで確認でき、`AssemblyWorker`の互換既定ではナレーションへ置換、固定mix presetではpreview音声をさらに25%へ下げてナレーションと合成します。mixは素材音声1 streamと両入力の非無音を必須とし、任意gainやBGMは受け付けません。
+
+`DetailedTestContract`は`POST /api/productions/{id}/execute-detailed-test-video`のschema v1を、登録済みclip、SAPI segment、固定字幕／mix／variantだけへ閉じます。Shorts大字幕は1〜6 segment、表示幅38単位、ASCII token 20文字、不可視／bidi制御文字の固定preflightをqueue前に通します。schema v7の`DetailedTestClaims`は正規化payload、source bytes／SHA-256、Remotion tool identity、preflight policyから作るrequest keyをimmutableな0円Runとactive topへ結び、同時要求をdedupeします。内部実装世代`detailed-test-video-v3`はSource Fidelity v2／visual preset互換既定を含まない旧ローカルclaimとkeyを分離します。failed／interruptedや成果物改変は同じRunの新topでretryし、event mirrorはstrictなclaim identityだけをactive jobなしで復元します。direct POSTが曖昧終了した場合、UIのrequest guardは送信前Job集合と正規化requestのcanonical SHA-256を保持し、fresh ID、production、kind、stage、profile、request key形式、監査ダイジェストの完全一致を要求します。告知専用timing fieldを持つJob、既知Job、ダイジェスト欠落は採用しません。`DetailedTestOrchestrator`は`PipelineLane`からSAPI／assembly／QCを`DefaultLane`へ、Remotionを`BrowserLane`へ順番に投入し、exact child job／attempt lineageとartifactを再hashしてQC passだけを公開します。UIはtop jobを2秒pollingし、cancel／failure時はcurrent childのjoinを待ちます。この経路から`GpuLane`、ComfyUI、MiniMax API、ElevenLabsへedgeはなく、既存`local_pipeline`は変更しません。
 
 `AnnouncementTemplateUi`は`AnnouncementContract`の閉じたHOOK／MESSAGE／CTA recipeだけを編集します。各sceneは登録済み動画、1〜10秒trim、素材音量、大見出し、必須ナレーションを持ち、合計10〜20秒（推奨15秒）です。新規既定trimは5,167ms／5,167ms／5,166msで、fade後を360 frame／15.000秒にします。compile時に250ms fade、125ms overlay inset、HOOK中央／MESSAGE上／CTA中央を固定し、既存`DetailedTestContract`へ渡します。告知専用のprivate timing capabilityは各trimとfadeをRemotionと同じ24fpsで個別にframe丸めしたcursorからscene開始を求め、そこへSAPI WAVの無音とSRTを揃えます。前segmentが次scene開始を越える場合はfail closedにし、policy／開始時刻はcache、claim、監査へ含むため同期前の成果物へdedupeしません。`AnnouncementEvents`はCAS付きimmutable revision、clone source、recipe versionとDetailed top Jobのexecution linkを保持します。同じcompile結果とtimingは`DetailedTestClaims`で同じclaim／Runを使い、再利用可能なtopがあれば同じJobへdedupeされますが、各recipe versionのlinkは独立して残ります。Job admissionとlinkは一つのSQLite transactionです。UIの保存・複製・実行・照合requestはprivate `AbortSignal`をforwardし、15秒で中断します。clone IDは完全なsource identity／コピー名のSHA-256先頭128-bitから決定的に導出し、intent固有のversioned localStorage keyへ最初のPOST前に永続化します。runtime検証とread-after-writeに失敗すれば送信せず、複数tabも同じbackend IDへ収束します。成功応答または版履歴のID／production／revision 1／source version／名前が完全一致した場合だけintentを消し、timeout／4xxでは同じIDを画面移動／reload後も保持します。曖昧な実行応答ではfresh linkだけをexact Job照合し、なければ同じimmutable revisionを1回だけ再送します。Detailed側が同一claimへ直列化し、成功成果物を物理再検証するため正常なレンダーを重複しません。2回目もtimeoutを含めて曖昧なら永久lockせず手動再照合へ戻ります。exact recipeはBase64 eventとしてJSONL mirror／監査exportへ到達し、Base64は暗号化ではないため秘密を入力しません。v1からBGM、ロゴ画像、任意renderer、新規H3生成へのedgeはありません。
 

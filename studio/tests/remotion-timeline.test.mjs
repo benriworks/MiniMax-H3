@@ -68,6 +68,7 @@ test('Remotion timeline payload is closed, canonical, and schema_version=1', () 
         start_ms: 125,
         end_ms: 2_125,
         volume_percent: 50,
+        visual_preset: 'preserve_v1',
         transition_to_next: { type: 'fade', duration_ms: 500 },
         overlay: {
           text: '生成AIを\nマスターしよう',
@@ -82,6 +83,7 @@ test('Remotion timeline payload is closed, canonical, and schema_version=1', () 
         start_ms: 0,
         end_ms: 1_000,
         volume_percent: 100,
+        visual_preset: 'preserve_v1',
         transition_to_next: null,
         overlay: null,
       },
@@ -89,8 +91,9 @@ test('Remotion timeline payload is closed, canonical, and schema_version=1', () 
   });
   assert.deepEqual(Object.keys(normalized.payload), ['schema_version', 'clips']);
   assert.deepEqual(Object.keys(normalized.payload.clips[0]), [
-    'video_artifact_id', 'start_ms', 'end_ms', 'volume_percent', 'transition_to_next', 'overlay',
+    'video_artifact_id', 'start_ms', 'end_ms', 'volume_percent', 'visual_preset', 'transition_to_next', 'overlay',
   ]);
+  assert.equal(api.buildLocalRemotionTimelinePayload({ clips: [clip({ visualPreset: 'h3_low_res_sharp_v1' })] }).clips[0].visual_preset, 'h3_low_res_sharp_v1');
 });
 
 test('Remotion timeline enforces clip count, output duration, volume, and final transition', () => {
@@ -113,6 +116,7 @@ test('Remotion timeline enforces clip count, output duration, volume, and final 
     const result = api.normalizeRemotionTimelineInput({ clips: [clip({ volumePercent })] });
     assert.ok(result.errors.some((error) => error.includes('0〜100')));
   }
+  assert.ok(api.normalizeRemotionTimelineInput({ clips: [clip({ visualPreset: 'arbitrary_filter' })] }).errors.some((error) => error.includes('映像補正preset')));
   const finalFade = api.normalizeRemotionTimelineInput({
     clips: [clip({ transitionToNext: { type: 'fade', durationMs: 100 } })],
   });
@@ -274,6 +278,8 @@ test('timeline UI separates worker wall time from rendered media duration', () =
   );
   assert.match(appSource, /<dt>実行時間<\/dt>/);
   assert.match(appSource, /<dt>出力尺<\/dt>/);
+  assert.match(appSource, /映像補正preset/);
+  assert.match(appSource, /鮮明化は完成artifactを正として確認/);
 });
 
 test('shared composition uses callback volume for accurate Player timeline display', async () => {

@@ -14,7 +14,9 @@ import math
 import os
 import re
 import shutil
+import stat
 import tempfile
+import time
 from fractions import Fraction
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
@@ -35,15 +37,30 @@ from .remotion_timeline_execution import (
     CANVAS_WIDTH,
     FRAME_RATE,
     IMPLEMENTATION_VERSION,
-    OUTPUT_POLICY_VERSION,
     PROVIDER,
+    REMOTION_FRAME_IMAGE_FORMAT,
+    REMOTION_SCRATCH_HEADROOM_DENOMINATOR,
+    REMOTION_SCRATCH_HEADROOM_NUMERATOR,
+    REMOTION_SCRATCH_NORMALIZED_OUTPUT_RESERVE_BYTES,
+    REMOTION_SCRATCH_POLICY_VERSION,
+    REMOTION_SCRATCH_RAW_OUTPUT_RESERVE_BYTES,
+    REMOTION_SCRATCH_RGBA_BYTES_PER_PIXEL,
+    REMOTION_SCRATCH_SAFETY_MARGIN_BYTES,
+    REMOTION_SCRATCH_SHARP_STAGING_RESERVE_BYTES,
+    REMOTION_VIDEO_CRF,
     SCHEMA_VERSION,
+    SHARP_SOURCE_MAX_ASPECT_RATIO,
+    SHARP_SOURCE_MAX_SCALED_PIXELS,
+    SHARP_SOURCE_MIN_ASPECT_RATIO,
+    SHARP_SOURCE_MIN_DIMENSION,
+    SOURCE_ENHANCEMENT_POLICY_VERSION,
     TIMING_SOURCE,
     RemotionTimelineError,
     RemotionTimelineToolError,
     RemotionTimelineValidationError,
     compile_remotion_timeline,
     normalize_internal_clips,
+    remotion_output_policy,
     remotion_timeline_audit_payload,
     remotion_timeline_cache_key,
 )
@@ -65,6 +82,17 @@ MAX_OUTPUT_BYTES = 2 * 1024 * 1024 * 1024
 MAX_METADATA_BYTES = 8 * 1024 * 1024
 NODE_TIMEOUT_SECONDS = 30 * 60
 FFMPEG_TIMEOUT_SECONDS = 10 * 60
+_REMOTION_STAGE_CLEANUP_ATTEMPTS = 4
+# Four attempts provide a bounded ~1.05 s retry window (0.15 + 0.30 + 0.60)
+# for transient Windows sharing violations without delaying a normal cleanup.
+_REMOTION_STAGE_CLEANUP_DELAY_SECONDS = 0.15
+_SHARP_VISUAL_PRESET = "h3_low_res_sharp_v1"
+_SOURCE_ENHANCEMENT_FILTER = (
+    "scale=1080:1920:force_original_aspect_ratio=increase:flags=lanczos:"
+    "in_range=auto:out_range=tv,"
+    "crop=1080:1920:(in_w-out_w)/2:(in_h-out_h)/2,"
+    "setsar=1,unsharp=5:5:0.25:3:3:0,format=yuv420p"
+)
 _CACHE_KEY_RE = re.compile(r"^[0-9A-F]{64}$")
 _SHA256_RE = re.compile(r"^[0-9A-F]{64}$")
 _REMOTION_PACKAGES = (
@@ -136,6 +164,268 @@ def _clean_environment() -> dict[str, str]:
         for key, value in os.environ.items()
         if key.casefold() in allowed and not key.casefold().startswith("remotion_")
     }
+
+
+def _render_environment(scratch_directory: Path, work_directory: Path) -> dict[str, str]:
+    """Confine Remotion and Chromium temporary files to the atomic stage tree."""
+
+    supplied_scratch = Path(scratch_directory)
+    work = Path(work_directory).resolve(strict=True)
+    if supplied_scratch.is_symlink():
+        raise RemotionTimelineToolError(
+            "The Remotion scratch directory is unavailable", code="local_remotion_render_failed"
+        )
+    scratch = supplied_scratch.resolve(strict=True)
+    try:
+        scratch.relative_to(work)
+    except ValueError as exc:
+        raise RemotionTimelineToolError(
+            "The Remotion scratch directory is unavailable", code="local_remotion_render_failed"
+        ) from exc
+    if not scratch.is_dir() or any(scratch.iterdir()):
+        raise RemotionTimelineToolError(
+            "The Remotion scratch directory is unavailable", code="local_remotion_render_failed"
+        )
+    environment = {
+        key: value
+        for key, value in _clean_environment().items()
+        if key.casefold() not in {"temp", "tmp", "tmpdir"}
+    }
+    scratch_value = str(scratch)
+    environment["TEMP"] = scratch_value
+    environment["TMP"] = scratch_value
+    environment["TMPDIR"] = scratch_value
+    return environment
+
+
+def _rmtree_onerror(function: Callable[..., Any], path: str, _exc_info: Any) -> None:
+    """Retry a read-only Windows file or directory removal after chmod."""
+
+    try:
+        # Windows' read-only attribute is cleared by granting owner write
+        # access.  The removal function is called again so shutil can finish
+        # its normal bottom-up traversal without following the path itself.
+        os.chmod(path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
+    except OSError:
+        pass
+    function(path)
+
+
+def _cleanup_stage_root(stage_root: Path) -> None:
+    """Remove a private Remotion stage with bounded retries and residual checks.
+
+    Chromium/FFmpeg can briefly retain a handle to a PNG, raw MP4, or request
+    file on Windows after the worker process exits.  ``ignore_errors=True``
+    would make that leak invisible, so retry a bounded number of times and
+    fail closed if the stage path still exists.  A symlink or non-directory at
+    the expected stage path is also treated as a residual rather than removed.
+    """
+
+    candidate = Path(stage_root)
+    last_error: OSError | None = None
+    for attempt in range(_REMOTION_STAGE_CLEANUP_ATTEMPTS):
+        # lexists also sees a broken symlink, which must not be mistaken for a
+        # successfully removed stage.
+        if not os.path.lexists(os.fspath(candidate)):
+            return
+        try:
+            if candidate.is_symlink() or not candidate.is_dir():
+                raise OSError("unexpected Remotion stage path")
+            shutil.rmtree(candidate, onerror=_rmtree_onerror)
+        except (OSError, ValueError) as exc:
+            last_error = exc if isinstance(exc, OSError) else OSError(str(exc))
+        if not os.path.lexists(os.fspath(candidate)):
+            return
+        if attempt + 1 < _REMOTION_STAGE_CLEANUP_ATTEMPTS:
+            time.sleep(_REMOTION_STAGE_CLEANUP_DELAY_SECONDS * (2**attempt))
+
+    if os.path.lexists(os.fspath(candidate)):
+        raise RemotionTimelineToolError(
+            "Remotion temporary files could not be cleaned up",
+            code="remotion_stage_cleanup_failed",
+        ) from last_error
+
+
+def _scratch_requirement(audit: Mapping[str, Any]) -> dict[str, Any]:
+    frames = audit.get("duration_in_frames")
+    clips = audit.get("clips")
+    if (
+        isinstance(frames, bool)
+        or not isinstance(frames, int)
+        or frames < 1
+        or not isinstance(clips, list)
+    ):
+        raise RemotionTimelineToolError(
+            "The Remotion scratch estimate is invalid", code="invalid_worker_result"
+        )
+    try:
+        source_staging_estimate_bytes = sum(
+            REMOTION_SCRATCH_SHARP_STAGING_RESERVE_BYTES
+            if item.get("visual_preset") == _SHARP_VISUAL_PRESET
+            else int(item["source_bytes"])
+            for item in clips
+        )
+    except (KeyError, TypeError, ValueError) as exc:
+        raise RemotionTimelineToolError(
+            "The Remotion scratch estimate is invalid", code="invalid_worker_result"
+        ) from exc
+    if (
+        source_staging_estimate_bytes < 1
+        or source_staging_estimate_bytes > MAX_SOURCE_VIDEO_BYTES * len(clips)
+    ):
+        raise RemotionTimelineToolError(
+            "The Remotion scratch estimate is invalid", code="invalid_worker_result"
+        )
+    rgba_frame_bytes = (
+        frames
+        * CANVAS_WIDTH
+        * CANVAS_HEIGHT
+        * REMOTION_SCRATCH_RGBA_BYTES_PER_PIXEL
+    )
+    png_frame_upper_bound_bytes = (
+        rgba_frame_bytes * REMOTION_SCRATCH_HEADROOM_NUMERATOR
+        + REMOTION_SCRATCH_HEADROOM_DENOMINATOR
+        - 1
+    ) // REMOTION_SCRATCH_HEADROOM_DENOMINATOR
+    post_stage_required_free_bytes = (
+        png_frame_upper_bound_bytes
+        + REMOTION_SCRATCH_RAW_OUTPUT_RESERVE_BYTES
+        + REMOTION_SCRATCH_NORMALIZED_OUTPUT_RESERVE_BYTES
+        + REMOTION_SCRATCH_SAFETY_MARGIN_BYTES
+    )
+    initial_required_free_bytes = (
+        post_stage_required_free_bytes + source_staging_estimate_bytes
+    )
+    return {
+        "policy_version": REMOTION_SCRATCH_POLICY_VERSION,
+        "duration_in_frames": frames,
+        "png_frame_upper_bound_bytes": png_frame_upper_bound_bytes,
+        "source_staging_estimate_bytes": source_staging_estimate_bytes,
+        "raw_output_reserve_bytes": REMOTION_SCRATCH_RAW_OUTPUT_RESERVE_BYTES,
+        "normalized_output_reserve_bytes": REMOTION_SCRATCH_NORMALIZED_OUTPUT_RESERVE_BYTES,
+        "safety_margin_bytes": REMOTION_SCRATCH_SAFETY_MARGIN_BYTES,
+        "initial_required_free_bytes": initial_required_free_bytes,
+        "post_stage_required_free_bytes": post_stage_required_free_bytes,
+        "temporary_directory_scope": "stage_work_directory",
+        "cleanup": "recursive_on_all_exit_paths",
+    }
+
+
+def _scratch_space_preflight(directory: Path, audit: Mapping[str, Any]) -> dict[str, Any]:
+    requirement = _scratch_requirement(audit)
+    try:
+        observed_free_bytes = int(shutil.disk_usage(directory).free)
+    except (OSError, TypeError, ValueError) as exc:
+        raise RemotionTimelineToolError(
+            "Remotion scratch space could not be measured",
+            code="insufficient_scratch_space",
+        ) from exc
+    passed = observed_free_bytes >= requirement["initial_required_free_bytes"]
+    record = {
+        **requirement,
+        "initial_observed_free_bytes": observed_free_bytes,
+        "initial_passed": passed,
+    }
+    if not passed:
+        required_gib = requirement["initial_required_free_bytes"] / (1024**3)
+        observed_gib = observed_free_bytes / (1024**3)
+        raise RemotionTimelineToolError(
+            f"Remotion PNG rendering requires {required_gib:.2f} GiB free; "
+            f"{observed_gib:.2f} GiB is available",
+            code="insufficient_scratch_space",
+        )
+    return record
+
+
+def _complete_scratch_space_preflight(
+    directory: Path,
+    audit: Mapping[str, Any],
+    initial_record: Mapping[str, Any],
+    staged_sources: Path,
+) -> dict[str, Any]:
+    requirement = _scratch_requirement(audit)
+    expected_initial_keys = set(requirement) | {
+        "initial_observed_free_bytes",
+        "initial_passed",
+    }
+    if not isinstance(initial_record, Mapping) or set(initial_record) != expected_initial_keys:
+        raise RemotionTimelineToolError(
+            "The Remotion scratch record is invalid", code="invalid_worker_result"
+        )
+    try:
+        expected_names = {
+            f"clip-{index:02d}.mp4" for index in range(int(audit["clip_count"]))
+        }
+        children = list(staged_sources.iterdir())
+        if {child.name for child in children} != expected_names:
+            raise OSError("unexpected staged source set")
+        actual_staged_source_bytes = 0
+        for child in children:
+            if child.is_symlink() or not child.is_file():
+                raise OSError("invalid staged source")
+            actual_staged_source_bytes += child.stat().st_size
+        post_stage_observed_free_bytes = int(shutil.disk_usage(directory).free)
+    except (KeyError, OSError, TypeError, ValueError) as exc:
+        raise RemotionTimelineToolError(
+            "Remotion staged scratch space could not be measured",
+            code="insufficient_scratch_space",
+        ) from exc
+    passed = post_stage_observed_free_bytes >= requirement["post_stage_required_free_bytes"]
+    record = {
+        **dict(initial_record),
+        "actual_staged_source_bytes": actual_staged_source_bytes,
+        "post_stage_observed_free_bytes": post_stage_observed_free_bytes,
+        "post_stage_passed": passed,
+    }
+    if not passed:
+        required_gib = requirement["post_stage_required_free_bytes"] / (1024**3)
+        observed_gib = post_stage_observed_free_bytes / (1024**3)
+        raise RemotionTimelineToolError(
+            f"Remotion PNG rendering requires {required_gib:.2f} GiB free after staging; "
+            f"{observed_gib:.2f} GiB is available",
+            code="insufficient_scratch_space",
+        )
+    return record
+
+
+def _validated_scratch_record(
+    value: Any, audit: Mapping[str, Any]
+) -> dict[str, Any]:
+    requirement = _scratch_requirement(audit)
+    expected_keys = set(requirement) | {
+        "initial_observed_free_bytes",
+        "initial_passed",
+        "actual_staged_source_bytes",
+        "post_stage_observed_free_bytes",
+        "post_stage_passed",
+        "node_containment_attested",
+    }
+    if not isinstance(value, dict) or set(value) != expected_keys:
+        raise RemotionTimelineToolError(
+            "The Remotion scratch record is invalid", code="invalid_worker_result"
+        )
+    initial_observed = value.get("initial_observed_free_bytes")
+    actual_staged = value.get("actual_staged_source_bytes")
+    post_stage_observed = value.get("post_stage_observed_free_bytes")
+    if (
+        any(value.get(key) != expected for key, expected in requirement.items())
+        or isinstance(initial_observed, bool)
+        or not isinstance(initial_observed, int)
+        or initial_observed < requirement["initial_required_free_bytes"]
+        or value.get("initial_passed") is not True
+        or isinstance(actual_staged, bool)
+        or not isinstance(actual_staged, int)
+        or not 0 < actual_staged <= MAX_SOURCE_VIDEO_BYTES * len(audit["clips"])
+        or isinstance(post_stage_observed, bool)
+        or not isinstance(post_stage_observed, int)
+        or post_stage_observed < requirement["post_stage_required_free_bytes"]
+        or value.get("post_stage_passed") is not True
+        or value.get("node_containment_attested") is not True
+    ):
+        raise RemotionTimelineToolError(
+            "The Remotion scratch record is invalid", code="invalid_worker_result"
+        )
+    return dict(value)
 
 
 def _has_symlink_component(workspace: Path, candidate: str | Path) -> bool:
@@ -601,37 +891,299 @@ def _assert_source_unchanged(workspace: Path, item: Mapping[str, Any], *, label:
     return source
 
 
-def _copy_sources(
+def _source_enhancement_plans(
+    clips: Sequence[Mapping[str, Any]],
+    probes: Sequence[Mapping[str, Any]],
+    compiled: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    plans: list[dict[str, Any]] = []
+    for index, (item, probe, resolved) in enumerate(
+        zip(clips, probes, compiled["clips"], strict=True)
+    ):
+        try:
+            videos = [stream for stream in _streams(probe) if stream.get("codec_type") == "video"]
+        except AssemblyError as exc:
+            raise RemotionTimelineValidationError(
+                f"clips[{index}] media streams are invalid", code="invalid_source_media"
+            ) from exc
+        if len(videos) != 1:
+            raise RemotionTimelineValidationError(
+                f"clips[{index}] must contain exactly one video stream",
+                code="invalid_source_media",
+            )
+        width = videos[0].get("width")
+        height = videos[0].get("height")
+        if (
+            isinstance(width, bool)
+            or not isinstance(width, int)
+            or isinstance(height, bool)
+            or not isinstance(height, int)
+        ):
+            raise RemotionTimelineValidationError(
+                f"clips[{index}] dimensions are invalid", code="invalid_source_media"
+            )
+        preset = item["visual_preset"]
+        enhanced = preset == _SHARP_VISUAL_PRESET
+        aspect_ratio = width / height
+        scale_factor = max(CANVAS_WIDTH / width, CANVAS_HEIGHT / height)
+        scaled_width = math.ceil(width * scale_factor)
+        scaled_height = math.ceil(height * scale_factor)
+        if enhanced and (
+            width >= CANVAS_WIDTH
+            or height >= CANVAS_HEIGHT
+            or width < SHARP_SOURCE_MIN_DIMENSION
+            or height < SHARP_SOURCE_MIN_DIMENSION
+            or aspect_ratio < SHARP_SOURCE_MIN_ASPECT_RATIO
+            or aspect_ratio > SHARP_SOURCE_MAX_ASPECT_RATIO
+            or scaled_width * scaled_height > SHARP_SOURCE_MAX_SCALED_PIXELS
+        ):
+            raise RemotionTimelineValidationError(
+                f"clips[{index}].visual_preset requires a low-resolution portrait source",
+                code="visual_preset_incompatible",
+            )
+        plans.append(
+            {
+                "clip_index": index,
+                "visual_preset": preset,
+                "policy_version": SOURCE_ENHANCEMENT_POLICY_VERSION,
+                "mode": (
+                    "lanczos_cover_luma_unsharp"
+                    if enhanced
+                    else "source_preserved"
+                ),
+                "source_width": width,
+                "source_height": height,
+                "planned_scaled_width": scaled_width if enhanced else None,
+                "planned_scaled_height": scaled_height if enhanced else None,
+                "trimmed_to_used_frames": enhanced,
+                "trim_before_frame": resolved["trim_before_frame"],
+                "duration_in_frames": resolved["duration_in_frames"],
+            }
+        )
+    return plans
+
+
+def _validate_enhanced_source_probe(
+    probe: Mapping[str, Any], *, expected_frames: int, label: str
+) -> None:
+    try:
+        streams = _streams(probe)
+    except AssemblyError as exc:
+        raise RemotionTimelineToolError(
+            f"{label} produced invalid media", code="invalid_staged_media"
+        ) from exc
+    videos = [stream for stream in streams if stream.get("codec_type") == "video"]
+    audios = [stream for stream in streams if stream.get("codec_type") == "audio"]
+    if len(videos) != 1 or len(audios) > 1 or len(streams) != len(videos) + len(audios):
+        raise RemotionTimelineToolError(
+            f"{label} produced invalid streams", code="invalid_staged_media"
+        )
+    video = videos[0]
+    if (
+        video.get("codec_name") != "h264"
+        or video.get("pix_fmt") != "yuv420p"
+        or video.get("width") != CANVAS_WIDTH
+        or video.get("height") != CANVAS_HEIGHT
+        or any(
+            rate is None or abs(rate - FRAME_RATE) > 0.01
+            for rate in (
+                _fraction(video.get("r_frame_rate")),
+                _fraction(video.get("avg_frame_rate")),
+            )
+        )
+    ):
+        raise RemotionTimelineToolError(
+            f"{label} does not match the fixed video policy",
+            code="invalid_staged_media",
+        )
+    if audios and (
+        audios[0].get("codec_name") != "aac"
+        or str(audios[0].get("sample_rate")) != "48000"
+        or audios[0].get("channels") != 2
+    ):
+        raise RemotionTimelineToolError(
+            f"{label} does not match the fixed audio policy",
+            code="invalid_staged_media",
+        )
+    try:
+        duration_ms = int(round(_probe_duration(probe, stream_type="video") * 1000))
+    except AssemblyError as exc:
+        raise RemotionTimelineToolError(
+            f"{label} duration is unavailable", code="invalid_staged_media"
+        ) from exc
+    expected_ms = expected_frames * 1000 / FRAME_RATE
+    if abs(duration_ms - expected_ms) > (1000 / FRAME_RATE) + 2:
+        raise RemotionTimelineToolError(
+            f"{label} duration is invalid", code="invalid_staged_media"
+        )
+
+
+def _stage_sources(
     workspace: Path,
     public_directory: Path,
     clips: Sequence[Mapping[str, Any]],
+    plans: Sequence[Mapping[str, Any]],
     *,
+    ffmpeg: str,
+    ffprobe: str,
     cancel_event: Any | None,
 ) -> None:
-    for index, item in enumerate(clips):
+    for index, (item, plan) in enumerate(zip(clips, plans, strict=True)):
         _cancel(cancel_event)
         source = _assert_source_unchanged(workspace, item, label=f"clips[{index}]")
         destination = public_directory / f"clip-{index:02d}.mp4"
-        shutil.copyfile(source, destination)
+        if plan["mode"] == "source_preserved":
+            shutil.copyfile(source, destination)
+            _assert_source_unchanged(workspace, item, label=f"clips[{index}]")
+            if (
+                destination.stat().st_size != item["source_bytes"]
+                or _sha256_file(destination) != item["source_sha256"]
+            ):
+                raise RemotionTimelineError(
+                    f"clips[{index}] staging failed integrity verification",
+                    code="input_changed",
+                )
+            continue
+
+        partial = destination.with_name(f"{destination.name}.partial")
+        trim_start_seconds = plan["trim_before_frame"] / FRAME_RATE
+        duration_seconds = plan["duration_in_frames"] / FRAME_RATE
+        source_filter = (
+            f"setpts=PTS-STARTPTS,{_SOURCE_ENHANCEMENT_FILTER},"
+            f"fps={FRAME_RATE},tpad=stop_mode=clone:stop_duration=1,"
+            f"trim=end_frame={plan['duration_in_frames']},"
+            f"setpts=N/({FRAME_RATE}*TB)"
+        )
+        try:
+            _bounded_process(
+                [
+                    ffmpeg,
+                    "-hide_banner",
+                    "-loglevel",
+                    "error",
+                    "-y",
+                    "-ss",
+                    f"{trim_start_seconds:.6f}",
+                    "-i",
+                    str(source),
+                    "-map",
+                    "0:v:0",
+                    "-map",
+                    "0:a:0?",
+                    "-map_metadata",
+                    "-1",
+                    "-map_chapters",
+                    "-1",
+                    "-sn",
+                    "-dn",
+                    "-vf",
+                    source_filter,
+                    "-c:v",
+                    "libx264",
+                    "-preset",
+                    "medium",
+                    "-crf",
+                    str(REMOTION_VIDEO_CRF),
+                    "-threads",
+                    "2",
+                    "-r",
+                    str(FRAME_RATE),
+                    "-fps_mode",
+                    "cfr",
+                    "-frames:v",
+                    str(plan["duration_in_frames"]),
+                    "-pix_fmt",
+                    "yuv420p",
+                    "-color_range",
+                    "tv",
+                    "-c:a",
+                    "aac",
+                    "-ar",
+                    "48000",
+                    "-ac",
+                    "2",
+                    "-t",
+                    f"{duration_seconds:.6f}",
+                    "-movflags",
+                    "+faststart",
+                    "-fs",
+                    str(MAX_SOURCE_VIDEO_BYTES),
+                    "-f",
+                    "mp4",
+                    partial.name,
+                ],
+                cwd=public_directory,
+                timeout=FFMPEG_TIMEOUT_SECONDS,
+                label="Remotion source enhancement",
+                cancel_event=cancel_event,
+                environment=_clean_environment(),
+            )
+        except JobCancelled:
+            raise
+        except AssemblyError as exc:
+            raise RemotionTimelineToolError(
+                "The fixed Remotion source enhancement failed",
+                code="local_ffmpeg_failed",
+            ) from exc
         _assert_source_unchanged(workspace, item, label=f"clips[{index}]")
-        if destination.stat().st_size != item["source_bytes"] or _sha256_file(destination) != item["source_sha256"]:
+        if (
+            partial.is_symlink()
+            or not partial.is_file()
+            or not 0 < partial.stat().st_size <= MAX_SOURCE_VIDEO_BYTES
+        ):
+            raise RemotionTimelineToolError(
+                "Source enhancement produced invalid media",
+                code="invalid_staged_media",
+            )
+        try:
+            staged_probe = _json_probe(
+                ffprobe, partial, cwd=public_directory, cancel_event=cancel_event
+            )
+        except AssemblyError as exc:
+            raise RemotionTimelineToolError(
+                "Source enhancement could not be inspected",
+                code="invalid_staged_media",
+            ) from exc
+        _validate_enhanced_source_probe(
+            staged_probe,
+            expected_frames=plan["duration_in_frames"],
+            label=f"clips[{index}] source enhancement",
+        )
+        os.replace(partial, destination)
+        if destination.is_symlink() or not destination.is_file():
             raise RemotionTimelineError(
-                f"clips[{index}] staging failed integrity verification", code="input_changed"
+                f"clips[{index}] staging failed integrity verification",
+                code="invalid_staged_media",
             )
 
 
-def _input_props(clips: Sequence[Mapping[str, Any]], compiled: Mapping[str, Any]) -> dict[str, Any]:
+def _input_props(
+    clips: Sequence[Mapping[str, Any]],
+    compiled: Mapping[str, Any],
+    plans: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
     values: list[dict[str, Any]] = []
-    for index, (source, resolved) in enumerate(zip(clips, compiled["clips"], strict=True)):
+    for index, (source, resolved, plan) in enumerate(
+        zip(clips, compiled["clips"], plans, strict=True)
+    ):
         transition = resolved["transition_to_next"]
         overlay = resolved["overlay"]
+        staged = plan["trimmed_to_used_frames"]
         values.append(
             {
                 "src": f"clip-{index:02d}.mp4",
-                "startMs": source["start_ms"],
-                "endMs": source["end_ms"],
-                "trimBeforeFrame": resolved["trim_before_frame"],
-                "trimAfterFrame": resolved["trim_after_frame"],
+                "startMs": 0 if staged else source["start_ms"],
+                "endMs": (
+                    source["end_ms"] - source["start_ms"]
+                    if staged
+                    else source["end_ms"]
+                ),
+                "trimBeforeFrame": 0 if staged else resolved["trim_before_frame"],
+                "trimAfterFrame": (
+                    resolved["duration_in_frames"]
+                    if staged
+                    else resolved["trim_after_frame"]
+                ),
                 "durationInFrames": resolved["duration_in_frames"],
                 "volumePercent": resolved["volume_percent"],
                 "transitionToNext": None
@@ -723,19 +1275,7 @@ def _validate_output_probe(probe: Mapping[str, Any], *, expected_frames: int) ->
 
 
 def _output_policy() -> dict[str, Any]:
-    return {
-        "policy_version": OUTPUT_POLICY_VERSION,
-        "container": "mp4",
-        "width": CANVAS_WIDTH,
-        "height": CANVAS_HEIGHT,
-        "frame_rate": FRAME_RATE,
-        "video_codec": "h264",
-        "pixel_format": "yuv420p",
-        "audio_codec": "aac",
-        "sample_rate": 48000,
-        "channels": 2,
-        "silent_audio_fallback": True,
-    }
+    return remotion_output_policy()
 
 
 def _resource_policy() -> dict[str, Any]:
@@ -746,6 +1286,7 @@ def _resource_policy() -> dict[str, Any]:
         "max_aggregate_source_bytes": MAX_AGGREGATE_SOURCE_BYTES,
         "max_output_bytes": MAX_OUTPUT_BYTES,
         "node_timeout_seconds": NODE_TIMEOUT_SECONDS,
+        "render_scratch": _output_policy()["render_scratch"],
     }
 
 
@@ -760,6 +1301,7 @@ def _timeline_document(
                 "start_ms": item["start_ms"],
                 "end_ms": item["end_ms"],
                 "volume_percent": item["volume_percent"],
+                "visual_preset": item["visual_preset"],
                 "transition_to_next": item["transition_to_next"],
                 "overlay": item["overlay"],
                 "source_bytes": item["source_bytes"],
@@ -787,7 +1329,10 @@ def _timeline_document(
 
 
 def _render_report(
-    *, audit: Mapping[str, Any], node_result: Mapping[str, Any]
+    *,
+    audit: Mapping[str, Any],
+    node_result: Mapping[str, Any],
+    scratch_space: Mapping[str, Any],
 ) -> dict[str, Any]:
     expected_keys = {
         "schema_version",
@@ -800,6 +1345,10 @@ def _render_report(
         "concurrency",
         "disallow_parallel_encoding",
         "silent_audio_fallback",
+        "image_format",
+        "video_crf",
+        "x264_preset",
+        "scratch_directory_attested",
         "max_progress_percent",
     }
     if set(node_result) != expected_keys:
@@ -815,6 +1364,10 @@ def _render_report(
         or node_result.get("concurrency") != 1
         or node_result.get("disallow_parallel_encoding") is not True
         or node_result.get("silent_audio_fallback") is not True
+        or node_result.get("image_format") != REMOTION_FRAME_IMAGE_FORMAT
+        or node_result.get("video_crf") != REMOTION_VIDEO_CRF
+        or node_result.get("x264_preset") != "medium"
+        or node_result.get("scratch_directory_attested") is not True
         or not isinstance(node_result.get("max_progress_percent"), int)
         or not 0 <= node_result["max_progress_percent"] <= 100
         or not isinstance(packages, dict)
@@ -847,6 +1400,7 @@ def _render_report(
         },
         "output_policy": _output_policy(),
         "resource_policy": _resource_policy(),
+        "scratch_space": _validated_scratch_record(scratch_space, audit),
     }
 
 
@@ -881,6 +1435,7 @@ def _build_manifest(
     duration_ms: int,
     tool_identity: Mapping[str, Mapping[str, str]],
     output_probe: Mapping[str, Any],
+    scratch_space: Mapping[str, Any],
     stage: Path,
 ) -> dict[str, Any]:
     files: dict[str, dict[str, Any]] = {}
@@ -911,6 +1466,7 @@ def _build_manifest(
         "tool_identity": {key: dict(value) for key, value in tool_identity.items()},
         "output_policy": _output_policy(),
         "resource_policy": _resource_policy(),
+        "scratch_space": _validated_scratch_record(scratch_space, audit),
         "media": {"remotion_preview": dict(output_probe)},
         "files": files,
     }
@@ -984,6 +1540,7 @@ def _validate_cache(
         "tool_identity",
         "output_policy",
         "resource_policy",
+        "scratch_space",
         "media",
         "files",
         "manifest_sha256",
@@ -998,6 +1555,7 @@ def _validate_cache(
         expected_report = _render_report(
             audit=audit,
             node_result=report.get("renderer") if isinstance(report.get("renderer"), dict) else {},
+            scratch_space=report.get("scratch_space"),
         )
     except RemotionTimelineError:
         return None
@@ -1021,6 +1579,7 @@ def _validate_cache(
         }
         or manifest.get("output_policy") != _output_policy()
         or manifest.get("resource_policy") != _resource_policy()
+        or manifest.get("scratch_space") != report.get("scratch_space")
         or report.get("render") != dict(audit)
         or report.get("content_policy")
         != {
@@ -1152,16 +1711,20 @@ def _generate_or_validate(
         ffprobe=ffprobe,
         cancel_event=cancel_event,
     )
-    prepared, _ = _prepare_clips(
+    prepared, probes = _prepare_clips(
         root, clips, ffprobe=ffprobe_executable, cancel_event=cancel_event
     )
     compiled = compile_remotion_timeline(prepared)
+    enhancement_plans = _source_enhancement_plans(prepared, probes, compiled)
     expected_key = remotion_timeline_cache_key(prepared, tool_identity=tool_identity)
     if cache_key != expected_key:
         raise RemotionTimelineValidationError(
             "cache_key does not match Remotion inputs", code="invalid_cache_key"
         )
-    audit = remotion_timeline_audit_payload(prepared, cache_key=cache_key)
+    audit = {
+        **remotion_timeline_audit_payload(prepared, cache_key=cache_key),
+        "source_enhancement_results": enhancement_plans,
+    }
     cache_directory = _safe_output_root(root, run_id, cache_key)
     _progress(progress_callback, 12, "cache_validation")
     cached = _validate_cache(
@@ -1191,18 +1754,37 @@ def _generate_or_validate(
             "Invalid Remotion cache could not be discarded", code="cache_integrity_failed"
         )
 
+    _progress(progress_callback, 14, "scratch_preflight")
+    scratch_space = _scratch_space_preflight(cache_directory.parent, audit)
     stage_root = Path(tempfile.mkdtemp(prefix=".remotion-", dir=str(cache_directory.parent)))
     work_directory = stage_root / "work"
     public_directory = work_directory / "public"
+    scratch_directory = work_directory / "scratch"
     publish_directory = stage_root / "publish"
-    work_directory.mkdir()
-    public_directory.mkdir()
-    publish_directory.mkdir()
     published = False
     try:
+        work_directory.mkdir()
+        public_directory.mkdir()
+        scratch_directory.mkdir()
+        publish_directory.mkdir()
         _progress(progress_callback, 18, "staging")
-        _copy_sources(root, public_directory, prepared, cancel_event=cancel_event)
-        input_props = _input_props(prepared, compiled)
+        _stage_sources(
+            root,
+            public_directory,
+            prepared,
+            enhancement_plans,
+            ffmpeg=ffmpeg_executable,
+            ffprobe=ffprobe_executable,
+            cancel_event=cancel_event,
+        )
+        _progress(progress_callback, 22, "scratch_recheck")
+        scratch_space = _complete_scratch_space_preflight(
+            cache_directory.parent,
+            audit,
+            scratch_space,
+            public_directory,
+        )
+        input_props = _input_props(prepared, compiled, enhancement_plans)
         request_path = work_directory / "render-request.json"
         result_path = work_directory / "render-result.json"
         raw_output = work_directory / "remotion-raw.mp4"
@@ -1215,6 +1797,7 @@ def _generate_or_validate(
                 "public_dir": str(public_directory),
                 "browser_executable": str(runtime["browser"]),
                 "output_path": str(raw_output),
+                "scratch_directory": str(scratch_directory),
                 "input_props": input_props,
             },
         )
@@ -1226,7 +1809,7 @@ def _generate_or_validate(
                 timeout=NODE_TIMEOUT_SECONDS,
                 label="Remotion render",
                 cancel_event=cancel_event,
-                environment=_clean_environment(),
+                environment=_render_environment(scratch_directory, work_directory),
             )
         except JobCancelled:
             raise
@@ -1239,7 +1822,15 @@ def _generate_or_validate(
             raise RemotionTimelineToolError(
                 "The Remotion renderer returned invalid metadata", code="invalid_worker_result"
             )
-        report = _render_report(audit=audit, node_result=node_result)
+        scratch_space = {
+            **scratch_space,
+            "node_containment_attested": node_result.get("scratch_directory_attested") is True,
+        }
+        report = _render_report(
+            audit=audit,
+            node_result=node_result,
+            scratch_space=scratch_space,
+        )
         if (
             raw_output.is_symlink()
             or not raw_output.is_file()
@@ -1292,6 +1883,8 @@ def _generate_or_validate(
                     "libx264",
                     "-preset",
                     "medium",
+                    "-crf",
+                    str(REMOTION_VIDEO_CRF),
                     "-vf",
                     "scale=in_range=auto:out_range=tv,format=yuv420p",
                     "-r",
@@ -1399,6 +1992,7 @@ def _generate_or_validate(
             duration_ms=duration_ms,
             tool_identity=tool_identity,
             output_probe=output_probe,
+            scratch_space=scratch_space,
             stage=publish_directory,
         )
         _write_json(publish_directory / "manifest.json", manifest)
@@ -1421,7 +2015,7 @@ def _generate_or_validate(
             "The Remotion output could not be published", code="publish_failed"
         ) from exc
     finally:
-        shutil.rmtree(stage_root, ignore_errors=True)
+        _cleanup_stage_root(stage_root)
 
     try:
         validated = _validate_cache(

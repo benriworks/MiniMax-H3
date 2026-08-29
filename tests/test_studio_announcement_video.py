@@ -16,6 +16,7 @@ from tests.test_studio_backend import PRODUCTION_ID, WorkspaceFixture
 from tools.studio.announcement_video import (
     AnnouncementVideoValidationError,
     announcement_narration_segment_starts,
+    announcement_recipe_audit_summary,
     announcement_recipe_digest,
     announcement_recipe_to_detailed_payload,
     validate_announcement_recipe_payload,
@@ -92,6 +93,11 @@ class AnnouncementContractTests(unittest.TestCase):
             "大切な情報を、ひと目で。",
             "続きはプロフィールから。",
         ])
+        self.assertEqual(
+            ["preserve_v1", "preserve_v1", "preserve_v1"],
+            [item["visual_preset"] for item in payload["clips"]],
+        )
+        self.assertNotIn("visual_presets", announcement_recipe_audit_summary(normalized))
         self.assertEqual(set(payload), {
             "schema_version", "clips", "segments", "rate", "include_captioned",
             "caption_style_preset", "audio_mix_preset", "variant", "voice",
@@ -287,6 +293,35 @@ class AnnouncementContractTests(unittest.TestCase):
         invalid["audio_mix_preset"] = "source_under_narration_v1"
         with self.assertRaises(AnnouncementVideoValidationError):
             validate_announcement_recipe_payload(invalid)
+
+        invalid = recipe()
+        invalid["scenes"][0]["visual_preset"] = "unsharp=1.0"
+        with self.assertRaises(AnnouncementVideoValidationError):
+            validate_announcement_recipe_payload(invalid)
+
+        for visual_preset in ([], {}, None, 1):
+            invalid = recipe()
+            invalid["scenes"][0]["visual_preset"] = visual_preset
+            with self.subTest(visual_preset=visual_preset), self.assertRaises(
+                AnnouncementVideoValidationError
+            ):
+                validate_announcement_recipe_payload(invalid)
+
+    def test_explicit_visual_preset_is_preserved_and_compiled_per_scene(self) -> None:
+        value = recipe()
+        value["scenes"][0]["visual_preset"] = "h3_low_res_sharp_v1"
+        value["scenes"][1]["visual_preset"] = "preserve_v1"
+        normalized = validate_announcement_recipe_payload(value)
+        self.assertEqual(value, normalized)
+        payload = announcement_recipe_to_detailed_payload(normalized)
+        self.assertEqual(
+            ["h3_low_res_sharp_v1", "preserve_v1", "preserve_v1"],
+            [item["visual_preset"] for item in payload["clips"]],
+        )
+        self.assertEqual(
+            ["h3_low_res_sharp_v1", "preserve_v1", "preserve_v1"],
+            announcement_recipe_audit_summary(normalized)["visual_presets"],
+        )
 
 
 class AnnouncementPersistenceTests(unittest.TestCase):

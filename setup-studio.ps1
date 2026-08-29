@@ -11,6 +11,8 @@ $frontendPackage = Join-Path $frontendRoot 'package.json'
 $frontendLock = Join-Path $frontendRoot 'package-lock.json'
 $serverModulePath = Join-Path $projectRoot 'tools\studio\server.py'
 $venvPython = Join-Path $projectRoot '.venv\Scripts\python.exe'
+$windowsCaptureProject = Join-Path $projectRoot 'native\windows-capture-helper\windows-capture-helper.csproj'
+$windowsCaptureHelper = Join-Path $projectRoot 'native\windows-capture-helper\bin\Release\net8.0-windows\windows-capture-helper.dll'
 
 function Invoke-External {
     param(
@@ -69,6 +71,42 @@ Invoke-External `
         "import sys; assert sys.version_info >= (3, 10), 'Python 3.10 or later is required'; import tools.studio.server, tools.studio.cli"
     )) `
     -Description 'Verify the Studio backend module'
+
+if (($env:OS -eq 'Windows_NT') -and (Test-Path -LiteralPath $windowsCaptureProject -PathType Leaf)) {
+    $dotnetCommand = Get-Command dotnet -ErrorAction SilentlyContinue
+    if ($null -eq $dotnetCommand) {
+        Write-Warning 'The optional Windows capture capability helper was not built because .NET 8+ SDK was not found.'
+    }
+    else {
+        $dotnetSdkLines = @(& $dotnetCommand.Source --list-sdks 2>$null)
+        $hasSupportedDotnetSdk = $LASTEXITCODE -eq 0 -and @(
+            $dotnetSdkLines | Where-Object {
+                $sdkVersionText = ($_ -split '\s+')[0]
+                $sdkMajorText = ($sdkVersionText -split '\.')[0]
+                $sdkMajor = 0
+                [int]::TryParse($sdkMajorText, [ref]$sdkMajor) -and $sdkMajor -ge 8
+            }
+        ).Count -gt 0
+        if (-not $hasSupportedDotnetSdk) {
+            Write-Warning 'The optional Windows capture capability helper was not built because a .NET 8+ SDK was not found. Core Studio setup will continue.'
+        }
+        else {
+            try {
+                Invoke-External `
+                    -FilePath $dotnetCommand.Source `
+                    -ArgumentList @('build', $windowsCaptureProject, '--configuration', 'Release', '--nologo') `
+                    -Description 'Build the non-recording Windows capture capability helper'
+                if (-not (Test-Path -LiteralPath $windowsCaptureHelper -PathType Leaf)) {
+                    throw "Windows capture capability helper output was not found: $windowsCaptureHelper"
+                }
+                Write-Host 'Windows capture capability helper built. Inspection runs only from the explicit capture-tab action.'
+            }
+            catch {
+                Write-Warning 'The optional Windows capture capability helper could not be built. Core Studio setup will continue; the capture tab will report the capability as blocked.'
+            }
+        }
+    }
+}
 
 $nodeCommand = Get-Command node -ErrorAction SilentlyContinue
 if ($null -eq $nodeCommand) {
