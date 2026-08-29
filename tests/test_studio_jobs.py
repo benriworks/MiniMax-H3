@@ -628,6 +628,50 @@ class JobManagerShutdownTests(unittest.TestCase):
             "The selected cut exceeds the registered source duration.",
         )
 
+    def test_known_visual_preset_error_is_preserved_for_public_job_status(self) -> None:
+        class VisualPresetError(RuntimeError):
+            error_code = "visual_preset_incompatible"
+            public_message = (
+                "The selected visual preset is not compatible with this source."
+            )
+
+        def callback(_job_id: str) -> dict[str, object]:
+            raise VisualPresetError()
+
+        job = self.manager.submit("local_remotion_timeline", {}, callback)
+        completed = self.manager.wait(job["id"], timeout=2)
+        self.assertIsNotNone(completed)
+        assert completed is not None
+        self.assertEqual(completed["status"], "failed")
+        self.assertEqual(
+            completed["error"]["code"], "visual_preset_incompatible"
+        )
+        self.assertEqual(
+            completed["error"]["message"],
+            "The selected visual preset is not compatible with this source.",
+        )
+
+    def test_known_remotion_cleanup_error_is_preserved_for_public_job_status(self) -> None:
+        class CleanupError(RuntimeError):
+            error_code = "remotion_stage_cleanup_failed"
+            public_message = "Remotion temporary files could not be cleaned up"
+
+        def callback(_job_id: str) -> dict[str, object]:
+            raise CleanupError()
+
+        job = self.manager.submit("local_remotion_timeline", {}, callback)
+        completed = self.manager.wait(job["id"], timeout=2)
+        self.assertIsNotNone(completed)
+        assert completed is not None
+        self.assertEqual(completed["status"], "failed")
+        self.assertEqual(
+            completed["error"]["code"], "remotion_stage_cleanup_failed"
+        )
+        self.assertEqual(
+            completed["error"]["message"],
+            "Remotion temporary files could not be cleaned up",
+        )
+
     def test_busy_db_interrupt_does_not_delay_first_process_sweep(self) -> None:
         started = threading.Event()
         db_started = threading.Event()

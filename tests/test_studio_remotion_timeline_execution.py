@@ -68,7 +68,10 @@ class RemotionTimelineExecutionTests(unittest.TestCase):
 
     def test_validates_exact_closed_recipe(self) -> None:
         normalized = validate_remotion_timeline_payload(self.public_payload())
-        self.assertEqual(normalized, self.public_payload())
+        self.assertEqual(
+            ["preserve_v1", "preserve_v1"],
+            [clip["visual_preset"] for clip in normalized["clips"]],
+        )
         invalid = (
             {**self.public_payload(), "component": "Arbitrary"},
             {**self.public_payload(), "schema_version": 2},
@@ -81,10 +84,33 @@ class RemotionTimelineExecutionTests(unittest.TestCase):
                     }
                 ],
             },
+            {
+                **self.public_payload(),
+                "clips": [
+                    {
+                        **self.public_payload()["clips"][0],  # type: ignore[index]
+                        "visual_preset": "unsharp=1.0",
+                    },
+                    self.public_payload()["clips"][1],  # type: ignore[index]
+                ],
+            },
         )
         for body in invalid:
             with self.subTest(body=body), self.assertRaises(RemotionTimelineValidationError):
                 validate_remotion_timeline_payload(body)
+
+    def test_rejects_non_string_visual_presets_as_validation_errors(self) -> None:
+        for visual_preset in ([], {}, None, 1):
+            payload = self.public_payload()
+            clips = payload["clips"]
+            assert isinstance(clips, list)
+            first = clips[0]
+            assert isinstance(first, dict)
+            first["visual_preset"] = visual_preset
+            with self.subTest(visual_preset=visual_preset), self.assertRaises(
+                RemotionTimelineValidationError
+            ):
+                validate_remotion_timeline_payload(payload)
 
     def test_rejects_unbounded_or_inconsistent_controls(self) -> None:
         clips = self.public_payload()["clips"]  # type: ignore[assignment]
@@ -133,6 +159,44 @@ class RemotionTimelineExecutionTests(unittest.TestCase):
         self.assertRegex(key, r"^[0-9A-F]{64}$")
         self.assertNotIn("生成AIを、もっと身近に。", serialized)
         self.assertEqual(audit["clips"][0]["overlay"]["text_chars"], 13)
+        self.assertEqual(audit["clips"][0]["visual_preset"], "preserve_v1")
+        self.assertEqual(
+            audit["output_policy"]["policy_version"],
+            "remotion-source-fidelity-v2",
+        )
+        self.assertEqual(audit["output_policy"]["video_crf"], 16)
+        self.assertEqual(
+            audit["output_policy"]["render_frame_image_format"], "png"
+        )
+        explicit_body = self.public_payload()
+        explicit_body["clips"] = [
+            {**item, "visual_preset": "preserve_v1"}
+            for item in explicit_body["clips"]  # type: ignore[union-attr]
+        ]
+        explicit_public = validate_remotion_timeline_payload(explicit_body)["clips"]
+        explicit_preserve = [
+            {
+                **item,
+                "source_path": clips[index]["source_path"],
+                "source_bytes": clips[index]["source_bytes"],
+                "source_sha256": clips[index]["source_sha256"],
+            }
+            for index, item in enumerate(explicit_public)
+        ]
+        self.assertEqual(
+            key,
+            remotion_timeline_cache_key(
+                explicit_preserve, tool_identity=self.tool_identity()
+            ),
+        )
+        sharpened = [dict(item) for item in clips]
+        sharpened[0] = {**sharpened[0], "visual_preset": "h3_low_res_sharp_v1"}
+        self.assertNotEqual(
+            key,
+            remotion_timeline_cache_key(
+                sharpened, tool_identity=self.tool_identity()
+            ),
+        )
         changed = [dict(item) for item in clips]
         changed[0] = {**changed[0], "volume_percent": 79}
         self.assertNotEqual(

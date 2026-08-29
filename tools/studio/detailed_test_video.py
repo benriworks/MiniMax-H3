@@ -37,7 +37,7 @@ from .security import SecurityError, canonical_json, validate_identifier
 
 
 DETAILED_TEST_VIDEO_SCHEMA_VERSION = 1
-DETAILED_TEST_VIDEO_IMPLEMENTATION_VERSION = "detailed-test-video-v2"
+DETAILED_TEST_VIDEO_IMPLEMENTATION_VERSION = "detailed-test-video-v3"
 DETAILED_TEST_VIDEO_JOB_KIND = "detailed_test_video"
 DETAILED_TEST_VIDEO_PROFILE = "local_sapi"
 DETAILED_TEST_VIDEO_STAGES = ("narration", "timeline", "assembly", "qc")
@@ -347,6 +347,7 @@ def detailed_test_video_audit_payload(
                 "start_ms": clip["start_ms"],
                 "end_ms": clip["end_ms"],
                 "volume_percent": clip["volume_percent"],
+                "visual_preset": clip["visual_preset"],
                 "transition_to_next": clip["transition_to_next"],
                 "overlay": None
                 if overlay is None

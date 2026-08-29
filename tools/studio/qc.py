@@ -36,8 +36,8 @@ from .qc_execution import (
 )
 
 
-QC_SCHEMA_VERSION = 1
-IMPLEMENTATION_VERSION = "local-ffmpeg-qc-v1"
+QC_SCHEMA_VERSION = 2
+IMPLEMENTATION_VERSION = "local-ffmpeg-qc-v2"
 PROVIDER = "local_ffmpeg_qc"
 TIMING_SOURCE = "ffprobe"
 
@@ -58,6 +58,14 @@ SILENCE_MIN_WINDOW_SECONDS = 0.001
 SILENCE_COVERAGE_TOLERANCE_SECONDS = 0.001
 DURATION_TOLERANCE_MS = 250
 MAX_CACHE_KEY_CHARS = 256
+LOUDNESS_MIN_LUFS = -24.0
+LOUDNESS_MAX_LUFS = -10.0
+TRUE_PEAK_MAX_DBFS = -1.0
+BLACK_MIN_DURATION_SECONDS = 0.5
+BLACK_PIXEL_THRESHOLD = 0.10
+BLACK_PICTURE_THRESHOLD = 0.98
+LONG_STATIC_MIN_DURATION_SECONDS = 1.0
+LONG_STATIC_NOISE_DB = "-60dB"
 
 _CACHE_KEY_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,256}$")
 _SHA256_RE = re.compile(r"^[0-9A-Fa-f]{64}$")
@@ -67,6 +75,29 @@ _VARIANTS = {"clean", "captioned"}
 _SILENCE_START_RE = re.compile(r"silence_start:\s*([0-9]+(?:\.[0-9]+)?)")
 _SILENCE_END_RE = re.compile(
     r"silence_end:\s*([0-9]+(?:\.[0-9]+)?)\s*\|\s*silence_duration:\s*([0-9]+(?:\.[0-9]+)?)"
+)
+_METRIC_NUMBER_PATTERN = r"([+-]?(?:(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)|inf|nan))"
+_LOUDNESS_I_RE = re.compile(
+    rf"^\s*I:\s*{_METRIC_NUMBER_PATTERN}\s+LUFS\s*$", re.IGNORECASE | re.MULTILINE
+)
+_LOUDNESS_LRA_RE = re.compile(
+    rf"^\s*LRA:\s*{_METRIC_NUMBER_PATTERN}\s+LU\s*$", re.IGNORECASE | re.MULTILINE
+)
+_TRUE_PEAK_RE = re.compile(
+    rf"^\s*Peak:\s*{_METRIC_NUMBER_PATTERN}\s+dBFS\s*$", re.IGNORECASE | re.MULTILINE
+)
+_BLACK_START_RE = re.compile(r"black_start:\s*([0-9]+(?:\.[0-9]+)?)")
+_BLACK_END_RE = re.compile(
+    r"black_end:\s*([0-9]+(?:\.[0-9]+)?)\s+black_duration:\s*([0-9]+(?:\.[0-9]+)?)"
+)
+_FREEZE_START_RE = re.compile(
+    r"(?:lavfi\.freezedetect\.)?freeze_start:\s*([0-9]+(?:\.[0-9]+)?)"
+)
+_FREEZE_DURATION_RE = re.compile(
+    r"(?:lavfi\.freezedetect\.)?freeze_duration:\s*([0-9]+(?:\.[0-9]+)?)"
+)
+_FREEZE_END_RE = re.compile(
+    r"(?:lavfi\.freezedetect\.)?freeze_end:\s*([0-9]+(?:\.[0-9]+)?)"
 )
 _FILE_SPECS: tuple[dict[str, str], ...] = (
     {"filename": "technical-qc.json", "kind": "document", "mime": "application/json"},
@@ -85,6 +116,9 @@ _QC_CHECK_KEYS = frozenset(
         "duration",
         "full_decode",
         "audio_not_silent",
+        "audio_loudness",
+        "audio_true_peak",
+        "black_frames",
     }
 )
 _TOOL_IDENTITY_LOCK = threading.Lock()
@@ -329,7 +363,7 @@ def _normalize_tool_identity(value: Any, *, label: str) -> dict[str, str]:
 
 def _qc_policy() -> dict[str, Any]:
     return {
-        "policy_version": "technical-qc-mp4-v1",
+        "policy_version": "technical-qc-mp4-v2",
         "container": "mp4",
         "stream_layout": "exactly_one_video_and_one_audio_no_extra_streams",
         "video_codec": "h264",
@@ -345,6 +379,23 @@ def _qc_policy() -> dict[str, Any]:
             "minimum_window_seconds": SILENCE_MIN_WINDOW_SECONDS,
             "short_media_rule": "min(maximum_window,media_duration/2)",
             "gap_tolerance_seconds": SILENCE_COVERAGE_TOLERANCE_SECONDS,
+        },
+        "audio_loudness": {
+            "filter": "ebur128_peak_true_framelog_quiet",
+            "integrated_lufs_min": LOUDNESS_MIN_LUFS,
+            "integrated_lufs_max": LOUDNESS_MAX_LUFS,
+            "true_peak_max_dbfs": TRUE_PEAK_MAX_DBFS,
+        },
+        "black_frames": {
+            "minimum_duration_seconds": BLACK_MIN_DURATION_SECONDS,
+            "pixel_threshold": BLACK_PIXEL_THRESHOLD,
+            "picture_threshold": BLACK_PICTURE_THRESHOLD,
+            "verdict": "hard_fail",
+        },
+        "long_static": {
+            "minimum_duration_seconds": LONG_STATIC_MIN_DURATION_SECONDS,
+            "noise_db": LONG_STATIC_NOISE_DB,
+            "verdict": "advisory_only",
         },
     }
 
@@ -891,6 +942,74 @@ def _silence_argv(
     ]
 
 
+def _loudness_argv(output_name: str) -> list[str]:
+    return [
+        "{ffmpeg}",
+        "-hide_banner",
+        "-loglevel",
+        "info",
+        "-nostdin",
+        "-protocol_whitelist",
+        "file,pipe",
+        "-i",
+        "assembly-master.mp4",
+        "-map",
+        "0:a:0",
+        "-af",
+        "ebur128=peak=true:framelog=quiet",
+        "-f",
+        "null",
+        output_name,
+    ]
+
+
+def _blackdetect_argv(output_name: str) -> list[str]:
+    return [
+        "{ffmpeg}",
+        "-hide_banner",
+        "-loglevel",
+        "info",
+        "-nostdin",
+        "-protocol_whitelist",
+        "file,pipe",
+        "-i",
+        "assembly-master.mp4",
+        "-map",
+        "0:v:0",
+        "-vf",
+        (
+            f"blackdetect=d={BLACK_MIN_DURATION_SECONDS:g}:"
+            f"pic_th={BLACK_PICTURE_THRESHOLD:g}:pix_th={BLACK_PIXEL_THRESHOLD:g}"
+        ),
+        "-an",
+        "-f",
+        "null",
+        output_name,
+    ]
+
+
+def _freezedetect_argv(output_name: str) -> list[str]:
+    return [
+        "{ffmpeg}",
+        "-hide_banner",
+        "-loglevel",
+        "info",
+        "-nostdin",
+        "-protocol_whitelist",
+        "file,pipe",
+        "-i",
+        "assembly-master.mp4",
+        "-map",
+        "0:v:0",
+        "-vf",
+        f"freezedetect=n={LONG_STATIC_NOISE_DB}:d={LONG_STATIC_MIN_DURATION_SECONDS:g}",
+        "-an",
+        "-f",
+        "null",
+        output_name,
+    ]
+
+
 def _run_ffmpeg(
     ffmpeg: str,
     argv_template: list[str],
@@ -999,6 +1118,175 @@ def _silence_facts(
     }
 
 
+def _last_finite_metric(
+    pattern: re.Pattern[str], text: str
+) -> tuple[float | None, str | None]:
+    matches = pattern.findall(text)
+    if not matches:
+        return None, None
+    raw = matches[-1]
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return None, raw
+    return (round(value, 3), raw) if math.isfinite(value) else (None, raw)
+
+
+def _loudness_facts(result: _ProcessResult) -> dict[str, Any]:
+    text = result.stderr.decode("utf-8", errors="replace")
+    integrated_lufs, integrated_raw = _last_finite_metric(_LOUDNESS_I_RE, text)
+    loudness_range_lu, range_raw = _last_finite_metric(_LOUDNESS_LRA_RE, text)
+    true_peak_dbfs, peak_raw = _last_finite_metric(_TRUE_PEAK_RE, text)
+    measurements_present = all(
+        value is not None for value in (integrated_raw, range_raw, peak_raw)
+    )
+    finite_measurements = all(
+        value is not None
+        for value in (integrated_lufs, loudness_range_lu, true_peak_dbfs)
+    )
+    return {
+        "filter": "ebur128",
+        "return_code": result.return_code,
+        "analysis_complete": bool(result.return_code == 0 and measurements_present),
+        "finite_measurements": finite_measurements,
+        "integrated_lufs": integrated_lufs,
+        "integrated_lufs_raw": integrated_raw,
+        "loudness_range_lu": loudness_range_lu,
+        "loudness_range_lu_raw": range_raw,
+        "true_peak_dbfs": true_peak_dbfs,
+        "true_peak_dbfs_raw": peak_raw,
+        "stderr_line_count": len(text.splitlines()),
+    }
+
+
+def _black_facts(
+    result: _ProcessResult,
+    *,
+    duration_ms: int | None,
+) -> dict[str, Any]:
+    text = result.stderr.decode("utf-8", errors="replace")
+    starts = [float(match.group(1)) for match in _BLACK_START_RE.finditer(text)]
+    ends = [
+        {"end": float(match.group(1)), "duration": float(match.group(2))}
+        for match in _BLACK_END_RE.finditer(text)
+    ]
+    duration_seconds = duration_ms / 1000 if isinstance(duration_ms, int) else None
+    unresolved_open_interval = bool(len(starts) > len(ends) and duration_seconds is None)
+    intervals: list[tuple[float, float]] = []
+    for index, event in enumerate(ends):
+        inferred_start = max(0.0, event["end"] - event["duration"])
+        start = starts[index] if index < len(starts) else inferred_start
+        intervals.append((max(0.0, min(start, event["end"])), event["end"]))
+    if duration_seconds is not None and len(starts) > len(ends):
+        intervals.extend(
+            (max(0.0, start), duration_seconds) for start in starts[len(ends) :]
+        )
+    normalized: list[dict[str, float]] = []
+    for start, end in sorted(intervals):
+        if duration_seconds is not None:
+            end = min(end, duration_seconds)
+        if end <= start:
+            continue
+        normalized.append(
+            {
+                "start": round(start, 6),
+                "end": round(end, 6),
+                "duration": round(end - start, 6),
+            }
+        )
+    detected = bool(
+        result.return_code == 0
+        and (
+            unresolved_open_interval
+            or any(
+                item["duration"] + SILENCE_COVERAGE_TOLERANCE_SECONDS
+                >= BLACK_MIN_DURATION_SECONDS
+                for item in normalized
+            )
+        )
+    )
+    return {
+        "filter": "blackdetect",
+        "return_code": result.return_code,
+        "analysis_complete": bool(result.return_code == 0 and not unresolved_open_interval),
+        "unresolved_open_interval": unresolved_open_interval,
+        "minimum_duration_seconds": BLACK_MIN_DURATION_SECONDS,
+        "pixel_threshold": BLACK_PIXEL_THRESHOLD,
+        "picture_threshold": BLACK_PICTURE_THRESHOLD,
+        "intervals_seconds": normalized,
+        "interval_count": len(normalized),
+        "max_duration_seconds": max(
+            (item["duration"] for item in normalized), default=0.0
+        ),
+        "detected": detected,
+        "stderr_line_count": len(text.splitlines()),
+    }
+
+
+def _long_static_facts(
+    result: _ProcessResult,
+    *,
+    duration_ms: int | None,
+) -> dict[str, Any]:
+    text = result.stderr.decode("utf-8", errors="replace")
+    starts = [float(match.group(1)) for match in _FREEZE_START_RE.finditer(text)]
+    durations = [float(match.group(1)) for match in _FREEZE_DURATION_RE.finditer(text)]
+    ends = [float(match.group(1)) for match in _FREEZE_END_RE.finditer(text)]
+    duration_seconds = duration_ms / 1000 if isinstance(duration_ms, int) else None
+    unresolved_open_interval = bool(len(starts) > len(ends) and duration_seconds is None)
+    intervals: list[tuple[float, float]] = []
+    for index, end in enumerate(ends):
+        event_duration = durations[index] if index < len(durations) else None
+        inferred_start = max(0.0, end - event_duration) if event_duration is not None else end
+        start = starts[index] if index < len(starts) else inferred_start
+        intervals.append((max(0.0, min(start, end)), end))
+    if duration_seconds is not None and len(starts) > len(ends):
+        intervals.extend(
+            (max(0.0, start), duration_seconds) for start in starts[len(ends) :]
+        )
+    normalized: list[dict[str, float]] = []
+    for start, end in sorted(intervals):
+        if duration_seconds is not None:
+            end = min(end, duration_seconds)
+        if end <= start:
+            continue
+        normalized.append(
+            {
+                "start": round(start, 6),
+                "end": round(end, 6),
+                "duration": round(end - start, 6),
+            }
+        )
+    warning = bool(
+        result.return_code == 0
+        and (
+            unresolved_open_interval
+            or any(
+                item["duration"] + SILENCE_COVERAGE_TOLERANCE_SECONDS
+                >= LONG_STATIC_MIN_DURATION_SECONDS
+                for item in normalized
+            )
+        )
+    )
+    return {
+        "filter": "freezedetect",
+        "return_code": result.return_code,
+        "analysis_complete": bool(result.return_code == 0 and not unresolved_open_interval),
+        "unresolved_open_interval": unresolved_open_interval,
+        "minimum_duration_seconds": LONG_STATIC_MIN_DURATION_SECONDS,
+        "noise_db": LONG_STATIC_NOISE_DB,
+        "advisory_only": True,
+        "warning": warning,
+        "warning_reason": "long_static_interval_detected" if warning else None,
+        "intervals_seconds": normalized,
+        "interval_count": len(normalized),
+        "max_duration_seconds": max(
+            (item["duration"] for item in normalized), default=0.0
+        ),
+        "stderr_line_count": len(text.splitlines()),
+    }
+
+
 def _analyse(
     ffmpeg: str,
     ffprobe: str,
@@ -1006,7 +1294,7 @@ def _analyse(
     stage: Path,
     cancel_event: Any | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
-    """Run probe, full decode, and silence detection and build QC facts."""
+    """Run probe/decode plus silence, level, black, and static analysis."""
 
     _raise_if_cancelled(cancel_event)
     probe, probe_result, probe_error = _run_probe(
@@ -1063,6 +1351,14 @@ def _analyse(
             duration_ms=duration_ms,
             window_seconds=silence_window_seconds,
         )
+        loudness_result = _run_ffmpeg(
+            ffmpeg,
+            _loudness_argv("{output}"),
+            cwd=stage,
+            label="ffmpeg loudness analysis",
+            cancel_event=cancel_event,
+        )
+        loudness = _loudness_facts(loudness_result)
     else:
         silence = {
             "noise_db": SILENCE_NOISE_DB,
@@ -1073,6 +1369,70 @@ def _analyse(
             "all_silent": False,
             "stderr_line_count": 0,
             "reason": "audio_stream_missing",
+        }
+        loudness = {
+            "filter": "ebur128",
+            "return_code": None,
+            "analysis_complete": False,
+            "finite_measurements": False,
+            "integrated_lufs": None,
+            "integrated_lufs_raw": None,
+            "loudness_range_lu": None,
+            "loudness_range_lu_raw": None,
+            "true_peak_dbfs": None,
+            "true_peak_dbfs_raw": None,
+            "stderr_line_count": 0,
+            "reason": "audio_stream_missing",
+        }
+
+    if video is not None:
+        black_result = _run_ffmpeg(
+            ffmpeg,
+            _blackdetect_argv("{output}"),
+            cwd=stage,
+            label="ffmpeg black frame detection",
+            cancel_event=cancel_event,
+        )
+        black_frames = _black_facts(black_result, duration_ms=duration_ms)
+        static_result = _run_ffmpeg(
+            ffmpeg,
+            _freezedetect_argv("{output}"),
+            cwd=stage,
+            label="ffmpeg long static detection",
+            cancel_event=cancel_event,
+        )
+        long_static = _long_static_facts(static_result, duration_ms=duration_ms)
+    else:
+        black_frames = {
+            "filter": "blackdetect",
+            "return_code": None,
+            "analysis_complete": False,
+            "unresolved_open_interval": False,
+            "minimum_duration_seconds": BLACK_MIN_DURATION_SECONDS,
+            "pixel_threshold": BLACK_PIXEL_THRESHOLD,
+            "picture_threshold": BLACK_PICTURE_THRESHOLD,
+            "intervals_seconds": [],
+            "interval_count": 0,
+            "max_duration_seconds": 0.0,
+            "detected": False,
+            "stderr_line_count": 0,
+            "reason": "video_stream_missing",
+        }
+        long_static = {
+            "filter": "freezedetect",
+            "return_code": None,
+            "analysis_complete": False,
+            "unresolved_open_interval": False,
+            "minimum_duration_seconds": LONG_STATIC_MIN_DURATION_SECONDS,
+            "noise_db": LONG_STATIC_NOISE_DB,
+            "advisory_only": True,
+            "warning": False,
+            "warning_reason": None,
+            "intervals_seconds": [],
+            "interval_count": 0,
+            "max_duration_seconds": 0.0,
+            "stderr_line_count": 0,
+            "reason": "video_stream_missing",
         }
 
     facts: dict[str, Any] = {
@@ -1095,9 +1455,32 @@ def _analyse(
         "audio_channels": channels,
         "full_decode_return_code": decode_result.return_code,
         "silence": silence,
+        "loudness": loudness,
+        "black_frames": black_frames,
+        "long_static": long_static,
         "probe_return_code": probe_result.return_code,
         "probe_error": probe_error,
     }
+    integrated_lufs = loudness.get("integrated_lufs")
+    true_peak_dbfs = loudness.get("true_peak_dbfs")
+    loudness_ok = bool(
+        audio is not None
+        and loudness.get("analysis_complete") is True
+        and isinstance(integrated_lufs, (int, float))
+        and LOUDNESS_MIN_LUFS <= integrated_lufs <= LOUDNESS_MAX_LUFS
+    )
+    true_peak_ok = bool(
+        audio is not None
+        and loudness.get("analysis_complete") is True
+        and isinstance(true_peak_dbfs, (int, float))
+        and true_peak_dbfs <= TRUE_PEAK_MAX_DBFS
+    )
+    black_frames_ok = bool(
+        video is not None
+        and black_frames.get("return_code") == 0
+        and black_frames.get("analysis_complete") is True
+        and black_frames.get("detected") is False
+    )
     probe_success = probe_error is None and probe_result.return_code == 0
     checks: dict[str, Any] = {
         "probe_success": _check(
@@ -1174,6 +1557,47 @@ def _analyse(
                 and not bool(silence.get("all_silent"))
                 else "audio_silence_analysis_failed_or_audio_is_silent"
             ),
+        ),
+        "audio_loudness": _check(
+            loudness_ok,
+            expected={
+                "integrated_lufs_min": LOUDNESS_MIN_LUFS,
+                "integrated_lufs_max": LOUDNESS_MAX_LUFS,
+            },
+            observed={
+                "analysis_complete": loudness.get("analysis_complete"),
+                "integrated_lufs": integrated_lufs,
+                "integrated_lufs_raw": loudness.get("integrated_lufs_raw"),
+            },
+            reason=None if loudness_ok else "integrated_loudness_out_of_range_or_unavailable",
+        ),
+        "audio_true_peak": _check(
+            true_peak_ok,
+            expected={"true_peak_max_dbfs": TRUE_PEAK_MAX_DBFS},
+            observed={
+                "analysis_complete": loudness.get("analysis_complete"),
+                "true_peak_dbfs": true_peak_dbfs,
+                "true_peak_dbfs_raw": loudness.get("true_peak_dbfs_raw"),
+            },
+            reason=None if true_peak_ok else "true_peak_too_high_or_unavailable",
+        ),
+        "black_frames": _check(
+            black_frames_ok,
+            expected={
+                "maximum_interval_count": 0,
+                "minimum_duration_seconds": BLACK_MIN_DURATION_SECONDS,
+                "pixel_threshold": BLACK_PIXEL_THRESHOLD,
+                "picture_threshold": BLACK_PICTURE_THRESHOLD,
+            },
+            observed={
+                "video_stream_present": video is not None,
+                "return_code": black_frames.get("return_code"),
+                "analysis_complete": black_frames.get("analysis_complete"),
+                "unresolved_open_interval": black_frames.get("unresolved_open_interval"),
+                "interval_count": black_frames.get("interval_count"),
+                "max_duration_seconds": black_frames.get("max_duration_seconds"),
+            },
+            reason=None if black_frames_ok else "black_interval_detected_or_analysis_unavailable",
         ),
     }
     return facts, checks, probe

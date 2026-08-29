@@ -67,6 +67,10 @@ test('announcement recipe compiles exact fixed HOOK -> MESSAGE -> CTA payload', 
   ]);
   assert.equal(payload.voice, null);
   assert.equal(payload.scenes[0].video_artifact_id, artifact('1'));
+  assert.deepEqual(payload.scenes.map((scene) => scene.visual_preset), ['preserve_v1', 'preserve_v1', 'preserve_v1']);
+  const sharpRecipe = recipe();
+  sharpRecipe.scenes[1].visualPreset = 'h3_low_res_sharp_v1';
+  assert.equal(api.buildAnnouncementVideoRecipePayload(sharpRecipe).scenes[1].visual_preset, 'h3_low_res_sharp_v1');
   assert.equal('unsafePath' in payload, false);
 });
 
@@ -91,6 +95,9 @@ test('announcement preflight rejects role drift, unsafe headline, invalid trim, 
   assert.ok(api.normalizeAnnouncementVideoInput(missingRole).errors.some((error) => error.includes('role')));
   assert.ok(api.normalizeAnnouncementVideoInput(recipe({ variant: 'typo' })).errors.some((error) => error.includes('QC対象')));
   assert.ok(api.normalizeAnnouncementVideoInput(recipe({ pronunciations: {} })).errors.some((error) => error.includes('配列')));
+  const invalidVisualPreset = recipe();
+  invalidVisualPreset.scenes[0].visualPreset = 'custom_strength';
+  assert.ok(api.normalizeAnnouncementVideoInput(invalidVisualPreset).errors.some((error) => error.includes('映像補正preset')));
 });
 
 test('save, duplicate, and execute use exact encoded production/recipe routes and bodies', async () => {
@@ -135,6 +142,8 @@ test('Studio exposes a dedicated saved-recipe announcement surface and keeps Det
   assert.match(announcementSource, /HOOK → MESSAGE → CTA/);
   assert.match(announcementSource, /保存して告知動画を作る/);
   assert.match(announcementSource, /複製して編集/);
+  assert.match(announcementSource, /H3低解像度を鮮明化/);
+  assert.match(announcementSource, /完成masterを正として確認/);
   assert.match(announcementSource, /setInterval\([\s\S]{0,500}2_000/);
   assert.match(announcementSource, /detailPollTickRef\.current % 3/);
   assert.match(announcementSource, /selectAnnouncementRecoveryCandidates\(detail\.announcementExecutions, guard\)/);

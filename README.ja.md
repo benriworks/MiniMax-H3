@@ -13,17 +13,23 @@
 .\run-studio.ps1
 ```
 
-通常は`http://127.0.0.1:8765`を開きます。現在のMVPは既存制作台帳の閲覧、再実行計画、Run記録、有料工程の費用上限承認、監査exportに加え、Windows SAPIによる無課金のローカルナレーション生成、固定ComfyUIによるローカル動画生成、isolated Chromiumによるloopback Web画面収録、FFmpegによるハードカット、Remotionによる詳細timeline preview、clean／字幕焼き込みmasterのローカル合成、完成masterのローカルtechnical QCを扱えます。字幕、segment timing、発音置換、工程cache、codec／stream／duration／full-decode／全編無音の検査、ffprobe・manifestも記録します。ElevenLabs外部TTSは別の承認済みprofileで扱い、MiniMax外部APIのStudio workerは未接続です。Web収録は`127.0.0.1`の明示portだけを対象とし、Windowsデスクトップ、system audio、外部サイト、既存ログインsessionは未対応です。詳細とセキュリティ境界は[STUDIO_MVP_JA.md](STUDIO_MVP_JA.md)を参照してください。
+通常は`http://127.0.0.1:8765`を開きます。現在のMVPは既存制作台帳の閲覧、再実行計画、Run記録、有料工程の費用上限承認、監査exportに加え、Windows SAPIによる無課金のローカルナレーション生成、固定ComfyUIによるローカル動画生成、isolated Chromiumによるloopback Web画面収録、FFmpegによるハードカット、Remotionによる詳細timeline preview、clean／字幕焼き込みmasterのローカル合成、完成masterのローカルtechnical QCを扱えます。字幕、segment timing、発音置換、工程cache、codec／stream／duration／full-decode／全編無音の検査、Integrated loudness／true peak／黒画面のhard check、長い静止区間のwarning、ffprobe・manifestも記録します。QC policyはschema v2 / `local-ffmpeg-qc-v2` / `technical-qc-mp4-v2`で固定し、Integrated loudness -24.0〜-10.0 LUFS、true peak -1.0 dBFS以下、0.5秒以上の黒画面をtechnical verdictへ反映します。1.0秒以上の長い静止区間はwarningのみで、verdictには影響しません。ElevenLabs外部TTSは別の承認済みprofileで扱い、MiniMax外部APIのStudio workerは未接続です。Web収録は`127.0.0.1`の明示portだけを対象とします。Windowsデスクトップとsystem audioはまだ収録できませんが、画面入力と既定再生音声のWASAPI loopbackを収録せずに検査する基盤doctorは`画面収録`タブから利用できます。外部サイト、既存ログインsession、マイクは対象外です。詳細とセキュリティ境界は[STUDIO_MVP_JA.md](STUDIO_MVP_JA.md)を参照してください。
 
 `local_playwright`で実行できる工程は`screen_capture`と`timeline`です。`assembly`と`qc`は影響工程としてRun計画に残りますが、このprofileでは実行しません。画面収録とtimelineのジョブ状態・進捗率はUIが2秒pollingで再取得します。
 
+`setup-studio.ps1`はWindows上で外部NuGet依存のない`native/windows-capture-helper`もRelease buildします。認証済み`POST /api/capabilities/windows-capture/inspect`は空objectだけを受け、固定helperのCore Audio doctorとFFmpeg `gdigrab`の存在だけを有界検査します。画面・音声dataの取得、保存、送信、Job／Run／artifact／event作成は行いません。現行responseは常に`capture_execution_enabled=false`、`actual_capture_performed=false`であり、実収録endpointは未実装です。
+
 ### Remotion詳細timeline
 
-カット編集画面では、既存の`高速ハードカット`と`Remotion詳細preview`を切り替えられます。後者はschema v1の`POST /api/runs/{run_id}/execute-remotion-timeline`を使い、同じproductionの登録済み動画1〜16件／最大60秒へtrim、素材音量0〜100%、50〜2,000msのfade、固定`shorts_ja_large_v1`テロップを設定します。UIの`@remotion/player`とrendererは同じcompositionを使い、1080×1920／24fpsのMP4、recipe、render report、ffprobe、manifestの5成果物を保存します。画面収録と同じbrowser FIFO laneでconcurrency 1のため、両jobは直列です。
+カット編集画面では、既存の`高速ハードカット`と`Remotion詳細preview`を切り替えられます。後者はschema v1の`POST /api/runs/{run_id}/execute-remotion-timeline`を使い、同じproductionの登録済み動画1〜16件／最大60秒へtrim、素材音量0〜100%、50〜2,000msのfade、固定`shorts_ja_large_v1`テロップと、カットごとの閉じた映像補正presetを設定します。互換既定`preserve_v1`は素材をそのまま使います。`h3_low_res_sharp_v1`は幅1080未満・高さ1920未満、両辺64px以上、幅÷高さ0.50〜0.625、cover拡大後300万画素以下の低解像度縦長素材だけを使用frameへ先にtrimし、固定Lanczos coverで1080×1920へ拡大・cropしてから、輝度だけに5×5／0.25の弱いunsharpをテロップ合成前に適用します。条件外はFFmpeg起動前に拒否します。色差は鮮明化せず、任意filter／強度／CRFは入力できません。visual presetがない既存の詳細一括・告知recipeは`preserve_v1`へ正規化して読み続けられます。
+
+UIの`@remotion/player`とrendererは同じcompositionを使いますが、Playerは原素材を表示し、FFmpegの鮮明化前処理までは再現しません。効果は完成artifactで確認します。出力policy `remotion-source-fidelity-v2`はRemotion中間frameをPNG、動画encodeをCRF 16へ固定します。presetと固定`lanczos-cover-luma-unsharp-v1`方針はcache key、監査summary、render report、manifestへ、各clipの前処理計画・結果はrender reportとmanifestへ記録します。これは失われたディテールを生成する超解像ではなく、追加のCPU時間、一時I/O、encode時間を使う処理です。1080×1920／24fpsのMP4、recipe、render report、ffprobe、manifestの5成果物を保存します。画面収録と同じbrowser FIFO laneでconcurrency 1のため、両jobは直列です。
 
 素材音量はまず詳細previewへ反映されます。そのpreviewをassemblyへ渡す場合は、既定の`narration_only_v1`で素材音をナレーションへ置換するか、`source_under_narration_v1`でpreview音声をさらに25%へ下げ、ナレーション100%と固定limiterで混ぜるかを選べます。mixは素材音声1 streamと素材／ナレーション双方の非無音を必須とし、不足時はfail closedです。任意gain、BGM、duckingはまだ扱いません。Remotion packageは`4.0.517`へexact pinし、setup済みPlaywright Chromiumを再利用します。利用は個人用途を前提としているため、主体・用途・配布形態が変わる場合は[第三者ライセンス](THIRD_PARTY_NOTICES.md)と現行Remotion licenseを再確認してください。
 
 SetupはRemotion 5 packageとPlaywrightの実`node_modules` dependency closureをattestし、worker開始時とrender後に再照合します。path非公開のclosure digestはcache tool identityへ入るため、dependencyが変わった場合は成果物publish前にfail closedし、setupの再実行を求めます。
+
+PNG中間frameは長尺ほど一時diskを消費します。開始前は「全frameのRGBA bytes×1.25＋raw出力2GiB＋正規化出力2GiB＋安全余白1GiB」に、`preserve_v1`の実source bytesまたはsharpカットごとの最大2GiBを足して検査します。source staging後に実staged bytesを記録し、残容量をframe／出力／余白分でもう一度検査します。不足時は`insufficient_scratch_space`でNode起動前に停止します。Remotion／Chromiumの`TEMP`／`TMP`／`TMPDIR`はatomic stage内へ閉じ、成功・失敗・cancelの全終了経路で削除します。Windowsの一時lockにはbounded retryを行い、残留時は`remotion_stage_cleanup_failed`として失敗を公開します。両検査値はrender report／manifestに残ります。
 
 ### `告知動画`（HOOK・MESSAGE・CTAテンプレート）
 

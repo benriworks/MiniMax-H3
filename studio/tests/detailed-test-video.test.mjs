@@ -74,6 +74,7 @@ test('detailed test video payload is exact snake_case schema v1 and strips rende
         start_ms: 100,
         end_ms: 2_100,
         volume_percent: 80,
+        visual_preset: 'preserve_v1',
         transition_to_next: { type: 'fade', duration_ms: 300 },
         overlay: {
           text: '詳細一括\nテスト',
@@ -88,6 +89,7 @@ test('detailed test video payload is exact snake_case schema v1 and strips rende
         start_ms: 0,
         end_ms: 1_000,
         volume_percent: 40,
+        visual_preset: 'preserve_v1',
         transition_to_next: null,
         overlay: null,
       },
@@ -224,7 +226,7 @@ test('ambiguous direct Detailed recovery requires a fresh exact payload digest a
       voice: 'Voice',
       pronunciations: [{ source: 'AI', target: 'A I' }],
     })),
-    'A932AD8E86885571F64229A64C637032DA9F30D90D2827FCEB8D64C9CD00EC98',
+    '728040BC2E6ABD4B5BE6576467120A6830AC7F600E590A114B96C16E082464B3',
   );
   const omittedOptionalsRequest = completeRequest({
     segments: [{ text: 'one' }, { text: 'two' }],
@@ -233,7 +235,7 @@ test('ambiguous direct Detailed recovery requires a fresh exact payload digest a
   delete omittedOptionalsRequest.pronunciations;
   assert.equal(
     await api.detailedTestVideoRequestPayloadSha256(omittedOptionalsRequest),
-    '1D335289265FFC5DF17ECD216AC4B503AA64B2BF11199F17B64FD88DA652843B',
+    '14204AF12EE99E320788268F716CF3D2990AB4BC5F64000E9CB45A78C5EA9A6A',
   );
   const jobRecord = (id, overrides = {}) => ({
     id,
@@ -332,6 +334,8 @@ test('Studio exposes a distinct responsive detailed batch surface with 2-second 
   assert.match(appSource, /child\.status === 'unknown' \? attempt\.status : child\.status/);
   assert.match(appSource, /visibleJob\?\.result\?\.durationMs \?\? normalizedInput\.outputDurationMs/);
   assert.match(appSource, /formatMilliseconds\(displayedRecipeDurationMs\)/);
+  assert.match(appSource, /H3低解像度を鮮明化/);
+  assert.match(appSource, /Playerは映像補正presetを再現しません/);
   assert.match(stylesSource, /\.detailed-test-grid/);
   assert.match(stylesSource, /\.detailed-test-output-grid/);
 });

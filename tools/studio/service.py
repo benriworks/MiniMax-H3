@@ -128,6 +128,9 @@ from .browser_capture_execution import (
     safe_browser_capture_error,
     validate_browser_capture_payload,
 )
+from .windows_capture import (
+    inspect_windows_capture_capability as inspect_windows_capture_capability_environment,
+)
 from .security import (
     SecurityError,
     canonical_json,
@@ -767,6 +770,17 @@ class StudioService:
                 "scan_interval_seconds": _PIPELINE_CONTINUATION_SCAN_SECONDS,
             },
         }
+
+    def inspect_windows_capture_capability(
+        self, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Inspect the fixed Windows capture foundation without recording."""
+
+        if not isinstance(body, dict) or body:
+            raise RequestValidationError(
+                "Windows capture capability body must be an empty object"
+            )
+        return inspect_windows_capture_capability_environment(self.workspace)
 
     def list_productions(self) -> dict[str, Any]:
         productions = self.database.list_productions()
@@ -5452,6 +5466,7 @@ class StudioService:
         ):
             editing = {
                 "volume_percent": public["volume_percent"],
+                "visual_preset": public["visual_preset"],
                 "transition_to_next": public["transition_to_next"],
                 "overlay": public["overlay"],
             }

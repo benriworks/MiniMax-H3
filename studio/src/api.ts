@@ -28,6 +28,7 @@ import type {
   LocalRemotionTimelineOverlayPosition,
   LocalRemotionTimelineRequest,
   LocalRemotionTimelineTransition,
+  LocalRemotionTimelineVisualPreset,
   LocalTimelineClip,
   LocalTimelineRequest,
   LocalQcRequest,
@@ -48,6 +49,7 @@ import type {
   RunStage,
   StageAttempt,
   StudioEvent,
+  WindowsCaptureCapability,
 } from './types';
 import { normalizeStatus } from './status';
 
@@ -573,6 +575,7 @@ export const REMOTION_TIMELINE_COMPOSITION_ID = 'MiniMaxH3DetailedTimelineV1' as
 export const REMOTION_TIMELINE_WIDTH = 1080 as const;
 export const REMOTION_TIMELINE_HEIGHT = 1920 as const;
 export const REMOTION_TIMELINE_FPS = 24 as const;
+export const DEFAULT_REMOTION_TIMELINE_VISUAL_PRESET: LocalRemotionTimelineVisualPreset = 'preserve_v1';
 
 export const REMOTION_TIMELINE_LIMITS = {
   minClips: 1,
@@ -595,6 +598,7 @@ export interface RemotionTimelinePayload {
     start_ms: number;
     end_ms: number;
     volume_percent: number;
+    visual_preset: LocalRemotionTimelineVisualPreset;
     transition_to_next: null | { type: 'fade'; duration_ms: number };
     overlay: null | {
       text: string;
@@ -618,6 +622,9 @@ const remotionInteger = (value: unknown): number => {
   const parsed = number(value);
   return parsed !== undefined && Number.isSafeInteger(parsed) ? parsed : Number.NaN;
 };
+
+const isRemotionTimelineVisualPreset = (value: unknown): value is LocalRemotionTimelineVisualPreset =>
+  value === 'preserve_v1' || value === 'h3_low_res_sharp_v1';
 
 const normalizeRemotionTransition = (value: unknown): LocalRemotionTimelineTransition | null => {
   if (value === null || value === undefined) return null;
@@ -647,6 +654,7 @@ const remotionPayloadForRequest = (request: LocalRemotionTimelineRequest): Remot
     start_ms: clip.startMs,
     end_ms: clip.endMs,
     volume_percent: clip.volumePercent,
+    visual_preset: clip.visualPreset ?? DEFAULT_REMOTION_TIMELINE_VISUAL_PRESET,
     transition_to_next: clip.transitionToNext === null ? null : {
       type: clip.transitionToNext.type,
       duration_ms: clip.transitionToNext.durationMs,
@@ -703,6 +711,9 @@ export const normalizeRemotionTimelineInput = (value: unknown): NormalizedRemoti
       startMs: remotionInteger(pick(record, ['startMs', 'start_ms'])),
       endMs: remotionInteger(pick(record, ['endMs', 'end_ms'])),
       volumePercent: remotionInteger(pick(record, ['volumePercent', 'volume_percent'])),
+      visualPreset: isRemotionTimelineVisualPreset(pick(record, ['visualPreset', 'visual_preset']))
+        ? pick(record, ['visualPreset', 'visual_preset']) as LocalRemotionTimelineVisualPreset
+        : DEFAULT_REMOTION_TIMELINE_VISUAL_PRESET,
       transitionToNext: normalizeRemotionTransition(pick(record, ['transitionToNext', 'transition_to_next'])),
       overlay: normalizeRemotionOverlay(pick(record, ['overlay'])),
     };
@@ -732,6 +743,10 @@ export const normalizeRemotionTimelineInput = (value: unknown): NormalizedRemoti
       errors.push(`${label}の終了時刻は0以上の整数ミリ秒で指定してください。`);
     } else if (clip.endMs > REMOTION_TIMELINE_LIMITS.maxOutputDurationMs) {
       errors.push(`${label}の終了時刻は${REMOTION_TIMELINE_LIMITS.maxOutputDurationMs / 1_000}秒以内にしてください。`);
+    }
+    const visualPresetValue = pick(asRecord(values[index]), ['visualPreset', 'visual_preset']);
+    if (visualPresetValue !== undefined && !isRemotionTimelineVisualPreset(visualPresetValue)) {
+      errors.push(`${label}の映像補正presetはpreserve_v1またはh3_low_res_sharp_v1を指定してください。`);
     }
     if (Number.isSafeInteger(durationMs) && durationMs < REMOTION_TIMELINE_LIMITS.minClipDurationMs) {
       errors.push(`${label}の尺は${REMOTION_TIMELINE_LIMITS.minClipDurationMs}ms以上にしてください。`);
@@ -1468,6 +1483,7 @@ export interface AnnouncementVideoRecipePayload {
     start_ms: number;
     end_ms: number;
     volume_percent: number;
+    visual_preset: LocalRemotionTimelineVisualPreset;
     headline: string;
     narration: string;
   }>;
@@ -1532,6 +1548,10 @@ export const normalizeAnnouncementVideoInput = (value: unknown): NormalizedAnnou
     const startMs = number(pickIncludingNull(raw, ['startMs', 'start_ms']));
     const endMs = number(pickIncludingNull(raw, ['endMs', 'end_ms']));
     const volumePercent = number(pickIncludingNull(raw, ['volumePercent', 'volume_percent']));
+    const visualPresetValue = pick(raw, ['visualPreset', 'visual_preset']);
+    const visualPreset = isRemotionTimelineVisualPreset(visualPresetValue)
+      ? visualPresetValue
+      : DEFAULT_REMOTION_TIMELINE_VISUAL_PRESET;
     const headline = text(pick(raw, ['headline']), '').replaceAll('\r\n', '\n').replaceAll('\r', '\n').trim();
     const narration = text(pick(raw, ['narration']), '').trim();
     if (!ANNOUNCEMENT_ARTIFACT_ID.test(artifactId)) errors.push(`${label}の動画artifactを選択してください。`);
@@ -1540,6 +1560,9 @@ export const normalizeAnnouncementVideoInput = (value: unknown): NormalizedAnnou
     const duration = (endMs ?? 0) - (startMs ?? 0);
     if (duration < 1_000 || duration > 10_000) errors.push(`${label}の素材尺は1〜10秒にしてください。`);
     if (volumePercent === undefined || !Number.isInteger(volumePercent) || volumePercent < 0 || volumePercent > 100) errors.push(`${label}の素材音量は0〜100%の整数で指定してください。`);
+    if (visualPresetValue !== undefined && !isRemotionTimelineVisualPreset(visualPresetValue)) {
+      errors.push(`${label}の映像補正presetはpreserve_v1またはh3_low_res_sharp_v1を指定してください。`);
+    }
     errors.push(...announcementHeadlineErrors(headline, label));
     if (!narration) errors.push(`${label}のナレーションを入力してください。`);
     if (narration.length > 200 || /[\r\n]/.test(narration)) errors.push(`${label}のナレーションは改行なしの200文字以内にしてください。`);
@@ -1549,6 +1572,7 @@ export const normalizeAnnouncementVideoInput = (value: unknown): NormalizedAnnou
       startMs: startMs ?? 0,
       endMs: endMs ?? 0,
       volumePercent: volumePercent ?? 0,
+      visualPreset,
       headline,
       narration,
     };
@@ -1602,6 +1626,7 @@ export const normalizeAnnouncementVideoInput = (value: unknown): NormalizedAnnou
     startMs: scene.startMs,
     endMs: scene.endMs,
     volumePercent: scene.volumePercent,
+    visualPreset: scene.visualPreset ?? DEFAULT_REMOTION_TIMELINE_VISUAL_PRESET,
     transitionToNext: index === 2 ? null : { type: 'fade', durationMs: ANNOUNCEMENT_VIDEO_TRANSITION_MS },
     overlay: {
       text: scene.headline,
@@ -1649,6 +1674,7 @@ export const normalizeAnnouncementVideoInput = (value: unknown): NormalizedAnnou
       start_ms: scene.startMs,
       end_ms: scene.endMs,
       volume_percent: scene.volumePercent,
+      visual_preset: scene.visualPreset ?? DEFAULT_REMOTION_TIMELINE_VISUAL_PRESET,
       headline: scene.headline,
       narration: scene.narration,
     })),
@@ -3102,6 +3128,51 @@ export const api = {
         lastChecked: text(pick(record, ['last_checked', 'checked_at', 'updated_at']), '') || undefined,
       };
     });
+  },
+
+  async inspectWindowsCaptureCapability(): Promise<WindowsCaptureCapability> {
+    const value = await post<unknown>('/api/capabilities/windows-capture/inspect', {});
+    const record = asRecord(value);
+    const helper = asRecord(pick(record, ['helper']));
+    const ffmpeg = asRecord(pick(record, ['ffmpeg']));
+    const rawStatus = text(pick(record, ['status']), 'blocked');
+    const capability: WindowsCaptureCapability = {
+      schemaVersion: number(pick(record, ['schema_version'])) ?? 0,
+      implementationVersion: text(pick(record, ['implementation_version'])),
+      status: rawStatus === 'foundation_ready' ? 'foundation_ready' : 'blocked',
+      foundationReady: boolean(pick(record, ['foundation_ready']), false),
+      captureExecutionEnabled: boolean(pick(record, ['capture_execution_enabled']), false),
+      screenCaptureReady: boolean(pick(record, ['screen_capture_ready']), false),
+      systemAudioLoopbackReady: boolean(pick(record, ['system_audio_loopback_ready']), false),
+      explicitConfirmationRequired: boolean(pick(record, ['explicit_confirmation_required']), false),
+      actualCapturePerformed: boolean(pick(record, ['actual_capture_performed']), false),
+      reasons: list(pick(record, ['reasons'])).map((reason) => text(reason)).filter(Boolean),
+      helper: {
+        available: boolean(pick(helper, ['available']), false),
+        doctorOk: boolean(pick(helper, ['doctor_ok']), false),
+        endpointActive: boolean(pick(helper, ['endpoint_active']), false),
+        loopbackInitialized: boolean(pick(helper, ['loopback_initialized']), false),
+        recordingStarted: boolean(pick(helper, ['recording_started']), false),
+        sha256: text(pick(helper, ['sha256'])) || undefined,
+      },
+      ffmpeg: {
+        available: boolean(pick(ffmpeg, ['available']), false),
+        gdigrabAvailable: boolean(pick(ffmpeg, ['gdigrab_available']), false),
+      },
+      toolIdentityDigest: text(pick(record, ['tool_identity_digest'])) || undefined,
+    };
+    if (
+      capability.schemaVersion !== 1
+      || capability.implementationVersion !== 'windows-capture-capability-v1'
+      || !capability.explicitConfirmationRequired
+      || capability.captureExecutionEnabled
+      || capability.actualCapturePerformed
+      || capability.helper.recordingStarted
+      || capability.foundationReady !== (capability.status === 'foundation_ready')
+    ) {
+      throw new Error('Windows収録環境の安全契約を検証できませんでした。');
+    }
+    return capability;
   },
 
   refreshIndex: (): Promise<unknown> => post('/api/index/refresh'),

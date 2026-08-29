@@ -1,6 +1,7 @@
 import {createRequire} from 'node:module';
 import {fileURLToPath} from 'node:url';
-import {lstat, readFile, realpath, rename, stat, writeFile} from 'node:fs/promises';
+import {lstat, readFile, readdir, realpath, rename, stat, writeFile} from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 
 const SCHEMA_VERSION = 1;
@@ -208,6 +209,7 @@ assertExactKeys(
     'public_dir',
     'browser_executable',
     'output_path',
+    'scratch_directory',
     'input_props',
   ],
   'request',
@@ -215,7 +217,7 @@ assertExactKeys(
 if (request.schema_version !== SCHEMA_VERSION || request.composition_id !== COMPOSITION_ID) {
   fail('request contract is unsupported');
 }
-for (const key of ['entry_point', 'public_dir', 'browser_executable', 'output_path']) {
+for (const key of ['entry_point', 'public_dir', 'browser_executable', 'output_path', 'scratch_directory']) {
   if (typeof request[key] !== 'string' || request[key].length < 1 || request[key].length > 2048) {
     fail(`${key} is invalid`);
   }
@@ -229,15 +231,39 @@ const expectedEntryPoint = path.resolve(
 );
 const expectedPublicDirectory = path.join(workingDirectory, 'public');
 const expectedOutputPath = path.join(workingDirectory, 'remotion-raw.mp4');
+const expectedScratchDirectory = path.join(workingDirectory, 'scratch');
 const {chromium} = requireFromStudio('playwright');
 const expectedBrowser = path.resolve(chromium.executablePath());
 if (
   path.resolve(request.entry_point) !== expectedEntryPoint ||
   path.resolve(request.public_dir) !== expectedPublicDirectory ||
   path.resolve(request.output_path) !== expectedOutputPath ||
+  path.resolve(request.scratch_directory) !== expectedScratchDirectory ||
   path.resolve(request.browser_executable) !== expectedBrowser
 ) {
   fail('request paths do not match the fixed renderer contract');
+}
+const scratchInfo = await lstat(expectedScratchDirectory);
+if (scratchInfo.isSymbolicLink() || !scratchInfo.isDirectory()) {
+  fail('scratch directory is invalid');
+}
+const resolvedScratchDirectory = await realpath(expectedScratchDirectory);
+if (
+  resolvedScratchDirectory !== expectedScratchDirectory ||
+  (await readdir(expectedScratchDirectory)).length !== 0
+) {
+  fail('scratch directory is invalid');
+}
+for (const name of ['TEMP', 'TMP', 'TMPDIR']) {
+  if (
+    typeof process.env[name] !== 'string' ||
+    path.resolve(process.env[name]) !== expectedScratchDirectory
+  ) {
+    fail('scratch environment is invalid');
+  }
+}
+if (path.resolve(os.tmpdir()) !== expectedScratchDirectory) {
+  fail('effective scratch directory is invalid');
 }
 for (const [label, filename] of [
   ['entry point', expectedEntryPoint],
@@ -328,6 +354,8 @@ await renderMedia({
   chromeMode: 'chrome-for-testing',
   codec: 'h264',
   audioCodec: 'aac',
+  imageFormat: 'png',
+  crf: 16,
   pixelFormat: 'yuv420p',
   sampleRate: 48000,
   enforceAudioTrack: true,
@@ -358,6 +386,10 @@ const result = {
   concurrency: 1,
   disallow_parallel_encoding: true,
   silent_audio_fallback: true,
+  image_format: 'png',
+  video_crf: 16,
+  x264_preset: 'medium',
+  scratch_directory_attested: true,
   max_progress_percent: Math.round(maxProgress * 100),
 };
 const temporaryResultPath = `${resultPath}.partial`;

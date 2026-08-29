@@ -16,8 +16,13 @@ from tools.studio.remotion_timeline import (
     COMPOSITION_ID,
     PINNED_REMOTION_VERSION,
     _clean_environment,
+    _cleanup_stage_root,
+    _REMOTION_STAGE_CLEANUP_ATTEMPTS,
     _recheck_runtime_attestation,
+    _render_environment,
+    _scratch_requirement,
     _runtime_attestation_identity,
+    _source_enhancement_plans,
     discard_remotion_timeline_outputs,
     generate_remotion_timeline,
     validate_remotion_timeline_outputs,
@@ -25,6 +30,7 @@ from tools.studio.remotion_timeline import (
 from tools.studio.remotion_timeline_execution import (
     RemotionTimelineError,
     RemotionTimelineValidationError,
+    compile_remotion_timeline,
     remotion_timeline_cache_key,
 )
 from tools.studio.security import canonical_json
@@ -55,7 +61,7 @@ class RemotionTimelineWorkerTests(unittest.TestCase):
                 "-f",
                 "lavfi",
                 "-i",
-                "color=c=blue:s=64x64:r=24:d=1",
+                "color=c=blue:s=64x114:r=24:d=1",
                 "-f",
                 "lavfi",
                 "-i",
@@ -78,6 +84,7 @@ class RemotionTimelineWorkerTests(unittest.TestCase):
                 "start_ms": 0,
                 "end_ms": 500,
                 "volume_percent": 35,
+                "visual_preset": "preserve_v1",
                 "transition_to_next": None,
                 "overlay": {
                     "text": "秘密のテロップ",
@@ -161,6 +168,8 @@ class RemotionTimelineWorkerTests(unittest.TestCase):
             self.clips, tool_identity=self.tool_identity
         )
         self.node_calls = 0
+        self.node_scratch_directory = None
+        self.node_staged_source_bytes = None
 
     def tearDown(self) -> None:
         self.temporary.cleanup()
@@ -180,9 +189,19 @@ class RemotionTimelineWorkerTests(unittest.TestCase):
         if arguments[0] != "mock-node":
             return self.original_bounded(arguments, **kwargs)
         self.node_calls += 1
+        environment = kwargs.get("environment")
+        self.assertIsInstance(environment, dict)
+        self.assertEqual(environment.get("TEMP"), environment.get("TMP"))
+        self.assertEqual(environment.get("TEMP"), environment.get("TMPDIR"))
+        self.node_scratch_directory = Path(environment["TEMP"])
+        self.assertTrue(self.node_scratch_directory.is_dir())
         request_path = Path(arguments[2])
         result_path = Path(arguments[3])
         request = json.loads(request_path.read_text(encoding="utf-8"))
+        self.node_staged_source_bytes = sum(
+            path.stat().st_size
+            for path in Path(request["public_dir"]).glob("clip-*.mp4")
+        )
         props = request["input_props"]
         duration = props["durationInFrames"] / 24
         subprocess.run(
@@ -237,6 +256,10 @@ class RemotionTimelineWorkerTests(unittest.TestCase):
                     "concurrency": 1,
                     "disallow_parallel_encoding": True,
                     "silent_audio_fallback": True,
+                    "image_format": "png",
+                    "video_crf": 16,
+                    "x264_preset": "medium",
+                    "scratch_directory_attested": True,
                     "max_progress_percent": 100,
                 },
                 ensure_ascii=False,
@@ -297,6 +320,7 @@ class RemotionTimelineWorkerTests(unittest.TestCase):
         self.assertIn("秘密のテロップ", timeline_text)
         report = json.loads(report_text)
         timeline = json.loads(timeline_text)
+        manifest = json.loads(manifest_text)
         self.assertEqual(
             {
                 "raw_overlay_text_in_report": False,
@@ -311,11 +335,459 @@ class RemotionTimelineWorkerTests(unittest.TestCase):
         )
         self.assertNotIn(str(self.workspace), report_text)
         self.assertNotIn(str(self.workspace), manifest_text)
+        self.assertEqual("png", report["renderer"]["image_format"])
+        self.assertEqual(16, report["renderer"]["video_crf"])
+        scratch = report["scratch_space"]
+        self.assertTrue(scratch["initial_passed"])
+        self.assertTrue(scratch["post_stage_passed"])
+        self.assertTrue(scratch["node_containment_attested"])
+        self.assertGreaterEqual(
+            scratch["initial_observed_free_bytes"],
+            scratch["initial_required_free_bytes"],
+        )
+        self.assertGreaterEqual(
+            scratch["post_stage_observed_free_bytes"],
+            scratch["post_stage_required_free_bytes"],
+        )
+        self.assertEqual("png-frame-scratch-v1", scratch["policy_version"])
+        self.assertEqual(scratch, manifest["scratch_space"])
+        self.assertEqual(self.node_staged_source_bytes, scratch["actual_staged_source_bytes"])
+        self.assertIsNotNone(self.node_scratch_directory)
+        self.assertFalse(self.node_scratch_directory.exists())
+        self.assertEqual("remotion-source-fidelity-v2", manifest["output_policy"]["policy_version"])
+        self.assertEqual(
+            "preserve_v1",
+            report["render"]["source_enhancement_results"][0]["visual_preset"],
+        )
         probe = json.loads((output / "ffprobe.json").read_text(encoding="utf-8"))
         streams = probe["remotion_preview"]["streams"]
         self.assertEqual(["video", "audio"], [stream["codec_type"] for stream in streams])
         self.assertEqual("48000", streams[1]["sample_rate"])
         self.assertEqual(2, streams[1]["channels"])
+
+    def test_h3_sharp_preset_preprocesses_before_renderer_and_is_audited(self) -> None:
+        clips = [dict(self.clips[0])]
+        clips[0]["visual_preset"] = "h3_low_res_sharp_v1"
+        key = remotion_timeline_cache_key(clips, tool_identity=self.tool_identity)
+        first_patch, second_patch = self._patch_worker()
+        with first_patch, second_patch:
+            result = generate_remotion_timeline(
+                self.workspace,
+                production_id=self.production_id,
+                run_id=self.run_id,
+                cache_key=key,
+                clips=clips,
+            )
+        report = json.loads(
+            (self.workspace / result["output_directory"] / "render-report.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        source_result = report["render"]["source_enhancement_results"][0]
+        self.assertEqual("h3_low_res_sharp_v1", source_result["visual_preset"])
+        self.assertEqual("lanczos_cover_luma_unsharp", source_result["mode"])
+        self.assertEqual(64, source_result["source_width"])
+        self.assertEqual(114, source_result["source_height"])
+        self.assertTrue(source_result["trimmed_to_used_frames"])
+        self.assertEqual(
+            self.node_staged_source_bytes,
+            report["scratch_space"]["actual_staged_source_bytes"],
+        )
+
+    def test_h3_sharp_preset_rejects_extreme_portrait_before_ffmpeg(self) -> None:
+        clips = [dict(self.clips[0])]
+        clips[0]["visual_preset"] = "h3_low_res_sharp_v1"
+        compiled = compile_remotion_timeline(clips)
+        probe = {
+            "streams": [
+                {"codec_type": "video", "width": 64, "height": 1900}
+            ]
+        }
+        with self.assertRaises(RemotionTimelineValidationError) as raised:
+            _source_enhancement_plans(clips, [probe], compiled)
+        self.assertEqual("visual_preset_incompatible", raised.exception.error_code)
+
+    def test_png_scratch_requirement_is_bounded_and_low_space_fails_before_node(self) -> None:
+        audit = {
+            "duration_in_frames": 360,
+            "clips": [{"source_bytes": 10 * 1024 * 1024}],
+        }
+        requirement = _scratch_requirement(audit)
+        expected_png = (360 * 1080 * 1920 * 4 * 5 + 3) // 4
+        self.assertEqual(expected_png, requirement["png_frame_upper_bound_bytes"])
+        self.assertEqual(
+            expected_png + 10 * 1024 * 1024 + 5 * 1024 * 1024 * 1024,
+            requirement["initial_required_free_bytes"],
+        )
+        self.assertEqual(
+            expected_png + 5 * 1024 * 1024 * 1024,
+            requirement["post_stage_required_free_bytes"],
+        )
+        maximum = _scratch_requirement(
+            {
+                "duration_in_frames": 1440,
+                "clips": [
+                    {
+                        "source_bytes": 1,
+                        "visual_preset": "h3_low_res_sharp_v1",
+                    },
+                    {
+                        "source_bytes": 1,
+                        "visual_preset": "h3_low_res_sharp_v1",
+                    },
+                ],
+            }
+        )
+        self.assertEqual(14_929_920_000, maximum["png_frame_upper_bound_bytes"])
+        self.assertEqual(4 * 1024 * 1024 * 1024, maximum["source_staging_estimate_bytes"])
+        self.assertEqual(20_298_629_120, maximum["post_stage_required_free_bytes"])
+
+        actual_requirement = _scratch_requirement(
+            {
+                "duration_in_frames": 12,
+                "clips": [{"source_bytes": self.source.stat().st_size}],
+            }
+        )
+        first_patch, second_patch = self._patch_worker()
+        with first_patch, second_patch, mock.patch(
+            "tools.studio.remotion_timeline.shutil.disk_usage",
+            return_value=mock.Mock(
+                free=actual_requirement["initial_required_free_bytes"] - 1
+            ),
+        ):
+            with self.assertRaises(RemotionTimelineError) as raised:
+                self._generate()
+        self.assertEqual("insufficient_scratch_space", raised.exception.error_code)
+        self.assertEqual(0, self.node_calls)
+        stage_parent = (
+            self.workspace
+            / "outputs"
+            / "studio"
+            / "runs"
+            / self.run_id
+            / "remotion_timeline"
+        )
+        self.assertFalse(any(path.name.startswith(".remotion-") for path in stage_parent.iterdir()))
+
+    def test_cache_hit_does_not_require_new_scratch_preflight(self) -> None:
+        first_patch, second_patch = self._patch_worker()
+        with first_patch, second_patch:
+            first = self._generate()
+        first_patch, second_patch = self._patch_worker()
+        with first_patch, second_patch, mock.patch(
+            "tools.studio.remotion_timeline.shutil.disk_usage",
+            side_effect=AssertionError("cache validation must not inspect scratch capacity"),
+        ):
+            second = self._generate()
+        self.assertFalse(first["cache_hit"])
+        self.assertTrue(second["cache_hit"])
+
+    def test_post_staging_low_space_fails_before_node_and_cleans_stage(self) -> None:
+        requirement = _scratch_requirement(
+            {
+                "duration_in_frames": 12,
+                "clips": [
+                    {
+                        "source_bytes": self.source.stat().st_size,
+                        "visual_preset": "preserve_v1",
+                    }
+                ],
+            }
+        )
+        disk_results = [
+            mock.Mock(free=requirement["initial_required_free_bytes"]),
+            mock.Mock(free=requirement["post_stage_required_free_bytes"] - 1),
+        ]
+        first_patch, second_patch = self._patch_worker()
+        with first_patch, second_patch, mock.patch(
+            "tools.studio.remotion_timeline.shutil.disk_usage",
+            side_effect=disk_results,
+        ):
+            with self.assertRaises(RemotionTimelineError) as raised:
+                self._generate()
+        self.assertEqual("insufficient_scratch_space", raised.exception.error_code)
+        self.assertEqual(0, self.node_calls)
+        stage_parent = (
+            self.workspace
+            / "outputs"
+            / "studio"
+            / "runs"
+            / self.run_id
+            / "remotion_timeline"
+        )
+        self.assertFalse(any(path.name.startswith(".remotion-") for path in stage_parent.iterdir()))
+
+    def test_render_failure_cleans_the_contained_scratch_tree(self) -> None:
+        self.original_bounded = assembly._bounded_process
+        observed_scratch = None
+
+        def fail_node(arguments, **kwargs):
+            nonlocal observed_scratch
+            if arguments[0] == "mock-node":
+                observed_scratch = Path(kwargs["environment"]["TEMP"])
+                self.assertTrue(observed_scratch.is_dir())
+                raise assembly.AssemblyError("synthetic render failure")
+            return self.original_bounded(arguments, **kwargs)
+
+        with mock.patch(
+            "tools.studio.remotion_timeline._resolve_runtime", self._runtime
+        ), mock.patch("tools.studio.remotion_timeline._bounded_process", fail_node):
+            with self.assertRaises(RemotionTimelineError) as raised:
+                self._generate()
+        self.assertEqual("local_remotion_render_failed", raised.exception.error_code)
+        self.assertIsNotNone(observed_scratch)
+        self.assertFalse(observed_scratch.exists())
+
+    def test_stage_cleanup_retries_transient_windows_lock_and_removes_work_tree(self) -> None:
+        stage = self.workspace / ".remotion-retry"
+        work = stage / "work"
+        (work / "public").mkdir(parents=True)
+        (work / "public" / "clip-00.mp4").write_bytes(b"source")
+        (work / "scratch").mkdir()
+        (work / "scratch" / "frame-000001.png").write_bytes(b"png")
+        (work / "render-request.json").write_text("{}", encoding="utf-8")
+        (work / "remotion-raw.mp4").write_bytes(b"raw")
+        real_rmtree = shutil.rmtree
+        attempts: list[Path] = []
+
+        def flaky_rmtree(path, *args, **kwargs):
+            attempts.append(Path(path))
+            if len(attempts) < 3:
+                raise PermissionError("synthetic Windows sharing violation")
+            return real_rmtree(path, *args, **kwargs)
+
+        with mock.patch(
+            "tools.studio.remotion_timeline.shutil.rmtree", side_effect=flaky_rmtree
+        ), mock.patch("tools.studio.remotion_timeline.time.sleep") as sleep:
+            _cleanup_stage_root(stage)
+
+        self.assertFalse(os.path.lexists(stage))
+        self.assertEqual([stage, stage, stage], attempts)
+        self.assertEqual([mock.call(0.15), mock.call(0.3)], sleep.call_args_list)
+
+    def test_stage_cleanup_fails_closed_when_residual_cannot_be_removed(self) -> None:
+        stage = self.workspace / ".remotion-residual"
+        (stage / "work" / "scratch").mkdir(parents=True)
+        (stage / "work" / "scratch" / "frame-000001.png").write_bytes(b"png")
+
+        with mock.patch(
+            "tools.studio.remotion_timeline.shutil.rmtree",
+            side_effect=PermissionError("synthetic Windows sharing violation"),
+        ) as remove, mock.patch("tools.studio.remotion_timeline.time.sleep") as sleep:
+            with self.assertRaises(RemotionTimelineError) as raised:
+                _cleanup_stage_root(stage)
+
+        self.assertEqual("remotion_stage_cleanup_failed", raised.exception.error_code)
+        self.assertTrue(os.path.lexists(stage))
+        self.assertEqual(_REMOTION_STAGE_CLEANUP_ATTEMPTS, remove.call_count)
+        self.assertEqual(_REMOTION_STAGE_CLEANUP_ATTEMPTS - 1, sleep.call_count)
+
+    def test_stage_cleanup_covers_directory_setup_failure(self) -> None:
+        real_mkdir = Path.mkdir
+
+        def fail_public_directory(path, *args, **kwargs):
+            candidate = Path(path)
+            if candidate.name == "public" and candidate.parent.name == "work":
+                raise PermissionError("synthetic staging setup failure")
+            return real_mkdir(candidate, *args, **kwargs)
+
+        first_patch, second_patch = self._patch_worker()
+        with first_patch, second_patch, mock.patch(
+            "pathlib.Path.mkdir", new=fail_public_directory
+        ):
+            with self.assertRaises(RemotionTimelineError) as raised:
+                self._generate()
+
+        self.assertEqual("publish_failed", raised.exception.error_code)
+        stage_parent = (
+            self.workspace
+            / "outputs"
+            / "studio"
+            / "runs"
+            / self.run_id
+            / "remotion_timeline"
+        )
+        self.assertFalse(any(path.name.startswith(".remotion-") for path in stage_parent.iterdir()))
+
+    def test_publish_retains_complete_cache_when_stage_cleanup_reports_failure(self) -> None:
+        first_patch, second_patch = self._patch_worker()
+        cleanup_error = RemotionTimelineError(
+            "synthetic stage cleanup failure", code="remotion_stage_cleanup_failed"
+        )
+        with first_patch, second_patch, mock.patch(
+            "tools.studio.remotion_timeline._cleanup_stage_root",
+            side_effect=cleanup_error,
+        ):
+            with self.assertRaises(RemotionTimelineError) as raised:
+                self._generate()
+
+        self.assertEqual("remotion_stage_cleanup_failed", raised.exception.error_code)
+        output = (
+            self.workspace
+            / "outputs"
+            / "studio"
+            / "runs"
+            / self.run_id
+            / "remotion_timeline"
+            / self.cache_key
+        )
+        self.assertTrue(output.is_dir())
+        stage_parent = output.parent
+        self.assertTrue(any(path.name.startswith(".remotion-") for path in stage_parent.iterdir()))
+
+        # The complete atomic cache is deliberately retained for a later
+        # integrity-validated cache hit; the surfaced cleanup error prevents
+        # this invocation from claiming success while the transient stage is
+        # still present.
+        first_patch, second_patch = self._patch_worker()
+        with first_patch, second_patch:
+            retry = self._generate()
+        self.assertTrue(retry["cache_hit"])
+        self.assertEqual(1, self.node_calls)
+
+    def test_render_environment_is_exactly_contained_and_scrubs_aliases(self) -> None:
+        work = self.workspace / "render-environment"
+        scratch = work / "scratch"
+        scratch.mkdir(parents=True)
+        values = {
+            "PATH": os.environ.get("PATH", ""),
+            "SystemRoot": os.environ.get("SystemRoot", "C:\\Windows"),
+            "Temp": "C:\\unsafe-temp",
+            "tmp": "C:\\unsafe-tmp",
+            "TMPDIR": "C:\\unsafe-tmpdir",
+        }
+        with mock.patch.dict(os.environ, values, clear=True):
+            environment = _render_environment(scratch, work)
+        temp_entries = {
+            key: value
+            for key, value in environment.items()
+            if key.casefold() in {"temp", "tmp", "tmpdir"}
+        }
+        self.assertEqual(
+            {"TEMP": str(scratch), "TMP": str(scratch), "TMPDIR": str(scratch)},
+            temp_entries,
+        )
+
+        outside = self.workspace / "outside-scratch"
+        outside.mkdir()
+        with self.assertRaises(RemotionTimelineError):
+            _render_environment(outside, work)
+
+    @unittest.skipUnless(shutil.which("node"), "Node.js is required")
+    def test_node_renderer_rejects_uncontained_or_unattested_scratch_before_bundle(self) -> None:
+        repository = Path(__file__).resolve().parents[1]
+        node = str(Path(shutil.which("node") or "").resolve())
+        render_script = repository / "tools" / "studio" / "remotion_render.mjs"
+        browser_lookup = subprocess.run(
+            [
+                node,
+                "-e",
+                "process.stdout.write(require('./studio/node_modules/playwright').chromium.executablePath())",
+            ],
+            cwd=repository,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+            check=False,
+        )
+        if browser_lookup.returncode != 0:
+            self.skipTest("Pinned Playwright Chromium is unavailable")
+        browser = Path(browser_lookup.stdout).resolve()
+        if not browser.is_file():
+            self.skipTest("Pinned Playwright Chromium is unavailable")
+
+        base_environment = {
+            key: value
+            for key, value in os.environ.items()
+            if key.casefold() not in {"temp", "tmp", "tmpdir"}
+        }
+        cases = (
+            ("missing", "scratch environment is invalid"),
+            ("mismatch", "scratch environment is invalid"),
+            ("external", "request paths do not match"),
+            ("nonempty", "scratch directory is invalid"),
+            ("symlink", "scratch directory is invalid"),
+        )
+        executed = 0
+        for label, expected_error in cases:
+            with self.subTest(label=label):
+                work = self.workspace / f"node-scratch-{label}"
+                public = work / "public"
+                scratch = work / "scratch"
+                outside = self.workspace / f"node-scratch-{label}-outside"
+                public.mkdir(parents=True)
+                scratch.mkdir()
+                outside.mkdir()
+                (public / "clip-00.mp4").write_bytes(b"registered-source")
+                if label == "nonempty":
+                    (scratch / "unexpected.tmp").write_bytes(b"x")
+                if label == "symlink":
+                    scratch.rmdir()
+                    try:
+                        scratch.symlink_to(outside, target_is_directory=True)
+                    except OSError:
+                        continue
+                request = {
+                    "schema_version": 1,
+                    "composition_id": COMPOSITION_ID,
+                    "entry_point": str(repository / "studio" / "src" / "remotion" / "entry.tsx"),
+                    "public_dir": str(public),
+                    "browser_executable": str(browser),
+                    "output_path": str(work / "remotion-raw.mp4"),
+                    "scratch_directory": str(outside if label == "external" else scratch),
+                    "input_props": {
+                        "schemaVersion": 1,
+                        "width": 1080,
+                        "height": 1920,
+                        "fps": 24,
+                        "durationInFrames": 2,
+                        "clips": [
+                            {
+                                "src": "clip-00.mp4",
+                                "startMs": 0,
+                                "endMs": 100,
+                                "trimBeforeFrame": 0,
+                                "trimAfterFrame": 2,
+                                "durationInFrames": 2,
+                                "volumePercent": 0,
+                                "transitionToNext": None,
+                                "overlay": None,
+                            }
+                        ],
+                    },
+                }
+                request_path = work / "render-request.json"
+                result_path = work / "render-result.json"
+                request_path.write_text(json.dumps(request), encoding="utf-8")
+                environment = {
+                    **base_environment,
+                    "TEMP": str(scratch),
+                    "TMP": str(scratch),
+                    "TMPDIR": str(scratch),
+                }
+                if label == "missing":
+                    environment.pop("TMPDIR")
+                elif label == "mismatch":
+                    environment["TMPDIR"] = str(outside)
+                completed = subprocess.run(
+                    [node, str(render_script), str(request_path), str(result_path)],
+                    cwd=work,
+                    env=environment,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=30,
+                    check=False,
+                )
+                executed += 1
+                self.assertNotEqual(0, completed.returncode)
+                self.assertIn(expected_error, completed.stderr)
+                self.assertFalse((work / "bundle").exists())
+                self.assertFalse(result_path.exists())
+        self.assertGreaterEqual(executed, 4)
 
     def test_tampered_report_is_discarded_and_regenerated(self) -> None:
         first_patch, second_patch = self._patch_worker()

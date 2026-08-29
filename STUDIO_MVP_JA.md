@@ -42,20 +42,20 @@ MiniMaxH3 Studioは、制作案件、ログ、中間成果物、費用、承認�
 - 中断した`local_pipeline`は、DPAPI保護した正規化requestと成功済みvideo checkpointを使って同じRunへ新topを一件だけ自動投入する。checkpoint付きvideo stageは検証済みcache専用で、新しいComfyUI生成へfallbackしない。
 - 同じproductionの登録済み動画を1〜32カット選び、順序変更、複製、開始／終了ミリ秒の指定からハードカットpreviewを明示実行する。
 - timeline previewを1080×1920、24fps、H.264／yuv420p、video-only MP4へ固定し、`timeline-preview.mp4`、`timeline.json`、`ffprobe.json`、`manifest.json`を生成する。
-- ハードカットを残したまま`Remotion詳細preview`を選び、登録済み動画1〜16カット、最大60秒のschema v1 recipeへtrim、素材音量0〜100%、50〜2,000msのfade、固定`shorts_ja_large_v1`テロップを設定する。
-- UIの`@remotion/player`とbackend rendererで同じtracked compositionを使い、1080×1920／24fpsの`remotion-preview.mp4`、recipe、render report、ffprobe、manifestの固定5成果物を生成する。
+- ハードカットを残したまま`Remotion詳細preview`を選び、登録済み動画1〜16カット、最大60秒のschema v1 recipeへtrim、素材音量0〜100%、50〜2,000msのfade、固定`shorts_ja_large_v1`テロップ、閉じた`preserve_v1 | h3_low_res_sharp_v1`映像補正presetを設定する。
+- UIの`@remotion/player`とbackend rendererで同じtracked compositionを使い、Source Fidelity v2のPNG中間frame／CRF 16で1080×1920／24fpsの`remotion-preview.mp4`、recipe、render report、ffprobe、manifestの固定5成果物を生成する。Playerは固定FFmpeg前処理を再現しないため、鮮明化は完成artifactで確認する。
 - `詳細一括`タブから、登録済み動画1〜16件とナレーション台本を一度だけ確定し、Windows SAPI→Remotion詳細timeline→assembly→technical QCを一つのimmutableな0円`local_sapi` Runで実行する。
 - 詳細一括topはpipeline lane、Remotion childはbrowser lane、SAPI／assembly／QC childはdefault laneを使う。UIはtop jobを2秒pollingし、4 childのjob／attempt、cache hit、完成master、QC verdictを表示する。
 - SQLite schema v7の`detailed_test_video_claims`で同一production／content-addressed requestを一つのRunとactive topへ集約し、failed／interrupted後は同じRunへ新しいtop jobを追加する。成功topの再利用前にはchild lineageと成果物bytes／SHA-256を再検証する。
 - `shorts_ja_large_v1`字幕を選んだ詳細一括では、segment数、表示幅、長いASCII token、不可視／双方向制御文字をqueue前に固定policyで検査する。
-- `告知動画`タブでHOOK／MESSAGE／CTAの3シーン、登録済み動画、trim、素材音量、大見出し、必須ナレーションを設定し、10〜20秒（推奨15秒）の固定テンプレートとして保存・複製・一括実行する。
+- `告知動画`タブでHOOK／MESSAGE／CTAの3シーン、登録済み動画、trim、素材音量、映像補正preset、大見出し、必須ナレーションを設定し、10〜20秒（推奨15秒）の固定テンプレートとして保存・複製・一括実行する。
 - 告知recipeは`expected_revision` CAS付きのimmutableなexact revisionとしてproduction eventへ追記し、clone元versionとDetailed Job／Runへのexecution linkを保持する。同じcompile結果はDetailed側でdedupeし、別recipeからの実行リンクは失わない。
 - 告知動画の実行中はJobを2秒間隔、production detailを初回とおおむね6秒間隔で取得する。応答が曖昧な場合は新しいexecution linkのexact Jobを照合し、なければ同じimmutable revisionを1回だけ冪等再送する。2回目も曖昧なら自動処理を止め、手動再照合だけを許可する。
 - 同じproductionの登録済み動画と、同じRunの成功済みナレーションattemptを選び、source audioを置換した`master-clean.mp4`をローカル生成する。
 - 任意で、SRTを制御タグ不能な固定style ASSへ変換し、`studio_default_v1`またはShorts向け大字幕`shorts_ja_large_v1`で`master-captioned.mp4`を追加生成する。
 - `ffprobe.json`と自己hash付き`manifest.json`へ入力hash、FFmpeg/ffprobeの実体・version・binary hash、音声方針、出力方針を記録する。
-- 同じRunの成功済みassembly attemptからcleanまたはcaptioned masterを選び、MP4 container、stream構成、H.264／yuv420p、AAC 48 kHz stereo、尺、full decode、全編無音をローカル検査する。
-- QC解析結果を`technical-qc.json`、`ffprobe.json`、自己hash付き`manifest.json`として保存し、解析完了とtechnical verdictのpass／failを分けて表示する。
+- 同じRunの成功済みassembly attemptからcleanまたはcaptioned masterを選び、MP4 container、stream構成、H.264／yuv420p、AAC 48 kHz stereo、尺、full decode、全編無音をローカル検査する。schema v2の固定`technical-qc-mp4-v2`ではIntegrated loudness -24.0〜-10.0 LUFS、true peak -1.0 dBFS以下、0.5秒以上の黒画面をhard checkとして追加する。
+- QC解析結果を`technical-qc.json`、`ffprobe.json`、自己hash付き`manifest.json`として保存し、解析完了とtechnical verdictのpass／failを分けて表示する。1.0秒以上の長い静止区間は`media_facts.long_static.warning=true`のadvisoryとして保存し、technical verdictには影響させない。
 - stage attemptと実行jobの永続リンク、queued/running/succeeded/failed、所要時間、cache hit、provider、task ID、実費、timing source、成果物hashをUIと監査記録で追跡する。
 - 同一入力の成功cacheをhash検証後に再利用し、改変・欠落時は再生成する。
 - `test-video` CLIから、索引更新、0円Run作成、narration、1カットtimeline、assembly、technical QCを順番に実行し、完成MP4と監査識別子を1つのJSONで受け取る。
@@ -64,7 +64,7 @@ MVPが行わないこと:
 
 - ElevenLabs以外の外部有料provider、MiniMax外部APIの実行
 - Windowsデスクトップ／ネイティブアプリ、system audio、microphone、外部Webサイト、既存ログインsessionの収録
-- 複数audio track、任意transition／effect、free-form CSS／font／React component、keyframe、任意resolution／fpsを含む汎用タイムライン編集
+- 複数audio track、任意transition／effect、free-form CSS／font／React component、keyframe、任意映像filter／鮮明化強度、任意resolution／fpsを含む汎用タイムライン編集
 - 詳細一括からのH3／ComfyUI生成、外部provider呼出し、任意path／URL／gain指定
 - 告知動画v1でのBGM、ロゴ画像、任意renderer／CSS／React component、任意のシーン構成、ナレーションなし実行
 - ブラウザから任意ローカルpathを読むこと
@@ -81,7 +81,7 @@ MVPが行わないこと:
 
 画面上の基本操作は次のとおりです。
 
-1. HOOK、MESSAGE、CTAの順に、動画artifact、開始／終了、素材音量、大見出し、ナレーションを入力する。
+1. HOOK、MESSAGE、CTAの順に、動画artifact、開始／終了、素材音量、映像補正preset、大見出し、ナレーションを入力する。
 2. 必要に応じてSAPI voice、読み上げ速度、発音置換、焼き込み字幕、音声mix、QC対象variantを設定する。
 3. `保存`でexact revisionを残す。保存済みrevisionを元のまま残して試案を作る場合は`複製して編集`を使う。
 4. 消音の3シーンpreviewで素材、trim、fade、大見出しを確認する。
@@ -110,6 +110,7 @@ recipeのpublic schema v1は余分なfieldを拒否します。外形は次の�
       "start_ms": 0,
       "end_ms": 5000,
       "volume_percent": 0,
+      "visual_preset": "preserve_v1",
       "headline": "その情報、\n届いていますか？",
       "narration": "十五秒で、しっかり伝える。"
     },
@@ -119,6 +120,7 @@ recipeのpublic schema v1は余分なfieldを拒否します。外形は次の�
       "start_ms": 0,
       "end_ms": 5000,
       "volume_percent": 0,
+      "visual_preset": "h3_low_res_sharp_v1",
       "headline": "大切なことを\nひと目で",
       "narration": "大切な情報を、ひと目で。"
     },
@@ -128,6 +130,7 @@ recipeのpublic schema v1は余分なfieldを拒否します。外形は次の�
       "start_ms": 0,
       "end_ms": 5000,
       "volume_percent": 0,
+      "visual_preset": "preserve_v1",
       "headline": "詳しくは\nプロフィールへ",
       "narration": "続きはプロフィールから。"
     }
@@ -142,7 +145,7 @@ recipeのpublic schema v1は余分なfieldを拒否します。外形は次の�
 }
 ```
 
-sceneは`hook`、`message`、`cta`の3件をこの順序で必須とし、各trimは1〜10秒です。2つの250ms fadeを差し引いた完成尺を10〜20秒に制限し、UIは15秒を推奨します。compile時は最初の2 clipへ固定250ms fadeを入れ、大見出しを各trimの125ms後から終了125ms前まで表示します。位置はHOOK=`center`、MESSAGE=`top`、CTA=`center`、styleは`shorts_ja_large_v1`固定です。見出しは1〜2行、各行20表示単位以内、連続ASCII token 20文字以内で、不可視／bidi制御文字を拒否します。各ナレーションは空でない1行、最大200文字で、3件のSAPI segmentになります。
+sceneは`hook`、`message`、`cta`の3件をこの順序で必須とし、各trimは1〜10秒です。2つの250ms fadeを差し引いた完成尺を10〜20秒に制限し、UIは15秒を推奨します。compile時は最初の2 clipへ固定250ms fadeを入れ、大見出しを各trimの125ms後から終了125ms前まで表示します。位置はHOOK=`center`、MESSAGE=`top`、CTA=`center`、styleは`shorts_ja_large_v1`固定です。各sceneの`visual_preset`は`preserve_v1`または`h3_low_res_sharp_v1`だけで、省略した旧recipeは`preserve_v1`として読み続けられます。見出しは1〜2行、各行20表示単位以内、連続ASCII token 20文字以内で、不可視／bidi制御文字を拒否します。各ナレーションは空でない1行、最大200文字で、3件のSAPI segmentになります。
 
 新規フォームの既定trimは5,167ms／5,167ms／5,166msです。合計15,500msから250msのfade overlapを2回差し引き、24fpsのRemotion出力を360 frame、15.000秒にします。素材がこれより短い場合は判明しているsource尺までに抑え、保存・実行時のbackend検証を正本とします。
 
@@ -165,7 +168,7 @@ UIは実行中のJob一覧を2秒間隔で取得し、production detailは最初
 
 `詳細一括`タブは、すでに同じproductionへ登録されている動画を、ナレーション、詳細カット編集、音声・字幕合成、technical QCまで仕上げる入口です。HTTP境界は`POST /api/productions/{production_id}/execute-detailed-test-video`です。新しいH3映像は生成せず、既存の手動ナレーション／timeline／assembly／QC APIと`local_pipeline`も変更しません。
 
-public bodyは次のsnake_case schema v1だけを受け付け、余分なfieldを拒否します。`schema_version`、`clips`、`segments`、`include_captioned`、`caption_style_preset`、`audio_mix_preset`、`variant`は必須、`voice`、`rate`、`pronunciations`は任意です。省略時はSAPIの既定voice、`rate=0`、発音置換なしへ正規化されます。各clipも6 fieldをすべて持ち、transitionとoverlayを使わない場合は`null`を明示します。
+public bodyは次のsnake_case schema v1だけを受け付け、余分なfieldを拒否します。`schema_version`、`clips`、`segments`、`include_captioned`、`caption_style_preset`、`audio_mix_preset`、`variant`は必須、`voice`、`rate`、`pronunciations`は任意です。省略時はSAPIの既定voice、`rate=0`、発音置換なしへ正規化されます。各clipは従来の6 fieldをすべて持ち、任意の`visual_preset`を追加できます。transitionとoverlayを使わない場合は`null`を明示し、visual presetを省略した既存payloadは`preserve_v1`へ正規化します。
 
 ```json
 {
@@ -176,6 +179,7 @@ public bodyは次のsnake_case schema v1だけを受け付け、余分なfield�
       "start_ms": 0,
       "end_ms": 5000,
       "volume_percent": 100,
+      "visual_preset": "h3_low_res_sharp_v1",
       "transition_to_next": null,
       "overlay": {
         "text": "CLAUDE.md",
@@ -197,7 +201,7 @@ public bodyは次のsnake_case schema v1だけを受け付け、余分なfield�
 }
 ```
 
-`clips`はRemotion schema v1と同じ登録済みartifact ID、trim、0〜100%の素材音量、任意の固定fade、任意の固定テロップだけを許します。動画は1〜16件、合成後最大60秒です。最後のclipの`transition_to_next`は`null`で、fadeは隣接clipより短くします。overlayは`text`、`start_ms`、`end_ms`、`position=top | center | bottom`、`style_preset=shorts_ja_large_v1`だけです。path、URL、renderer props、CSS、font、React component、FFmpeg filterはrequestに存在しません。
+`clips`はRemotion schema v1と同じ登録済みartifact ID、trim、0〜100%の素材音量、任意の固定fade、任意の固定テロップ、任意の閉じた`visual_preset`だけを許します。動画は1〜16件、合成後最大60秒です。最後のclipの`transition_to_next`は`null`で、fadeは隣接clipより短くします。overlayは`text`、`start_ms`、`end_ms`、`position=top | center | bottom`、`style_preset=shorts_ja_large_v1`だけです。`h3_low_res_sharp_v1`は幅1080未満・高さ1920未満、両辺64px以上、幅÷高さ0.50〜0.625、cover拡大後300万画素以下の低解像度縦長素材専用で、その他の素材にはFFmpeg起動前にfail closedです。path、URL、renderer props、CSS、font、React component、FFmpeg filterや鮮明化強度はrequestに存在しません。
 
 `include_captioned=true`かつ`caption_style_preset=shorts_ja_large_v1`では、固定`shorts_ja_large_preflight_v1`をqueue前に適用します。segmentは1〜6件、各textは表示幅38単位以内です。ASCIIと半角カナは1単位、それ以外は2単位で数え、連続ASCII tokenは20文字以内とします。zero-width／bidi isolate・override／BOMなどの不可視・双方向制御文字も拒否します。これは固定大字幕に対する保守的なcontractで、任意の自動縮小、自由な改行、font差し替えは行いません。標準字幕では既存`studio_default_v1` contractを使います。`variant=captioned`には`include_captioned=true`が必要で、字幕を作らない場合は`variant=clean`と`caption_style_preset=studio_default_v1`を指定します。
 
@@ -285,6 +289,23 @@ prompt本文はproviderへ提出したexact graphを保全する`workflow.json`�
 
 Playwrightは毎回freshなChromium contextを使い、ページ音声を収録しません。生WebMを固定MP4へ変換してfull decodeとfresh ffprobeを行い、7成果物がすべて検証できた場合だけdirectory、job、attempt、artifact、eventを成功として確定します。screen captureだけのRunはnarration／assemblyを自動実行しません。`local_playwright` Runではtimelineを明示実行できますが、assembly／qcは影響工程として計画に残るだけで、このprofileからは実行しません。
 
+### Windowsネイティブ収録のcapability foundation
+
+Windowsデスクトップとsystem audioの実収録はまだ未実装です。先行する安全な基盤として、`setup-studio.ps1`は外部NuGet packageを持たない`native/windows-capture-helper`を`net8.0-windows` Release DLLへbuildします。`画面収録`タブの「収録せずに環境を確認」は、session保護された次のendpointへ厳密な空objectだけを送ります。
+
+```http
+POST /api/capabilities/windows-capture/inspect
+Content-Type: application/json
+
+{}
+```
+
+backendは固定DLLを`dotnet ... doctor --json`でshellなし・stdinなし・10秒／64KiB上限付きで起動します。helperは`IMMDeviceEnumerator::GetDefaultAudioEndpoint(eRender, eConsole)`で既定の再生endpointを取得し、共有modeの`IAudioClient`をloopback flagで初期化できるかだけを検査します。`IAudioClient.Start`やbuffer取得は呼ばず、device ID／device name／マイクを列挙または返しません。併せて固定FFmpegのdevice一覧から`gdigrab`だけを検査します。診断responseはtool hash、既知boolean、固定reason codeだけで、絶対path、生stderr、device情報を含みません。
+
+この操作はRun、Job、attempt、artifact、event、DB cacheを作らず、画面・音声sampleを取得、保存、送信しません。public responseは`capture_execution_enabled=false`、`actual_capture_performed=false`を固定し、UIもこのどちらかまたはhelperの`recording_started`がtrueなら結果表示をfail closedにします。2026-08-30の開発機では`gdigrab`と既定render loopback初期化がともに利用可能でしたが、これは実収録の成功を意味しません。
+
+将来の実収録requestは既に別のvalidatorで、`schema_version=1`、`target=primary_display`、`audio_mode=default_render_loopback`、`cursor_mode=hidden`、1,000〜30,000ms、画面とsystem audioの別々のliteral `true`確認だけへ閉じています。path、HWND、window title、device ID、マイク、任意FFmpeg引数は受け付けません。ただし実行service／HTTP route／profileは意図的に接続していないため、このvalidatorだけで収録は開始できません。
+
 カット編集のHTTP境界は`POST /api/runs/{run_id}/execute-local-timeline`です。bodyは次の形だけを受け付け、pathやFFmpeg設定は受け付けません。
 
 ```json
@@ -297,7 +318,7 @@ Playwrightは毎回freshなChromium contextを使い、ページ音声を収録�
 
 ## Remotion詳細timeline
 
-既存の`高速ハードカット`はそのまま利用できます。fade、素材音量、固定テロップを確認するときだけ、カット編集画面で`Remotion詳細preview`を選びます。`timeline`をrequested stageに含む`local_sapi`、`local_comfyui`、`local_playwright` Runが対象です。画面上で登録済み動画を追加し、trim、順番、音量、fade、テロップを設定すると、`@remotion/player`がbackend renderと同じtracked compositionでbrowser previewを表示します。preview確認だけではrender jobを開始せず、`Remotion詳細previewをレンダー`を押したときに明示実行します。
+既存の`高速ハードカット`はそのまま利用できます。fade、素材音量、固定テロップ、映像補正を確認するときだけ、カット編集画面で`Remotion詳細preview`を選びます。`timeline`をrequested stageに含む`local_sapi`、`local_comfyui`、`local_playwright` Runが対象です。画面上で登録済み動画を追加し、trim、順番、音量、fade、テロップ、カットごとの映像補正presetを設定すると、`@remotion/player`がbackend renderと同じtracked compositionでbrowser previewを表示します。ただしPlayerは原素材を直接表示し、renderer前の固定FFmpeg鮮明化を再現しません。preview確認だけではrender jobを開始せず、`Remotion詳細previewをレンダー`を押したときに明示実行します。`h3_low_res_sharp_v1`の効果は完成artifactで確認してください。
 
 HTTP境界は`POST /api/runs/{run_id}/execute-remotion-timeline`です。jobの`kind`とstage attemptの`provider`は`local_remotion_timeline`、stageは既存と同じ`timeline`です。bodyはschema v1の次のfieldだけを受け付けます。
 
@@ -310,6 +331,7 @@ HTTP境界は`POST /api/runs/{run_id}/execute-remotion-timeline`です。jobの`
       "start_ms": 0,
       "end_ms": 5000,
       "volume_percent": 100,
+      "visual_preset": "h3_low_res_sharp_v1",
       "transition_to_next": {"type": "fade", "duration_ms": 500},
       "overlay": {
         "text": "生成AIを、もっと身近に。",
@@ -324,6 +346,7 @@ HTTP境界は`POST /api/runs/{run_id}/execute-remotion-timeline`です。jobの`
       "start_ms": 0,
       "end_ms": 4000,
       "volume_percent": 80,
+      "visual_preset": "preserve_v1",
       "transition_to_next": null,
       "overlay": null
     }
@@ -331,9 +354,15 @@ HTTP境界は`POST /api/runs/{run_id}/execute-remotion-timeline`です。jobの`
 }
 ```
 
-制約は登録済み動画1〜16件、各clip 50ms以上、完成尺最大60,000ms、素材音量0〜100%、fade 50〜2,000msです。fadeは隣接する両clipより短くし、最後のclipには指定できません。テロップはclipごとに0または1件、50ms以上、trim後clip内、最大200文字／4行です。位置は`top`／`center`／`bottom`、styleは`shorts_ja_large_v1`だけです。任意path、URL、React component、CSS、font、browser flag、environment variable、free-form Remotion propsは指定できません。
+制約は登録済み動画1〜16件、各clip 50ms以上、完成尺最大60,000ms、素材音量0〜100%、fade 50〜2,000msです。fadeは隣接する両clipより短くし、最後のclipには指定できません。テロップはclipごとに0または1件、50ms以上、trim後clip内、最大200文字／4行です。位置は`top`／`center`／`bottom`、styleは`shorts_ja_large_v1`だけです。`visual_preset`は互換既定`preserve_v1`または`h3_low_res_sharp_v1`だけで、省略した旧payloadは`preserve_v1`として読めます。任意path、URL、React component、CSS、font、browser flag、environment variable、free-form Remotion props、映像filter、鮮明化強度、CRFは指定できません。
 
-renderは画面収録と同じbrowser FIFO laneに入り、setup済みPlaywright Chromiumを再利用してconcurrency 1で動きます。出力は1080×1920／24fps、H.264／yuv420p、AAC 48kHz stereoへ固定し、`remotion-preview.mp4`、`remotion-timeline.json`、`render-report.json`、`ffprobe.json`、`manifest.json`の5成果物を`outputs/studio/runs/<run>/remotion_timeline/<cache>/`へ保存します。入力をprivate stagingへcopyしてhashをrender前後に検査し、full decode、fresh ffprobe、manifest自己hash、exact artifact集合を満たした後だけdirectoryをatomic publishし、job／attempt／artifactをatomic登録します。同じschema、recipe、入力hash、composition、script、package、browser、FFmpeg／ffprobe identityの成功cacheだけを再利用します。
+`h3_low_res_sharp_v1`は、幅1080未満・高さ1920未満、両辺64px以上、幅÷高さ0.50〜0.625、Lanczos `cover`で算出した拡大後300万画素以下の低解像度縦長素材だけに使えます。workerはこの上限をFFmpeg起動前に検証し、Remotionへ渡す前にそのclipの必要frame区間を24fpsのframe境界で切り出します。その後、Lanczos `cover`で1080×1920へ拡大・中央cropし、輝度へだけ固定5×5／0.25のunsharpを適用します。色差の鮮明化量は0です。テロップはこの後にcompositionで描くため、文字をunsharpに巻き込みません。`preserve_v1`は従来どおり原素材をprivate stagingへcopyします。鮮明化は存在しない細部を再生成する超解像ではなく、拡大時の見かけの甘さを弱く補うだけです。
+
+renderは画面収録と同じbrowser FIFO laneに入り、setup済みPlaywright Chromiumを再利用してconcurrency 1で動きます。Source Fidelity v2ではRemotionの中間frameをPNG、H.264をCRF 16／x264 mediumへ固定します。出力は1080×1920／24fps、H.264／yuv420p、AAC 48kHz stereoで、`remotion-preview.mp4`、`remotion-timeline.json`、`render-report.json`、`ffprobe.json`、`manifest.json`の5成果物を`outputs/studio/runs/<run>/remotion_timeline/<cache>/`へ保存します。入力をprivate stagingへcopyまたは固定前処理し、元素材hashを前後に検査して、full decode、fresh ffprobe、manifest自己hash、exact artifact集合を満たした後だけdirectoryをatomic publishし、job／attempt／artifactをatomic登録します。cache keyと監査summaryにはSource Fidelity v2の出力policyと各clipのpresetを、render reportとmanifestには固定前処理policyと実際の適用計画・結果も含め、旧policyのcacheを再利用しません。同じschema、recipe、入力hash、composition、script、package、browser、FFmpeg／ffprobe identityの成功cacheだけを再利用します。
+
+固定出力policy IDは`remotion-source-fidelity-v2`、固定前処理policy IDは`lanczos-cover-luma-unsharp-v1`です。presetと固定policyはcache、監査summary、render report、manifestへ、各clipの適用計画・結果はrender reportとmanifestへ記録します。
+
+`h3_low_res_sharp_v1`は追加のFFmpeg pre-trim／encodeを行うため、`preserve_v1`よりCPU時間、処理時間、一時storage I/Oが増えます。特に複数clipへ指定した場合は順に前処理します。効き具合と追加時間を完成artifact／render reportで確認し、補正が不要なカットは`preserve_v1`を選んでください。
 
 `setup-studio.ps1`は`npm ci`後、Remotion 5 packageとPlaywrightから辿れる実`node_modules` dependency closureを検査し、通常fileのbytes／SHA-256を集約したattestationをignored `studio/node_modules/`へ生成します。通常dependencyに加え、installed optional dependencyとpeer dependencyも対象です。symlink／junction相当の解決先変更／special fileは拒否します。doctorとworker開始時にinstalled treeを再計算し、pathを含まないclosure digestとpackage・file・bytes数をcache tool identityへ含め、render終了後にも再照合します。不一致時は成果物をpublishせず、setupの再実行を求めます。
 
@@ -342,6 +371,8 @@ renderは画面収録と同じbrowser FIFO laneに入り、setup済みPlaywright
 重要: `volume_percent`はRemotion詳細preview内の素材音声へ反映します。assemblyでは閉じた`audio_mix_preset`を選びます。互換既定`narration_only_v1`はsource audioを選択ナレーションへ置換します。`source_under_narration_v1`はpreviewへ焼き込まれた音声をさらに25%へ下げ、ナレーション100%と混ぜて固定peak limiterを通します。後者はsource audioがちょうど1 streamあり、素材音声とナレーションがそれぞれ非無音である場合だけ実行し、欠落／全編無音は自動代替せずfail closedです。任意gain、BGM、sidechain duckingは現在の境界外です。
 
 queue投入と直後のDB補償が連続失敗した場合も、background coordinatorは当該JobManagerが記録したexact top IDだけを次scanで補償し、DPAPI保護済み入力から同じRunを再開します。投入後例外でworkerが実際にdequeueした場合はcontextと未完了eventをworkerへ残し、cancel／shutdownから見失いません。利用者cancelが補償と競合した場合は、active topまたはexactなterminal／`ready`世代を`cancelled`へ閉じ、暗号文を消去して自動再開をfenceします。明示cancel intentはshutdownよりstickyで、DB確定までexact job IDをworker contextとは別にprocess内保持します。caller／worker双方のDB書込みが一時失敗してworkerが退役した後も、coordinatorが保留IDを公平なbounded batchで再試行し、その間は全`ready`世代の投入を安全側で停止します。ready一覧取得後も新topのDB CAS直前にJobManager lock内でfenceを再確認します。終了中に新しい明示cancelが到着した場合は当該closeを未完了にして次writerへ渡し、DBへ永続化できるまでworkspace lockを保持します。shutdown完了は同じlock内で確定し、その後の新規破棄要求は拒否します。shutdownの継続意図ではこの破棄経路に入りません。内部childのtimeout/errorは利用者cancelとは分離し、child workerを退役させてからtopをfailureへ確定します。
+
+PNG中間frameを非並列encodeするため、必要な一時diskは尺に比例します。workerは開始前に「`duration_in_frames × 1080 × 1920 × 4 × 1.25`＋raw出力2GiB＋正規化出力2GiB＋安全余白1GiB」へ、`preserve_v1`の実source bytesまたはsharpカットごとの最大2GiBを足して検査します。source staging後は実staged bytesを計測し、残容量をframe／出力／余白分に対して再検査します。いずれかが不足すれば`insufficient_scratch_space`でNode起動前に停止します。Remotion／Chromiumの`TEMP`／`TMP`／`TMPDIR`はatomic stageの`work/scratch`へ固定し、Node自身も3値、実効tmp、空directory、symlinkなしをbundling前にattestします。stageは成功、失敗、cancelの全終了経路で再帰削除します。Windowsの一時lockにはread-only属性解除と0.15／0.30／0.60秒のbounded retryを行い、それでも残る場合は`remotion_stage_cleanup_failed`で失敗を公開します。`render-report.json`と`manifest.json`には`png-frame-scratch-v1`、実staged bytes、両検査の必要／空きbytes／判定、Node attestationを記録します。
 
 ## セットアップと起動
 
@@ -485,7 +516,7 @@ MVPは変更種別から`requested_stages`と再利用工程を計画します�
 
 ローカルPlaywright画面収録は正規化timing／actionsと、URL／selectorのhash、固定network policy、Node／Playwright／Chromium／worker script／FFmpeg／ffprobeの実体hash、固定出力policyにrequestごとのnonceを加えてcapture keyを作ります。ページ内容が同一である保証はないため、並行requestや過去の成功captureをcontent cacheとして再利用しません。成功時とartifact restore時は7成果物のexact集合、manifest自己hash、各file bytes／SHA-256、MP4のfresh ffprobeとfull decodeを再検証します。
 
-ローカルFFmpeg timelineは順序付きartifact ID、trim、入力bytes／SHA-256、固定出力policy、解決済みFFmpeg／ffprobeの実体versionとbinary SHA-256からcache keyを作り、同じproduction内の成功attempt chainと4成果物を再検証します。Remotion詳細timelineはschema v1 recipe、入力bytes／SHA-256、固定出力policy、tracked composition／model／render script、Remotion package、Playwright Chromium、Node、FFmpeg／ffprobeのidentityからcache keyを作り、exact 5成果物、manifest自己hash、full decode、fresh ffprobeを再検証します。ローカルassemblyはsource動画、WAV、SRT、字幕preset、字幕有無、閉じた音声mix preset、音声・出力方針、FFmpeg/ffprobeの実体versionとbinary SHA-256からcache keyを作り、manifest自己hash、登録済みartifact、実fileを再検証します。ローカルQCはassembly attempt、選択variant、masterのhash／bytes、期待尺、QC policy、FFmpeg/ffprobeの実体identityからcache keyを作ります。cache再利用時も対象mediaと成果物を再検証します。字幕または音声mixだけを変更した場合は映像、timeline、ナレーションを再利用し、合成とQCだけを新runで実行できる土台です。
+ローカルFFmpeg timelineは順序付きartifact ID、trim、入力bytes／SHA-256、固定出力policy、解決済みFFmpeg／ffprobeの実体versionとbinary SHA-256からcache keyを作り、同じproduction内の成功attempt chainと4成果物を再検証します。Remotion詳細timelineはschema v1 recipe、入力bytes／SHA-256、Source Fidelity v2の固定出力policy（visual preset、Lanczos／luma-only unsharp policy、PNG中間frame、CRF 16を含む）、tracked composition／model／render script、Remotion package、Playwright Chromium、Node、FFmpeg／ffprobeのidentityからcache keyを作り、exact 5成果物、manifest自己hash、full decode、fresh ffprobeを再検証します。前処理policyは監査summary、render report、manifestにも記録し、旧policyのcacheと分離します。ローカルassemblyはsource動画、WAV、SRT、字幕preset、字幕有無、閉じた音声mix preset、音声・出力方針、FFmpeg/ffprobeの実体versionとbinary SHA-256からcache keyを作り、manifest自己hash、登録済みartifact、実fileを再検証します。ローカルQCはassembly attempt、選択variant、masterのhash／bytes、期待尺、QC policy、FFmpeg/ffprobeの実体identityからcache keyを作ります。cache再利用時も対象mediaと成果物を再検証します。字幕または音声mixだけを変更した場合は映像、timeline、ナレーションを再利用し、合成とQCだけを新runで実行できる土台です。
 
 `local_pipeline`は全入力のcanonical keyをschema v7 DB claimへ束ね、同一production・同一入力のRun/top jobを再利用します。正規化requestはDPAPI暗号文だけを保持し、動画成功時はsource job/attemptをcheckpointします。shutdown／crash後にproviderまたはcheckpointが成功済みなら`ready`へ移し、単一coordinatorが同じRunへ新topをCASで一件だけ投入します。checkpoint付きvideo childは指定sourceを含むcache chainと物理artifactを検証し、再生成へfallbackしません。親cancelはchild job/processのjoinを待ち、後からproviderが成功してもclaimを`cancelled`へ閉じます。各local stage、provider terminal／video checkpoint、top terminal／claimは対応するatomic transactionで確定し、UIはstage lineage、continuation state、最終master／QCを再読込できます。
 
@@ -530,8 +561,8 @@ Studioでは次を別々に扱います。
 - narration workerは文字列をPowerShell commandへ展開せず、run配下の専用一時directoryにUTF-8 JSONとして渡します。一時fileは同じWindowsユーザー／workspace ACLを信頼境界とし、処理後に削除します。SAPI preflightと合成PowerShellはどちらもjobのprocess registryへ登録し、preflightは100ms周期でcancelを確認します。tracked helperだけを起動し、戻り値はprovider、task ID、実費、cache key、exact artifact path/name/kind/MIME/bytes/SHA-256のallowlistで検証してから登録します。
 - timeline requestは`clips`だけ、その各要素は`video_artifact_id`、integerの`start_ms`、`end_ms`だけを受け付けます。1〜32カット、各50ms以上、合計30分以内、各source 2 GiB以下、入力合計4 GiB以下に制限し、同じproductionの登録済み・available・video artifactだけをhash再検証します。任意path、transition、filter、codec、FFmpeg optionは受け付けません。
 - timeline workerは入力を専用一時directoryの`clip-00.mp4`形式へ固定名copyして整合性を再検証し、`shell=False`、bounded stdout/stderr、cancel可能なFFmpeg／ffprobeだけを実行します。出力は1080×1920、24fps、H.264／yuv420p、video-only、ハードカットへ固定します。累積時間から各カットのframe予算を決め、その枚数だけを連結するframe-budget v2により、短いカットでも境界frameの重複と最後のカット欠落を防ぎます。4成果物をatomic publishし、cache hitでもexact artifact集合、manifest自己hash、実file hash、fresh ffprobeを再検証します。
-- Remotion詳細timeline requestは`schema_version=1`と`clips`だけを受け、各clipのfieldを登録済みartifact ID、integer trim、0〜100の音量、nullableなfade、nullableな固定テロップへ閉じます。1〜16カット／最大60秒、fade 50〜2,000ms、テロップ最大200文字／4行、位置3種、`shorts_ja_large_v1`だけを許可します。任意path／URL、code、CSS、font、browser／environment option、free-form propsを受け付けません。
-- Remotion workerは入力をprivate stagingへ固定名copyし、bytes／SHA-256をrender前後に確認します。exact `4.0.517` package、tracked composition／script、setup済みPlaywright Chromium、FFmpeg／ffprobeをtool identityへ含め、browser FIFO lane／render concurrency 1で実行します。1080×1920／24fps、H.264／yuv420p＋AAC 48kHz stereoの5成果物をfull decode／fresh ffprobe後にatomic publishし、DB登録失敗時は公開directoryと部分登録をcleanupします。
+- Remotion詳細timeline requestは`schema_version=1`と`clips`だけを受け、各clipのfieldを登録済みartifact ID、integer trim、0〜100の音量、nullableなfade、nullableな固定テロップ、任意の`visual_preset=preserve_v1 | h3_low_res_sharp_v1`へ閉じます。visual presetがない旧payload／詳細一括／告知recipeは`preserve_v1`へ正規化します。1〜16カット／最大60秒、fade 50〜2,000ms、テロップ最大200文字／4行、位置3種、`shorts_ja_large_v1`だけを許可します。任意path／URL、code、CSS、font、browser／environment option、free-form props、filter文字列、鮮明化強度、CRFを受け付けません。
+- Remotion workerは`preserve_v1`入力をprivate stagingへ固定名copyします。`h3_low_res_sharp_v1`は幅1080未満・高さ1920未満、両辺64px以上、幅÷高さ0.50〜0.625、cover拡大後300万画素以下の低解像度縦長sourceだけを許可し、条件外はFFmpeg起動前に拒否します。必要frameへ先にtrimしてから固定Lanczos cover 1080×1920、luma-only unsharp 5×5／0.25、chroma 0をテロップ前に適用します。双方で元素材bytes／SHA-256をrender前後に確認します。exact `4.0.517` package、tracked composition／script、setup済みPlaywright Chromium、FFmpeg／ffprobe、Source Fidelity v2 policyをtool/cache identityへ含め、browser FIFO lane／render concurrency 1、PNG中間frame、CRF 16で実行します。1080×1920／24fps、H.264／yuv420p＋AAC 48kHz stereoの5成果物をfull decode／fresh ffprobe後にatomic publishし、DB登録失敗時は公開directoryと部分登録をcleanupします。PlayerはFFmpeg前処理を再現せず、鮮明化は完成artifactで確認します。この処理は欠落detailを復元せず、CPU／時間／一時I/Oを追加消費します。
 - assembly workerは登録済みartifact IDからbackendが解決したworkspace内の通常fileだけを受け取り、`subprocess`を`shell=False`で起動します。SRTは厳密にparseし、ASCII brace/backslashを全角化した固定style ASSへ変換してoverride tagを無効化します。字幕styleは`studio_default_v1`または`shorts_ja_large_v1`の閉じたpresetだけを許し、raw ASS、font path、filter、任意styleを受け付けません。音声は`narration_only_v1`または`source_under_narration_v1`の閉じたpresetだけを許し、任意gain／filterを受け付けません。前者はsource audioを置換し、後者はsource 25%＋narration 100%を48kHz stereoへ揃えて固定limiterでmixします。mix時はsource audio 1 streamと両入力のpeakがそれぞれ−60 dBを超えることを独立検証します。短い音声だけを無音paddingし、映像より250msを超えて長いナレーションは暗黙にtrimせず拒否します。
 - assembly入力は2 GiBの動画、128 MiBのWAV、8 MiBのSRT、30分、最大16,384px／64メガpixelを上限とします。出力はH.264 / yuv420p / AAC / MP4へ固定し、source timingを再encode時に保持します。`master-clean.mp4`、任意の`master-captioned.mp4`、`ffprobe.json`、`manifest.json`を一時directoryからatomic publishします。
 - QC request bodyは`assembly_attempt_id`と`variant`だけを許可します。指定attempt自身は選択中Runの成功済みassemblyに限定します。content-addressed assembly cacheの実fileが同じproduction内の先行Runにある場合は、その`cache_source_attempt_id` chainを循環なしで終端まで辿り、全attemptのcache key、入力hash、artifact ID/path/bytes/SHA-256が一致したときだけ意図的なcross-run再利用として許可します。backendが対象artifactと期待尺を導出し、workspace内通常file、symlink不使用、bytes／SHA-256一致を検証してから、固定argv・`shell=False`のFFmpeg/ffprobeへ渡します。
@@ -587,15 +618,20 @@ Studioは個人用loopbackツールです。LANからの攻撃面を作らない
 
 Run契約修正後の再受入では、run `run_c0745a922f814b67b1c45f7fbac8fd80`が`requested_stages=[screen_capture,timeline]`、rerun planの`affected_stages=[screen_capture,timeline,assembly,qc]`を返すことを確認しました。同Runのjob `job_66c8ae62688044a59cb3ca0a14207aec`も2.000秒、1080×1920、24fps、H.264、video-onlyのMP4と7成果物を登録し、manifestに絶対pathを残していません。
 
+## Source Fidelity v2の15秒実レンダー検証
+
+2026-08-29に、既存H3実写系素材3本（各480×864）を各5,000ms、全カット`h3_low_res_sharp_v1`、日本語テロップ3件で合成する15秒の代表試験を最終コードで実施しました。実Remotion／Chromiumは360 frameを131.891秒で完走し、完成MP4は1080×1920／24fps、H.264 High／yuv420p＋AAC-LC 48kHz stereo、15.000秒、9,360,318 bytes、SHA-256 `C61E4376FE4F5F546BA360FC897DD65010CB2C76FF7C014BBBA3727C5D6ECC66`です。独立ffprobeとvideo／audio全decodeも成功しました。
+
+`png-frame-scratch-v1`は開始前に15,543,640,064 bytes必要／459,701,411,840 bytes空き、source staging後に9,101,189,120 bytes必要／459,691,950,080 bytes空きとして両方passし、実staged sourceは9,516,039 bytes、Nodeのscratch containment attestationも`true`でした。完了後は`.remotion-*` stageが0件、公開cacheが1件で、現行validatorによる5成果物の完全再検証も`cache_hit=true`で成功しました。成果物と監査文書は`outputs/studio/runs/run_source_fidelity_15s_v2/remotion_timeline/FC152CB19676FC698114F3B2AF8076FCD56C5933E508D4DCAC51B2D47FB2A018/`にあります。この結果は15秒の代表素材に対する証拠で、最大60秒の実レンダー完走を保証しません。60秒については1,440 frameのPNG reserve `14,929,920,000` bytesと、staging後必要量 `20,298,629,120` bytesの計算境界を自動テストしています。
+
 ## 次段階
 
-実装済み: Windows SAPI adapter、ElevenLabs Multilingual v2 `with-timestamps` adapter、文字alignmentからのsegment字幕、費用承認＋payload確認gate、成功cache＋曖昧送信marker、provider request ID／character cost／未確定USD欄、発音置換、固定公式INT8＋Q4 ComfyUI graph、閉じたruntime argv／model／live process照合、Windows model handle保護、GPU FIFO lane、pre-issued UUID、schema v7 provider task／pipeline continuation／detailed-test claim、DPAPI resume／pipeline request payload、Studio起動時の自動照合、新attempt追記、CAS重複防止、手動resume UI、復旧済み動画のcache-only自動継続、atomic `cancel_requested`＋GET-only targeted cancel再照合、provider／job／attempt／artifactの原子的確定、isolated Chromiumによるloopback Web収録、登録済み動画1〜32カットのtrim／並べ替え／ハードカットpreview、schema v1のRemotion詳細timeline、共通compositionのPlayer preview、fade／素材音量／固定テロップ、exact 5成果物、画面収録とRemotion renderを直列化するbrowser FIFO lane、FFmpeg clean／captioned master、`shorts_ja_large_v1`字幕preset、codec／stream／duration／full-decode／全編無音のローカルtechnical QC、ffprobe／manifest、stage attempt/cache。専用`local_pipeline` lane、6 requested／5 executed stage、DB-level Run/top-job dedupe、same-run failed／interrupted retry、parent-child cancellation wait、local stage artifactのatomic completion、Detailed Test Video v1のSAPI→Remotion→assembly→QC一括、固定字幕preflight、content dedupe、same-run retry、2秒UI監視、およびHOOK／MESSAGE／CTA告知recipeのCAS保存、immutable exact version、複製、Detailed compile、atomic execution link、fresh exact Job復旧と1回限定の同一revision冪等再送。HTTP／worker／SQLite writerのdrain成功時だけworkspace lockを解放する単一writer境界。
+実装済み: Windows SAPI adapter、ElevenLabs Multilingual v2 `with-timestamps` adapter、文字alignmentからのsegment字幕、費用承認＋payload確認gate、成功cache＋曖昧送信marker、provider request ID／character cost／未確定USD欄、発音置換、固定公式INT8＋Q4 ComfyUI graph、閉じたruntime argv／model／live process照合、Windows model handle保護、GPU FIFO lane、pre-issued UUID、schema v7 provider task／pipeline continuation／detailed-test claim、DPAPI resume／pipeline request payload、Studio起動時の自動照合、新attempt追記、CAS重複防止、手動resume UI、復旧済み動画のcache-only自動継続、atomic `cancel_requested`＋GET-only targeted cancel再照合、provider／job／attempt／artifactの原子的確定、isolated Chromiumによるloopback Web収録、登録済み動画1〜32カットのtrim／並べ替え／ハードカットpreview、schema v1のRemotion詳細timeline、共通compositionのPlayer preview、fade／素材音量／固定テロップ、Source Fidelity v2の`preserve_v1 | h3_low_res_sharp_v1`、pre-overlay固定Lanczos／luma-only unsharp、PNG中間frame／CRF 16、cache／監査／report／manifest policy、旧recipeの`preserve_v1`互換、exact 5成果物、画面収録とRemotion renderを直列化するbrowser FIFO lane、FFmpeg clean／captioned master、`shorts_ja_large_v1`字幕preset、schema v2 / `local-ffmpeg-qc-v2` / `technical-qc-mp4-v2`のIntegrated loudness／true peak／黒画面hard checkと長い静止warningを含むローカルtechnical QC、ffprobe／manifest、stage attempt/cache。専用`local_pipeline` lane、6 requested／5 executed stage、DB-level Run/top-job dedupe、same-run failed／interrupted retry、parent-child cancellation wait、local stage artifactのatomic completion、Detailed Test Video v1のSAPI→Remotion→assembly→QC一括、固定字幕preflight、content dedupe、same-run retry、2秒UI監視、およびHOOK／MESSAGE／CTA告知recipeのCAS保存、immutable exact version、複製、Detailed compile、atomic execution link、fresh exact Job復旧と1回限定の同一revision冪等再送。HTTP／worker／SQLite writerのdrain成功時だけworkspace lockを解放する単一writer境界。
 
 1. Windowsデスクトップ／ネイティブアプリ、system audioを扱う画面収録worker
 2. 実ComfyUIでのStudio強制終了／再起動→`local_pipeline`自動継続E2E、ComfyUI自体の再起動でtaskが404になった場合と旧IDなしmarkerの手動判断・破棄UI
 3. ElevenLabs請求情報とのUSD実費照合と、必要に応じた別TTS provider adapter
-4. 音量、黒画面、長時間静止、字幕safe areaなどtechnical QC policyの追加
-5. frame/timecode精度の連動比較、指定cutだけの再実行、cut/timecode単位コメントとcreative／rights human review UI
-6. 外部送信素材の秘密情報検査、監査bundle署名
+4. frame/timecode精度の連動比較、指定cutだけの再実行、cut/timecode単位コメントとcreative／rights human review UI
+5. 外部送信素材の秘密情報検査、監査bundle署名
 
 実装済み範囲を超える工程はRun計画内の未実行項目として表示し、`running`や`complete`とは記録しません。

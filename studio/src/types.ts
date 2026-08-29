@@ -330,6 +330,8 @@ export interface LocalTimelineRequest {
 
 export type LocalRemotionTimelineOverlayPosition = 'top' | 'center' | 'bottom';
 
+export type LocalRemotionTimelineVisualPreset = 'preserve_v1' | 'h3_low_res_sharp_v1';
+
 export interface LocalRemotionTimelineTransition {
   type: 'fade';
   durationMs: number;
@@ -345,6 +347,8 @@ export interface LocalRemotionTimelineOverlay {
 
 export interface LocalRemotionTimelineClip extends LocalTimelineClip {
   volumePercent: number;
+  /** Omitted legacy/browser preview values normalize to preserve_v1 before submission. */
+  visualPreset?: LocalRemotionTimelineVisualPreset;
   transitionToNext: LocalRemotionTimelineTransition | null;
   overlay: LocalRemotionTimelineOverlay | null;
 }
@@ -375,6 +379,8 @@ export interface AnnouncementVideoScene {
   startMs: number;
   endMs: number;
   volumePercent: number;
+  /** Missing only in legacy stored revisions; normalization resolves it to preserve_v1. */
+  visualPreset?: LocalRemotionTimelineVisualPreset;
   headline: string;
   narration: string;
 }
@@ -480,6 +486,32 @@ export interface ProviderStatus {
   healthy?: boolean;
   message?: string;
   lastChecked?: string;
+}
+
+export interface WindowsCaptureCapability {
+  schemaVersion: number;
+  implementationVersion: string;
+  status: 'foundation_ready' | 'blocked';
+  foundationReady: boolean;
+  captureExecutionEnabled: boolean;
+  screenCaptureReady: boolean;
+  systemAudioLoopbackReady: boolean;
+  explicitConfirmationRequired: boolean;
+  actualCapturePerformed: boolean;
+  reasons: string[];
+  helper: {
+    available: boolean;
+    doctorOk: boolean;
+    endpointActive: boolean;
+    loopbackInitialized: boolean;
+    recordingStarted: boolean;
+    sha256?: string;
+  };
+  ffmpeg: {
+    available: boolean;
+    gdigrabAvailable: boolean;
+  };
+  toolIdentityDigest?: string;
 }
 
 export interface HealthStatus {

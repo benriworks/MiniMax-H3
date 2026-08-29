@@ -16,7 +16,7 @@ from .security import canonical_json
 
 
 SCHEMA_VERSION = 1
-IMPLEMENTATION_VERSION = "local-remotion-timeline-v1"
+IMPLEMENTATION_VERSION = "local-remotion-timeline-v2"
 PROVIDER = "local_remotion_timeline"
 TIMING_SOURCE = "remotion_frames"
 CANVAS_WIDTH = 1080
@@ -30,14 +30,31 @@ MAX_TRANSITION_DURATION_MS = 2_000
 MIN_OVERLAY_DURATION_MS = 50
 MAX_OVERLAY_CHARS = 200
 MAX_OVERLAY_LINES = 4
-OUTPUT_POLICY_VERSION = "remotion-h264-yuv420p-aac-48khz-stereo-v1"
+OUTPUT_POLICY_VERSION = "remotion-source-fidelity-v2"
+SOURCE_ENHANCEMENT_POLICY_VERSION = "lanczos-cover-luma-unsharp-v1"
+DEFAULT_VISUAL_PRESET = "preserve_v1"
+VISUAL_PRESETS = frozenset({DEFAULT_VISUAL_PRESET, "h3_low_res_sharp_v1"})
+REMOTION_FRAME_IMAGE_FORMAT = "png"
+REMOTION_VIDEO_CRF = 16
+REMOTION_SCRATCH_POLICY_VERSION = "png-frame-scratch-v1"
+REMOTION_SCRATCH_RGBA_BYTES_PER_PIXEL = 4
+REMOTION_SCRATCH_HEADROOM_NUMERATOR = 5
+REMOTION_SCRATCH_HEADROOM_DENOMINATOR = 4
+REMOTION_SCRATCH_RAW_OUTPUT_RESERVE_BYTES = 2 * 1024 * 1024 * 1024
+REMOTION_SCRATCH_NORMALIZED_OUTPUT_RESERVE_BYTES = 2 * 1024 * 1024 * 1024
+REMOTION_SCRATCH_SAFETY_MARGIN_BYTES = 1024 * 1024 * 1024
+REMOTION_SCRATCH_SHARP_STAGING_RESERVE_BYTES = 2 * 1024 * 1024 * 1024
+SHARP_SOURCE_MIN_DIMENSION = 64
+SHARP_SOURCE_MIN_ASPECT_RATIO = 0.50
+SHARP_SOURCE_MAX_ASPECT_RATIO = 0.625
+SHARP_SOURCE_MAX_SCALED_PIXELS = 3_000_000
 
 _ARTIFACT_ID_RE = re.compile(r"^art_[0-9a-f]{32}$")
 _SHA256_RE = re.compile(r"^[0-9A-Fa-f]{64}$")
 _CACHE_KEY_RE = re.compile(r"^[0-9A-F]{64}$")
 _CONTROL_RE = re.compile(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]")
 _PUBLIC_KEYS = {"schema_version", "clips"}
-_CLIP_KEYS = {
+_CLIP_REQUIRED_KEYS = {
     "video_artifact_id",
     "start_ms",
     "end_ms",
@@ -45,6 +62,7 @@ _CLIP_KEYS = {
     "transition_to_next",
     "overlay",
 }
+_CLIP_KEYS = _CLIP_REQUIRED_KEYS | {"visual_preset"}
 _TRANSITION_KEYS = {"type", "duration_ms"}
 _OVERLAY_KEYS = {"text", "start_ms", "end_ms", "position", "style_preset"}
 _INTERNAL_EXTRA_KEYS = {"source_path", "source_bytes", "source_sha256"}
@@ -158,7 +176,11 @@ def _overlay(value: Any, *, index: int, clip_duration_ms: int) -> dict[str, Any]
 
 
 def _public_clip(value: Any, *, index: int) -> dict[str, Any]:
-    if not isinstance(value, dict) or set(value) != _CLIP_KEYS:
+    if (
+        not isinstance(value, dict)
+        or not _CLIP_REQUIRED_KEYS.issubset(value)
+        or not set(value).issubset(_CLIP_KEYS)
+    ):
         raise RemotionTimelineValidationError(
             f"clips[{index}] must contain only the supported Remotion timeline fields"
         )
@@ -179,12 +201,18 @@ def _public_clip(value: Any, *, index: int) -> dict[str, Any]:
         minimum=0,
         maximum=100,
     )
+    visual_preset = value.get("visual_preset", DEFAULT_VISUAL_PRESET)
+    if not isinstance(visual_preset, str) or visual_preset not in VISUAL_PRESETS:
+        raise RemotionTimelineValidationError(
+            f"clips[{index}].visual_preset is invalid"
+        )
     duration_ms = end_ms - start_ms
     return {
         "video_artifact_id": artifact_id,
         "start_ms": start_ms,
         "end_ms": end_ms,
         "volume_percent": volume_percent,
+        "visual_preset": visual_preset,
         "transition_to_next": _transition(value.get("transition_to_next"), index=index),
         "overlay": _overlay(value.get("overlay"), index=index, clip_duration_ms=duration_ms),
     }
@@ -340,17 +368,7 @@ def remotion_timeline_cache_key(
         "provider": PROVIDER,
         "recipe": {"schema_version": SCHEMA_VERSION, "clips": identity_clips},
         "compiled": compile_remotion_timeline(normalized),
-        "output_policy": {
-            "policy_version": OUTPUT_POLICY_VERSION,
-            "width": CANVAS_WIDTH,
-            "height": CANVAS_HEIGHT,
-            "frame_rate": FRAME_RATE,
-            "video_codec": "h264",
-            "pixel_format": "yuv420p",
-            "audio_codec": "aac",
-            "sample_rate": 48_000,
-            "channels": 2,
-        },
+        "output_policy": remotion_output_policy(),
         "tool_identity": _normalize_tool_identity(tool_identity),
     }
     return hashlib.sha256(canonical_json(identity).encode("utf-8")).hexdigest().upper()
@@ -372,6 +390,7 @@ def remotion_timeline_audit_payload(
                 "start_ms": item["start_ms"],
                 "end_ms": item["end_ms"],
                 "volume_percent": item["volume_percent"],
+                "visual_preset": item["visual_preset"],
                 "transition_to_next": item["transition_to_next"],
                 "overlay": None
                 if overlay is None
@@ -399,6 +418,80 @@ def remotion_timeline_audit_payload(
         "canvas": {"width": CANVAS_WIDTH, "height": CANVAS_HEIGHT},
         "frame_rate": FRAME_RATE,
         "audio": "source_mix_with_silent_aac_fallback",
+        "output_policy": remotion_output_policy(),
+        "source_enhancement_policy": remotion_output_policy()["source_enhancement"],
+    }
+
+
+def remotion_output_policy() -> dict[str, Any]:
+    """Return the fixed renderer and pre-overlay source-fidelity policy.
+
+    The public API selects only one of two closed visual presets.  It never
+    accepts filter text, sharpening strength, CRF, or renderer frame format.
+    Keeping these values in the cache identity prevents a policy update from
+    reusing media produced by an older quality path.
+    """
+
+    return {
+        "policy_version": OUTPUT_POLICY_VERSION,
+        "container": "mp4",
+        "width": CANVAS_WIDTH,
+        "height": CANVAS_HEIGHT,
+        "frame_rate": FRAME_RATE,
+        "video_codec": "h264",
+        "pixel_format": "yuv420p",
+        "video_crf": REMOTION_VIDEO_CRF,
+        "x264_preset": "medium",
+        "render_frame_image_format": REMOTION_FRAME_IMAGE_FORMAT,
+        "audio_codec": "aac",
+        "sample_rate": 48_000,
+        "channels": 2,
+        "audio": "aac_48000_stereo",
+        "silent_audio_fallback": True,
+        "render_scratch": {
+            "policy_version": REMOTION_SCRATCH_POLICY_VERSION,
+            "temporary_directory_scope": "stage_work_directory",
+            "temporary_environment": ["TEMP", "TMP", "TMPDIR"],
+            "cleanup": "recursive_on_all_exit_paths",
+            "disk_space_preflight": True,
+            "preflight_phases": [
+                "before_source_staging",
+                "after_source_staging_before_node",
+            ],
+            "node_containment_attestation": True,
+            "scratch_directory_must_be_empty": True,
+            "rgba_bytes_per_pixel": REMOTION_SCRATCH_RGBA_BYTES_PER_PIXEL,
+            "png_headroom_ratio": [
+                REMOTION_SCRATCH_HEADROOM_NUMERATOR,
+                REMOTION_SCRATCH_HEADROOM_DENOMINATOR,
+            ],
+            "raw_output_reserve_bytes": REMOTION_SCRATCH_RAW_OUTPUT_RESERVE_BYTES,
+            "normalized_output_reserve_bytes": REMOTION_SCRATCH_NORMALIZED_OUTPUT_RESERVE_BYTES,
+            "safety_margin_bytes": REMOTION_SCRATCH_SAFETY_MARGIN_BYTES,
+            "sharp_staging_reserve_bytes_per_clip": REMOTION_SCRATCH_SHARP_STAGING_RESERVE_BYTES,
+        },
+        "source_enhancement": {
+            "policy_version": SOURCE_ENHANCEMENT_POLICY_VERSION,
+            "available_presets": sorted(VISUAL_PRESETS),
+            "default_preset": DEFAULT_VISUAL_PRESET,
+            "sharp_preset": {
+                "id": "h3_low_res_sharp_v1",
+                "stage": "before_overlays",
+                "fit": "cover",
+                "scaler": "lanczos",
+                "luma_unsharp_matrix": "5x5",
+                "luma_unsharp_amount": 0.25,
+                "chroma_unsharp_amount": 0,
+                "trim_to_used_frames": True,
+                "portrait_upscale_only": True,
+                "minimum_source_dimension": SHARP_SOURCE_MIN_DIMENSION,
+                "source_aspect_ratio_range": [
+                    SHARP_SOURCE_MIN_ASPECT_RATIO,
+                    SHARP_SOURCE_MAX_ASPECT_RATIO,
+                ],
+                "maximum_scaled_pixels": SHARP_SOURCE_MAX_SCALED_PIXELS,
+            },
+        },
     }
 
 
@@ -437,10 +530,7 @@ def remotion_timeline_public_result(
         "has_audio": True,
         "video_dimensions": {"width": CANVAS_WIDTH, "height": CANVAS_HEIGHT},
         "frame_rate": FRAME_RATE,
-        "output_policy": {
-            "policy_version": OUTPUT_POLICY_VERSION,
-            "audio": "aac_48000_stereo",
-        },
+        "output_policy": remotion_output_policy(),
         "cost": {"amount": "0.00", "currency": "USD", "source": "local"},
     }
 
@@ -459,6 +549,23 @@ __all__ = [
     "MAX_CLIPS",
     "MAX_TIMELINE_DURATION_MS",
     "OUTPUT_POLICY_VERSION",
+    "DEFAULT_VISUAL_PRESET",
+    "REMOTION_FRAME_IMAGE_FORMAT",
+    "REMOTION_SCRATCH_HEADROOM_DENOMINATOR",
+    "REMOTION_SCRATCH_HEADROOM_NUMERATOR",
+    "REMOTION_SCRATCH_NORMALIZED_OUTPUT_RESERVE_BYTES",
+    "REMOTION_SCRATCH_POLICY_VERSION",
+    "REMOTION_SCRATCH_RAW_OUTPUT_RESERVE_BYTES",
+    "REMOTION_SCRATCH_RGBA_BYTES_PER_PIXEL",
+    "REMOTION_SCRATCH_SAFETY_MARGIN_BYTES",
+    "REMOTION_SCRATCH_SHARP_STAGING_RESERVE_BYTES",
+    "REMOTION_VIDEO_CRF",
+    "SOURCE_ENHANCEMENT_POLICY_VERSION",
+    "SHARP_SOURCE_MAX_ASPECT_RATIO",
+    "SHARP_SOURCE_MAX_SCALED_PIXELS",
+    "SHARP_SOURCE_MIN_ASPECT_RATIO",
+    "SHARP_SOURCE_MIN_DIMENSION",
+    "VISUAL_PRESETS",
     "PROVIDER",
     "RemotionTimelineError",
     "RemotionTimelineToolError",
@@ -472,6 +579,7 @@ __all__ = [
     "remotion_timeline_audit_payload",
     "remotion_timeline_cache_key",
     "remotion_timeline_public_result",
+    "remotion_output_policy",
     "safe_remotion_timeline_error",
     "validate_remotion_timeline_payload",
 ]

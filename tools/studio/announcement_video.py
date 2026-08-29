@@ -17,6 +17,8 @@ from .detailed_test_video import (
     validate_detailed_test_video_payload,
 )
 from .remotion_timeline_execution import (
+    DEFAULT_VISUAL_PRESET,
+    VISUAL_PRESETS,
     frames_to_milliseconds,
     milliseconds_to_frames,
 )
@@ -44,7 +46,7 @@ _RECIPE_KEYS = {
     "audio_mix_preset",
     "variant",
 }
-_SCENE_KEYS = {
+_SCENE_REQUIRED_KEYS = {
     "role",
     "video_artifact_id",
     "start_ms",
@@ -53,6 +55,7 @@ _SCENE_KEYS = {
     "headline",
     "narration",
 }
+_SCENE_KEYS = _SCENE_REQUIRED_KEYS | {"visual_preset"}
 _PRONUNCIATION_KEYS = {"source", "target"}
 _RECIPE_ID_RE = re.compile(r"^announcement_[0-9a-f]{32}$")
 _CONTROL_RE = re.compile(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]")
@@ -158,7 +161,11 @@ def _headline(value: Any) -> str:
 
 
 def _scene(value: Any, *, expected_role: str) -> dict[str, Any]:
-    if not isinstance(value, dict) or set(value) != _SCENE_KEYS:
+    if (
+        not isinstance(value, dict)
+        or not _SCENE_REQUIRED_KEYS.issubset(value)
+        or not set(value).issubset(_SCENE_KEYS)
+    ):
         raise AnnouncementVideoValidationError()
     if value.get("role") != expected_role:
         raise AnnouncementVideoValidationError()
@@ -174,7 +181,7 @@ def _scene(value: Any, *, expected_role: str) -> dict[str, Any]:
     end_ms = _integer(value.get("end_ms"), minimum=0, maximum=60_000)
     if end_ms - start_ms < 1_000 or end_ms - start_ms > 10_000:
         raise AnnouncementVideoValidationError()
-    return {
+    normalized = {
         "role": expected_role,
         "video_artifact_id": artifact_id,
         "start_ms": start_ms,
@@ -185,6 +192,12 @@ def _scene(value: Any, *, expected_role: str) -> dict[str, Any]:
         "headline": _headline(value.get("headline")),
         "narration": _text(value.get("narration"), maximum=200, multiline=False),
     }
+    if "visual_preset" in value:
+        visual_preset = value.get("visual_preset")
+        if not isinstance(visual_preset, str) or visual_preset not in VISUAL_PRESETS:
+            raise AnnouncementVideoValidationError()
+        normalized["visual_preset"] = visual_preset
+    return normalized
 
 
 def _pronunciations(value: Any) -> list[dict[str, str]]:
@@ -219,6 +232,9 @@ def announcement_recipe_to_detailed_payload(
                 "start_ms": scene["start_ms"],
                 "end_ms": scene["end_ms"],
                 "volume_percent": scene["volume_percent"],
+                "visual_preset": scene.get(
+                    "visual_preset", DEFAULT_VISUAL_PRESET
+                ),
                 "transition_to_next": (
                     None
                     if index == len(scenes) - 1
@@ -403,7 +419,7 @@ def validate_announcement_execute_payload(body: Any) -> int:
 
 def announcement_recipe_audit_summary(recipe: Mapping[str, Any]) -> dict[str, Any]:
     normalized = validate_announcement_recipe_payload(dict(recipe))
-    return {
+    summary = {
         "schema_version": ANNOUNCEMENT_VIDEO_SCHEMA_VERSION,
         "name": normalized["name"],
         "template_preset": normalized["template_preset"],
@@ -417,6 +433,15 @@ def announcement_recipe_audit_summary(recipe: Mapping[str, Any]) -> dict[str, An
         "audio_mix_preset": normalized["audio_mix_preset"],
         "variant": normalized["variant"],
     }
+    # Legacy announcement events are append-only canonical JSON.  Preserve
+    # their historical summary shape unless a new recipe revision explicitly
+    # selected a visual preset.
+    if any("visual_preset" in item for item in normalized["scenes"]):
+        summary["visual_presets"] = [
+            item.get("visual_preset", DEFAULT_VISUAL_PRESET)
+            for item in normalized["scenes"]
+        ]
+    return summary
 
 
 __all__ = [
