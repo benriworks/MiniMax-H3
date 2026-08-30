@@ -7,6 +7,7 @@ import test from 'node:test';
 const studioRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const testDist = join(studioRoot, '.test-dist');
 const appSource = await readFile(join(studioRoot, 'src', 'App.tsx'), 'utf8');
+const quickCreateSource = await readFile(join(studioRoot, 'src', 'QuickCreateForm.tsx'), 'utf8');
 const announcementSource = appSource.slice(
   appSource.indexOf('function AnnouncementVideoPanel'),
   appSource.indexOf('function DetailedTestVideoPanel'),
@@ -137,8 +138,9 @@ test('save, duplicate, and execute use exact encoded production/recipe routes an
   assert.deepEqual(requests[2].body, { schema_version: 1, revision: 1 });
 });
 
-test('Studio exposes a dedicated saved-recipe announcement surface and keeps Detailed separate', () => {
-  assert.match(appSource, /id: 'announcement', label: '告知動画'/);
+test('Studio exposes Quick Create as the default announcement surface and keeps Detailed separate', () => {
+  assert.match(appSource, /useState<DetailTab>\('announcement'\)/);
+  assert.match(appSource, /id: 'announcement', label: 'かんたん作成'/);
   assert.match(announcementSource, /HOOK → MESSAGE → CTA/);
   assert.match(announcementSource, /保存して告知動画を作る/);
   assert.match(announcementSource, /複製して編集/);
@@ -159,6 +161,46 @@ test('Studio exposes a dedicated saved-recipe announcement surface and keeps Det
   assert.match(stylesSource, /\.announcement-grid/);
   assert.match(stylesSource, /\.announcement-scene\.role-hook/);
   assert.match(stylesSource, /\.announcement-grid > aside \.local-pipeline-progress-panel \{ order: 1; \}/);
+});
+
+test('Quick Create is a compact view over the exact existing announcement controller', () => {
+  assert.match(announcementSource, /useState<AnnouncementEditorMode>[\s\S]{0,160}'quick'[\s\S]{0,80}'advanced'/);
+  assert.match(announcementSource, /useState\(\(\) => announcementDraftSignature\(initialDraft\)\)/);
+  assert.match(announcementSource, /const startNew = \(\) => \{[\s\S]{0,500}setSavedSignature\(announcementDraftSignature\(next\)\)/);
+  assert.match(announcementSource, /<QuickCreateForm[\s\S]{0,1500}onSceneNarrationChange=/);
+  assert.match(announcementSource, /onClick=\{\(\) => void saveAndExecute\(\)\}/);
+  assert.match(announcementSource, /この内容で動画を作る（\$\{formatMilliseconds\(normalized\.outputDurationMs\)\}）/);
+  assert.equal((announcementSource.match(/const saveAndExecute = async/g) ?? []).length, 1);
+  assert.equal((announcementSource.match(/api\.executeAnnouncementRecipe\(/g) ?? []).length, 2);
+  assert.doesNotMatch(quickCreateSource, /\bapi\.|executeDetailedTestVideo|fetch\(/);
+  assert.match(quickCreateSource, /3つの場面を選ぶ/);
+  assert.match(quickCreateSource, /伝える言葉を入れる/);
+  assert.match(quickCreateSource, /内容を確認して作成する/);
+  assert.match(quickCreateSource, /ローカルのみ・API費用0円/);
+  assert.match(quickCreateSource, /秘密情報、API token、公開したくない個人情報は入力しないでください/);
+});
+
+test('Quick Create keeps hidden settings fixed and reveals any advanced saved recipe', () => {
+  assert.match(appSource, /const announcementDraftUsesQuickDefaults = \([\s\S]{0,1500}draft\.audioMixPreset === 'narration_only_v1'[\s\S]{0,500}scene\.visualPreset === DEFAULT_REMOTION_TIMELINE_VISUAL_PRESET/);
+  assert.match(announcementSource, /setEditorMode\(announcementDraftUsesQuickDefaults\(nextDraft, videoArtifacts\) \? 'quick' : 'advanced'\)/);
+  assert.match(announcementSource, /const activeEditorMode: AnnouncementEditorMode = quickModeAvailable \? editorMode : 'advanced'/);
+  assert.match(announcementSource, /if \(!quickModeAvailable && editorMode !== 'advanced'\) setEditorMode\('advanced'\)/);
+  assert.match(announcementSource, /disabled=\{formLocked \|\| !quickModeAvailable\}/);
+  assert.match(announcementSource, /設定を隠したまま上書きしないよう、詳細設定で表示しています/);
+  assert.match(appSource, /draft\.rate\.trim\(\) !== ''[\s\S]{0,500}scene\.startMs\.trim\(\) !== ''[\s\S]{0,500}scene\.volumePercent\.trim\(\) !== ''/);
+  assert.match(announcementSource, /setEditorMode\('quick'\);[\s\S]{0,100}setRecipeId\(newAnnouncementRecipeId\(\)\)/);
+  assert.match(announcementSource, /type="radio" name="announcement-editor-mode"/);
+  assert.ok(announcementSource.indexOf("duplicateIntentStore.status !== 'ready'") < announcementSource.indexOf('<QuickCreateForm'));
+  assert.equal((announcementSource.match(/className="announcement-recipe-browser"/g) ?? []).length, 1);
+  assert.ok(announcementSource.indexOf('className="announcement-recipe-browser"') < announcementSource.indexOf("{activeEditorMode === 'quick' ? (\n            <QuickCreateForm"));
+  assert.match(announcementSource, /選択した内容には詳細設定が含まれるため、詳細設定を表示しました。/);
+  assert.match(announcementSource, /validationErrors=\{validationErrors\}/);
+  assert.match(announcementSource, /outputDurationMs=\{normalized\.outputDurationMs\}/);
+  assert.match(announcementSource, /role="status" aria-live="polite"/);
+  assert.match(quickCreateSource, /aria-describedby=\{helpId\}/);
+  assert.match(quickCreateSource, /aria-invalid=\{Boolean\(recipeNameError\)\}/);
+  assert.match(quickCreateSource, /<span>読み上げる文章<\/span>/);
+  assert.doesNotMatch(quickCreateSource, /<details className="quick-create-narration"/);
 });
 
 test('saving a new recipe revision cannot display the previous revision job or result', () => {
@@ -201,6 +243,7 @@ test('mobile announcement layout lets long production and recipe content shrink 
   assert.match(stylesSource, /\.announcement-panel \.field input, \.announcement-panel \.field textarea, \.announcement-panel \.field select \{ width: 100%; min-width: 0; \}/);
   assert.match(stylesSource, /@media \(max-width: 760px\)[\s\S]*\.workspace-header > div:first-child, \.title-row, \.title-row h2, \.panel-header > div:first-child, \.local-pipeline-step-body \{ min-width: 0; \}/);
   assert.match(stylesSource, /@media \(max-width: 760px\)[\s\S]*\.title-row h2 \{ overflow-wrap: anywhere; \}/);
+  assert.match(stylesSource, /@media \(max-width: 760px\)[\s\S]*\.quick-create-scene-grid, \.quick-create-copy-list \{ grid-template-columns: 1fr; \}/);
 });
 
 test('exact job lookup supports fresh-link ambiguous-response reconciliation', async () => {

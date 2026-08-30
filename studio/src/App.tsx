@@ -89,6 +89,7 @@ import {
 import type { AnnouncementDuplicateIntent, AnnouncementSubmissionGuard } from './announcementRecovery';
 import { TimelineComposition } from './remotion/TimelineComposition';
 import { buildRemotionTimelineCompositionProps } from './remotion/model';
+import { QuickCreateForm } from './QuickCreateForm';
 import type {
   Approval,
   AnnouncementRecipeRecord,
@@ -837,7 +838,7 @@ function JobsStrip({ jobs, productions }: { jobs: Job[]; productions: Production
 }
 
 function ProductionWorkspace({ detail, jobs, providers, onReload, onAnnouncementDirtyChange }: { detail: ProductionDetail; jobs: Job[]; providers: ProviderStatus[]; onReload: (signal?: AbortSignal) => Promise<void>; onAnnouncementDirtyChange: (dirty: boolean) => void }) {
-  const [tab, setTab] = useState<DetailTab>('overview');
+  const [tab, setTab] = useState<DetailTab>('announcement');
   const [announcementDirty, setAnnouncementDirty] = useState(false);
   const latestRun = [...detail.runs].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))[0];
   const completedArtifacts = detail.artifacts.length;
@@ -850,9 +851,9 @@ function ProductionWorkspace({ detail, jobs, providers, onReload, onAnnouncement
   const activeJob = jobs.find((job) => job.status === 'running' || job.status === 'pending');
 
   const tabs: { id: DetailTab; label: string; count?: number }[] = [
+    { id: 'announcement', label: 'かんたん作成', count: detail.announcementRecipes.length || undefined },
     { id: 'overview', label: '概要' },
     { id: 'pipeline', label: '一括生成' },
-    { id: 'announcement', label: '告知動画', count: detail.announcementRecipes.length || undefined },
     { id: 'detailed-test', label: '詳細一括' },
     { id: 'video', label: '生成映像' },
     { id: 'capture', label: '画面収録' },
@@ -2875,6 +2876,8 @@ type AnnouncementRecipeDraft = {
   variant: LocalQcVariant;
 };
 
+type AnnouncementEditorMode = 'quick' | 'advanced';
+
 const ANNOUNCEMENT_ROLE_META: Record<AnnouncementSceneRole, { index: string; label: string; guide: string }> = {
   hook: { index: '01', label: 'HOOK', guide: '最初の数秒で目を止める一言' },
   message: { index: '02', label: 'MESSAGE', guide: '伝えたい価値・要点をひとつ' },
@@ -2914,6 +2917,30 @@ const newAnnouncementDraft = (artifacts: Artifact[]): AnnouncementRecipeDraft =>
     audioMixPreset: DEFAULT_LOCAL_ASSEMBLY_AUDIO_MIX_PRESET,
     variant: 'captioned',
   };
+};
+
+const announcementDraftUsesQuickDefaults = (draft: AnnouncementRecipeDraft, artifacts: Artifact[]): boolean => {
+  const expectedRoles: AnnouncementSceneRole[] = ['hook', 'message', 'cta'];
+  return draft.schemaVersion === ANNOUNCEMENT_VIDEO_SCHEMA_VERSION
+    && draft.templatePreset === ANNOUNCEMENT_VIDEO_TEMPLATE_PRESET
+    && draft.voice.trim() === ''
+    && draft.rate.trim() !== ''
+    && Number(draft.rate) === 0
+    && draft.pronunciations.every((item) => item.source.trim() === '' && item.target.trim() === '')
+    && draft.includeCaptioned
+    && draft.captionStylePreset === 'shorts_ja_large_v1'
+    && draft.audioMixPreset === 'narration_only_v1'
+    && draft.variant === 'captioned'
+    && draft.scenes.length === expectedRoles.length
+    && draft.scenes.every((scene, index) => (
+      scene.role === expectedRoles[index]
+      && scene.startMs.trim() !== ''
+      && Number(scene.startMs) === 0
+      && scene.endMs === announcementEndMs(artifacts.find((artifact) => artifact.id === scene.videoArtifactId), index)
+      && scene.volumePercent.trim() !== ''
+      && Number(scene.volumePercent) === 0
+      && scene.visualPreset === DEFAULT_REMOTION_TIMELINE_VISUAL_PRESET
+    ));
 };
 
 const announcementDraftFromRecord = (record: AnnouncementRecipeRecord): AnnouncementRecipeDraft => ({
@@ -2968,11 +2995,15 @@ type AnnouncementJobBinding = {
 function AnnouncementVideoPanel({ detail, jobs, onReload, onDirtyChange }: { detail: ProductionDetail; jobs: Job[]; onReload: (signal?: AbortSignal) => Promise<void>; onDirtyChange: (dirty: boolean) => void }) {
   const videoArtifacts = useMemo(() => detail.artifacts.filter(isAvailableVideoArtifact), [detail.artifacts]);
   const firstSaved = detail.announcementRecipes[0];
+  const initialDraft = firstSaved ? announcementDraftFromRecord(firstSaved) : newAnnouncementDraft(videoArtifacts);
+  const [editorMode, setEditorMode] = useState<AnnouncementEditorMode>(() => (
+    announcementDraftUsesQuickDefaults(initialDraft, videoArtifacts) ? 'quick' : 'advanced'
+  ));
   const [recipeId, setRecipeId] = useState(() => firstSaved?.id ?? newAnnouncementRecipeId());
   const [recipeRevision, setRecipeRevision] = useState(firstSaved?.revision ?? 0);
   const [recipeVersionId, setRecipeVersionId] = useState(firstSaved?.versionId ?? '');
-  const [draft, setDraft] = useState<AnnouncementRecipeDraft>(() => firstSaved ? announcementDraftFromRecord(firstSaved) : newAnnouncementDraft(videoArtifacts));
-  const [savedSignature, setSavedSignature] = useState(() => firstSaved ? announcementDraftSignature(announcementDraftFromRecord(firstSaved)) : '');
+  const [draft, setDraft] = useState<AnnouncementRecipeDraft>(() => initialDraft);
+  const [savedSignature, setSavedSignature] = useState(() => announcementDraftSignature(initialDraft));
   const [savedRecord, setSavedRecord] = useState<AnnouncementRecipeRecord | undefined>(firstSaved);
   const [jobBinding, setJobBinding] = useState<AnnouncementJobBinding>();
   const [saving, setSaving] = useState(false);
@@ -3021,6 +3052,8 @@ function AnnouncementVideoPanel({ detail, jobs, onReload, onDirtyChange }: { det
   });
   const validationErrors = [...normalized.errors, ...missingArtifactErrors];
   const dirty = announcementDraftSignature(draft) !== savedSignature;
+  const quickModeAvailable = announcementDraftUsesQuickDefaults(draft, videoArtifacts);
+  const activeEditorMode: AnnouncementEditorMode = quickModeAvailable ? editorMode : 'advanced';
   const job = jobBinding?.recipeVersionId === recipeVersionId ? jobBinding.job : undefined;
   const currentExecutions = detail.announcementExecutions.filter((item) => item.recipeVersionId === recipeVersionId);
   const linkedJobIds = new Set(currentExecutions.map((item) => item.jobId));
@@ -3084,8 +3117,13 @@ function AnnouncementVideoPanel({ detail, jobs, onReload, onDirtyChange }: { det
     ? duplicateIntentStore.intent
     : undefined;
 
+  useEffect(() => {
+    if (!quickModeAvailable && editorMode !== 'advanced') setEditorMode('advanced');
+  }, [editorMode, quickModeAvailable]);
+
   const loadRecord = useCallback((record: AnnouncementRecipeRecord) => {
     const nextDraft = announcementDraftFromRecord(record);
+    setEditorMode(announcementDraftUsesQuickDefaults(nextDraft, videoArtifacts) ? 'quick' : 'advanced');
     setRecipeId(record.id);
     setRecipeRevision(record.revision);
     setRecipeVersionId(record.versionId);
@@ -3104,7 +3142,7 @@ function AnnouncementVideoPanel({ detail, jobs, onReload, onDirtyChange }: { det
     reloadedTerminalJob.current = undefined;
     detailPollTickRef.current = 0;
     setBusy(false);
-  }, []);
+  }, [videoArtifacts]);
 
   const retryGuardedExecution = useCallback(async (mode: 'automatic' | 'manual') => {
     const guard = executionGuardRef.current;
@@ -3330,11 +3368,12 @@ function AnnouncementVideoPanel({ detail, jobs, onReload, onDirtyChange }: { det
   const startNew = () => {
     if (!confirmDiscard()) return;
     const next = newAnnouncementDraft(videoArtifacts);
+    setEditorMode('quick');
     setRecipeId(newAnnouncementRecipeId());
     setRecipeRevision(0);
     setRecipeVersionId('');
     setDraft(next);
-    setSavedSignature('');
+    setSavedSignature(announcementDraftSignature(next));
     setSavedRecord(undefined);
     setJobBinding(undefined);
     setMessage(undefined);
@@ -3575,44 +3614,89 @@ function AnnouncementVideoPanel({ detail, jobs, onReload, onDirtyChange }: { det
   return (
     <div className="announcement-grid">
       <div>
-        <section className="panel announcement-panel">
-          <div className="panel-header"><div><span className="section-kicker">ANNOUNCEMENT VIDEO V1</span><h3>15秒告知動画</h3></div><span className="tag">既存素材 · 費用0円</span></div>
-          <p className="panel-lead">HOOK → MESSAGE → CTAの3シーンを埋めるだけで、大見出し、ナレーション、字幕、fade、音声mix、技術QCまで一括生成します。</p>
-          <div className="local-pipeline-policy" role="note"><strong>使える範囲を閉じた実用テンプレート</strong><p>10〜20秒（推奨15秒）、縦1080×1920、固定250ms fadeです。大見出しは安全域内の上・中央だけを使い、字幕との下端衝突を避けます。ナレーション必須、BGM・ロゴ画像はv1対象外です。</p></div>
-          <div className="announcement-recipe-toolbar">
-            <label className="field"><span>保存済みrecipe</span><select value={detail.announcementRecipes.some((item) => item.id === recipeId) ? recipeId : ''} disabled={formLocked} onChange={(event) => selectSaved(event.target.value)}><option value="">新規・未保存</option>{detail.announcementRecipes.map((item) => <option key={item.id} value={item.id}>{item.id === recipeId && staleRecipeVersion ? `${draft.name} · 編集中 rev ${recipeRevision} / 最新 rev ${item.revision}` : `${item.recipe.name} · rev ${item.revision}`}</option>)}</select></label>
-            <button className="button button-secondary" type="button" onClick={startNew} disabled={formLocked}>新規</button>
-            <button className="button button-secondary" type="button" onClick={() => void save()} disabled={formLocked || Boolean(pendingDuplicateIntent) || staleRecipeVersion || validationErrors.length > 0}>{saving ? '保存中…' : '保存'}</button>
-            <button className="button button-secondary" type="button" onClick={() => void duplicate()} disabled={formLocked || recipeRevision < 1 || dirty} title={dirty ? '先に未保存の変更を保存してください' : undefined}>複製して編集</button>
-          </div>
-          <div className="announcement-recipe-state"><span className={dirty ? 'is-dirty' : 'is-saved'}>{dirty ? '未保存の変更' : recipeRevision > 0 ? `保存済み rev ${recipeRevision}` : '新規recipe'}</span><code>{recipeId}</code></div>
+        <section className={`panel announcement-panel editor-${activeEditorMode}`}>
+          {activeEditorMode === 'quick' ? (
+            <><div className="panel-header"><div><span className="section-kicker">QUICK CREATE</span><h3>かんたん作成</h3></div><span className="tag">{formatMilliseconds(normalized.outputDurationMs)} · 縦型 · 費用0円</span></div><p className="panel-lead">動画を3つ選び、伝える言葉を入れるだけ。保存、ローカル音声、字幕、編集、技術QCまでまとめて進めます。</p></>
+          ) : (
+            <><div className="panel-header"><div><span className="section-kicker">ANNOUNCEMENT VIDEO V1</span><h3>15秒告知動画・詳細設定</h3></div><span className="tag">既存素材 · 費用0円</span></div><p className="panel-lead">HOOK → MESSAGE → CTAの3シーンを調整し、大見出し、ナレーション、字幕、fade、音声mix、技術QCまで一括生成します。</p><div className="local-pipeline-policy" role="note"><strong>使える範囲を閉じた実用テンプレート</strong><p>10〜20秒（推奨15秒）、縦1080×1920、固定250ms fadeです。大見出しは安全域内の上・中央だけを使い、字幕との下端衝突を避けます。ナレーション必須、BGM・ロゴ画像はv1対象外です。</p></div></>
+          )}
+
+          <fieldset className="announcement-mode-picker" disabled={formLocked}>
+            <legend>作り方</legend>
+            <label className={activeEditorMode === 'quick' ? 'is-selected' : ''}>
+              <input type="radio" name="announcement-editor-mode" value="quick" checked={activeEditorMode === 'quick'} disabled={formLocked || !quickModeAvailable} onChange={() => setEditorMode('quick')} />
+              <span><strong>かんたん作成</strong><small>素材と言葉だけを入力</small></span>
+            </label>
+            <label className={activeEditorMode === 'advanced' ? 'is-selected' : ''}>
+              <input type="radio" name="announcement-editor-mode" value="advanced" checked={activeEditorMode === 'advanced'} disabled={formLocked} onChange={() => setEditorMode('advanced')} />
+              <span><strong>詳細設定</strong><small>時間・音・補正も調整</small></span>
+            </label>
+          </fieldset>
+          {!quickModeAvailable && <div className="quick-create-advanced-note" role="note"><strong>この内容には詳細設定が含まれています</strong><p>trim、素材音、映像補正、音声、字幕のいずれかが、かんたん作成の安全な既定値と異なります。設定を隠したまま上書きしないよう、詳細設定で表示しています。「新規」でかんたん設定へ戻せます。</p></div>}
+
           {duplicateIntentStore.status !== 'ready' && <div className="inline-message is-error" role="alert"><p>{duplicateIntentStore.status === 'corrupt' ? 'ブラウザの複製保留情報が壊れています。誤って新しいIDを発行しないようrecipe操作を停止しました。' : 'ブラウザのlocalStorageを利用できないため、安全な複製IDを保持できません。ブラウザ設定を確認してください。'}</p>{duplicateIntentStore.status === 'corrupt' && <button className="button button-ghost" type="button" disabled={operationLocked} onClick={discardCorruptDuplicateStore}>壊れた保留情報を破棄</button>}</div>}
           {pendingDuplicateIntent && <div className="inline-message is-error" role="alert"><p>複製ID <code>{pendingDuplicateIntent.newRecipeId}</code> の応答が未確定です。画面移動や再読込後も同じIDを使い、二重作成を防ぎます。</p><div className="button-row"><button className="button button-secondary" type="button" disabled={operationLocked || dirty} onClick={() => void duplicate()}>同じ複製IDで再照合</button><button className="button button-ghost" type="button" disabled={operationLocked} onClick={discardPendingDuplicate}>保留中の複製を破棄</button></div></div>}
           {staleRecipeVersion && latestSelectedRecord && <div className="inline-message is-error" role="alert"><p>この画面は rev {recipeRevision} を編集中ですが、保存先には最新版 rev {latestSelectedRecord.revision} があります。内容を自動で上書きせず、保存・実行を停止しました。</p><button className="button button-secondary" type="button" disabled={!recipeSyncIdle} onClick={() => { if (!confirmDiscard()) return; loadRecord(latestSelectedRecord); setMessage({ type: 'info', text: `最新版 rev ${latestSelectedRecord.revision} を読み込みました。` }); }}>最新版を読み込む</button></div>}
-          <label className="field"><span>recipe名</span><input maxLength={120} value={draft.name} disabled={formLocked} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} /></label>
-          <div className="announcement-scene-list">{draft.scenes.map((scene, index) => {
-            const meta = ANNOUNCEMENT_ROLE_META[scene.role];
-            const artifact = videoArtifacts.find((item) => item.id === scene.videoArtifactId);
-            return <article className={`announcement-scene role-${scene.role}`} key={scene.role}>
-              <div className="announcement-scene-heading"><span>{meta.index}</span><div><strong>{meta.label}</strong><small>{meta.guide}</small></div><em>{index < 2 ? 'fade 250ms' : 'END'}</em></div>
-              <label className="field"><span>動画artifact</span><select value={scene.videoArtifactId} disabled={formLocked || videoArtifacts.length === 0} onChange={(event) => selectSceneArtifact(index, event.target.value)}><option value="">動画artifactを選択</option>{scene.videoArtifactId && !videoArtifacts.some((item) => item.id === scene.videoArtifactId) && <option value={scene.videoArtifactId}>[利用不可] {scene.videoArtifactId}</option>}{videoArtifacts.map((item) => <option key={item.id} value={item.id}>{item.name} · {formatBytes(item.sizeBytes)}</option>)}</select></label>
-              <div className="announcement-time-grid"><label className="field"><span>開始（ms）</span><input type="number" min="0" max="60000" step="1" value={scene.startMs} disabled={formLocked} onChange={(event) => updateScene(index, 'startMs', event.target.value)} /></label><label className="field"><span>終了（ms）</span><input type="number" min="0" max="60000" step="1" value={scene.endMs} disabled={formLocked} onChange={(event) => updateScene(index, 'endMs', event.target.value)} /></label><label className="field"><span>素材音量（%）</span><input type="number" min="0" max="100" step="1" value={scene.volumePercent} disabled={formLocked} onChange={(event) => updateScene(index, 'volumePercent', event.target.value)} /></label></div>
-              <label className="field"><span>映像補正preset</span><select value={scene.visualPreset} disabled={formLocked} onChange={(event) => updateScene(index, 'visualPreset', event.target.value as LocalRemotionTimelineVisualPreset)}><option value="preserve_v1">補正なし（preserve_v1）</option><option value="h3_low_res_sharp_v1">H3低解像度を鮮明化</option></select><small className="field-help">固定強度です。完成artifactで効果を確認します。</small></label>
-              <label className="field"><span>大見出し（2行まで）</span><textarea rows={2} maxLength={80} value={scene.headline} disabled={formLocked} onChange={(event) => updateScene(index, 'headline', event.target.value)} /></label>
-              <label className="field"><span>ナレーション（1文）</span><textarea rows={2} maxLength={200} value={scene.narration} disabled={formLocked} onChange={(event) => updateScene(index, 'narration', event.target.value)} /></label>
-              <div className="timeline-artifact-meta"><span>source尺 {formatDuration(artifact?.durationSeconds)}</span><span>大見出し {scene.role === 'message' ? '上' : '中央'}</span></div>
-            </article>;
-          })}</div>
-          <details className="announcement-advanced"><summary>音声・字幕の詳細設定</summary><div className="announcement-advanced-body">
-            <div className="local-pipeline-form-row"><label className="field"><span>音声（任意）</span><input value={draft.voice} disabled={formLocked} onChange={(event) => setDraft((current) => ({ ...current, voice: event.target.value }))} placeholder="既定音声" /></label><label className="field"><span>読み上げ速度</span><input type="number" min="-10" max="10" step="1" value={draft.rate} disabled={formLocked} onChange={(event) => setDraft((current) => ({ ...current, rate: event.target.value }))} /></label></div>
-            <fieldset className="pronunciation-fieldset"><legend>発音置換（任意）</legend>{draft.pronunciations.map((item, index) => <div className="pronunciation-row" key={index}><input value={item.source} disabled={formLocked} onChange={(event) => updatePronunciation(index, 'source', event.target.value)} placeholder="表記" /><span aria-hidden="true">→</span><input value={item.target} disabled={formLocked} onChange={(event) => updatePronunciation(index, 'target', event.target.value)} placeholder="読み" /><button className="button button-ghost" type="button" onClick={() => setDraft((current) => ({ ...current, pronunciations: current.pronunciations.length === 1 ? current.pronunciations : current.pronunciations.filter((_, itemIndex) => itemIndex !== index) }))} disabled={formLocked || draft.pronunciations.length === 1}>削除</button></div>)}<button className="button button-secondary" type="button" onClick={() => setDraft((current) => ({ ...current, pronunciations: [...current.pronunciations, { source: '', target: '' }] }))} disabled={formLocked}>＋置換を追加</button></fieldset>
-            <label className="toggle-field"><input type="checkbox" checked={draft.includeCaptioned} disabled={formLocked} onChange={(event) => { const enabled = event.target.checked; setDraft((current) => ({ ...current, includeCaptioned: enabled, captionStylePreset: enabled ? 'shorts_ja_large_v1' : 'studio_default_v1', variant: enabled ? 'captioned' : 'clean' })); }} /><span><strong>ナレーション字幕を焼き込む</strong><small>大見出しとは別に、読み上げ文を下部へ表示します。</small></span></label>
-            <div className="detailed-test-output-grid"><label className="field"><span>字幕preset</span><select value={draft.captionStylePreset} disabled={formLocked || !draft.includeCaptioned} onChange={(event) => setDraft((current) => ({ ...current, captionStylePreset: event.target.value as LocalAssemblyCaptionStylePreset }))}><option value="shorts_ja_large_v1">Shorts向け大字幕</option><option value="studio_default_v1">標準字幕</option></select></label><label className="field"><span>音声mix</span><select value={draft.audioMixPreset} disabled={formLocked} onChange={(event) => setDraft((current) => ({ ...current, audioMixPreset: event.target.value as LocalAssemblyAudioMixPreset }))}><option value="narration_only_v1">ナレーションのみ</option><option value="source_under_narration_v1">素材25%＋ナレーション100%</option></select></label><label className="field"><span>QC対象</span><select value={draft.variant} disabled={formLocked || !draft.includeCaptioned} onChange={(event) => setDraft((current) => ({ ...current, variant: event.target.value as LocalQcVariant }))}><option value="captioned">captioned</option><option value="clean">clean</option></select></label></div>
-          </div></details>
-          {validationErrors.length > 0 && <div className="validation-list" role="status">{validationErrors.map((error) => <div key={error}>・{error}</div>)}</div>}
-          <button className="button button-primary full-button announcement-execute" type="button" onClick={() => void saveAndExecute()} disabled={formLocked || Boolean(pendingDuplicateIntent) || staleRecipeVersion || validationErrors.length > 0}>{saving ? 'recipe保存中…' : submitting ? 'Job登録中…' : executionActive || busy ? '告知動画を監視中…' : '保存して告知動画を作る'}</button>
+
+          <div className="announcement-recipe-browser">
+            <label className="field">
+              <span>{activeEditorMode === 'quick' ? '保存した内容から続ける' : '保存済みrecipe'}</span>
+              <select value={detail.announcementRecipes.some((item) => item.id === recipeId) ? recipeId : ''} disabled={formLocked} onChange={(event) => event.target.value ? selectSaved(event.target.value) : startNew()}>
+                <option value="">新しい動画</option>
+                {detail.announcementRecipes.map((item) => <option key={item.id} value={item.id}>{item.id === recipeId && staleRecipeVersion ? `${draft.name} · 編集中 rev ${recipeRevision} / 最新 rev ${item.revision}` : `${item.recipe.name} · rev ${item.revision}`}</option>)}
+              </select>
+            </label>
+            <button className="button button-secondary" type="button" onClick={startNew} disabled={formLocked}>{activeEditorMode === 'quick' ? '新しく作る' : '新規'}</button>
+            <span className={dirty ? 'is-dirty' : 'is-saved'}>{dirty ? '入力内容は未保存' : recipeRevision > 0 ? `保存済み rev ${recipeRevision}` : '新しい動画'}</span>
+            {activeEditorMode === 'advanced' && <code>{recipeId}</code>}
+          </div>
+          <p className="sr-only" aria-live="polite">{activeEditorMode === 'advanced' && !quickModeAvailable ? '選択した内容には詳細設定が含まれるため、詳細設定を表示しました。' : ''}</p>
+
+          {activeEditorMode === 'quick' ? (
+            <QuickCreateForm
+              recipeName={draft.name}
+              scenes={draft.scenes}
+              videoArtifacts={videoArtifacts}
+              outputDurationMs={normalized.outputDurationMs}
+              validationErrors={validationErrors}
+              disabled={formLocked}
+              onRecipeNameChange={(value) => setDraft((current) => ({ ...current, name: value }))}
+              onSceneArtifactChange={selectSceneArtifact}
+              onSceneHeadlineChange={(index, value) => updateScene(index, 'headline', value)}
+              onSceneNarrationChange={(index, value) => updateScene(index, 'narration', value)}
+            />
+          ) : (
+            <>
+              <div className="announcement-recipe-actions button-row">
+                <button className="button button-secondary" type="button" onClick={() => void save()} disabled={formLocked || Boolean(pendingDuplicateIntent) || staleRecipeVersion || validationErrors.length > 0}>{saving ? '保存中…' : '保存'}</button>
+                <button className="button button-secondary" type="button" onClick={() => void duplicate()} disabled={formLocked || recipeRevision < 1 || dirty} title={dirty ? '先に未保存の変更を保存してください' : undefined}>複製して編集</button>
+              </div>
+              <label className="field"><span>recipe名</span><input maxLength={120} value={draft.name} disabled={formLocked} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} /></label>
+              <div className="announcement-scene-list">{draft.scenes.map((scene, index) => {
+                const meta = ANNOUNCEMENT_ROLE_META[scene.role];
+                const artifact = videoArtifacts.find((item) => item.id === scene.videoArtifactId);
+                return <article className={`announcement-scene role-${scene.role}`} key={scene.role}>
+                  <div className="announcement-scene-heading"><span>{meta.index}</span><div><strong>{meta.label}</strong><small>{meta.guide}</small></div><em>{index < 2 ? 'fade 250ms' : 'END'}</em></div>
+                  <label className="field"><span>動画artifact</span><select value={scene.videoArtifactId} disabled={formLocked || videoArtifacts.length === 0} onChange={(event) => selectSceneArtifact(index, event.target.value)}><option value="">動画artifactを選択</option>{scene.videoArtifactId && !videoArtifacts.some((item) => item.id === scene.videoArtifactId) && <option value={scene.videoArtifactId}>[利用不可] {scene.videoArtifactId}</option>}{videoArtifacts.map((item) => <option key={item.id} value={item.id}>{item.name} · {formatBytes(item.sizeBytes)}</option>)}</select></label>
+                  <div className="announcement-time-grid"><label className="field"><span>開始（ms）</span><input type="number" min="0" max="60000" step="1" value={scene.startMs} disabled={formLocked} onChange={(event) => updateScene(index, 'startMs', event.target.value)} /></label><label className="field"><span>終了（ms）</span><input type="number" min="0" max="60000" step="1" value={scene.endMs} disabled={formLocked} onChange={(event) => updateScene(index, 'endMs', event.target.value)} /></label><label className="field"><span>素材音量（%）</span><input type="number" min="0" max="100" step="1" value={scene.volumePercent} disabled={formLocked} onChange={(event) => updateScene(index, 'volumePercent', event.target.value)} /></label></div>
+                  <label className="field"><span>映像補正preset</span><select value={scene.visualPreset} disabled={formLocked} onChange={(event) => updateScene(index, 'visualPreset', event.target.value as LocalRemotionTimelineVisualPreset)}><option value="preserve_v1">補正なし（preserve_v1）</option><option value="h3_low_res_sharp_v1">H3低解像度を鮮明化</option></select><small className="field-help">固定強度です。完成artifactで効果を確認します。</small></label>
+                  <label className="field"><span>大見出し（2行まで）</span><textarea rows={2} maxLength={80} value={scene.headline} disabled={formLocked} onChange={(event) => updateScene(index, 'headline', event.target.value)} /></label>
+                  <label className="field"><span>ナレーション（1文）</span><textarea rows={2} maxLength={200} value={scene.narration} disabled={formLocked} onChange={(event) => updateScene(index, 'narration', event.target.value)} /></label>
+                  <div className="timeline-artifact-meta"><span>source尺 {formatDuration(artifact?.durationSeconds)}</span><span>大見出し {scene.role === 'message' ? '上' : '中央'}</span></div>
+                </article>;
+              })}</div>
+              <details className="announcement-advanced"><summary>音声・字幕の詳細設定</summary><div className="announcement-advanced-body">
+                <div className="local-pipeline-form-row"><label className="field"><span>音声（任意）</span><input value={draft.voice} disabled={formLocked} onChange={(event) => setDraft((current) => ({ ...current, voice: event.target.value }))} placeholder="既定音声" /></label><label className="field"><span>読み上げ速度</span><input type="number" min="-10" max="10" step="1" value={draft.rate} disabled={formLocked} onChange={(event) => setDraft((current) => ({ ...current, rate: event.target.value }))} /></label></div>
+                <fieldset className="pronunciation-fieldset"><legend>発音置換（任意）</legend>{draft.pronunciations.map((item, index) => <div className="pronunciation-row" key={index}><input value={item.source} disabled={formLocked} onChange={(event) => updatePronunciation(index, 'source', event.target.value)} placeholder="表記" /><span aria-hidden="true">→</span><input value={item.target} disabled={formLocked} onChange={(event) => updatePronunciation(index, 'target', event.target.value)} placeholder="読み" /><button className="button button-ghost" type="button" onClick={() => setDraft((current) => ({ ...current, pronunciations: current.pronunciations.length === 1 ? current.pronunciations : current.pronunciations.filter((_, itemIndex) => itemIndex !== index) }))} disabled={formLocked || draft.pronunciations.length === 1}>削除</button></div>)}<button className="button button-secondary" type="button" onClick={() => setDraft((current) => ({ ...current, pronunciations: [...current.pronunciations, { source: '', target: '' }] }))} disabled={formLocked}>＋置換を追加</button></fieldset>
+                <label className="toggle-field"><input type="checkbox" checked={draft.includeCaptioned} disabled={formLocked} onChange={(event) => { const enabled = event.target.checked; setDraft((current) => ({ ...current, includeCaptioned: enabled, captionStylePreset: enabled ? 'shorts_ja_large_v1' : 'studio_default_v1', variant: enabled ? 'captioned' : 'clean' })); }} /><span><strong>ナレーション字幕を焼き込む</strong><small>大見出しとは別に、読み上げ文を下部へ表示します。</small></span></label>
+                <div className="detailed-test-output-grid"><label className="field"><span>字幕preset</span><select value={draft.captionStylePreset} disabled={formLocked || !draft.includeCaptioned} onChange={(event) => setDraft((current) => ({ ...current, captionStylePreset: event.target.value as LocalAssemblyCaptionStylePreset }))}><option value="shorts_ja_large_v1">Shorts向け大字幕</option><option value="studio_default_v1">標準字幕</option></select></label><label className="field"><span>音声mix</span><select value={draft.audioMixPreset} disabled={formLocked} onChange={(event) => setDraft((current) => ({ ...current, audioMixPreset: event.target.value as LocalAssemblyAudioMixPreset }))}><option value="narration_only_v1">ナレーションのみ</option><option value="source_under_narration_v1">素材25%＋ナレーション100%</option></select></label><label className="field"><span>QC対象</span><select value={draft.variant} disabled={formLocked || !draft.includeCaptioned} onChange={(event) => setDraft((current) => ({ ...current, variant: event.target.value as LocalQcVariant }))}><option value="captioned">captioned</option><option value="clean">clean</option></select></label></div>
+              </div></details>
+            </>
+          )}
+          {validationErrors.length > 0 && <div className="validation-list" role="status" aria-live="polite">{validationErrors.map((error) => <div key={error}>・{error}</div>)}</div>}
+          <button className="button button-primary full-button announcement-execute" type="button" onClick={() => void saveAndExecute()} disabled={formLocked || Boolean(pendingDuplicateIntent) || staleRecipeVersion || validationErrors.length > 0}>{saving ? 'recipe保存中…' : submitting ? 'Job登録中…' : executionActive || busy ? activeEditorMode === 'quick' ? '作成状況を確認中…' : '告知動画を監視中…' : activeEditorMode === 'quick' ? `この内容で動画を作る（${formatMilliseconds(normalized.outputDurationMs)}）` : '保存して告知動画を作る'}</button>
           {submissionUncertain && manualReconciliationAvailable && <button className="button button-secondary full-button" type="button" disabled={submitting} onClick={() => void retryGuardedExecution('manual')}>{submitting ? '同一revisionを再照合中…' : '同一revisionを再照合'}</button>}
-          {message && <div className={`inline-message is-${message.type}`} role="status">{message.text}</div>}
+          {message && <div className={`inline-message is-${message.type}`} role={message.type === 'error' ? 'alert' : 'status'}>{message.text}</div>}
         </section>
       </div>
       <aside>
