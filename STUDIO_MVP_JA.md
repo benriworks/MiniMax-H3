@@ -2,7 +2,7 @@
 
 ## 目的
 
-MiniMaxH3 Studioは、制作案件、ログ、中間成果物、費用、承認履歴を1か所で確認するためのローカルWebアプリです。チャットは企画と監督の窓口、Studioは実行状態と証跡を保持する制御盤として分離します。`一括生成`タブからは新しいH3素材を含む固定local-only経路を、`詳細一括`タブからは登録済み素材を使うSAPI／Remotion／assembly／QC経路を、それぞれ一つのRunとして実行できます。`告知動画`タブは後者をHOOK／MESSAGE／CTAの固定3シーンへ絞り、保存・複製・一括実行できる実用テンプレートとして提供します。
+MiniMaxH3 Studioは、制作案件、ログ、中間成果物、費用、承認履歴を1か所で確認するためのローカルWebアプリです。チャットは企画と監督の窓口、Studioは実行状態と証跡を保持する制御盤として分離します。`一括生成`タブからは新しいH3素材を含む固定local-only経路を、`詳細一括`タブからは登録済み素材を使うSAPI／Remotion／assembly／QC経路を、それぞれ一つのRunとして実行できます。既定の`かんたん作成`タブは後者をHOOK／MESSAGE／CTAの固定3シーンへ絞り、保存・一括実行を3段階の入力で案内します。同じ画面の`詳細設定`はtrim、素材音、映像補正、音声、字幕を調整でき、どちらも同じ告知recipeと実行記録を共有します。
 
 このMVPはPowerDirectorのような汎用ノンリニア編集ソフトではありません。既存の`productions/`と`outputs/productions/`を読み込み、制作記録の閲覧、再実行計画、承認、監査exportを扱う土台です。Windows SAPIによるローカルナレーションworker、ElevenLabs Multilingual v2の文字時刻付き外部TTS worker、固定workflowによるローカルComfyUI MiniMax H3動画worker、isolated Chromiumでloopback Webページを縦動画へ記録するPlaywright画面収録worker、明示同意付きでWindowsの物理プライマリ画面と既定再生system audioを記録するnative capture worker、登録済み動画をトリムして順序付きハードカットへ連結するFFmpeg timeline worker、fade／素材音量／固定テロップと同一compositionのPlayer previewを備えたRemotion詳細timeline worker、既存4 workerを束ねる詳細テスト動画orchestrator、そのcontractへcompileする告知動画recipe、音声・字幕合成worker、完成masterのローカルtechnical QC workerまでを実装済みです。任意window／device／microphone収録、任意track／effect／componentを扱う汎用編集、MiniMax外部APIのStudio workerは後続段階です。
 
@@ -48,9 +48,10 @@ MiniMaxH3 Studioは、制作案件、ログ、中間成果物、費用、承認�
 - 詳細一括topはpipeline lane、Remotion childはbrowser lane、SAPI／assembly／QC childはdefault laneを使う。UIはtop jobを2秒pollingし、4 childのjob／attempt、cache hit、完成master、QC verdictを表示する。
 - SQLite schema v8の`detailed_test_video_claims`で同一production／content-addressed requestを一つのRunとactive topへ集約し、failed／interrupted後は同じRunへ新しいtop jobを追加する。成功topの再利用前にはchild lineageと成果物bytes／SHA-256を再検証する。
 - `shorts_ja_large_v1`字幕を選んだ詳細一括では、segment数、表示幅、長いASCII token、不可視／双方向制御文字をqueue前に固定policyで検査する。
-- `告知動画`タブでHOOK／MESSAGE／CTAの3シーン、登録済み動画、trim、素材音量、映像補正preset、大見出し、必須ナレーションを設定し、10〜20秒（推奨15秒）の固定テンプレートとして保存・複製・一括実行する。
+- 既定の`かんたん作成`タブで、管理名、HOOK／MESSAGE／CTAに使う登録済み動画、大見出し、ナレーションを3段階で入力し、縦1080×1920／15秒基準、素材音なし、Windowsローカル音声、Shorts向け大字幕、captioned QCの固定値で保存・一括実行する。短い素材ではcompile後の実尺を表示する。
+- 同じ画面の`詳細設定`へ切り替え、同じdraftのtrim、素材音量、映像補正preset、SAPI音声／速度／発音置換、字幕、音声mix、QC対象を調整する。既定外の値を持つ保存済みrecipeは詳細設定へ自動表示し、隠れた値を上書きしない。
 - 告知recipeは`expected_revision` CAS付きのimmutableなexact revisionとしてproduction eventへ追記し、clone元versionとDetailed Job／Runへのexecution linkを保持する。同じcompile結果はDetailed側でdedupeし、別recipeからの実行リンクは失わない。
-- 告知動画の実行中はJobを2秒間隔、production detailを初回とおおむね6秒間隔で取得する。応答が曖昧な場合は新しいexecution linkのexact Jobを照合し、なければ同じimmutable revisionを1回だけ冪等再送する。2回目も曖昧なら自動処理を止め、手動再照合だけを許可する。
+- かんたん作成／詳細設定の実行中は同じJobを2秒間隔、production detailを初回とおおむね6秒間隔で取得する。応答が曖昧な場合は新しいexecution linkのexact Jobを照合し、なければ同じimmutable revisionを1回だけ冪等再送する。2回目も曖昧なら自動処理を止め、手動再照合だけを許可する。
 - 同じproductionの登録済み動画と、同じRunの成功済みナレーションattemptを選び、source audioを置換した`master-clean.mp4`をローカル生成する。
 - 任意で、SRTを制御タグ不能な固定style ASSへ変換し、`studio_default_v1`またはShorts向け大字幕`shorts_ja_large_v1`で`master-captioned.mp4`を追加生成する。
 - `ffprobe.json`と自己hash付き`manifest.json`へ入力hash、FFmpeg/ffprobeの実体・version・binary hash、音声方針、出力方針を記録する。
@@ -66,26 +67,30 @@ MVPが行わないこと:
 - 任意window／任意display／任意audio device、microphone、外部Webサイト、既存ログインsessionを指定した収録
 - 複数audio track、任意transition／effect、free-form CSS／font／React component、keyframe、任意映像filter／鮮明化強度、任意resolution／fpsを含む汎用タイムライン編集
 - 詳細一括からのH3／ComfyUI生成、外部provider呼出し、任意path／URL／gain指定
-- 告知動画v1でのBGM、ロゴ画像、任意renderer／CSS／React component、任意のシーン構成、ナレーションなし実行
+- かんたん作成／告知動画v1でのBGM、ロゴ画像、任意renderer／CSS／React component、任意のシーン構成、ナレーションなし実行
 - ブラウザから任意ローカルpathを読むこと
 - creativeまたは公開権利を自動承認すること
 
 「run作成」は監査可能な実行計画を保存する操作で、それだけではworkerや課金APIを開始しません。`local_sapi` runでは、作成後にナレーション、カット編集、編集・合成、品質検査の各画面または対応する専用APIで明示したときだけローカルworkerを開始します。`local_comfyui` runも、生成映像画面でpromptとseedを確認して実行した場合だけGPU workerを開始します。`local_playwright` runは、画面収録画面でURL、尺、操作を確認して明示実行した場合だけbrowser workerを開始します。`elevenlabs_tts` runは、作成、正の費用見積、上限承認に加え、外部音声画面で送信内容を確認して`confirm_billable=true`を明示した場合だけ外部TTS workerを開始します。FFmpegハードカットとRemotion詳細timelineはいずれも同じproductionの登録済み動画artifactだけを受け付け、`timeline`をrequested stageに含む対応profileから明示実行します。合成は同じRunの成功済みナレーションを、QCは同じRunの成功済みassembly attemptを必須とします。両timeline previewは通常の登録済み動画と同じ入力候補としてassemblyへ渡せます。
 通常の課金対象requested stageを含むrunには正の見積額が必須です。0以下または未指定の見積はfail closedで拒否し、runを残しません。`local_sapi`はnarration、captions、timeline、assembly、qcだけを対象にする0円profileです。詳細一括は専用endpointからこのprofileのimmutable Runを作り、4 workerを束ねます。`elevenlabs_tts`はnarrationを必須とし、narration、captions、assembly、qcだけを対象にする課金profileです。`local_comfyui`はvideo_generationを必須とし、video_generation、timeline、assembly、qcを対象にする0円profileです。`local_playwright`はscreen_captureを必須とし、screen_captureとtimelineだけを実行可能にする0円profileです。`local_playwright`のassembly／qcは影響工程としてRun計画に残りますが、このprofileでは実行しません。`local_pipeline`は専用endpointからのみ作成する、6 requested stage／5 executed stageの固定local-only 0円profileです。ElevenLabs、MiniMax API、費用approvalは詳細一括と`local_pipeline`のどちらにも到達しません。
 
-告知recipeの保存と複製はversion eventを追記するだけで、media workerを開始しません。`execute`で保存済みexact revisionを指定した場合だけDetailed Test Videoの0円`local_sapi` Run／top Jobを作成または再利用します。告知動画からもElevenLabs、MiniMax API、ComfyUI、費用approvalへ到達しません。
+告知recipeの保存と複製はversion eventを追記するだけで、media workerを開始しません。`かんたん作成`はfrontendのpresentation layerで、独自APIを持たず、既存の告知recipe保存→`execute`を共有します。保存済みexact revisionを実行した場合だけDetailed Test Videoの0円`local_sapi` Run／top Jobを作成または再利用し、詳細設定と同じRun／Job／artifact／QC／event／監査exportへ記録します。新しいendpoint、worker、lane、DB schemaは追加せず、ElevenLabs、MiniMax API、ComfyUI、費用approvalへも到達しません。
 
-## 告知動画テンプレート（Announcement Video v1）
+## かんたん作成（Announcement Video v1）
 
-`告知動画`タブは、汎用編集画面を開かずに既存素材から短い告知を完成させる入口です。同じproductionにavailableな動画artifactが必要です。素材はシーンごとに選び、同じartifactを複数シーンで再利用することもできます。新しいH3素材の生成は行いません。
+productionを開くと、最初に`かんたん作成`タブを表示します。汎用編集画面を開かずに既存素材から縦型15秒を基準とした動画を完成させる入口で、同じproductionにavailableな動画artifactが必要です。素材は場面ごとに選び、同じartifactを複数場面で再利用することもできます。新しいH3素材の生成は行いません。十分な素材尺があれば完成尺は15.000秒となり、短い素材を選んだ場合はcompile後の実尺を画面に表示します。
 
-画面上の基本操作は次のとおりです。
+`作り方`では`かんたん作成`と`詳細設定`を切り替えます。両方とも同じdraft、保存済みrevision、`saveAndExecute` controllerを使います。`QuickCreateForm`はAPIを直接呼ばず、表示項目と既定値だけを絞ります。
 
-1. HOOK、MESSAGE、CTAの順に、動画artifact、開始／終了、素材音量、映像補正preset、大見出し、ナレーションを入力する。
-2. 必要に応じてSAPI voice、読み上げ速度、発音置換、焼き込み字幕、音声mix、QC対象variantを設定する。
-3. `保存`でexact revisionを残す。保存済みrevisionを元のまま残して試案を作る場合は`複製して編集`を使う。
-4. 消音の3シーンpreviewで素材、trim、fade、大見出しを確認する。
-5. `保存して告知動画を作る`で、必要な保存の後にそのexact revisionをDetailed Test Videoへ投入する。完成masterでナレーション、字幕、音声mix、technical QCを確認する。
+`かんたん作成`の基本操作は次のとおりです。
+
+1. `保存した内容から続ける`または`新しく作る`を選び、完成動画には表示されない`動画の管理名`を付ける。
+2. `3つの場面を選ぶ`で`つかみ`、`伝えたいこと`、`最後の案内`に使う動画を選ぶ。同じ動画の再利用もできる。
+3. `伝える言葉を入れる`で各場面の大見出しと、常に表示される`読み上げる文章`を確認・調整する。秘密情報、API token、公開不要の個人情報は入力しない。
+4. `内容を確認して作成する`で、縦1080×1920／画面に表示された実尺、3場面／250ms fade、Windowsローカル音声／素材音なし、大見出し＋読み上げ字幕、ローカルのみ／API費用0円、technical QC記録を確認する。
+5. `この内容で動画を作る（<実尺>）`で、必要なrecipe保存に続けて同じexact revisionを実行する。右側の`4段階の進捗`と`master・QC`で結果を確認する。
+
+`詳細設定`では、HOOK、MESSAGE、CTAの動画artifact、開始／終了、素材音量、映像補正preset、大見出し、ナレーションに加え、SAPI voice、読み上げ速度、発音置換、焼き込み字幕、音声mix、QC対象variantを調整できます。`保存`、`複製して編集`、消音の3シーンpreview、`保存して告知動画を作る`は従来どおりです。trim、素材音、映像補正、音声、字幕のいずれかがかんたん作成の固定値と異なる保存済みrecipeは、自動的に`詳細設定`で表示します。`新規`または`新しく作る`は固定値の新しいdraftへ戻します。
 
 HTTP境界は次の4本です。変更系は通常のStudio session token／Origin検査を通ります。
 
@@ -598,6 +603,8 @@ Studioでは次を別々に扱います。
 | stage attempt | stage、attempt番号、cache key、状態、所要時間、provider、task ID、実費、timing source |
 | status / approval | 台帳由来のtechnical・creative・public status、run費用上限の承認／却下と理由 |
 
+`かんたん作成`は監査を省略するmodeではありません。詳細設定と同じ告知recipe revisionを保存し、同じ0円`local_sapi` Run／top Job、4 child、artifact hash、technical QC、execution link、event chainを使います。`成果物`、`ログ`、`監査・費用`タブはいずれの作り方から実行しても同じ記録を表示します。
+
 ローカルSAPI attemptは`provider=windows_sapi`、`provider_task_id=null`、`actual_cost=0`、`timing_source=wav_frames`として記録します。ローカルComfyUI attemptは`provider=comfyui`、`provider_task_id=<prompt-id>`、`actual_cost=0`、`timing_source=ffprobe`、prompt SHA-256、文字数、seed／`seed_decimal`として記録します。ローカルPlaywright attemptは`provider=local_playwright`、`provider_task_id=null`、`actual_cost=0`、`timing_source=ffprobe`として、originとhash化したtarget/action監査値だけを記録します。ElevenLabs attemptは`provider=elevenlabs`、`provider_task_id=<request-id>`、`character_cost=<header値またはnull>`、`actual_cost=null`、`timing_source=elevenlabs_alignment`として記録します。`character-cost`はproviderの課金文字量でありUSD実費ではありません。ハードカットtimeline attemptは`provider=local_ffmpeg_timeline`、Remotion詳細timeline attemptは`provider=local_remotion_timeline`／`timing_source=remotion_frames`、ローカルassembly attemptは`provider=local_ffmpeg`、ローカルQC attemptは`provider=local_ffmpeg_qc`として、いずれも`provider_task_id=null`、`actual_cost=0`を記録します。QCは解析不能なtool/process failureだけをjob失敗とし、解析が完了して検査に不合格ならjob／attempt成功と`technical_verdict=fail`を併記します。API応答にないUSD実費を推測せず、将来のprovider請求照合で確定するまでは未確定のまま保持します。
 
 監査exportは、SQLiteを1つのread transactionで固定した時点の記録をZIPへまとめる派生成果物です。event mirrorもそのsnapshotと一致する検証済みprefixをmemoryへ固定してから格納します。一般テキスト副生成物はZIP格納前に既知の秘密情報patternをredactし、変更対象をpackage manifestの`redacted_text_files`へ記録します。安全な構造化処理を保証できないYAML/YML、INI/CFG/CONF、TOML、CSV/TSV、XML、HTML/XHTML、SVGは`structured_text_requires_local_review`として除外します。未知形式と外部archiveも`unsupported_artifact_kind`として除外します。Studio生成のSRT、timings、manifestは既定で含め、WAVは他のaudio/video/imageと同様に`include_media=true`のときだけ含めます。監査ZIP自身は再帰的に含めません。package manifest自身を除く格納entryごとの実bytes/SHA-256、scope別event chain末尾、検証できず除外したmirrorを記録し、ZIP閉鎖後に全entryを再検証します。ZIP全体のSHA-256は隣接sidecarへ保存します。DB snapshot後に元artifactが更新された場合、artifact metadataの時点とcopy時点は異なり得るため、ZIP内実体については`archive_entries`のbytes/hashを正本とします。監査ZIPが存在するだけで公開権利や人の通し試聴が確認済みになったとは扱いません。
@@ -610,6 +617,7 @@ Studioでは次を別々に扱います。
 - 変更系POSTは起動ごとのsession tokenとloopback Originで保護し、tokenを永続ログへ保存しません。認証拒否時は上限内の宣言済みrequest bodyだけを破棄してから接続を閉じ、WindowsでもHTTP 403を安定して返します。長さ不正・上限超過bodyは読み込まずfail closedにします。読取GETはloopback bindとHost検査を境界とします。
 - 同じworkspaceへ2つのStudio serverを起動しません。Windowsではworkspace内lock fileを`LockFileEx`でsystem-wideに排他保持し、同一process／別process／別sessionの2台目を起動時に拒否します。全responseは`Connection: close`で1 request／1 handlerへ限定します。終了時はlistenerとrequest解析中socketだけを閉じ、解析済みnon-daemon HTTP handler、background provider recovery、job worker lane、SQLite interruption writerをdrainしてからlockを解放します。未解析requestはWindowsでも1秒のinactivity timeoutで有界化し、解析済みservice処理にはこの時間制限を適用しません。worker／writerのtimeoutまたはclose例外時は再試行またはprocess終了までlockを保持するため、旧writerと新processのSQLite多重writerを許しません。
 - frontendへAPIキーを返すendpointはありません。
+- `かんたん作成`で詳細項目を隠すこと自体はsecurity boundaryではありません。保存と実行は同じsession保護済み告知endpointとbackendのexact schemaを通り、frontend既定値の変更や画面の迂回で任意field、外部provider、課金経路を追加できません。
 - 告知recipeの保存APIは大見出し、ナレーション、発音置換をexact revisionとして返し、production eventにもBase64で保持します。これはローカルの再調整・監査機能であってsecret storeではありません。秘密を入力せず、監査ZIPを外部共有する前にevent mirrorも確認します。
 - 外部TTSのprofile、narration工程、正の見積、費用承認、literal booleanの`confirm_billable=true`をすべて検証してから、外部contract module、秘密鍵、HTTP workerへ到達します。どれか1つでも欠ければprovider codeを読み込まずfail closedにします。
 - ElevenLabsのproduction endpointは`https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/with-timestamps`へ固定し、redirectを拒否します。test用endpoint注入はliteral loopback originだけに限定します。API keyは`xi-api-key` header以外へ入れず、URL、cache key、manifest、例外、job payloadへ保存しません。
@@ -649,10 +657,10 @@ Studioは個人用loopbackツールです。LANからの攻撃面を作らない
 3. Studioが索引・監査job、ローカルComfyUI動画生成、Playwright画面収録、ローカル／ElevenLabs narration、FFmpeg／Remotion timeline、assembly、QC attempt、成果物、費用計画、ログを保持する。後続workerも同じ台帳へ保持する。
 4. ユーザーはStudioで候補や中間成果物を確認する。
 5. Codexは完了、失敗、承認待ちなど節目だけを確認する。
-6. 既存素材から早く告知を作る場合は`告知動画`タブで3シーンを保存・previewし、exact revisionを一括実行する。Studioはrecipe history、Detailed child lineage、master、QCを保持する。
+6. 既存素材から早く動画を作る場合は`かんたん作成`タブで3場面と伝える言葉を入力し、exact revisionを一括実行する。trim、音、補正を調整する場合は同じ画面の`詳細設定`へ切り替える。Studioはどちらでも同じrecipe history、Detailed child lineage、master、QC、監査・費用記録を保持する。
 7. 新しいH3素材から始める場合は`local_pipeline`の`一括生成`タブでprompt、seed、script、音声、字幕preset、variantを確認して、固定local-onlyの6 requested／5 executed stageを明示実行する。StudioはComfyUI→SAPI→one-clip timeline→assembly→QCの順序、child job、cache、artifact hash、technical verdictを保持する。単独の`local_comfyui`、`local_sapi`、`elevenlabs_tts`は工程単位の再実行や比較に使い、local pipelineではElevenLabs、MiniMax API、費用approvalを使わない。
 
-現MVPは索引・監査jobに加えてローカルComfyUI動画生成、Playwright Web画面収録、`local_pipeline`一括生成、告知動画テンプレート、ローカル／ElevenLabs narration、FFmpegハードカット／Remotion詳細timeline、assembly、technical QCもバックグラウンド実行します。profile単位では、`local_playwright`はscreen_captureとtimelineだけを実行可能とし、assembly／qcは影響工程として計画に残しますが実行しません。dashboard全体のhealth/job一覧は15秒間隔、実行中の画面収録と両timeline、pipeline top job／child、および選択RunのComfyUI provider taskとpipeline continuation stateは2秒間隔で取得し、ジョブ状態と進捗率を表示します。告知動画は軽いJob一覧を2秒間隔、production detailを初回と3回ごとのおおむね6秒間隔で取得し、曖昧な実行応答はfresh execution linkのexact Job GET、続く同一immutable revisionの1回限定冪等再送で復旧します。複製clone IDはsource identityから決定的に導出してintent固有のversioned `localStorage` keyへPOST前に保存し、画面移動／再読込／複数tabでも同じIDを再利用します。exact cloneの成功または版履歴照合まで保持し、timeout／4xxでは消さず、壊れた保存領域ではPOST前に停止します。production detailの一時取得失敗でも最後に確認できたフォームと復旧stateを保持します。専用browser laneはChromium captureとRemotion renderをdefault laneから分離し、両者をFIFOで直列実行します。専用pipeline laneはGPU childをdefault childから分離します。Studio再起動後にComfyUI生成が成功へ復旧した場合は、単一coordinatorが同じRunの新topを一度だけenqueueし、検証済み動画cacheからSAPI以降を自動継続します。チャットは節目だけを確認することで監視トークンを抑えられます。Studioへ記録済みの状態はチャットを閉じてもローカルに残ります。
+現MVPは索引・監査jobに加えてローカルComfyUI動画生成、Playwright Web画面収録、`local_pipeline`一括生成、かんたん作成／告知動画テンプレート、ローカル／ElevenLabs narration、FFmpegハードカット／Remotion詳細timeline、assembly、technical QCもバックグラウンド実行します。profile単位では、`local_playwright`はscreen_captureとtimelineだけを実行可能とし、assembly／qcは影響工程として計画に残しますが実行しません。dashboard全体のhealth/job一覧は15秒間隔、実行中の画面収録と両timeline、pipeline top job／child、および選択RunのComfyUI provider taskとpipeline continuation stateは2秒間隔で取得し、ジョブ状態と進捗率を表示します。かんたん作成／詳細設定は同じ告知Job一覧を2秒間隔、production detailを初回と3回ごとのおおむね6秒間隔で取得し、曖昧な実行応答はfresh execution linkのexact Job GET、続く同一immutable revisionの1回限定冪等再送で復旧します。複製clone IDはsource identityから決定的に導出してintent固有のversioned `localStorage` keyへPOST前に保存し、画面移動／再読込／複数tabでも同じIDを再利用します。exact cloneの成功または版履歴照合まで保持し、timeout／4xxでは消さず、壊れた保存領域ではPOST前に停止します。production detailの一時取得失敗でも最後に確認できたフォームと復旧stateを保持します。専用browser laneはChromium captureとRemotion renderをdefault laneから分離し、両者をFIFOで直列実行します。専用pipeline laneはGPU childをdefault childから分離します。Studio再起動後にComfyUI生成が成功へ復旧した場合は、単一coordinatorが同じRunの新topを一度だけenqueueし、検証済み動画cacheからSAPI以降を自動継続します。チャットは節目だけを確認することで監視トークンを抑えられます。Studioへ記録済みの状態はチャットを閉じてもローカルに残ります。
 
 ローカルナレーション画面は操作性のため1行2,000文字・合計50,000文字を先に警告します。backendの正本上限は1 segment 4,000文字・合計100,000文字・100 segmentです。外部TTSもbackendで同じsegment／総文字数上限を適用し、さらにvoice ID、全voice setting、seed、provider応答、媒体size／尺を検証します。UIを迂回したrequestにも必ず適用します。
 
