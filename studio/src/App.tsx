@@ -18,6 +18,8 @@ import {
   isRemotionTimelineJobForSelection,
   isLocalScreenCaptureJobForSelection,
   selectLocalScreenCaptureJob,
+  isWindowsCaptureJobForSelection,
+  selectWindowsCaptureJob,
   isEligibleLocalQcRun,
   isLocalQcJobForSelection,
   isSucceededLocalFfmpegAssemblyAttempt,
@@ -48,6 +50,13 @@ import {
   normalizeLocalTimelineInput,
   normalizeLocalRemotionTimelineInput,
   normalizeLocalScreenCaptureInput,
+  buildWindowsCapturePayload,
+  createWindowsCaptureSubmissionGuard,
+  isStudioApiResponseLoss,
+  reconcileWindowsCaptureSubmission,
+  WINDOWS_CAPTURE_LIMITS,
+  WINDOWS_CAPTURE_RECONCILIATION_POLL_MS,
+  canStartWindowsCapture,
   normalizeLocalAssemblyInput,
   normalizeLocalQcInput,
   normalizeLocalComfyUiInput,
@@ -58,7 +67,7 @@ import {
   normalizeExternalNarrationInput,
   getExternalNarrationGate,
 } from './api';
-import type { DetailedTestVideoSubmissionGuard } from './api';
+import type { DetailedTestVideoSubmissionGuard, WindowsCaptureSubmissionGuard } from './api';
 import {
   ANNOUNCEMENT_DUPLICATE_INTENT_STORAGE_KEY,
   ANNOUNCEMENT_REQUEST_TIMEOUT_MS,
@@ -120,6 +129,7 @@ import type {
   StudioEvent,
   StudioStatus,
   WindowsCaptureCapability,
+  WindowsCaptureRequest,
 } from './types';
 
 type DetailTab = 'overview' | 'pipeline' | 'announcement' | 'detailed-test' | 'video' | 'capture' | 'narration' | 'timeline' | 'assembly' | 'qc' | 'artifacts' | 'compare' | 'logs' | 'audit';
@@ -335,6 +345,9 @@ const hasScreenCaptureStage = (run: ProductionRun): boolean =>
   run.requestedStages.some((stage) => normalizeRequestedStage(stage) === 'screen_capture')
   || run.stages.some((stage) => normalizeRequestedStage(stage.name) === 'screen_capture');
 
+const isWindowsCaptureRun = (run?: ProductionRun): boolean =>
+  Boolean(run && hasScreenCaptureStage(run) && run.executionProfile === 'local_windows_capture');
+
 const hasLocalSapiProfile = (run?: ProductionRun): boolean => run?.executionProfile === 'local_sapi';
 
 const hasElevenLabsProfile = (run?: ProductionRun): boolean => run?.executionProfile === 'elevenlabs_tts';
@@ -358,6 +371,21 @@ const localScreenCaptureError = (error: unknown): string => {
     return 'このRunはlocal_playwright実行用ではありません。画面収録プロファイルでRunを作成してください。';
   }
   return `ローカル画面収録に失敗しました：${message}`;
+};
+
+const localWindowsCaptureError = (error: unknown): string => {
+  if (error instanceof StudioApiError && error.unsupported) {
+    return 'このStudio backendはWindowsネイティブ収録に対応していません。backendを更新してから再試行してください。';
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  const normalized = message.toLowerCase();
+  if (normalized.includes('profile')) {
+    return 'このRunはlocal_windows_capture実行用ではありません。Windows収録プロファイルでRunを作成してください。';
+  }
+  if (normalized.includes('capability') || normalized.includes('workstation') || normalized.includes('ready')) {
+    return `Windows収録環境を利用できません：${message}`;
+  }
+  return `Windowsネイティブ画面収録に失敗しました：${message}`;
 };
 
 const screenCaptureProgressPhaseLabel = (phase?: string): string => ({
@@ -893,7 +921,7 @@ function ProductionWorkspace({ detail, jobs, providers, onReload, onAnnouncement
         {tab === 'announcement' && <AnnouncementVideoPanel key={detail.id} detail={detail} jobs={jobs} onReload={onReload} onDirtyChange={updateAnnouncementDirty} />}
         {tab === 'detailed-test' && <DetailedTestVideoPanel key={detail.id} detail={detail} jobs={jobs} onReload={onReload} />}
         {tab === 'video' && <VideoGenerationPanel detail={detail} jobs={jobs} onReload={onReload} />}
-        {tab === 'capture' && <ScreenCapturePanel detail={detail} jobs={jobs} onReload={onReload} />}
+        {tab === 'capture' && <CaptureTab detail={detail} jobs={jobs} onReload={onReload} />}
         {tab === 'narration' && <NarrationPanel detail={detail} jobs={jobs} providers={providers} onReload={onReload} />}
         {tab === 'timeline' && <TimelinePanel detail={detail} jobs={jobs} onReload={onReload} />}
         {tab === 'assembly' && <AssemblyPanel detail={detail} jobs={jobs} onReload={onReload} />}
@@ -1488,53 +1516,385 @@ const WINDOWS_CAPTURE_REASON_LABELS: Record<string, string> = {
   wasapi_loopback_unavailable: '既定再生音声のloopbackが利用できません',
 };
 
-function WindowsCaptureCapabilityCard() {
-  const [checking, setChecking] = useState(false);
-  const [capability, setCapability] = useState<WindowsCaptureCapability>();
-  const [error, setError] = useState<string>();
+const WINDOWS_CAPTURE_ARTIFACT_NAMES = [
+  'screen-capture.mp4',
+  'screen-video.mp4',
+  'system-audio.wav',
+  'first-frame.png',
+  'last-frame.png',
+  'capture-report.json',
+  'ffprobe.json',
+  'manifest.json',
+] as const;
 
-  const inspect = async () => {
-    if (checking) return;
-    setChecking(true);
-    setError(undefined);
-    try {
-      const next = await api.inspectWindowsCaptureCapability();
-      if (next.actualCapturePerformed || next.captureExecutionEnabled || next.helper.recordingStarted) {
-        setCapability(undefined);
-        setError('安全契約と異なる診断結果を受信したため、表示を停止しました。');
-        return;
-      }
-      setCapability(next);
-    } catch (inspectionError) {
-      setCapability(undefined);
-      setError(inspectionError instanceof Error ? inspectionError.message : 'Windows収録環境を確認できませんでした。');
-    } finally {
-      setChecking(false);
-    }
-  };
-
+function WindowsCaptureCapabilityCard({
+  capability,
+  checking,
+  error,
+  onInspect,
+}: {
+  capability?: WindowsCaptureCapability;
+  checking: boolean;
+  error?: string;
+  onInspect: () => void;
+}) {
+  const ready = capability?.status === 'ready';
   return (
     <section className="panel compact-panel" aria-live="polite" aria-busy={checking}>
       <div className="panel-header">
-        <div><span className="section-kicker">WINDOWS NATIVE FOUNDATION</span><h3>Windows画面・システム音声</h3></div>
+        <div><span className="section-kicker">WINDOWS NATIVE CAPABILITY</span><h3>Windows画面・システム音声</h3></div>
         {capability
-          ? <StatusBadge status={capability.foundationReady ? 'approved' : 'blocked'} label={capability.foundationReady ? '基盤利用可能' : '利用不可'} />
+          ? <StatusBadge status={ready ? 'approved' : 'blocked'} label={ready ? '収録可能' : '利用不可'} />
           : <span className="muted">未確認</span>}
       </div>
-      <p className="panel-lead">この操作は環境確認のみです。画面・音声を取得、保存、送信しません。実収録は未実装で、現在は常に無効です。</p>
-      <button className="button button-secondary" type="button" disabled={checking} onClick={() => void inspect()}>{checking ? '環境確認中…' : '収録せずに環境を確認'}</button>
+      <p className="panel-lead">診断は収録せず、固定helper・FFmpeg・既定再生音声・プライマリ画面の事前条件だけを確認します。</p>
+      <button className="button button-secondary" type="button" disabled={checking} onClick={onInspect}>{checking ? '環境確認中…' : '収録せずに環境を確認'}</button>
       {capability && <>
         <dl className="narration-metrics">
+          <div><dt>Capability</dt><dd>{capability.status}</dd></div>
+          <div><dt>プライマリ画面</dt><dd>{capability.display.width !== null && capability.display.height !== null ? `${capability.display.width}×${capability.display.height}` : '利用不可'}</dd></div>
           <div><dt>画面入力</dt><dd>{capability.screenCaptureReady ? '利用可能' : '利用不可'}</dd></div>
           <div><dt>既定再生音声</dt><dd>{capability.systemAudioLoopbackReady ? 'loopback利用可能' : '利用不可'}</dd></div>
+          <div><dt>capture command</dt><dd>{capability.helper.captureCommandAvailable ? '利用可能' : '利用不可'}</dd></div>
+          <div><dt>FFprobe</dt><dd>{capability.ffmpeg.ffprobeAvailable ? '利用可能' : '利用不可'}</dd></div>
           <div><dt>実収録</dt><dd>{capability.captureExecutionEnabled ? '有効' : '無効'}</dd></div>
           <div><dt>今回の取得</dt><dd>{capability.actualCapturePerformed ? 'あり' : 'なし'}</dd></div>
         </dl>
         {capability.reasons.length > 0 && <div className="validation-list" role="status">{capability.reasons.map((reason) => <div key={reason}>・{WINDOWS_CAPTURE_REASON_LABELS[reason] ?? reason}</div>)}</div>}
-        <p className="gate-separation-note">将来の実収録でも、画面とシステム音声を別々に明示確認する固定契約を必須にします。ウィンドウ名、device ID、マイク、任意パス、任意FFmpeg引数は受け付けません。</p>
+        <p className="gate-separation-note">実収録はこの診断と分離した明示操作です。対象はプライマリ画面、音声は既定render loopback、カーソルは非表示に固定し、マイク・任意device・任意path・任意FFmpeg引数は受け付けません。</p>
       </>}
       {error && <div className="inline-message is-error" role="status">{error}</div>}
     </section>
+  );
+}
+
+function CaptureTab({ detail, jobs, onReload }: { detail: ProductionDetail; jobs: Job[]; onReload: () => Promise<void> }) {
+  return (
+    <div className="narration-stack">
+      <WindowsCapturePanel detail={detail} jobs={jobs} onReload={onReload} />
+      <ScreenCapturePanel detail={detail} jobs={jobs} onReload={onReload} />
+    </div>
+  );
+}
+
+function WindowsCapturePanel({ detail, jobs, onReload }: { detail: ProductionDetail; jobs: Job[]; onReload: () => Promise<void> }) {
+  const eligibleRuns = useMemo(
+    () => [...detail.runs]
+      .filter((run) => isWindowsCaptureRun(run))
+      .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')),
+    [detail.runs],
+  );
+  const [selectedRunId, setSelectedRunId] = useState(eligibleRuns[0]?.id ?? '');
+  const [durationSeconds, setDurationSeconds] = useState(5);
+  const [confirmCapture, setConfirmCapture] = useState(false);
+  const [confirmSystemAudio, setConfirmSystemAudio] = useState(false);
+  const [capability, setCapability] = useState<WindowsCaptureCapability>();
+  const [checkingCapability, setCheckingCapability] = useState(false);
+  const [capabilityError, setCapabilityError] = useState<string>();
+  const [job, setJob] = useState<Job>();
+  const [submitting, setSubmitting] = useState(false);
+  const [submissionUncertain, setSubmissionUncertain] = useState(false);
+  const [submissionReviewRequired, setSubmissionReviewRequired] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const submittingRef = useRef(false);
+  const pollingRef = useRef(false);
+  const submissionGuardRef = useRef<WindowsCaptureSubmissionGuard | undefined>(undefined);
+
+  useEffect(() => {
+    if (!eligibleRuns.some((run) => run.id === selectedRunId)) {
+      setSelectedRunId(eligibleRuns[0]?.id ?? '');
+      setJob(undefined);
+      setSubmissionUncertain(false);
+      setSubmissionReviewRequired(false);
+      submissionGuardRef.current = undefined;
+    }
+  }, [eligibleRuns, selectedRunId]);
+
+  const [message, setMessage] = useState<{ type: 'error' | 'success' | 'info'; text: string }>();
+  const selectedRun = eligibleRuns.find((run) => run.id === selectedRunId);
+  const attempts = [...(selectedRun?.stageAttempts ?? [])]
+    .filter((attempt) => normalizeRequestedStage(attempt.stage) === 'screen_capture')
+    .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
+  const currentAttempt = attempts[0];
+  const matchingJobs = selectedRun
+    ? jobs.filter((candidate) => isWindowsCaptureJobForSelection(candidate, { runId: selectedRun.id }))
+    : [];
+  const visibleJob = submitting || submissionUncertain || submissionReviewRequired
+    ? (submissionUncertain ? job : undefined)
+    : selectWindowsCaptureJob(job, currentAttempt, matchingJobs, selectedRun?.id);
+  const status = visibleJob?.status ?? (submitting || submissionUncertain || submissionReviewRequired ? undefined : currentAttempt?.status);
+  const active = status === 'pending' || status === 'running';
+  const nativeRequest = useMemo<WindowsCaptureRequest>(() => ({
+    durationMs: durationSeconds * 1_000,
+    confirmCapture,
+    confirmSystemAudio,
+  }), [confirmCapture, confirmSystemAudio, durationSeconds]);
+  const requestError = useMemo(() => {
+    try {
+      buildWindowsCapturePayload(nativeRequest);
+      return undefined;
+    } catch (error) {
+      return error instanceof Error ? error.message : '収録条件を確認してください。';
+    }
+  }, [nativeRequest]);
+  const locked = submitting || active || submissionUncertain || cancelling;
+  const canExecute = canStartWindowsCapture(
+    selectedRun?.executionProfile,
+    capability,
+    confirmCapture,
+    confirmSystemAudio,
+    locked || Boolean(requestError),
+  );
+
+  const inspect = async () => {
+    if (checkingCapability) return;
+    setCheckingCapability(true);
+    setCapabilityError(undefined);
+    try {
+      setCapability(await api.inspectWindowsCaptureCapability());
+    } catch (inspectionError) {
+      setCapability(undefined);
+      setCapabilityError(inspectionError instanceof Error ? inspectionError.message : 'Windows収録環境を確認できませんでした。');
+    } finally {
+      setCheckingCapability(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!selectedRun || submitting || (!active && !submissionUncertain)) return;
+    let cancelled = false;
+    const requireManualReview = () => {
+      submissionGuardRef.current = undefined;
+      setSubmissionUncertain(false);
+      setSubmissionReviewRequired(true);
+      setJob(undefined);
+      // A future recording requires a new, explicit pair of confirmations.
+      setConfirmCapture(false);
+      setConfirmSystemAudio(false);
+      setMessage({
+        type: 'error',
+        text: '受理状態は未確定です。自動照合と自動再送を停止しました。収録履歴を手動確認し、必要なら確認項目を再選択して開始してください。',
+      });
+    };
+    const guardedIntentId = submissionUncertain ? submissionGuardRef.current?.consentIntentId : undefined;
+    const deadlineTimer = guardedIntentId && submissionGuardRef.current
+      ? window.setTimeout(() => {
+        const guard = submissionGuardRef.current;
+        if (!cancelled && guard?.consentIntentId === guardedIntentId) requireManualReview();
+      }, Math.max(0, submissionGuardRef.current.reconcileDeadlineMs - Date.now()))
+      : undefined;
+    const poll = async () => {
+      if (pollingRef.current) return;
+      pollingRef.current = true;
+      try {
+        const nextJobs = await api.jobs();
+        if (cancelled) return;
+        const scopedJobs = nextJobs.filter((candidate) => isWindowsCaptureJobForSelection(candidate, { runId: selectedRun.id }));
+        const guard = submissionGuardRef.current;
+        const reconciliation = submissionUncertain && guard?.runId === selectedRun.id
+          ? reconcileWindowsCaptureSubmission(guard, scopedJobs)
+          : undefined;
+        const reconciled = reconciliation?.state === 'matched' ? reconciliation.job : undefined;
+        if (reconciliation?.state === 'pending') submissionGuardRef.current = reconciliation.guard;
+        if (reconciliation?.state === 'manual_review') {
+          requireManualReview();
+          return;
+        }
+        const next = reconciled
+          ?? (submissionUncertain ? undefined : visibleJob?.id
+            ? nextJobs.find((candidate) => candidate.id === visibleJob.id)
+            : selectWindowsCaptureJob(undefined, currentAttempt, scopedJobs, selectedRun.id));
+        if (next) setJob(next);
+        if (reconciled) {
+          submissionGuardRef.current = undefined;
+          setSubmissionUncertain(false);
+          setMessage({ type: 'info', text: '応答を受信できませんでしたが、受理済みJobを照合しました。再送は行いません。' });
+        }
+        if (next && ['succeeded', 'failed', 'cancelled'].includes(next.status)) {
+          await onReload().catch(() => undefined);
+        }
+      } catch {
+        const guard = submissionGuardRef.current;
+        if (
+          submissionUncertain
+          && guard?.runId === selectedRun.id
+          && (Date.now() >= guard.reconcileDeadlineMs)
+        ) {
+          requireManualReview();
+        }
+        // Otherwise the next bounded poll retries; the last known job remains visible.
+      } finally {
+        pollingRef.current = false;
+      }
+    };
+    void poll();
+    const timer = window.setInterval(() => { void poll(); }, WINDOWS_CAPTURE_RECONCILIATION_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      if (deadlineTimer !== undefined) window.clearTimeout(deadlineTimer);
+    };
+  }, [active, currentAttempt, onReload, selectedRun, submissionUncertain, submitting, visibleJob?.id]);
+
+  const execute = async () => {
+    if (submittingRef.current || active || !selectedRun) return;
+    if (!canExecute) {
+      setMessage({ type: 'error', text: requestError ?? '環境確認と2つの明示確認を完了してから収録を開始してください。' });
+      return;
+    }
+    submittingRef.current = true;
+    setSubmitting(true);
+    setSubmissionUncertain(false);
+    setSubmissionReviewRequired(false);
+    submissionGuardRef.current = undefined;
+    setJob(undefined);
+    setMessage({ type: 'info', text: 'Windowsネイティブ収録をcapture laneへ登録しています。' });
+    let consentToken: string | undefined;
+    let consentIssued = false;
+    try {
+      const consentIntent = await api.issueWindowsCaptureConsent(selectedRun.id, nativeRequest);
+      consentToken = consentIntent.consent_token;
+      submissionGuardRef.current = createWindowsCaptureSubmissionGuard(consentIntent);
+      consentIssued = true;
+      let submitted: Job;
+      try {
+        submitted = await api.executeWindowsCapture(selectedRun.id, nativeRequest, consentToken!);
+      } catch (error) {
+        if (!isStudioApiResponseLoss(error)) throw error;
+        // The backend returns the original Job for this exact token. Retry it
+        // once, without issuing a second intent or generating a new token.
+        submitted = await api.executeWindowsCapture(selectedRun.id, nativeRequest, consentToken!);
+      }
+      const guard = submissionGuardRef.current;
+      if (!guard || !isWindowsCaptureJobForSelection(submitted, {
+        runId: guard.runId,
+        consentIntentId: guard.consentIntentId,
+      })) {
+        throw new Error('Windows収録Jobのconsent intent lineageを検証できませんでした。');
+      }
+      submissionGuardRef.current = undefined;
+      setSubmissionUncertain(false);
+      setJob(submitted);
+      setMessage({
+        type: submitted.status === 'failed' ? 'error' : 'success',
+        text: submitted.status === 'failed'
+          ? localWindowsCaptureError(submitted.message ?? 'workerが失敗しました')
+          : 'Windowsネイティブ画面・システム音声収録をキューに登録しました。',
+      });
+      void onReload().catch(() => undefined);
+    } catch (error) {
+      if (!consentIssued) {
+        submissionGuardRef.current = undefined;
+        setSubmissionUncertain(false);
+        setMessage({ type: 'error', text: `${localWindowsCaptureError(error)} 収録は開始していません。もう一度明示クリックしてください。` });
+        return;
+      }
+      if (error instanceof StudioApiError && error.status >= 400 && error.status < 500) {
+        submissionGuardRef.current = undefined;
+        setSubmissionUncertain(false);
+        setMessage({ type: 'error', text: localWindowsCaptureError(error) });
+        return;
+      }
+      setSubmissionUncertain(true);
+      setMessage({ type: 'error', text: `${localWindowsCaptureError(error)} 受理状態を確認中のため、二重実行防止で再送を停止しています。` });
+    } finally {
+      // The bearer token is intentionally never put in React state, refs,
+      // storage, DOM, logs, or Job/raw data. Drop this local reference after
+      // the execute attempt and any single response-loss retry settle.
+      consentToken = undefined;
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
+  };
+
+  const cancel = async () => {
+    if (!visibleJob?.id || !active || cancelling) return;
+    setCancelling(true);
+    setMessage({ type: 'info', text: 'Windows収録の停止を要求しています。' });
+    try {
+      const response = await api.cancelWindowsCapture(visibleJob.id);
+      if (response.job) setJob(response.job);
+      await onReload().catch(() => undefined);
+      setMessage({ type: 'info', text: response.cancelRequested ? '停止要求を受理しました。workerの終了を確認しています。' : '収録はすでに終了しています。状態を更新しました。' });
+    } catch (error) {
+      setMessage({ type: 'error', text: localWindowsCaptureError(error) });
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const artifacts = visibleJob?.result?.artifacts ?? (submitting || submissionUncertain || submissionReviewRequired ? [] : currentAttempt?.artifacts ?? []);
+  const preview = artifacts.find((artifact) => artifact.name === 'screen-capture.mp4');
+  const progressPercent = visibleJob?.progress === undefined
+    ? undefined
+    : Math.max(0, Math.min(100, visibleJob.progress));
+  const display = capability?.display;
+  const showExpectedArtifacts = status === 'succeeded';
+  const captureResult = visibleJob?.result;
+  const structuralTimingLabel = captureResult?.structuralTimingVerified === true
+    ? '検証済み（container timestamp / duration / WASAPI packet clock）'
+    : '未確認';
+  const contentSyncLabel = captureResult?.contentSyncVerified === true
+    ? '実内容で検証済み'
+    : captureResult?.liveValidationRequired === true
+      ? '実機では未検証（目視・試聴が必要）'
+      : '未確認';
+  const publicReleaseLabel = captureResult?.publicReleaseReady === true
+    ? '利用可'
+    : captureResult?.publicReleaseGate === 'blocked_pending_live_av_sync_validation'
+      ? '保留（実機A/V同期確認待ち）'
+      : '未判定';
+  const renderedArtifacts = showExpectedArtifacts
+    ? WINDOWS_CAPTURE_ARTIFACT_NAMES.map((name) => artifacts.find((artifact) => artifact.name === name || artifactFileName(artifact) === name))
+    : artifacts;
+  const availableArtifacts = renderedArtifacts.filter((artifact): artifact is Artifact => Boolean(artifact));
+
+  return (
+    <div className="narration-stack">
+      <WindowsCaptureCapabilityCard capability={capability} checking={checkingCapability} error={capabilityError} onInspect={() => void inspect()} />
+      <div className="timeline-grid">
+        <div>
+          <section className="panel">
+            <div className="panel-header"><div><span className="section-kicker">LOCAL WINDOWS CAPTURE</span><h3>Windows実画面収録</h3></div><span className="tag">費用 0円</span></div>
+            <p className="panel-lead">プライマリ画面を固定形式で収録し、既定render loopbackのsystem audioを同時に保存します。対象画面・音声経路・カーソル設定は変更できません。</p>
+            <label className="field"><span>対象Run</span><select value={selectedRunId} disabled={locked} onChange={(event) => { setSelectedRunId(event.target.value); setJob(undefined); setSubmissionUncertain(false); setSubmissionReviewRequired(false); submissionGuardRef.current = undefined; setMessage(undefined); }} aria-label="Windows収録対象Run">
+              {eligibleRuns.length === 0 ? <option value="">local_windows_capture Runなし</option> : eligibleRuns.map((run) => <option key={run.id} value={run.id}>{run.label} · {run.id} · {run.executionProfile}</option>)}
+            </select></label>
+            <dl className="narration-metrics">
+              <div><dt>画面</dt><dd>primary display{display?.width && display?.height ? ` · ${display.width}×${display.height}` : ''}</dd></div>
+              <div><dt>音声</dt><dd>default render loopback</dd></div>
+              <div><dt>カーソル</dt><dd>hidden</dd></div>
+            </dl>
+            <label className="field"><span>録画時間（秒）</span><input type="number" min={WINDOWS_CAPTURE_LIMITS.minDurationMs / 1_000} max={WINDOWS_CAPTURE_LIMITS.maxDurationMs / 1_000} step={1} value={durationSeconds} disabled={locked} onChange={(event) => setDurationSeconds(Number(event.target.value))} aria-label="Windows収録時間" /><small>1〜30秒</small></label>
+            <fieldset className="stage-checks">
+              <legend>収録前の明示確認</legend>
+              <label><input type="checkbox" checked={confirmCapture} disabled={locked} onChange={(event) => setConfirmCapture(event.target.checked)} aria-label="画面収録を確認" /><span>プライマリ画面を取得・保存することを確認します</span></label>
+              <label><input type="checkbox" checked={confirmSystemAudio} disabled={locked} onChange={(event) => setConfirmSystemAudio(event.target.checked)} aria-label="システム音声収録を確認" /><span>既定再生音声（system audio）を取得・保存することを確認します</span></label>
+            </fieldset>
+            {requestError && <div className="validation-list" role="status">・{requestError}</div>}
+            <div className="button-row">
+              <button className="button button-primary" type="button" disabled={!canExecute} onClick={() => void execute()}>{submitting ? '登録中…' : submissionUncertain ? '受理状態を照合中…' : active ? '収録を監視中…' : submissionReviewRequired ? '手動確認後にWindows収録を開始' : 'Windows収録を開始'}</button>
+              {active && <button className="button button-secondary" type="button" disabled={cancelling} onClick={() => void cancel()}>{cancelling ? '停止要求中…' : '収録をキャンセル'}</button>}
+            </div>
+            {message && <div className={`inline-message is-${message.type}`} role="status">{message.text}</div>}
+          </section>
+          {preview && <section className="panel"><div className="panel-header"><div><span className="section-kicker">STRUCTURALLY VERIFIED OUTPUT</span><h3>収録プレビュー（実内容A/V同期は未検証）</h3></div></div><ArtifactPreview artifact={preview} /></section>}
+        </div>
+        <aside>
+          <section className="panel compact-panel timeline-status-panel" aria-live="polite" aria-busy={active || submissionUncertain}>
+            <div className="panel-header"><div><span className="section-kicker">NATIVE CAPTURE STATUS</span><h3>Windows収録実行状況</h3></div>{status ? <StatusBadge status={status} label={jobStatusLabel(status)} /> : <span className="muted">未実行</span>}</div>
+            <dl className="narration-metrics"><div><dt>Job</dt><dd className="mono">{visibleJob?.id ?? (submitting || submissionUncertain || submissionReviewRequired ? '—' : currentAttempt?.jobId ?? '—')}</dd></div><div><dt>Stage attempt</dt><dd className="mono">{visibleJob?.stageAttemptId ?? (submitting || submissionUncertain || submissionReviewRequired ? '—' : currentAttempt?.id ?? '—')}</dd></div><div><dt>進捗</dt><dd>{progressPercent === undefined ? (active || submissionUncertain ? '計測中' : '—') : `${Math.round(progressPercent)}%`}</dd></div><div><dt>工程</dt><dd>{screenCaptureProgressPhaseLabel(visibleJob?.progressPhase)}</dd></div><div><dt>出力</dt><dd>1920×1080 / 24fps</dd></div><div><dt>音声</dt><dd>48kHz stereo loopback</dd></div><div><dt>構造タイミング</dt><dd>{structuralTimingLabel}</dd></div><div><dt>実内容A/V同期</dt><dd>{contentSyncLabel}</dd></div><div><dt>公開利用</dt><dd>{publicReleaseLabel}</dd></div><div><dt>artifact</dt><dd>{showExpectedArtifacts ? WINDOWS_CAPTURE_ARTIFACT_NAMES.length : artifacts.length}</dd></div></dl>
+            {progressPercent === undefined
+              ? (active || submissionUncertain) && <p className="muted">進捗: worker報告待ち。状態と成果物を2秒ごとに更新しています。</p>
+              : <div className="progress-track" role="progressbar" aria-label="Windows収録の進捗" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progressPercent}><span style={{ width: `${progressPercent}%` }} /></div>}
+            {visibleJob?.message && <p className={visibleJob.status === 'failed' ? 'narration-error-text' : 'muted'}>{visibleJob.message}{visibleJob.errorCode ? ` · ${visibleJob.errorCode}` : ''}</p>}
+            <div className="narration-artifact-list"><strong>native captureの8成果物</strong>{renderedArtifacts.length === 0 ? <span className="muted">まだありません</span> : showExpectedArtifacts ? WINDOWS_CAPTURE_ARTIFACT_NAMES.map((name, index) => { const artifact = renderedArtifacts[index]; return <div className="external-artifact-row" key={name}>{artifact?.url ? <a href={artifact.url} target="_blank" rel="noreferrer">{name} ↗</a> : <span>{name}</span>}<small>{artifact ? `${formatBytes(artifact.sizeBytes)} · SHA-256 ${artifact.sha256 ?? '未取得'}` : '未取得'}</small></div>; }) : availableArtifacts.map((artifact) => <a key={artifact.id} href={artifact.url} target="_blank" rel="noreferrer">{artifact.name} · {formatBytes(artifact.sizeBytes)} ↗</a>)}</div>
+            <p className="gate-separation-note">Job成功は8成果物の構造・timestamp・duration検証成功を表します。映像内の出来事と音声内の出来事が同期していることは証明しないため、実機での目視・試聴が完了するまで公開利用gateは保留です。</p>
+          </section>
+          <section className="panel compact-panel"><div className="panel-header"><div><span className="section-kicker">STAGE ATTEMPTS</span><h3>Windows収録試行履歴</h3></div><span className="count-chip">{attempts.length}</span></div>{attempts.length === 0 ? <p className="muted">stage attempt記録はまだありません。</p> : <div className="attempt-list">{attempts.map((attempt) => <article className="attempt-row" key={attempt.id}><div><strong>#{attempt.attempt ?? '—'} · {attempt.id}</strong><small>{formatDate(attempt.createdAt)}</small></div><StatusBadge status={attempt.status} label={jobStatusLabel(attempt.status)} /><div><span>{formatDuration(attempt.durationSeconds)}</span><span>{attempt.artifacts.length} artifact</span></div></article>)}</div>}</section>
+        </aside>
+      </div>
+    </div>
   );
 }
 
@@ -1721,7 +2081,7 @@ function ScreenCapturePanel({ detail, jobs, onReload }: { detail: ProductionDeta
   };
 
   if (eligibleRuns.length === 0) {
-    return <div className="narration-stack"><WindowsCaptureCapabilityCard /><section className="panel"><div className="panel-header"><div><span className="section-kicker">LOCAL PLAYWRIGHT</span><h3>画面収録</h3></div></div><EmptyState title="local_playwrightの画面収録Runがありません" description="概要の再調整で画面収録を選び、local_playwrightプロファイルのRunを作成してください。" /></section></div>;
+    return <div className="narration-stack"><section className="panel"><div className="panel-header"><div><span className="section-kicker">LOCAL PLAYWRIGHT</span><h3>Web画面収録</h3></div></div><EmptyState title="local_playwrightの画面収録Runがありません" description="概要の再調整で画面収録を選び、local_playwrightプロファイルのRunを作成してください。" /></section></div>;
   }
 
   const artifacts = visibleJob?.result?.artifacts ?? (submitting || submissionUncertain ? [] : currentAttempt?.artifacts ?? []);
@@ -1733,7 +2093,6 @@ function ScreenCapturePanel({ detail, jobs, onReload }: { detail: ProductionDeta
   const locked = submitting || active || submissionUncertain;
   return (
     <div className="narration-stack">
-      <WindowsCaptureCapabilityCard />
       <div className="timeline-grid">
       <div>
         <section className="panel">
@@ -2018,6 +2377,7 @@ const RERUN_STAGES = [
 const LOCAL_SAPI_STAGES = new Set(['narration', 'captions', 'timeline', 'assembly', 'qc']);
 const ELEVENLABS_TTS_STAGES = new Set(['narration', 'captions', 'assembly', 'qc']);
 const LOCAL_COMFYUI_STAGES = new Set(['video', 'video_generation', 'timeline', 'assembly', 'qc']);
+const LOCAL_WINDOWS_CAPTURE_STAGES = new Set(['screen_capture']);
 // A Playwright Run starts from a new capture. The planner expands that change
 // to timeline/assembly/QC impact, while only capture and timeline have an
 // executable local_playwright worker in this profile.
@@ -4387,6 +4747,7 @@ function RerunPanel({ productionId, onReload }: { productionId: string; onReload
     if (changes.executionProfile === 'local_sapi' && !LOCAL_SAPI_STAGES.has(normalizeRequestedStage(stage))) return;
     if (changes.executionProfile === 'elevenlabs_tts' && !ELEVENLABS_TTS_STAGES.has(normalizeRequestedStage(stage))) return;
     if (changes.executionProfile === 'local_comfyui' && !LOCAL_COMFYUI_STAGES.has(normalizeRequestedStage(stage))) return;
+    if (changes.executionProfile === 'local_windows_capture' && !LOCAL_WINDOWS_CAPTURE_STAGES.has(normalizeRequestedStage(stage))) return;
     if (changes.executionProfile === 'local_playwright' && !LOCAL_PLAYWRIGHT_STAGES.has(normalizeRequestedStage(stage))) return;
     setPlan(undefined);
     setChanges((current) => ({
@@ -4425,6 +4786,10 @@ function RerunPanel({ productionId, onReload }: { productionId: string; onReload
       setMessage({ type: 'error', text: 'local_comfyuiは生成映像（video_generation）工程を必須にしてください。' });
       return;
     }
+    if (changes.executionProfile === 'local_windows_capture' && !changes.stages.some((stage) => normalizeRequestedStage(stage) === 'screen_capture')) {
+      setMessage({ type: 'error', text: 'local_windows_captureは画面収録（screen_capture）工程を必須にしてください。' });
+      return;
+    }
     if (changes.executionProfile === 'local_playwright' && !changes.stages.some((stage) => normalizeRequestedStage(stage) === 'screen_capture')) {
       setMessage({ type: 'error', text: 'local_playwrightは画面収録（screen_capture）工程を必須にしてください。' });
       return;
@@ -4433,7 +4798,7 @@ function RerunPanel({ productionId, onReload }: { productionId: string; onReload
       setMessage({ type: 'error', text: 'elevenlabs_ttsは正の見積額（maxCostJpy）を必須にしてください。' });
       return;
     }
-    if (plan.requiresCostEstimate && changes.executionProfile !== 'local_sapi' && changes.executionProfile !== 'local_comfyui' && changes.executionProfile !== 'local_playwright' && (!changes.allowPaidApi || !changes.maxCostJpy || changes.maxCostJpy <= 0)) {
+    if (plan.requiresCostEstimate && changes.executionProfile !== 'local_sapi' && changes.executionProfile !== 'local_comfyui' && changes.executionProfile !== 'local_windows_capture' && changes.executionProfile !== 'local_playwright' && (!changes.allowPaidApi || !changes.maxCostJpy || changes.maxCostJpy <= 0)) {
       setMessage({ type: 'error', text: '課金工程を含むため、有料APIの計画を有効にして見積額を入力してください。' });
       return;
     }
@@ -4458,7 +4823,7 @@ function RerunPanel({ productionId, onReload }: { productionId: string; onReload
         <legend>変更する工程</legend>
         {RERUN_STAGES.map(([id, label]) => (
           <label key={id}>
-            <input type="checkbox" checked={changes.stages.includes(id)} onChange={() => toggleStage(id)} disabled={(changes.executionProfile === 'local_sapi' && !LOCAL_SAPI_STAGES.has(id)) || (changes.executionProfile === 'elevenlabs_tts' && !ELEVENLABS_TTS_STAGES.has(id)) || (changes.executionProfile === 'local_comfyui' && !LOCAL_COMFYUI_STAGES.has(id)) || (changes.executionProfile === 'local_playwright' && !LOCAL_PLAYWRIGHT_STAGES.has(id))} />
+            <input type="checkbox" checked={changes.stages.includes(id)} onChange={() => toggleStage(id)} disabled={(changes.executionProfile === 'local_sapi' && !LOCAL_SAPI_STAGES.has(id)) || (changes.executionProfile === 'elevenlabs_tts' && !ELEVENLABS_TTS_STAGES.has(id)) || (changes.executionProfile === 'local_comfyui' && !LOCAL_COMFYUI_STAGES.has(id)) || (changes.executionProfile === 'local_windows_capture' && !LOCAL_WINDOWS_CAPTURE_STAGES.has(id)) || (changes.executionProfile === 'local_playwright' && !LOCAL_PLAYWRIGHT_STAGES.has(id))} />
             <span>{label}</span>
           </label>
         ))}
@@ -4467,6 +4832,7 @@ function RerunPanel({ productionId, onReload }: { productionId: string; onReload
         <label className="profile-option"><input type="radio" name={`execution-profile-${productionId}`} value="default" checked={changes.executionProfile !== 'local_sapi' && changes.executionProfile !== 'elevenlabs_tts' && changes.executionProfile !== 'local_comfyui' && changes.executionProfile !== 'local_playwright'} onChange={() => { setPlan(undefined); setChanges((current) => ({ ...current, executionProfile: 'default' })); }} /><span><strong>通常</strong><small>既存のRun計画・費用ルールを使用</small></span></label>
         <label className="profile-option"><input type="radio" name={`execution-profile-${productionId}`} value="local_sapi" checked={changes.executionProfile === 'local_sapi'} onChange={() => { setPlan(undefined); setChanges((current) => ({ ...current, executionProfile: 'local_sapi', stages: ['narration'], allowPaidApi: false, maxCostJpy: undefined })); }} /><span><strong>local_sapi（ローカルworker）</strong><small>narration・字幕・カット編集・編集/合成・QC、見積0円・外部送信なし</small></span></label>
         <label className="profile-option"><input type="radio" name={`execution-profile-${productionId}`} value="local_comfyui" checked={changes.executionProfile === 'local_comfyui'} onChange={() => { setPlan(undefined); setChanges((current) => ({ ...current, executionProfile: 'local_comfyui', stages: ['video'], allowPaidApi: false, maxCostJpy: undefined })); }} /><span><strong>local_comfyui（ローカル動画worker）</strong><small>生成映像を実行。後続工程は影響計画として記録し、このprofileではまだ実行しません</small></span></label>
+        <label className="profile-option"><input type="radio" name={`execution-profile-${productionId}`} value="local_windows_capture" checked={changes.executionProfile === 'local_windows_capture'} onChange={() => { setPlan(undefined); setChanges((current) => ({ ...current, executionProfile: 'local_windows_capture', stages: ['screen_capture'], allowPaidApi: false, maxCostJpy: undefined })); }} /><span><strong>local_windows_capture（Windows実画面・system audio）</strong><small>プライマリ画面と既定render loopbackを実行。後続工程は影響計画として記録します</small></span></label>
         <label className="profile-option"><input type="radio" name={`execution-profile-${productionId}`} value="local_playwright" checked={changes.executionProfile === 'local_playwright'} onChange={() => { setPlan(undefined); setChanges((current) => ({ ...current, executionProfile: 'local_playwright', stages: ['screen_capture'], allowPaidApi: false, maxCostJpy: undefined })); }} /><span><strong>local_playwright（Web画面収録）</strong><small>収録から開始し、timelineは後で明示実行。assembly／QCは影響記録のみ</small></span></label>
         <label className="profile-option"><input type="radio" name={`execution-profile-${productionId}`} value="elevenlabs_tts" checked={changes.executionProfile === 'elevenlabs_tts'} onChange={() => { setPlan(undefined); setChanges((current) => ({ ...current, executionProfile: 'elevenlabs_tts', stages: ['narration'], allowPaidApi: true, maxCostJpy: undefined })); }} /><span><strong>elevenlabs_tts（外部音声）</strong><small>音声だけ外部送信・課金、合成/QCはローカル。正の見積と承認が必要</small></span></label>
       </fieldset>
@@ -4483,10 +4849,10 @@ function RerunPanel({ productionId, onReload }: { productionId: string; onReload
         <input
           type="checkbox"
           checked={changes.allowPaidApi}
-          disabled={changes.executionProfile === 'local_sapi' || changes.executionProfile === 'local_comfyui' || changes.executionProfile === 'local_playwright' || changes.executionProfile === 'elevenlabs_tts'}
+          disabled={changes.executionProfile === 'local_sapi' || changes.executionProfile === 'local_comfyui' || changes.executionProfile === 'local_windows_capture' || changes.executionProfile === 'local_playwright' || changes.executionProfile === 'elevenlabs_tts'}
           onChange={(event) => { setPlan(undefined); setChanges((current) => ({ ...current, allowPaidApi: event.target.checked, executionProfile: event.target.checked ? 'default' : current.executionProfile })); }}
         />
-          <span><strong>有料APIを使う計画</strong><small>{changes.executionProfile === 'local_sapi' ? 'local_sapiと相互排他的です' : changes.executionProfile === 'local_comfyui' ? 'local_comfyuiはローカルGPUで実行するため課金なしです' : changes.executionProfile === 'local_playwright' ? 'local_playwrightはローカルChromiumで実行するため課金なしです' : changes.executionProfile === 'elevenlabs_tts' ? 'elevenlabs_ttsでは必須です。Run作成後に上限を承認します' : 'Run作成後、監査タブで上限を承認します'}</small></span>
+          <span><strong>有料APIを使う計画</strong><small>{changes.executionProfile === 'local_sapi' ? 'local_sapiと相互排他的です' : changes.executionProfile === 'local_comfyui' ? 'local_comfyuiはローカルGPUで実行するため課金なしです' : changes.executionProfile === 'local_windows_capture' ? 'local_windows_captureはWindowsローカル収録のため課金なしです' : changes.executionProfile === 'local_playwright' ? 'local_playwrightはローカルChromiumで実行するため課金なしです' : changes.executionProfile === 'elevenlabs_tts' ? 'elevenlabs_ttsでは必須です。Run作成後に上限を承認します' : 'Run作成後、監査タブで上限を承認します'}</small></span>
       </label>
       {changes.allowPaidApi && (
         <label className="field inline-field">
@@ -4502,8 +4868,8 @@ function RerunPanel({ productionId, onReload }: { productionId: string; onReload
           <dl>
             <div><dt>再実行</dt><dd>{(plan.stages.length ? plan.stages : changes.stages).map(stageLabel).join('、')}</dd></div>
             <div><dt>再利用</dt><dd>{plan.reusedStages.length ? plan.reusedStages.map(stageLabel).join('、') : 'APIから情報なし'}</dd></div>
-            <div><dt>課金工程</dt><dd>{changes.executionProfile === 'local_sapi' || changes.executionProfile === 'local_comfyui' || changes.executionProfile === 'local_playwright' ? 'なし（ローカル）' : plan.billableStages.length ? plan.billableStages.map(stageLabel).join('、') : 'なし'}</dd></div>
-            <div><dt>見積費用</dt><dd>{changes.executionProfile === 'local_sapi' || changes.executionProfile === 'local_comfyui' || changes.executionProfile === 'local_playwright' ? '0円（外部送信なし）' : plan.estimatedCost === undefined ? (plan.requiresCostEstimate ? (changes.maxCostJpy && changes.maxCostJpy > 0 ? formatMoney(changes.maxCostJpy, 'JPY') : '見積入力が必要') : '課金なし') : formatMoney(plan.estimatedCost, plan.currency)}</dd></div>
+            <div><dt>課金工程</dt><dd>{changes.executionProfile === 'local_sapi' || changes.executionProfile === 'local_comfyui' || changes.executionProfile === 'local_windows_capture' || changes.executionProfile === 'local_playwright' ? 'なし（ローカル）' : plan.billableStages.length ? plan.billableStages.map(stageLabel).join('、') : 'なし'}</dd></div>
+            <div><dt>見積費用</dt><dd>{changes.executionProfile === 'local_sapi' || changes.executionProfile === 'local_comfyui' || changes.executionProfile === 'local_windows_capture' || changes.executionProfile === 'local_playwright' ? '0円（外部送信なし）' : plan.estimatedCost === undefined ? (plan.requiresCostEstimate ? (changes.maxCostJpy && changes.maxCostJpy > 0 ? formatMoney(changes.maxCostJpy, 'JPY') : '見積入力が必要') : '課金なし') : formatMoney(plan.estimatedCost, plan.currency)}</dd></div>
           </dl>
           <div className="button-row">
             <button className="button button-ghost" onClick={() => setPlan(undefined)} disabled={busy}>戻る</button>

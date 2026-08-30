@@ -10,7 +10,7 @@ import threading
 import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
 from typing import Any, Callable, Iterator, Sequence
@@ -25,7 +25,7 @@ from .security import (
 )
 
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 MAX_EVENT_LINE_BYTES = 2 * 1024 * 1024
 MAX_ANNOUNCEMENT_RECIPE_BYTES = 256 * 1024
 _RUN_EXECUTION_PROFILES = {
@@ -34,6 +34,7 @@ _RUN_EXECUTION_PROFILES = {
     "elevenlabs_tts",
     "local_comfyui",
     "local_playwright",
+    "local_windows_capture",
     "local_pipeline",
 }
 _LOCAL_SAPI_ZERO_COST_STAGES = {
@@ -47,6 +48,13 @@ _ELEVENLABS_TTS_STAGES = {"narration", "captions", "assembly", "qc"}
 _LOCAL_COMFYUI_ZERO_COST_STAGES = {"video_generation", "timeline", "assembly", "qc"}
 _LOCAL_PLAYWRIGHT_ZERO_COST_STAGES = {"screen_capture", "timeline", "assembly", "qc"}
 _LOCAL_PLAYWRIGHT_EXECUTION_STAGES = {"screen_capture", "timeline"}
+_LOCAL_WINDOWS_CAPTURE_ZERO_COST_STAGES = {
+    "screen_capture",
+    "timeline",
+    "assembly",
+    "qc",
+}
+_LOCAL_WINDOWS_CAPTURE_EXECUTION_STAGES = {"screen_capture", "timeline"}
 _LOCAL_PIPELINE_ZERO_COST_STAGES = {
     "narration",
     "captions",
@@ -227,6 +235,14 @@ class AtomicCompletionError(ValueError):
         self.committed = False
         self.job_status = job_status
         self.stage_status = stage_status
+
+
+class WindowsCaptureConsentError(ValueError):
+    """A Windows capture consent could not be admitted safely."""
+
+    def __init__(self, message: str, *, code: str):
+        super().__init__(message)
+        self.code = code
 
 
 class StudioDatabase:
@@ -1097,6 +1113,65 @@ class StudioDatabase:
                     END
                     """
                 )
+
+                # v8 separates a short-lived operator consent from the
+                # recording POST. Only a one-way token digest and a one-way
+                # authenticated-session binding are stored. Consumption,
+                # stage-attempt creation, and job admission are committed in
+                # one transaction so a replay can only resolve to that exact
+                # job, including after it reaches a terminal state.
+                connection.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS windows_capture_consent_intents (
+                        id TEXT PRIMARY KEY,
+                        token_digest TEXT NOT NULL UNIQUE CHECK(length(token_digest)=64),
+                        session_binding_digest TEXT NOT NULL CHECK(length(session_binding_digest)=64),
+                        run_id TEXT NOT NULL REFERENCES runs(id),
+                        production_id TEXT NOT NULL REFERENCES productions(id),
+                        request_settings_digest TEXT NOT NULL CHECK(length(request_settings_digest)=64),
+                        issued_at TEXT NOT NULL,
+                        expires_at TEXT NOT NULL,
+                        invalidated_at TEXT,
+                        consumed_at TEXT,
+                        consumed_job_id TEXT UNIQUE REFERENCES jobs(id),
+                        consumed_stage_attempt_id TEXT UNIQUE REFERENCES stage_attempts(id),
+                        CHECK(
+                            (consumed_at IS NULL AND consumed_job_id IS NULL
+                             AND consumed_stage_attempt_id IS NULL)
+                            OR
+                            (consumed_at IS NOT NULL AND consumed_job_id IS NOT NULL
+                             AND consumed_stage_attempt_id IS NOT NULL)
+                        )
+                    )
+                    """
+                )
+                connection.execute(
+                    "CREATE INDEX IF NOT EXISTS windows_capture_consent_run_idx "
+                    "ON windows_capture_consent_intents(run_id, issued_at)"
+                )
+                connection.execute(
+                    "CREATE INDEX IF NOT EXISTS windows_capture_consent_expiry_idx "
+                    "ON windows_capture_consent_intents(expires_at) "
+                    "WHERE consumed_job_id IS NULL AND invalidated_at IS NULL"
+                )
+                connection.execute(
+                    """
+                    CREATE TRIGGER IF NOT EXISTS windows_capture_consent_identity_immutable
+                    BEFORE UPDATE OF token_digest, session_binding_digest, run_id,
+                        production_id, request_settings_digest, issued_at, expires_at
+                    ON windows_capture_consent_intents BEGIN
+                        SELECT RAISE(ABORT, 'Windows capture consent identity is immutable');
+                    END
+                    """
+                )
+                connection.execute(
+                    """
+                    CREATE TRIGGER IF NOT EXISTS windows_capture_consent_immutable_delete
+                    BEFORE DELETE ON windows_capture_consent_intents BEGIN
+                        SELECT RAISE(ABORT, 'Windows capture consents are append-only');
+                    END
+                    """
+                )
                 connection.execute(
                     "INSERT INTO schema_meta(key, value) VALUES('schema_version', ?) "
                     "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
@@ -1117,8 +1192,41 @@ class StudioDatabase:
             "stage_attempts": 0,
             "provider_tasks": 0,
             "pipeline_claims": 0,
+            "windows_capture_consents": 0,
         }
         with self.transaction() as connection:
+            outstanding_consents = connection.execute(
+                "SELECT id, run_id, production_id, request_settings_digest, expires_at "
+                "FROM windows_capture_consent_intents "
+                "WHERE consumed_job_id IS NULL AND invalidated_at IS NULL "
+                "ORDER BY issued_at, rowid"
+            ).fetchall()
+            for consent in outstanding_consents:
+                connection.execute(
+                    "UPDATE windows_capture_consent_intents SET invalidated_at=? "
+                    "WHERE id=? AND consumed_job_id IS NULL AND invalidated_at IS NULL",
+                    (timestamp, consent["id"]),
+                )
+                if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                    continue
+                counts["windows_capture_consents"] += 1
+                self._append_event(
+                    connection,
+                    "run",
+                    consent["run_id"],
+                    "windows_capture.consent.invalidated",
+                    {
+                        "consent_intent_id": consent["id"],
+                        "production_id": consent["production_id"],
+                        "request_settings_digest": consent[
+                            "request_settings_digest"
+                        ],
+                        "expires_at": consent["expires_at"],
+                        "invalidated_at": timestamp,
+                        "reason": "process_boundary",
+                    },
+                    created_at=timestamp,
+                )
             active_jobs = connection.execute(
                 "SELECT id, kind, production_id FROM jobs "
                 "WHERE status IN ('queued', 'running') ORDER BY created_at, rowid"
@@ -3098,6 +3206,21 @@ class StudioDatabase:
                 or len(requested_stages) != len(_LOCAL_SAPI_ZERO_COST_STAGES)
             ):
                 raise ValueError("detailed test video key is invalid")
+        if execution_profile == "local_windows_capture" and (
+            estimated_cost_minor != 0
+            or not isinstance(requested_stages, list)
+            or len(requested_stages)
+            not in {
+                len(_LOCAL_WINDOWS_CAPTURE_EXECUTION_STAGES),
+                len(_LOCAL_WINDOWS_CAPTURE_ZERO_COST_STAGES),
+            }
+            or frozenset(requested_stages)
+            not in {
+                frozenset(_LOCAL_WINDOWS_CAPTURE_EXECUTION_STAGES),
+                frozenset(_LOCAL_WINDOWS_CAPTURE_ZERO_COST_STAGES),
+            }
+        ):
+            raise ValueError("local Windows capture run is invalid")
         revision_id = f"rev_{uuid.uuid4().hex}"
         run_id = f"run_{uuid.uuid4().hex}"
         timestamp = utc_now()
@@ -4522,6 +4645,573 @@ class StudioDatabase:
             )
             return self._provider_task_dict(updated)
 
+    @staticmethod
+    def _windows_capture_consent_dict(row: sqlite3.Row) -> dict[str, Any]:
+        """Return consent metadata without either persisted one-way binding."""
+
+        return {
+            "id": row["id"],
+            "run_id": row["run_id"],
+            "production_id": row["production_id"],
+            "request_settings_digest": row["request_settings_digest"],
+            "issued_at": row["issued_at"],
+            "expires_at": row["expires_at"],
+            "invalidated_at": row["invalidated_at"],
+            "consumed_at": row["consumed_at"],
+            "consumed_job_id": row["consumed_job_id"],
+            "consumed_stage_attempt_id": row["consumed_stage_attempt_id"],
+        }
+
+    @staticmethod
+    def _validate_windows_capture_consent_binding(
+        *,
+        production_id: str,
+        run_id: str,
+        token_digest: str,
+        session_binding_digest: str,
+        request_settings_digest: str,
+    ) -> None:
+        validate_identifier(production_id, label="production id")
+        validate_identifier(run_id, label="run id")
+        for label, value in (
+            ("consent token digest", token_digest),
+            ("session binding digest", session_binding_digest),
+            ("request settings digest", request_settings_digest),
+        ):
+            if not isinstance(value, str) or re.fullmatch(r"[0-9A-F]{64}", value) is None:
+                raise ValueError(f"invalid Windows capture {label}")
+
+    def issue_windows_capture_consent_intent(
+        self,
+        *,
+        production_id: str,
+        run_id: str,
+        token_digest: str,
+        session_binding_digest: str,
+        request_settings_digest: str,
+        ttl_seconds: int,
+    ) -> dict[str, Any]:
+        """Persist one short-lived capture intent without the bearer token."""
+
+        self._validate_windows_capture_consent_binding(
+            production_id=production_id,
+            run_id=run_id,
+            token_digest=token_digest,
+            session_binding_digest=session_binding_digest,
+            request_settings_digest=request_settings_digest,
+        )
+        if (
+            isinstance(ttl_seconds, bool)
+            or not isinstance(ttl_seconds, int)
+            or not 1 <= ttl_seconds <= 300
+        ):
+            raise ValueError("Windows capture consent TTL is invalid")
+        intent_id = f"capture_consent_{uuid.uuid4().hex}"
+        issued_value = datetime.now(timezone.utc)
+        issued_at = issued_value.isoformat(timespec="milliseconds").replace(
+            "+00:00", "Z"
+        )
+        expires_at = (
+            issued_value + timedelta(seconds=ttl_seconds)
+        ).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+        with self.transaction() as connection:
+            run = connection.execute(
+                "SELECT * FROM runs WHERE id=?", (run_id,)
+            ).fetchone()
+            if (
+                run is None
+                or run["production_id"] != production_id
+                or run["execution_profile"] != "local_windows_capture"
+                or "screen_capture"
+                not in _loads(run["requested_stages_json"], [])
+            ):
+                raise ValueError("local Windows capture run is invalid")
+            connection.execute(
+                "INSERT INTO windows_capture_consent_intents("
+                "id, token_digest, session_binding_digest, run_id, production_id, "
+                "request_settings_digest, issued_at, expires_at) "
+                "VALUES(?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    intent_id,
+                    token_digest,
+                    session_binding_digest,
+                    run_id,
+                    production_id,
+                    request_settings_digest,
+                    issued_at,
+                    expires_at,
+                ),
+            )
+            self._append_event(
+                connection,
+                "run",
+                run_id,
+                "windows_capture.consent.issued",
+                {
+                    "consent_intent_id": intent_id,
+                    "production_id": production_id,
+                    "request_settings_digest": request_settings_digest,
+                    "issued_at": issued_at,
+                    "expires_at": expires_at,
+                },
+                created_at=issued_at,
+            )
+            row = connection.execute(
+                "SELECT * FROM windows_capture_consent_intents WHERE id=?",
+                (intent_id,),
+            ).fetchone()
+            assert row is not None
+            return self._windows_capture_consent_dict(row)
+
+    def _consumed_windows_capture_job(
+        self,
+        connection: sqlite3.Connection,
+        consent: sqlite3.Row,
+        *,
+        production_id: str,
+        run_id: str,
+        request_settings_digest: str,
+    ) -> dict[str, Any]:
+        job = connection.execute(
+            "SELECT * FROM jobs WHERE id=?", (consent["consumed_job_id"],)
+        ).fetchone()
+        attempt = connection.execute(
+            "SELECT * FROM stage_attempts WHERE id=?",
+            (consent["consumed_stage_attempt_id"],),
+        ).fetchone()
+        if job is None or attempt is None:
+            raise sqlite3.IntegrityError(
+                "Windows capture consent is missing its admitted lineage"
+            )
+        job_payload = _loads(job["payload_json"], {})
+        attempt_payload = _loads(attempt["payload_json"], {})
+        if (
+            consent["production_id"] != production_id
+            or consent["run_id"] != run_id
+            or consent["request_settings_digest"] != request_settings_digest
+            or job["kind"] != "local_windows_capture"
+            or job["production_id"] != production_id
+            or not isinstance(job_payload, dict)
+            or job_payload.get("run_id") != run_id
+            or job_payload.get("production_id") != production_id
+            or job_payload.get("stage") != "screen_capture"
+            or job_payload.get("execution_profile") != "local_windows_capture"
+            or job_payload.get("consent_intent_id") != consent["id"]
+            or job_payload.get("request_settings_digest")
+            != request_settings_digest
+            or job_payload.get("stage_attempt_id") != attempt["id"]
+            or attempt["job_id"] != job["id"]
+            or attempt["run_id"] != run_id
+            or attempt["production_id"] != production_id
+            or attempt["stage"] != "screen_capture"
+            or not isinstance(attempt_payload, dict)
+            or attempt_payload.get("execution_profile")
+            != "local_windows_capture"
+            or attempt_payload.get("consent_intent_id") != consent["id"]
+            or attempt_payload.get("request_settings_digest")
+            != request_settings_digest
+            or attempt_payload.get("capture_key") != attempt["cache_key"]
+            or job_payload.get("capture_key") != attempt["cache_key"]
+            or attempt_payload.get("request_digest")
+            != job_payload.get("request_digest")
+        ):
+            raise sqlite3.IntegrityError(
+                "Windows capture consent lineage is invalid"
+            )
+        output = self._job_dict(job)
+        output["stage_attempt_id"] = attempt["id"]
+        output["capture_key"] = attempt["cache_key"]
+        output["request_digest"] = job_payload.get("request_digest")
+        output["request_settings_digest"] = request_settings_digest
+        output["consent_intent_id"] = consent["id"]
+        return output
+
+    def windows_capture_consent_state(
+        self,
+        *,
+        production_id: str,
+        run_id: str,
+        token_digest: str,
+        session_binding_digest: str,
+        request_settings_digest: str,
+    ) -> dict[str, Any]:
+        """Resolve one token without consuming it or exposing stored digests."""
+
+        self._validate_windows_capture_consent_binding(
+            production_id=production_id,
+            run_id=run_id,
+            token_digest=token_digest,
+            session_binding_digest=session_binding_digest,
+            request_settings_digest=request_settings_digest,
+        )
+        timestamp = utc_now()
+        with self.session() as connection:
+            consent = connection.execute(
+                "SELECT * FROM windows_capture_consent_intents WHERE token_digest=?",
+                (token_digest,),
+            ).fetchone()
+            if (
+                consent is None
+                or consent["production_id"] != production_id
+                or consent["run_id"] != run_id
+                or consent["session_binding_digest"] != session_binding_digest
+                or consent["request_settings_digest"]
+                != request_settings_digest
+            ):
+                return {"state": "invalid"}
+            if consent["consumed_job_id"] is not None:
+                return {
+                    "state": "consumed",
+                    "consent_intent": self._windows_capture_consent_dict(consent),
+                    "job": self._consumed_windows_capture_job(
+                        connection,
+                        consent,
+                        production_id=production_id,
+                        run_id=run_id,
+                        request_settings_digest=request_settings_digest,
+                    ),
+                }
+            if consent["invalidated_at"] is not None:
+                return {"state": "invalid"}
+            if consent["expires_at"] <= timestamp:
+                return {"state": "expired"}
+            return {
+                "state": "ready",
+                "consent_intent": self._windows_capture_consent_dict(consent),
+            }
+
+    def consume_windows_capture_consent_and_create_job(
+        self,
+        *,
+        production_id: str,
+        run_id: str,
+        token_digest: str,
+        session_binding_digest: str,
+        request_settings_digest: str,
+        capture_key: str,
+        attempt_payload: Any,
+        job_payload: Any,
+    ) -> tuple[dict[str, Any], bool]:
+        """Consume consent and create its exact attempt/job in one transaction."""
+
+        self._validate_windows_capture_consent_binding(
+            production_id=production_id,
+            run_id=run_id,
+            token_digest=token_digest,
+            session_binding_digest=session_binding_digest,
+            request_settings_digest=request_settings_digest,
+        )
+        if not isinstance(capture_key, str) or re.fullmatch(
+            r"[0-9A-F]{64}", capture_key
+        ) is None:
+            raise ValueError("invalid Windows capture key")
+        safe_attempt_payload = sanitize_for_storage(attempt_payload)
+        safe_job_payload = sanitize_for_storage(job_payload)
+        forbidden = {"consent_token", "token_digest", "session_binding_digest"}
+        if (
+            not isinstance(safe_attempt_payload, dict)
+            or not isinstance(safe_job_payload, dict)
+            or forbidden.intersection(safe_attempt_payload)
+            or forbidden.intersection(safe_job_payload)
+            or safe_attempt_payload.get("execution_profile")
+            != "local_windows_capture"
+            or safe_attempt_payload.get("capture_key") != capture_key
+            or safe_attempt_payload.get("request_settings_digest")
+            != request_settings_digest
+            or safe_job_payload.get("production_id") != production_id
+            or safe_job_payload.get("run_id") != run_id
+            or safe_job_payload.get("stage") != "screen_capture"
+            or safe_job_payload.get("execution_profile")
+            != "local_windows_capture"
+            or safe_job_payload.get("capture_key") != capture_key
+            or safe_job_payload.get("request_settings_digest")
+            != request_settings_digest
+            or safe_attempt_payload.get("request_digest")
+            != safe_job_payload.get("request_digest")
+        ):
+            raise ValueError("invalid Windows capture admission payload")
+
+        timestamp = utc_now()
+        with self.transaction() as connection:
+            consent = connection.execute(
+                "SELECT * FROM windows_capture_consent_intents WHERE token_digest=?",
+                (token_digest,),
+            ).fetchone()
+            if (
+                consent is None
+                or consent["production_id"] != production_id
+                or consent["run_id"] != run_id
+                or consent["session_binding_digest"] != session_binding_digest
+                or consent["request_settings_digest"]
+                != request_settings_digest
+            ):
+                raise WindowsCaptureConsentError(
+                    "A fresh Windows capture consent is required.",
+                    code="windows_capture_consent_invalid",
+                )
+            if consent["consumed_job_id"] is not None:
+                return (
+                    self._consumed_windows_capture_job(
+                        connection,
+                        consent,
+                        production_id=production_id,
+                        run_id=run_id,
+                        request_settings_digest=request_settings_digest,
+                    ),
+                    False,
+                )
+            if consent["invalidated_at"] is not None:
+                raise WindowsCaptureConsentError(
+                    "A fresh Windows capture consent is required.",
+                    code="windows_capture_consent_invalid",
+                )
+            if consent["expires_at"] <= timestamp:
+                raise WindowsCaptureConsentError(
+                    "The Windows capture consent expired. Confirm capture again.",
+                    code="windows_capture_consent_expired",
+                )
+            active = connection.execute(
+                "SELECT id FROM jobs WHERE kind='local_windows_capture' "
+                "AND status IN ('queued', 'running') ORDER BY created_at, rowid LIMIT 1"
+            ).fetchone()
+            if active is not None:
+                raise WindowsCaptureConsentError(
+                    "Another Windows capture is already active.",
+                    code="windows_capture_busy",
+                )
+            run = connection.execute(
+                "SELECT * FROM runs WHERE id=?", (run_id,)
+            ).fetchone()
+            if (
+                run is None
+                or run["production_id"] != production_id
+                or run["execution_profile"] != "local_windows_capture"
+                or "screen_capture"
+                not in _loads(run["requested_stages_json"], [])
+            ):
+                raise WindowsCaptureConsentError(
+                    "This run cannot admit Windows capture.",
+                    code="windows_capture_consent_invalid",
+                )
+
+            attempt_id = f"attempt_{uuid.uuid4().hex}"
+            job_id = f"job_{uuid.uuid4().hex}"
+            stored_attempt_payload = {
+                **safe_attempt_payload,
+                "consent_intent_id": consent["id"],
+            }
+            stored_job_payload = {
+                **safe_job_payload,
+                "consent_intent_id": consent["id"],
+                "stage_attempt_id": attempt_id,
+            }
+            latest = connection.execute(
+                "SELECT COALESCE(MAX(attempt), 0) AS attempt FROM stage_attempts "
+                "WHERE run_id=? AND stage='screen_capture'",
+                (run_id,),
+            ).fetchone()
+            attempt_number = int(latest["attempt"]) + 1
+            connection.execute(
+                "INSERT INTO jobs(id, kind, status, production_id, created_at, payload_json) "
+                "VALUES(?, 'local_windows_capture', 'queued', ?, ?, ?)",
+                (job_id, production_id, timestamp, _json(stored_job_payload)),
+            )
+            connection.execute(
+                "INSERT INTO stage_attempts(id, run_id, production_id, job_id, stage, "
+                "attempt, status, cache_key, created_at, payload_json) "
+                "VALUES(?, ?, ?, ?, 'screen_capture', ?, 'queued', ?, ?, ?)",
+                (
+                    attempt_id,
+                    run_id,
+                    production_id,
+                    job_id,
+                    attempt_number,
+                    capture_key,
+                    timestamp,
+                    _json(stored_attempt_payload),
+                ),
+            )
+            connection.execute(
+                "UPDATE windows_capture_consent_intents SET consumed_at=?, "
+                "consumed_job_id=?, consumed_stage_attempt_id=? WHERE id=? "
+                "AND consumed_job_id IS NULL AND invalidated_at IS NULL AND expires_at>?",
+                (timestamp, job_id, attempt_id, consent["id"], timestamp),
+            )
+            if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                raise WindowsCaptureConsentError(
+                    "The Windows capture consent could not be consumed.",
+                    code="windows_capture_consent_invalid",
+                )
+            self._append_event(
+                connection,
+                "job",
+                job_id,
+                "job.queued",
+                {"kind": "local_windows_capture", "production_id": production_id},
+                created_at=timestamp,
+            )
+            self._append_event(
+                connection,
+                "run",
+                run_id,
+                "stage.attempt.queued",
+                {
+                    "attempt_id": attempt_id,
+                    "production_id": production_id,
+                    "stage": "screen_capture",
+                    "attempt": attempt_number,
+                    "cache_key": capture_key,
+                    "payload": stored_attempt_payload,
+                },
+                created_at=timestamp,
+            )
+            self._append_event(
+                connection,
+                "run",
+                run_id,
+                "stage.attempt.job_linked",
+                {
+                    "attempt_id": attempt_id,
+                    "production_id": production_id,
+                    "stage": "screen_capture",
+                    "attempt": attempt_number,
+                    "cache_key": capture_key,
+                    "job_id": job_id,
+                    "linked_at": timestamp,
+                },
+                created_at=timestamp,
+            )
+            self._append_event(
+                connection,
+                "run",
+                run_id,
+                "windows_capture.consent.consumed",
+                {
+                    "consent_intent_id": consent["id"],
+                    "production_id": production_id,
+                    "request_settings_digest": request_settings_digest,
+                    "job_id": job_id,
+                    "stage_attempt_id": attempt_id,
+                    "consumed_at": timestamp,
+                },
+                created_at=timestamp,
+            )
+            row = connection.execute(
+                "SELECT * FROM jobs WHERE id=?", (job_id,)
+            ).fetchone()
+            assert row is not None
+            output = self._job_dict(row)
+            output["stage_attempt_id"] = attempt_id
+            output["capture_key"] = capture_key
+            output["request_digest"] = stored_job_payload.get("request_digest")
+            output["request_settings_digest"] = request_settings_digest
+            output["consent_intent_id"] = consent["id"]
+            return output, True
+
+    def abort_windows_capture_admission(
+        self,
+        job_id: str,
+        stage_attempt_id: str,
+        *,
+        error_code: str = "job_setup_failed",
+        error_message: str = "The background job could not be prepared.",
+    ) -> dict[str, Any]:
+        """Retire an already-consumed consent whose queue admission failed."""
+
+        validate_identifier(job_id, label="job id")
+        validate_identifier(stage_attempt_id, label="stage attempt id")
+        timestamp = utc_now()
+        safe_code = str(sanitize_for_storage(error_code or "job_setup_failed"))[:128]
+        safe_message = str(sanitize_for_storage(error_message or ""))[:1000] or None
+        with self.transaction() as connection:
+            job = connection.execute(
+                "SELECT * FROM jobs WHERE id=?", (job_id,)
+            ).fetchone()
+            attempt = connection.execute(
+                "SELECT * FROM stage_attempts WHERE id=?", (stage_attempt_id,)
+            ).fetchone()
+            if job is None or attempt is None:
+                raise KeyError("Windows capture admission is missing")
+            payload = _loads(job["payload_json"], {})
+            consent_id = payload.get("consent_intent_id") if isinstance(payload, dict) else None
+            consent = connection.execute(
+                "SELECT * FROM windows_capture_consent_intents WHERE id=?",
+                (consent_id,),
+            ).fetchone()
+            if (
+                job["kind"] != "local_windows_capture"
+                or job["status"] != "queued"
+                or attempt["status"] != "queued"
+                or attempt["job_id"] != job_id
+                or attempt["stage"] != "screen_capture"
+                or consent is None
+                or consent["consumed_job_id"] != job_id
+                or consent["consumed_stage_attempt_id"] != stage_attempt_id
+            ):
+                raise AtomicCompletionError(
+                    "Windows capture admission is no longer queued",
+                    code="atomic_failure_not_active",
+                    job_status=job["status"],
+                    stage_status=attempt["status"],
+                )
+            connection.execute(
+                "UPDATE stage_attempts SET status='failed', completed_at=?, "
+                "result_json=NULL, error_code=?, error_message=? "
+                "WHERE id=? AND status='queued'",
+                (timestamp, safe_code, safe_message, stage_attempt_id),
+            )
+            if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                raise AtomicCompletionError("Windows capture attempt changed")
+            connection.execute(
+                "UPDATE jobs SET status='failed', completed_at=?, result_json=NULL, "
+                "error_code=?, error_message=? WHERE id=? AND status='queued'",
+                (timestamp, safe_code, safe_message, job_id),
+            )
+            if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                raise AtomicCompletionError("Windows capture job changed")
+            self._append_event(
+                connection,
+                "run",
+                attempt["run_id"],
+                "stage.attempt.failed",
+                {
+                    "attempt_id": attempt["id"],
+                    "production_id": attempt["production_id"],
+                    "stage": attempt["stage"],
+                    "attempt": attempt["attempt"],
+                    "cache_key": attempt["cache_key"],
+                    "result": None,
+                    "error_code": safe_code,
+                    "error_message": safe_message,
+                },
+                created_at=timestamp,
+            )
+            self._append_event(
+                connection,
+                "job",
+                job_id,
+                "job.failed",
+                {
+                    "result": None,
+                    "error_code": safe_code,
+                    "error_message": safe_message,
+                },
+                created_at=timestamp,
+            )
+            updated = connection.execute(
+                "SELECT * FROM jobs WHERE id=?", (job_id,)
+            ).fetchone()
+            assert updated is not None
+            output = self._job_dict(updated)
+            output["stage_attempt_id"] = stage_attempt_id
+            output["capture_key"] = attempt["cache_key"]
+            output["request_digest"] = payload.get("request_digest")
+            output["request_settings_digest"] = payload.get(
+                "request_settings_digest"
+            )
+            output["consent_intent_id"] = consent_id
+            return output
+
     def create_stage_attempt(
         self,
         run_id: str,
@@ -5122,6 +5812,20 @@ class StudioDatabase:
                         not in {
                             frozenset(_LOCAL_PLAYWRIGHT_EXECUTION_STAGES),
                             frozenset(_LOCAL_PLAYWRIGHT_ZERO_COST_STAGES),
+                        }
+                    ):
+                        continue
+                    if execution_profile == "local_windows_capture" and (
+                        estimated_minor != 0
+                        or len(requested_stages)
+                        not in {
+                            len(_LOCAL_WINDOWS_CAPTURE_EXECUTION_STAGES),
+                            len(_LOCAL_WINDOWS_CAPTURE_ZERO_COST_STAGES),
+                        }
+                        or frozenset(requested_stages)
+                        not in {
+                            frozenset(_LOCAL_WINDOWS_CAPTURE_EXECUTION_STAGES),
+                            frozenset(_LOCAL_WINDOWS_CAPTURE_ZERO_COST_STAGES),
                         }
                     ):
                         continue
@@ -7228,6 +7932,88 @@ class StudioDatabase:
                 job["status"] in {"failed", "interrupted"}
                 and attempt["status"] == "failed"
             )
+            privacy_cleanup_override = bool(
+                safe_code
+                in {
+                    "windows_capture_cleanup_failed",
+                    "windows_capture_cleanup_required",
+                }
+                and job["kind"] == "local_windows_capture"
+                and job["status"] == "interrupted"
+                and job["error_code"] == "process_interrupted"
+                and attempt["status"] == "failed"
+                and attempt["error_code"] == "process_interrupted"
+                and attempt["stage"] == "screen_capture"
+            )
+            if privacy_cleanup_override:
+                connection.execute(
+                    "UPDATE jobs SET status='failed', completed_at=?, result_json=NULL, "
+                    "error_code=?, error_message=? WHERE id=? AND status='interrupted' "
+                    "AND error_code='process_interrupted'",
+                    (timestamp, safe_code, safe_message, job_id),
+                )
+                if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                    raise AtomicCompletionError(
+                        "Windows capture cleanup failure changed concurrently",
+                        code="atomic_failure_not_active",
+                        job_status="interrupted",
+                        stage_status="failed",
+                    )
+                connection.execute(
+                    "UPDATE stage_attempts SET completed_at=?, result_json=NULL, "
+                    "error_code=?, error_message=? WHERE id=? AND status='failed' "
+                    "AND error_code='process_interrupted'",
+                    (timestamp, safe_code, safe_message, stage_attempt_id),
+                )
+                if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                    raise AtomicCompletionError(
+                        "Windows capture cleanup attempt changed concurrently",
+                        code="atomic_failure_not_active",
+                        job_status="failed",
+                        stage_status="failed",
+                    )
+                self._append_event(
+                    connection,
+                    "job",
+                    job_id,
+                    "job.failed",
+                    {
+                        "kind": job["kind"],
+                        "production_id": job["production_id"],
+                        "error_code": safe_code,
+                        "error_message": safe_message,
+                    },
+                    created_at=timestamp,
+                )
+                self._append_event(
+                    connection,
+                    "run",
+                    attempt["run_id"],
+                    "stage.attempt.failed",
+                    {
+                        "attempt_id": attempt["id"],
+                        "production_id": attempt["production_id"],
+                        "stage": attempt["stage"],
+                        "attempt": attempt["attempt"],
+                        "cache_key": attempt["cache_key"],
+                        "result": None,
+                        "error_code": safe_code,
+                        "error_message": safe_message,
+                    },
+                    created_at=timestamp,
+                )
+                updated_job = connection.execute(
+                    "SELECT * FROM jobs WHERE id=?", (job_id,)
+                ).fetchone()
+                updated_attempt = connection.execute(
+                    "SELECT * FROM stage_attempts WHERE id=?", (stage_attempt_id,)
+                ).fetchone()
+                assert updated_job is not None and updated_attempt is not None
+                return {
+                    "committed": True,
+                    "job": self._job_dict(updated_job),
+                    "stage_attempt": self._stage_attempt_dict(updated_attempt),
+                }
             if pair_already_terminal and not terminalize_provider:
                 return {
                     "committed": False,
@@ -7522,7 +8308,7 @@ class StudioDatabase:
                 else None
             ),
         }
-        if row["kind"] == "local_screen_capture":
+        if row["kind"] in {"local_screen_capture", "local_windows_capture"}:
             progress = None
             phase = None
             if row["status"] == "queued":
@@ -7553,6 +8339,69 @@ class StudioDatabase:
         with self.session() as connection:
             rows = connection.execute(
                 "SELECT * FROM jobs ORDER BY created_at DESC LIMIT ?", (limit,)
+            ).fetchall()
+        return [self._job_dict(row) for row in rows]
+
+    def find_active_windows_capture_job(self) -> dict[str, Any] | None:
+        """Return the single active native capture admitted in this workspace.
+
+        Native desktop/audio recording is intentionally exclusive.  The
+        service serializes admission in-process, while this exact durable read
+        lets an HTTP retry reuse the already-admitted operation instead of
+        enqueueing a recording that could begin later without a fresh click.
+        """
+
+        with self.session() as connection:
+            rows = connection.execute(
+                "SELECT * FROM jobs WHERE kind='local_windows_capture' "
+                "AND status IN ('queued', 'running') "
+                "ORDER BY created_at, rowid LIMIT 2"
+            ).fetchall()
+        if len(rows) > 1:
+            raise sqlite3.IntegrityError(
+                "multiple active Windows capture jobs violate exclusive admission"
+            )
+        return self._job_dict(rows[0]) if rows else None
+
+    def list_interrupted_windows_capture_jobs(
+        self, *, limit: int = 100
+    ) -> list[dict[str, Any]]:
+        """List bounded native captures stopped by process shutdown/restart."""
+
+        bounded = max(1, min(int(limit), 1000))
+        with self.session() as connection:
+            rows = connection.execute(
+                "SELECT * FROM jobs WHERE kind='local_windows_capture' "
+                "AND status='interrupted' AND error_code='process_interrupted' "
+                "ORDER BY completed_at DESC, rowid DESC LIMIT ?",
+                (bounded,),
+            ).fetchall()
+        return [self._job_dict(row) for row in rows]
+
+    def list_windows_capture_cleanup_candidates(
+        self, *, limit: int = 100
+    ) -> list[dict[str, Any]]:
+        """List only exact native-capture lineages requiring startup cleanup.
+
+        General failed capture jobs are intentionally excluded. A row is a
+        candidate only when restart interrupted an active native capture, or
+        the linked job/attempt durably records one of the two fixed privacy
+        cleanup errors.
+        """
+
+        bounded = max(1, min(int(limit), 1000))
+        with self.session() as connection:
+            rows = connection.execute(
+                "SELECT DISTINCT j.* FROM jobs j "
+                "LEFT JOIN stage_attempts a ON a.job_id=j.id "
+                "WHERE j.kind='local_windows_capture' AND ("
+                "(j.status='interrupted' AND j.error_code='process_interrupted') "
+                "OR j.error_code IN "
+                "('windows_capture_cleanup_failed','windows_capture_cleanup_required') "
+                "OR a.error_code IN "
+                "('windows_capture_cleanup_failed','windows_capture_cleanup_required')"
+                ") ORDER BY j.completed_at DESC, j.rowid DESC LIMIT ?",
+                (bounded,),
             ).fetchall()
         return [self._job_dict(row) for row in rows]
 

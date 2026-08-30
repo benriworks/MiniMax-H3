@@ -244,6 +244,12 @@ export interface JobResult {
   actualCostUsd?: number | null;
   actualCost?: number;
   timingSource?: string;
+  structuralTimingVerified?: boolean;
+  contentSyncVerified?: boolean;
+  liveValidationRequired?: boolean;
+  validationScope?: string;
+  publicReleaseReady?: boolean;
+  publicReleaseGate?: string;
   analysisStatus?: string;
   technicalVerdict?: LocalQcVerdict;
   jobs?: Record<string, LocalPipelineStageResult>;
@@ -440,6 +446,41 @@ export interface LocalScreenCaptureRequest {
   actions: LocalScreenCaptureAction[];
 }
 
+/** Browser-facing request for the closed Windows primary-display capture contract. */
+export interface WindowsCaptureRequest {
+  durationMs: number;
+  confirmCapture: boolean;
+  confirmSystemAudio: boolean;
+}
+
+/** Fixed settings payload shared by the consent-intent and execute requests. */
+export interface WindowsCapturePayload {
+  schema_version: 1;
+  target: 'primary_display';
+  audio_mode: 'default_render_loopback';
+  cursor_mode: 'hidden';
+  duration_ms: number;
+  confirm_capture: true;
+  confirm_system_audio: true;
+}
+
+/** Short-lived response returned by the explicit consent-intent endpoint. */
+export interface WindowsCaptureConsentIntent {
+  schema_version: 1;
+  consent_intent_id: string;
+  consent_token: string;
+  run_id: string;
+  request_settings_digest: string;
+  issued_at: string;
+  expires_at: string;
+  expires_in_seconds: 60;
+}
+
+/** Exact wire payload accepted by the consent-bound execute endpoint. */
+export interface WindowsCaptureExecutionPayload extends WindowsCapturePayload {
+  consent_token: string;
+}
+
 export type LocalQcVariant = 'clean' | 'captioned';
 
 export type LocalQcVerdict = 'pass' | 'fail';
@@ -460,6 +501,8 @@ export interface Job {
   id: string;
   productionId?: string;
   runId?: string;
+  /** Non-secret lineage key for one explicit Windows capture consent. */
+  consentIntentId?: string;
   type: string;
   stage?: string;
   status: StudioStatus;
@@ -491,8 +534,7 @@ export interface ProviderStatus {
 export interface WindowsCaptureCapability {
   schemaVersion: number;
   implementationVersion: string;
-  status: 'foundation_ready' | 'blocked';
-  foundationReady: boolean;
+  status: 'ready' | 'blocked';
   captureExecutionEnabled: boolean;
   screenCaptureReady: boolean;
   systemAudioLoopbackReady: boolean;
@@ -505,13 +547,27 @@ export interface WindowsCaptureCapability {
     endpointActive: boolean;
     loopbackInitialized: boolean;
     recordingStarted: boolean;
+    captureCommandAvailable: boolean;
     sha256?: string;
   };
   ffmpeg: {
     available: boolean;
     gdigrabAvailable: boolean;
+    ffprobeAvailable: boolean;
+  };
+  display: {
+    target: 'primary_display';
+    width: number | null;
+    height: number | null;
   };
   toolIdentityDigest?: string;
+}
+
+export interface WindowsCaptureCancelResponse {
+  job?: Job;
+  cancelRequested: boolean;
+  workerRetired: boolean;
+  raw: Record<string, unknown>;
 }
 
 export interface HealthStatus {
@@ -526,7 +582,7 @@ export interface RerunChanges {
   note: string;
   allowPaidApi: boolean;
   maxCostJpy?: number;
-  executionProfile?: 'local_sapi' | 'local_comfyui' | 'local_playwright' | 'local_pipeline' | 'elevenlabs_tts' | 'default';
+  executionProfile?: 'local_sapi' | 'local_comfyui' | 'local_playwright' | 'local_windows_capture' | 'local_pipeline' | 'elevenlabs_tts' | 'default';
 }
 
 /** Browser-facing request for the pinned local ComfyUI video worker. */

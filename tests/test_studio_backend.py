@@ -55,6 +55,7 @@ from tools.studio.security import (
 from tools.studio.server import create_server
 from tools.studio.execution import narration_cache_key
 from tools.studio.service import RequestValidationError, StudioService, build_rerun_plan
+from tools.studio.windows_capture import windows_capture_session_binding_digest
 
 
 PRODUCTION_ID = "TEST_20260823_auditable_short"
@@ -693,6 +694,16 @@ class DatabaseMigrationTests(unittest.TestCase):
                     "SELECT name FROM sqlite_master WHERE type='table' "
                     "AND name='detailed_test_video_claims'"
                 ).fetchone()
+                capture_consents = connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' "
+                    "AND name='windows_capture_consent_intents'"
+                ).fetchone()
+                capture_consent_indexes = {
+                    row["name"]
+                    for row in connection.execute(
+                        "PRAGMA index_list(windows_capture_consent_intents)"
+                    )
+                }
                 provider_columns = {
                     row["name"]
                     for row in connection.execute("PRAGMA table_info(provider_tasks)")
@@ -724,6 +735,13 @@ class DatabaseMigrationTests(unittest.TestCase):
             self.assertIn("job_id", stage_attempt_columns)
             self.assertIsNotNone(provider_tasks)
             self.assertIsNotNone(detailed_claims)
+            self.assertIsNotNone(capture_consents)
+            self.assertTrue(
+                {
+                    "windows_capture_consent_run_idx",
+                    "windows_capture_consent_expiry_idx",
+                }.issubset(capture_consent_indexes)
+            )
             self.assertTrue(
                 {
                     "provider_task_id",
@@ -766,7 +784,7 @@ class DatabaseMigrationTests(unittest.TestCase):
                 ).fetchone()[0]
             self.assertEqual(version, "999")
 
-    def test_v7_migration_rolls_back_schema_and_version_together(self) -> None:
+    def test_v8_migration_rolls_back_schema_and_version_together(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             workspace = Path(temporary).resolve()
             database_path = workspace / "studio.sqlite3"
@@ -778,9 +796,9 @@ class DatabaseMigrationTests(unittest.TestCase):
                         value TEXT NOT NULL
                     );
                     INSERT INTO schema_meta(key, value) VALUES('schema_version', '1');
-                    CREATE TRIGGER reject_schema_v7
+                    CREATE TRIGGER reject_schema_v8
                     BEFORE UPDATE OF value ON schema_meta
-                    WHEN NEW.key='schema_version' AND NEW.value='7'
+                    WHEN NEW.key='schema_version' AND NEW.value='8'
                     BEGIN
                         SELECT RAISE(ABORT, 'test migration rollback');
                     END;
@@ -814,10 +832,15 @@ class DatabaseMigrationTests(unittest.TestCase):
                     "SELECT name FROM sqlite_master WHERE type='table' "
                     "AND name='detailed_test_video_claims'"
                 ).fetchone()
+                capture_consents = connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' "
+                    "AND name='windows_capture_consent_intents'"
+                ).fetchone()
             self.assertEqual(version, "1")
             self.assertNotIn("execution_profile", run_columns)
             self.assertIsNone(provider_tasks)
             self.assertIsNone(detailed_claims)
+            self.assertIsNone(capture_consents)
 
     def test_v5_pipeline_claim_row_migrates_to_unavailable_ledger(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -6533,6 +6556,16 @@ class ServiceTests(unittest.TestCase):
                 "execution_profile": "local_comfyui",
             },
         )
+        local_windows_capture = self.service.create_run(
+            PRODUCTION_ID,
+            {
+                "changes": [
+                    {"type": "screen_capture", "note": "native restore proof"}
+                ],
+                "estimated_cost": {"amount": 0, "currency": "JPY"},
+                "execution_profile": "local_windows_capture",
+            },
+        )
         with mock.patch(
             "tools.studio.narration.generate_local_narration",
             side_effect=fake_local_narration_result,
@@ -6557,8 +6590,8 @@ class ServiceTests(unittest.TestCase):
         rebuilt = StudioService(self.fixture.root)
         self.service = rebuilt
         result = rebuilt.indexer.refresh()
-        self.assertEqual(result["domain_records_restored"]["revisions"], 4)
-        self.assertEqual(result["domain_records_restored"]["runs"], 4)
+        self.assertEqual(result["domain_records_restored"]["revisions"], 5)
+        self.assertEqual(result["domain_records_restored"]["runs"], 5)
         self.assertEqual(result["domain_records_restored"]["stage_attempts"], 1)
         self.assertEqual(result["domain_records_restored"]["artifacts"], 4)
         self.assertEqual(result["domain_records_restored"]["approvals"], 1)
@@ -6585,6 +6618,19 @@ class ServiceTests(unittest.TestCase):
         )
         self.assertEqual(restored_comfyui["execution_profile"], "local_comfyui")
         self.assertIn("video_generation", restored_comfyui["requested_stages"])
+        restored_windows_capture = next(
+            run
+            for run in detail["runs"]
+            if run["id"] == local_windows_capture["run"]["id"]
+        )
+        self.assertEqual(
+            restored_windows_capture["execution_profile"],
+            "local_windows_capture",
+        )
+        self.assertEqual(
+            set(restored_windows_capture["requested_stages"]),
+            {"screen_capture", "timeline"},
+        )
         audit = rebuilt.audit_export(PRODUCTION_ID, {"include_media": False})
         completed = rebuilt.jobs.wait(audit["id"], timeout=10)
         assert completed is not None
@@ -6925,6 +6971,122 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(status, 202)
         self.assertEqual(json.loads(body), queued)
         execute.assert_called_once_with(run_id, request_body)
+
+    def test_windows_capture_http_routes_forward_exact_bodies_and_map_conflict(
+        self,
+    ) -> None:
+        created = self.server.service.create_run(
+            PRODUCTION_ID,
+            {
+                "changes": [{"type": "screen_capture"}],
+                "estimated_cost": {"amount": 0, "currency": "JPY"},
+                "execution_profile": "local_windows_capture",
+            },
+        )
+        run_id = created["run"]["id"]
+        request_body = {
+            "schema_version": 1,
+            "target": "primary_display",
+            "audio_mode": "default_render_loopback",
+            "cursor_mode": "hidden",
+            "duration_ms": 1_200,
+            "confirm_capture": True,
+            "confirm_system_audio": True,
+        }
+        session_binding_digest = windows_capture_session_binding_digest(self.token)
+        consent = {
+            "schema_version": 1,
+            "consent_intent_id": "capture_consent_" + "d" * 32,
+            "consent_token": "T" * 43,
+            "run_id": run_id,
+            "request_settings_digest": "E" * 64,
+            "issued_at": "2026-08-30T00:00:00.000Z",
+            "expires_at": "2026-08-30T00:01:00.000Z",
+            "expires_in_seconds": 60,
+        }
+        with mock.patch.object(
+            self.server.service,
+            "issue_windows_capture_consent",
+            return_value=consent,
+        ) as issue:
+            status, _headers, body = self.request(
+                "POST",
+                f"/api/runs/{run_id}/windows-capture-consent-intents",
+                body=request_body,
+                headers={"X-Studio-Token": self.token},
+            )
+        self.assertEqual(status, 201)
+        self.assertEqual(json.loads(body), consent)
+        issue.assert_called_once_with(
+            run_id,
+            request_body,
+            session_binding_digest=session_binding_digest,
+        )
+
+        execution_body = {
+            **request_body,
+            "consent_token": consent["consent_token"],
+        }
+        queued = {
+            "id": "job_" + "c" * 32,
+            "kind": "local_windows_capture",
+            "status": "queued",
+        }
+        with mock.patch.object(
+            self.server.service,
+            "execute_windows_capture",
+            return_value=queued,
+        ) as execute:
+            status, _headers, body = self.request(
+                "POST",
+                f"/api/runs/{run_id}/execute-windows-capture",
+                body=execution_body,
+                headers={"X-Studio-Token": self.token},
+            )
+        self.assertEqual(status, 202)
+        self.assertEqual(json.loads(body), queued)
+        execute.assert_called_once_with(
+            run_id,
+            execution_body,
+            session_binding_digest=session_binding_digest,
+        )
+
+        cancellation = {
+            "job": {**queued, "status": "interrupted"},
+            "cancel_requested": True,
+            "worker_retired": False,
+        }
+        with mock.patch.object(
+            self.server.service,
+            "cancel_windows_capture_job",
+            return_value=cancellation,
+        ) as cancel:
+            status, _headers, body = self.request(
+                "POST",
+                f"/api/jobs/{queued['id']}/cancel-windows-capture",
+                body={},
+                headers={"X-Studio-Token": self.token},
+            )
+        self.assertEqual(status, 202)
+        self.assertEqual(json.loads(body), cancellation)
+        cancel.assert_called_once_with(queued["id"], {})
+
+        with mock.patch.object(
+            self.server.service,
+            "execute_windows_capture",
+            side_effect=RequestValidationError(
+                "Another Windows capture is already active.",
+                code="windows_capture_busy",
+            ),
+        ):
+            status, _headers, body = self.request(
+                "POST",
+                f"/api/runs/{run_id}/execute-windows-capture",
+                body=execution_body,
+                headers={"X-Studio-Token": self.token},
+            )
+        self.assertEqual(status, 409)
+        self.assertEqual(json.loads(body)["error"]["code"], "windows_capture_busy")
 
     def test_provider_task_resume_http_route_requires_an_empty_body(self) -> None:
         provider_task_record_id = "provider_task_" + "4" * 32
