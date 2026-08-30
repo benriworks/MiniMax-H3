@@ -90,6 +90,36 @@ test('normalizeJob preserves worker progress and phase for capture polling', () 
   assert.equal(job.progressPhase, 'transcoding');
 });
 
+test('Windows native result keeps structural success separate from content sync', () => {
+  const job = api.normalizeJob({
+    id: 'job-native-complete',
+    type: 'local_windows_capture',
+    status: 'succeeded',
+    result: {
+      artifacts: [],
+      structural_timing_verified: true,
+      content_sync_verified: false,
+      live_validation_required: true,
+      validation_scope: 'container_timestamps_durations_and_wasapi_packet_clock_v1',
+      public_release_ready: false,
+      public_release_gate: 'blocked_pending_live_av_sync_validation',
+    },
+  });
+  assert.equal(job.result.structuralTimingVerified, true);
+  assert.equal(job.result.contentSyncVerified, false);
+  assert.equal(job.result.liveValidationRequired, true);
+  assert.equal(job.result.publicReleaseReady, false);
+  assert.equal(job.result.publicReleaseGate, 'blocked_pending_live_av_sync_validation');
+
+  const nativePanel = appSource.slice(
+    appSource.indexOf('function WindowsCapturePanel'),
+    appSource.indexOf('function ScreenCapturePanel'),
+  );
+  assert.match(nativePanel, /実内容A\/V同期/);
+  assert.match(nativePanel, /実機での目視・試聴が完了するまで公開利用gateは保留/);
+  assert.doesNotMatch(nativePanel, />VERIFIED OUTPUT</);
+});
+
 test('screen capture selection prioritizes submitted and attempt-linked jobs over old terminal jobs', () => {
   const oldTerminal = api.normalizeJob({
     id: 'job-old',
@@ -154,7 +184,7 @@ test('local_playwright run creation remains zero-cost and explicit', async () =>
   }
 });
 
-test('Windows native capability inspection posts an empty body and never enables capture', async () => {
+test('Windows native capability inspection posts an empty body and validates the ready v2 contract', async () => {
   const originalFetch = globalThis.fetch;
   let capturedUrl;
   let capturedInit;
@@ -163,10 +193,10 @@ test('Windows native capability inspection posts an empty body and never enables
     capturedInit = init;
     return new Response(JSON.stringify({
       schema_version: 1,
-      implementation_version: 'windows-capture-capability-v1',
-      status: 'foundation_ready',
+      implementation_version: 'windows-capture-capability-v2',
+      status: 'ready',
       foundation_ready: true,
-      capture_execution_enabled: false,
+      capture_execution_enabled: true,
       screen_capture_ready: true,
       system_audio_loopback_ready: true,
       explicit_confirmation_required: true,
@@ -178,8 +208,10 @@ test('Windows native capability inspection posts an empty body and never enables
         endpoint_active: true,
         loopback_initialized: true,
         recording_started: false,
+        capture_command_available: true,
       },
-      ffmpeg: { available: true, gdigrab_available: true },
+      ffmpeg: { available: true, gdigrab_available: true, ffprobe_available: true },
+      display: { target: 'primary_display', width: 2560, height: 1440 },
       tool_identity_digest: 'A'.repeat(64),
     }), { status: 200, headers: { 'content-type': 'application/json' } });
   };
@@ -188,8 +220,8 @@ test('Windows native capability inspection posts an empty body and never enables
     assert.equal(capturedUrl, '/api/capabilities/windows-capture/inspect');
     assert.equal(capturedInit.method, 'POST');
     assert.equal(capturedInit.body, '{}');
-    assert.equal(capability.foundationReady, true);
-    assert.equal(capability.captureExecutionEnabled, false);
+    assert.equal(capability.status, 'ready');
+    assert.equal(capability.captureExecutionEnabled, true);
     assert.equal(capability.actualCapturePerformed, false);
     assert.equal(capability.helper.recordingStarted, false);
   } finally {
@@ -197,19 +229,169 @@ test('Windows native capability inspection posts an empty body and never enables
   }
 });
 
+test('Windows native capability inspection preserves safe partial diagnostics while blocked', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    schema_version: 1,
+    implementation_version: 'windows-capture-capability-v2',
+    status: 'blocked',
+    foundation_ready: false,
+    capture_execution_enabled: false,
+    screen_capture_ready: true,
+    system_audio_loopback_ready: false,
+    explicit_confirmation_required: true,
+    actual_capture_performed: false,
+    reasons: ['system_audio_loopback_unavailable'],
+    helper: {
+      available: true,
+      doctor_ok: false,
+      endpoint_active: false,
+      loopback_initialized: false,
+      recording_started: false,
+      capture_command_available: true,
+    },
+    ffmpeg: { available: true, gdigrab_available: true, ffprobe_available: true },
+    display: { target: 'primary_display', width: 2560, height: 1440 },
+    tool_identity_digest: 'A'.repeat(64),
+  }), { status: 200, headers: { 'content-type': 'application/json' } });
+  try {
+    const capability = await api.api.inspectWindowsCaptureCapability();
+    assert.equal(capability.status, 'blocked');
+    assert.equal(capability.captureExecutionEnabled, false);
+    assert.equal(capability.screenCaptureReady, true);
+    assert.equal(capability.systemAudioLoopbackReady, false);
+    assert.equal(capability.helper.captureCommandAvailable, true);
+    assert.equal(capability.ffmpeg.ffprobeAvailable, true);
+    assert.deepEqual(capability.reasons, ['system_audio_loopback_unavailable']);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('Windows native capability UI states that inspection does not capture data', () => {
-  assert.match(appSource, /この操作は環境確認のみです。画面・音声を取得、保存、送信しません。/);
-  assert.match(appSource, /実収録は未実装で、現在は常に無効です。/);
+  assert.match(appSource, /診断は収録せず、固定helper・FFmpeg・既定再生音声・プライマリ画面の事前条件だけを確認します。/);
+  assert.match(appSource, /実収録はこの診断と分離した明示操作です。/);
   assert.match(appSource, /収録せずに環境を確認/);
-  assert.match(appSource, /画面とシステム音声を別々に明示確認/);
+  assert.match(appSource, /画面収録を確認/);
+  assert.match(appSource, /システム音声収録を確認/);
+});
+
+const nativeConsentIntent = (suffix) => ({
+  schema_version: 1,
+  consent_intent_id: `capture_consent_${suffix.repeat(32)}`,
+  consent_token: 'A'.repeat(43),
+  run_id: 'run-native',
+  request_settings_digest: 'B'.repeat(64),
+  issued_at: '2026-08-30T00:00:00.000Z',
+  expires_at: '2026-08-30T00:01:00.000Z',
+  expires_in_seconds: 60,
+});
+
+const nativeJob = (id, runId, consentIntentId) => api.normalizeJob({
+  id,
+  kind: 'local_windows_capture',
+  status: 'queued',
+  created_at: '2026-08-30T00:00:01.000Z',
+  payload: {
+    run_id: runId,
+    stage: 'screen_capture',
+    consent_intent_id: consentIntentId,
+  },
+});
+
+test('Windows capture aborts a hung execute request before entering bounded reconciliation', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (_url, init) => new Promise((_resolve, reject) => {
+    init.signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')), { once: true });
+  });
+  try {
+    await assert.rejects(
+      () => api.api.executeWindowsCapture(
+        'run-native',
+        { durationMs: 5_000, confirmCapture: true, confirmSystemAudio: true },
+        'A'.repeat(43),
+        5,
+      ),
+      (error) => api.isStudioApiResponseLoss(error),
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('Windows capture reconciliation accepts only the exact non-secret consent lineage', () => {
+  const expectedIntent = nativeConsentIntent('a');
+  const guard = api.createWindowsCaptureSubmissionGuard(expectedIntent, 1_000);
+  const sameRunOtherTab = nativeJob('job-other-tab', 'run-native', nativeConsentIntent('b').consent_intent_id);
+  const otherRunSameIntent = nativeJob('job-other-run', 'run-other', expectedIntent.consent_intent_id);
+  const exact = nativeJob('job-exact', 'run-native', expectedIntent.consent_intent_id);
+
+  assert.equal(exact.consentIntentId, expectedIntent.consent_intent_id);
+  assert.equal(api.isWindowsCaptureJobForSelection(sameRunOtherTab, {
+    runId: guard.runId,
+    consentIntentId: guard.consentIntentId,
+  }), false);
+  assert.equal(api.isWindowsCaptureJobForSelection(otherRunSameIntent, {
+    runId: guard.runId,
+    consentIntentId: guard.consentIntentId,
+  }), false);
+  assert.deepEqual(api.reconcileWindowsCaptureSubmission(
+    guard,
+    [sameRunOtherTab, otherRunSameIntent],
+    1_000,
+  ).state, 'pending');
+  const reconciled = api.reconcileWindowsCaptureSubmission(
+    guard,
+    [sameRunOtherTab, exact, otherRunSameIntent],
+    1_000,
+  );
+  assert.equal(reconciled.state, 'matched');
+  assert.equal(reconciled.job.id, 'job-exact');
+});
+
+test('Windows capture uncertain reconciliation is token-free, TTL-bound, and poll-bounded', () => {
+  const guard = api.createWindowsCaptureSubmissionGuard(nativeConsentIntent('c'), 1_000);
+  assert.deepEqual(Object.keys(guard).sort(), [
+    'consentIntentId',
+    'pollAttempts',
+    'reconcileDeadlineMs',
+    'runId',
+  ]);
+  assert.equal(JSON.stringify(guard).includes('A'.repeat(43)), false);
+  assert.equal(guard.reconcileDeadlineMs, 61_000);
+
+  let state = { state: 'pending', guard };
+  for (let index = 0; index < api.WINDOWS_CAPTURE_RECONCILIATION_MAX_POLLS - 1; index += 1) {
+    state = api.reconcileWindowsCaptureSubmission(state.guard, [], 1_000 + index);
+    assert.equal(state.state, 'pending');
+  }
+  const bounded = api.reconcileWindowsCaptureSubmission(state.guard, [], 30_000);
+  assert.equal(bounded.state, 'manual_review');
+  assert.equal(api.reconcileWindowsCaptureSubmission(guard, [], 61_000).state, 'manual_review');
+});
+
+test('Windows capture UI leaves uncertain mode for manual review without selecting or cancelling another Job', () => {
+  const nativePanel = appSource.slice(
+    appSource.indexOf('function WindowsCapturePanel'),
+    appSource.indexOf('function ScreenCapturePanel'),
+  );
+  assert.match(nativePanel, /reconcileWindowsCaptureSubmission\(guard, scopedJobs\)/);
+  assert.match(nativePanel, /setSubmissionReviewRequired\(true\)/);
+  assert.match(nativePanel, /setConfirmCapture\(false\)/);
+  assert.match(nativePanel, /setConfirmSystemAudio\(false\)/);
+  assert.match(nativePanel, /window\.setTimeout\(\(\) =>/);
+  assert.match(nativePanel, /reconcileDeadlineMs - Date\.now\(\)/);
+  assert.match(nativePanel, /window\.clearTimeout\(deadlineTimer\)/);
+  assert.match(nativePanel, /受理状態は未確定です。自動照合と自動再送を停止しました。/);
+  assert.doesNotMatch(nativePanel, /knownJobIds/);
 });
 
 test('Windows native capability response fails closed if capture was enabled or performed', async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () => new Response(JSON.stringify({
     schema_version: 1,
-    implementation_version: 'windows-capture-capability-v1',
-    status: 'foundation_ready',
+    implementation_version: 'windows-capture-capability-v2',
+    status: 'ready',
     foundation_ready: true,
     capture_execution_enabled: true,
     screen_capture_ready: true,
@@ -217,8 +399,9 @@ test('Windows native capability response fails closed if capture was enabled or 
     explicit_confirmation_required: true,
     actual_capture_performed: false,
     reasons: [],
-    helper: { recording_started: false },
-    ffmpeg: {},
+    helper: { recording_started: false, capture_command_available: false },
+    ffmpeg: { ffprobe_available: false },
+    display: { target: 'primary_display', width: 2560, height: 1440 },
   }), { status: 200, headers: { 'content-type': 'application/json' } });
   try {
     await assert.rejects(() => api.api.inspectWindowsCaptureCapability(), /安全契約/);

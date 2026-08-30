@@ -6,6 +6,7 @@ import inspect
 import json
 import mimetypes
 import re
+import secrets
 import threading
 import uuid
 from pathlib import Path
@@ -23,6 +24,7 @@ from .database import (
     SCHEMA_VERSION,
     AtomicStageCompletion,
     StudioDatabase,
+    WindowsCaptureConsentError,
     money_to_minor,
     utc_now,
 )
@@ -129,7 +131,20 @@ from .browser_capture_execution import (
     validate_browser_capture_payload,
 )
 from .windows_capture import (
+    WINDOWS_CAPTURE_CONSENT_TTL_SECONDS,
+    WINDOWS_CAPTURE_SCHEMA_VERSION,
+    WindowsCaptureError,
+    WindowsCaptureValidationError,
     inspect_windows_capture_capability as inspect_windows_capture_capability_environment,
+    safe_windows_capture_error,
+    validate_windows_capture_execution_payload,
+    validate_windows_capture_payload,
+    windows_capture_audit_payload,
+    windows_capture_consent_token_digest,
+    windows_capture_key,
+    windows_capture_public_result,
+    windows_capture_request_digest,
+    windows_capture_settings_digest,
 )
 from .security import (
     SecurityError,
@@ -207,12 +222,20 @@ _EXECUTION_PROFILES = {
     "elevenlabs_tts",
     "local_comfyui",
     "local_playwright",
+    "local_windows_capture",
 }
 _LOCAL_SAPI_ZERO_COST_STAGES = {"narration", "captions", "timeline", "assembly", "qc"}
 _ELEVENLABS_TTS_STAGES = {"narration", "captions", "assembly", "qc"}
 _LOCAL_COMFYUI_ZERO_COST_STAGES = {"video_generation", "timeline", "assembly", "qc"}
 _LOCAL_PLAYWRIGHT_ZERO_COST_STAGES = {"screen_capture", "timeline", "assembly", "qc"}
 _LOCAL_PLAYWRIGHT_EXECUTION_STAGES = ("screen_capture", "timeline")
+_LOCAL_WINDOWS_CAPTURE_ZERO_COST_STAGES = {
+    "screen_capture",
+    "timeline",
+    "assembly",
+    "qc",
+}
+_LOCAL_WINDOWS_CAPTURE_EXECUTION_STAGES = ("screen_capture", "timeline")
 _LOCAL_PIPELINE_ZERO_COST_STAGES = {
     "narration",
     "captions",
@@ -249,6 +272,26 @@ _LOCAL_SCREEN_CAPTURE_ARTIFACTS = {
     "capture-report.json": ("document", "application/json"),
     "ffprobe.json": ("document", "application/json"),
     "manifest.json": ("document", "application/json"),
+}
+_LOCAL_WINDOWS_CAPTURE_ARTIFACTS = {
+    "screen-capture.mp4": ("video", "video/mp4"),
+    "screen-video.mp4": ("video", "video/mp4"),
+    "system-audio.wav": ("audio", "audio/wav"),
+    "first-frame.png": ("image", "image/png"),
+    "last-frame.png": ("image", "image/png"),
+    "capture-report.json": ("document", "application/json"),
+    "ffprobe.json": ("document", "application/json"),
+    "manifest.json": ("document", "application/json"),
+}
+_LOCAL_WINDOWS_CAPTURE_MAX_ARTIFACT_BYTES = {
+    "screen-capture.mp4": 512 * 1024 * 1024,
+    "screen-video.mp4": 512 * 1024 * 1024,
+    "system-audio.wav": 64 * 1024 * 1024,
+    "first-frame.png": 64 * 1024 * 1024,
+    "last-frame.png": 64 * 1024 * 1024,
+    "capture-report.json": 16 * 1024 * 1024,
+    "ffprobe.json": 16 * 1024 * 1024,
+    "manifest.json": 16 * 1024 * 1024,
 }
 _LOCAL_ASSEMBLY_ARTIFACTS = {
     "master-clean.mp4": ("video", "video/mp4"),
@@ -548,6 +591,19 @@ class StudioService:
         path = database_path or workspace_path(self.workspace, "outputs/studio/studio.sqlite3")
         path = workspace_path(self.workspace, path)
         self.database = StudioDatabase(path, workspace=self.workspace)
+        # Startup DB recovery invalidates every unconsumed consent first.
+        # Deterministic nonce partials are then removed before any capture
+        # lane exists. A cleanup error aborts Studio startup instead of
+        # allowing a later recording beside unknown stale private media.
+        from . import windows_capture_worker
+
+        windows_capture_worker.cleanup_stale_windows_capture_partials(
+            self.workspace
+        )
+        # Resolve exact durable job/attempt cleanup identities before any
+        # worker lane or recovery thread exists. A fail-closed startup error
+        # therefore cannot leave background infrastructure behind.
+        self._cleanup_interrupted_windows_capture_outputs()
         self.indexer = ProductionIndexer(self.workspace, self.database)
         self.secret_store = SecretStore(self.workspace)
         self.jobs = JobManager(self.database)
@@ -555,6 +611,7 @@ class StudioService:
         self._pipeline_submit_lock = threading.Lock()
         self._detailed_test_video_submit_lock = threading.Lock()
         self._local_video_submit_lock = threading.Lock()
+        self._windows_capture_submit_lock = threading.Lock()
         self._pipeline_capability = object()
         self._announcement_narration_timing_capability = object()
         self._provider_recovery_lock = threading.Lock()
@@ -782,6 +839,242 @@ class StudioService:
             )
         return inspect_windows_capture_capability_environment(self.workspace)
 
+    def issue_windows_capture_consent(
+        self,
+        run_id: str,
+        body: dict[str, Any],
+        *,
+        session_binding_digest: str,
+    ) -> dict[str, Any]:
+        """Issue one short-lived, session/run/settings-bound bearer token."""
+
+        validate_identifier(run_id, label="run id")
+        run = self.database.get_run(run_id)
+        if run is None:
+            raise KeyError("run not found")
+        if run.get("execution_profile") != "local_windows_capture":
+            raise RequestValidationError(
+                "This run is not configured for local Windows capture.",
+                code="execution_profile_required",
+            )
+        if (
+            not isinstance(run.get("requested_stages"), list)
+            or _LOCAL_SCREEN_CAPTURE_STAGE not in run["requested_stages"]
+        ):
+            raise RequestValidationError(
+                "The screen_capture stage was not requested by this run.",
+                code="stage_not_requested",
+            )
+        if not isinstance(session_binding_digest, str) or re.fullmatch(
+            r"[0-9A-F]{64}", session_binding_digest
+        ) is None:
+            raise RequestValidationError(
+                "The authenticated Studio session binding is invalid.",
+                code="windows_capture_consent_invalid",
+            )
+        try:
+            payload = validate_windows_capture_payload(body)
+            request_settings_digest = windows_capture_settings_digest(payload)
+            consent_token = secrets.token_urlsafe(32)
+            token_digest = windows_capture_consent_token_digest(consent_token)
+            intent = self.database.issue_windows_capture_consent_intent(
+                production_id=run["production_id"],
+                run_id=run_id,
+                token_digest=token_digest,
+                session_binding_digest=session_binding_digest,
+                request_settings_digest=request_settings_digest,
+                ttl_seconds=WINDOWS_CAPTURE_CONSENT_TTL_SECONDS,
+            )
+        except WindowsCaptureValidationError as exc:
+            raise RequestValidationError(
+                str(exc.public_message), code=str(exc.error_code)[:128]
+            ) from exc
+        return {
+            "schema_version": WINDOWS_CAPTURE_SCHEMA_VERSION,
+            "consent_intent_id": intent["id"],
+            "consent_token": consent_token,
+            "run_id": run_id,
+            "request_settings_digest": request_settings_digest,
+            "issued_at": intent["issued_at"],
+            "expires_at": intent["expires_at"],
+            "expires_in_seconds": WINDOWS_CAPTURE_CONSENT_TTL_SECONDS,
+        }
+
+    def _cleanup_interrupted_windows_capture_outputs(self) -> None:
+        """Discard exact unregistered output with durable cleanup lineage.
+
+        A native recording is never resumed automatically after restart: doing
+        so would replay old consent at an unexpected time.  SQLite startup has
+        already terminalized active jobs/attempts before this method runs.  We
+        therefore remove only the exact nonce-derived directory of a linked,
+        failed attempt, and preserve it whenever durable artifact truth is
+        ambiguous.
+        """
+
+        try:
+            candidates = self.database.list_windows_capture_cleanup_candidates(
+                limit=1000
+            )
+        except Exception as exc:
+            raise WindowsCaptureError(
+                "Windows capture cleanup records could not be queried.",
+                code="windows_capture_cleanup_failed",
+            ) from exc
+        if len(candidates) >= 1000:
+            raise WindowsCaptureError(
+                "Windows capture cleanup records exceed the startup limit.",
+                code="windows_capture_cleanup_failed",
+            )
+        if not candidates:
+            return
+        try:
+            from . import windows_capture_worker
+        except (ImportError, AttributeError) as exc:
+            raise WindowsCaptureError(
+                "The Windows capture cleanup worker is unavailable.",
+                code="windows_capture_cleanup_failed",
+            ) from exc
+        cleanup_codes = {
+            "windows_capture_cleanup_failed",
+            "windows_capture_cleanup_required",
+        }
+        verified_targets: list[tuple[str, str]] = []
+        verified_target_set: set[tuple[str, str]] = set()
+        # Preflight the complete bounded candidate set before deleting a byte.
+        # A later ambiguous row must not be able to block startup only after an
+        # earlier, valid-looking capture directory has already been removed.
+        for job in candidates:
+            payload = job.get("payload")
+            if not isinstance(payload, dict):
+                raise WindowsCaptureError(
+                    "A Windows capture cleanup record is invalid.",
+                    code="windows_capture_cleanup_failed",
+                )
+            run_id = payload.get("run_id")
+            capture_key = payload.get("capture_key")
+            attempt_id = payload.get("stage_attempt_id")
+            if (
+                not isinstance(run_id, str)
+                or re.fullmatch(r"run_[0-9a-f]{32}", run_id) is None
+                or not isinstance(capture_key, str)
+                or re.fullmatch(r"[0-9A-F]{64}", capture_key) is None
+                or not isinstance(attempt_id, str)
+                or re.fullmatch(r"attempt_[0-9a-f]{32}", attempt_id) is None
+            ):
+                raise WindowsCaptureError(
+                    "A Windows capture cleanup identity is invalid.",
+                    code="windows_capture_cleanup_failed",
+                )
+            try:
+                attempt = self.database.get_stage_attempt(attempt_id)
+                run = self.database.get_run(run_id)
+            except Exception as exc:
+                raise WindowsCaptureError(
+                    "A Windows capture cleanup lineage could not be read.",
+                    code="windows_capture_cleanup_failed",
+                ) from exc
+            job_error = job.get("error")
+            attempt_error = attempt.get("error") if isinstance(attempt, dict) else None
+            job_error_code = (
+                job_error.get("code") if isinstance(job_error, dict) else None
+            )
+            attempt_error_code = (
+                attempt_error.get("code")
+                if isinstance(attempt_error, dict)
+                else None
+            )
+            attempt_payload = (
+                attempt.get("payload") if isinstance(attempt, dict) else None
+            )
+            interrupted_lineage = bool(
+                job.get("status") == "interrupted"
+                and job_error_code == "process_interrupted"
+                and isinstance(attempt, dict)
+                and attempt.get("status") == "failed"
+                and attempt_error_code == "process_interrupted"
+            )
+            cleanup_failure_lineage = bool(
+                job.get("status") == "failed"
+                and job_error_code in cleanup_codes
+                and isinstance(attempt, dict)
+                and attempt.get("status") == "failed"
+                and attempt_error_code == job_error_code
+            )
+            if (
+                attempt is None
+                or run is None
+                or job.get("kind") != "local_windows_capture"
+                or attempt.get("job_id") != job.get("id")
+                or attempt.get("run_id") != run_id
+                or attempt.get("stage") != _LOCAL_SCREEN_CAPTURE_STAGE
+                or attempt.get("status") != "failed"
+                or attempt.get("cache_key") != capture_key
+                or not isinstance(attempt_payload, dict)
+                or attempt_payload.get("execution_profile")
+                != "local_windows_capture"
+                or attempt_payload.get("capture_key") != capture_key
+                or job.get("production_id") != attempt.get("production_id")
+                or payload.get("production_id") != attempt.get("production_id")
+                or payload.get("execution_profile") != "local_windows_capture"
+                or payload.get("stage") != _LOCAL_SCREEN_CAPTURE_STAGE
+                or run.get("production_id") != attempt.get("production_id")
+                or run.get("execution_profile") != "local_windows_capture"
+                or not (interrupted_lineage or cleanup_failure_lineage)
+            ):
+                raise WindowsCaptureError(
+                    "A Windows capture cleanup lineage is inconsistent.",
+                    code="windows_capture_cleanup_failed",
+                )
+            output_root = (
+                f"outputs/studio/runs/{run_id}/screen_capture/{capture_key}/"
+            )
+            try:
+                artifact_records = [
+                    self.database.get_artifact(
+                        stable_id("art", f"{output_root}{name}".casefold())
+                    )
+                    for name in _LOCAL_WINDOWS_CAPTURE_ARTIFACTS
+                ]
+            except Exception as exc:
+                raise WindowsCaptureError(
+                    "Windows capture artifact truth could not be read.",
+                    code="windows_capture_cleanup_failed",
+                ) from exc
+            # Any registry row, including an unavailable/tombstoned one, means
+            # the output is not provably unregistered. Preserve it and block
+            # startup instead of guessing whether publication once committed.
+            if any(artifact is not None for artifact in artifact_records):
+                raise WindowsCaptureError(
+                    "Windows capture cleanup truth conflicts with registered artifacts.",
+                    code="windows_capture_cleanup_failed",
+                )
+            target = (run_id, capture_key)
+            if target in verified_target_set:
+                raise WindowsCaptureError(
+                    "A Windows capture cleanup target has ambiguous lineage.",
+                    code="windows_capture_cleanup_failed",
+                )
+            verified_target_set.add(target)
+            verified_targets.append(target)
+
+        for run_id, capture_key in verified_targets:
+            try:
+                windows_capture_worker.discard_windows_capture_outputs(
+                    self.workspace,
+                    run_id=run_id,
+                    capture_key=capture_key,
+                )
+            except WindowsCaptureError:
+                # This lineage is proven interrupted, unregistered, and exact.
+                # A residual therefore blocks startup instead of being hidden
+                # behind an otherwise healthy capture capability.
+                raise
+            except Exception as exc:
+                raise WindowsCaptureError(
+                    "Interrupted Windows capture data could not be removed.",
+                    code="windows_capture_cleanup_failed",
+                ) from exc
+
     def list_productions(self) -> dict[str, Any]:
         productions = self.database.list_productions()
         return {"productions": productions, "count": len(productions)}
@@ -1000,6 +1293,12 @@ class StudioService:
                 execution_profile == "local_playwright"
                 and affected_stages.issubset(_LOCAL_PLAYWRIGHT_ZERO_COST_STAGES)
             )
+            or (
+                execution_profile == "local_windows_capture"
+                and affected_stages.issubset(
+                    _LOCAL_WINDOWS_CAPTURE_ZERO_COST_STAGES
+                )
+            )
         )
         if (
             execution_profile == "local_sapi"
@@ -1032,6 +1331,20 @@ class StudioService:
         ):
             raise RequestValidationError(
                 "local_playwright runs require screen_capture and may only affect screen_capture, timeline, assembly, or qc.",
+                code="local_profile_stage_not_allowed",
+            )
+        if (
+            execution_profile == "local_windows_capture"
+            and amount_minor == 0
+            and (
+                _LOCAL_SCREEN_CAPTURE_STAGE not in affected_stages
+                or not affected_stages.issubset(
+                    _LOCAL_WINDOWS_CAPTURE_ZERO_COST_STAGES
+                )
+            )
+        ):
+            raise RequestValidationError(
+                "local_windows_capture runs require screen_capture and may only affect screen_capture, timeline, assembly, or qc.",
                 code="local_profile_stage_not_allowed",
             )
         if plan["billable_stages"] and amount_minor <= 0 and not local_zero_cost_plan:
@@ -1092,18 +1405,38 @@ class StudioService:
                     "local_playwright runs require screen_capture and may only affect screen_capture, timeline, assembly, or qc.",
                     code="local_profile_stage_not_allowed",
                 )
+        if execution_profile == "local_windows_capture":
+            if amount_minor != 0:
+                raise RequestValidationError(
+                    "local_windows_capture runs must use a zero-cost estimate.",
+                    code="local_profile_cost_not_allowed",
+                )
+            if (
+                _LOCAL_SCREEN_CAPTURE_STAGE not in affected_stages
+                or not affected_stages.issubset(
+                    _LOCAL_WINDOWS_CAPTURE_ZERO_COST_STAGES
+                )
+            ):
+                raise RequestValidationError(
+                    "local_windows_capture runs require screen_capture and may only affect screen_capture, timeline, assembly, or qc.",
+                    code="local_profile_stage_not_allowed",
+                )
         parent_revision_id = body.get("parent_revision_id")
         if parent_revision_id is not None:
             validate_identifier(parent_revision_id, label="parent revision id")
         persisted_plan = plan
-        if execution_profile == "local_playwright":
+        if execution_profile in {"local_playwright", "local_windows_capture"}:
             # The generic dependency planner retains assembly/QC as impacted
             # downstream work, but this profile owns executable workers only
             # for capture and timeline. Keep that distinction durable so an
             # assembly/QC panel never treats this Run as executable.
             persisted_plan = {
                 **plan,
-                "requested_stages": list(_LOCAL_PLAYWRIGHT_EXECUTION_STAGES),
+                "requested_stages": list(
+                    _LOCAL_PLAYWRIGHT_EXECUTION_STAGES
+                    if execution_profile == "local_playwright"
+                    else _LOCAL_WINDOWS_CAPTURE_EXECUTION_STAGES
+                ),
             }
         revision, run = self.database.create_revision_and_run(
             production_id,
@@ -5649,6 +5982,90 @@ class StudioService:
             )
         return validated
 
+    def _validate_local_windows_capture_artifact_records(
+        self,
+        run_id: str,
+        capture_key: str,
+        raw_artifacts: Any,
+    ) -> list[dict[str, Any]]:
+        """Re-derive the exact native capture artifact set from disk."""
+
+        if not isinstance(raw_artifacts, list) or len(raw_artifacts) != len(
+            _LOCAL_WINDOWS_CAPTURE_ARTIFACTS
+        ):
+            raise WindowsCaptureError(
+                "The Windows capture worker returned an incomplete artifact set.",
+                code="invalid_worker_result",
+            )
+        expected_root = f"outputs/studio/runs/{run_id}/screen_capture/{capture_key}/"
+        validated: list[dict[str, Any]] = []
+        seen_names: set[str] = set()
+        for item in raw_artifacts:
+            if not isinstance(item, dict) or not isinstance(item.get("rel_path"), str):
+                raise WindowsCaptureError(
+                    "The Windows capture worker returned an invalid artifact.",
+                    code="invalid_worker_result",
+                )
+            try:
+                path = workspace_path(self.workspace, item["rel_path"], must_exist=True)
+                relative = relative_workspace_path(self.workspace, path)
+            except (SecurityError, OSError):
+                raise WindowsCaptureError(
+                    "The Windows capture worker returned an unsafe artifact path.",
+                    code="unsafe_worker_artifact",
+                ) from None
+            expected = _LOCAL_WINDOWS_CAPTURE_ARTIFACTS.get(path.name)
+            maximum = _LOCAL_WINDOWS_CAPTURE_MAX_ARTIFACT_BYTES.get(path.name)
+            if (
+                expected is None
+                or maximum is None
+                or path.name in seen_names
+                or relative != f"{expected_root}{path.name}"
+                or _has_symlink_component(self.workspace, item["rel_path"])
+                or path.is_symlink()
+                or not path.is_file()
+                or sensitive_artifact_path(relative)
+                or item.get("kind") != expected[0]
+                or item.get("media_type", item.get("mime")) != expected[1]
+                or item.get("name") != path.name
+            ):
+                raise WindowsCaptureError(
+                    "The Windows capture worker returned an unexpected artifact.",
+                    code="invalid_worker_result",
+                )
+            stat = path.stat()
+            digest = _sha256_file(path)
+            if (
+                stat.st_size <= 0
+                or stat.st_size > maximum
+                or item.get("bytes") != stat.st_size
+                or item.get("sha256") != digest
+            ):
+                raise WindowsCaptureError(
+                    "The Windows capture worker returned mismatched artifact metadata.",
+                    code="invalid_worker_result",
+                )
+            seen_names.add(path.name)
+            validated.append(
+                {
+                    "id": stable_id("art", relative.casefold()),
+                    "rel_path": relative,
+                    "name": path.name,
+                    "kind": expected[0],
+                    "media_type": expected[1],
+                    "bytes": stat.st_size,
+                    "mtime_ns": stat.st_mtime_ns,
+                    "sha256": digest,
+                    "is_heavy": stat.st_size > 10 * 1024 * 1024,
+                }
+            )
+        if seen_names != set(_LOCAL_WINDOWS_CAPTURE_ARTIFACTS):
+            raise WindowsCaptureError(
+                "The Windows capture worker returned an incomplete artifact set.",
+                code="invalid_worker_result",
+            )
+        return validated
+
     def _validate_local_remotion_timeline_artifact_records(
         self,
         run_id: str,
@@ -5977,6 +6394,417 @@ class StudioService:
         job["stage_attempt_id"] = attempt["id"]
         job["capture_key"] = capture_key
         return job
+
+    def _execute_windows_capture(
+        self,
+        attempt_id: str,
+        run_id: str,
+        production_id: str,
+        payload: dict[str, Any],
+        capture_key: str,
+        expected_tool_identity_digest: str,
+        cancel_event: JobExecutionContext | None = None,
+    ) -> dict[str, Any] | AtomicStageCompletion:
+        """Record one explicit native capture and publish it atomically."""
+
+        _raise_if_cancelled(cancel_event)
+        published_output = False
+        completion_handed_off = False
+        windows_capture_worker: Any = None
+
+        def report_progress(progress: int, phase: str) -> None:
+            if cancel_event is None:
+                return
+            try:
+                self.database.update_job_progress(
+                    cancel_event.job_id, progress, phase
+                )
+            except Exception:
+                # Progress is advisory; verified media plus the paired
+                # job/stage transaction remain the durable source of truth.
+                pass
+
+        def discard_published_output() -> None:
+            if windows_capture_worker is None:
+                return
+            windows_capture_worker.discard_windows_capture_outputs(
+                self.workspace,
+                run_id=run_id,
+                capture_key=capture_key,
+            )
+
+        try:
+            self.database.update_stage_attempt(attempt_id, "running")
+            report_progress(1, "preflight")
+            try:
+                from . import windows_capture_worker
+            except (ImportError, AttributeError) as exc:
+                raise WindowsCaptureError(
+                    "The local Windows capture worker is not installed.",
+                    code="windows_capture_unavailable",
+                ) from exc
+            try:
+                raw = _call_local_worker(
+                    windows_capture_worker.generate_windows_capture,
+                    self.workspace,
+                    production_id=production_id,
+                    run_id=run_id,
+                    capture_key=capture_key,
+                    payload=payload,
+                    expected_tool_identity_digest=expected_tool_identity_digest,
+                    cancel_event=cancel_event,
+                    progress_callback=report_progress,
+                )
+                # The worker owns its staging directory until this atomic
+                # publication returns. From this point onward the service
+                # owns exact-directory compensation until SQLite commits.
+                published_output = True
+            except (WindowsCaptureError, WindowsCaptureValidationError):
+                raise
+            except Exception as exc:
+                raise WindowsCaptureError(
+                    "The local Windows screen capture failed.",
+                    code="windows_capture_failed",
+                ) from exc
+
+            result = windows_capture_public_result(
+                raw,
+                expected_capture_key=capture_key,
+                expected_duration_ms=payload["duration_ms"],
+                expected_tool_identity_digest=expected_tool_identity_digest,
+                artifacts=[],
+            )
+            physical = _call_local_worker(
+                windows_capture_worker.validate_windows_capture_outputs,
+                self.workspace,
+                production_id=production_id,
+                run_id=run_id,
+                capture_key=capture_key,
+                payload=payload,
+                expected_tool_identity_digest=expected_tool_identity_digest,
+                cancel_event=cancel_event,
+                progress_callback=report_progress,
+            )
+            physical_public = windows_capture_public_result(
+                physical,
+                expected_capture_key=capture_key,
+                expected_duration_ms=payload["duration_ms"],
+                expected_tool_identity_digest=expected_tool_identity_digest,
+                artifacts=[],
+            )
+            report_progress(98, "registration")
+            if result != physical_public:
+                raise WindowsCaptureError(
+                    "The Windows capture worker returned mismatched metadata.",
+                    code="invalid_worker_result",
+                )
+
+            raw_artifacts = raw.get("artifacts") if isinstance(raw, dict) else None
+            physical_artifacts = (
+                physical.get("artifacts") if isinstance(physical, dict) else None
+            )
+            if (
+                not isinstance(raw_artifacts, list)
+                or not isinstance(physical_artifacts, list)
+                or len(raw_artifacts) != len(_LOCAL_WINDOWS_CAPTURE_ARTIFACTS)
+                or len(physical_artifacts) != len(_LOCAL_WINDOWS_CAPTURE_ARTIFACTS)
+            ):
+                raise WindowsCaptureError(
+                    "The Windows capture worker returned invalid artifacts.",
+                    code="invalid_worker_result",
+                )
+
+            def artifact_signature(
+                artifacts: list[Any],
+            ) -> dict[str, tuple[Any, Any]]:
+                signature: dict[str, tuple[Any, Any]] = {}
+                for item in artifacts:
+                    if not isinstance(item, dict):
+                        raise WindowsCaptureError(
+                            "The Windows capture worker returned invalid artifacts.",
+                            code="invalid_worker_result",
+                        )
+                    name = item.get("name")
+                    if (
+                        not isinstance(name, str)
+                        or name in signature
+                        or name not in _LOCAL_WINDOWS_CAPTURE_ARTIFACTS
+                    ):
+                        raise WindowsCaptureError(
+                            "The Windows capture worker returned invalid artifacts.",
+                            code="invalid_worker_result",
+                        )
+                    signature[name] = (item.get("bytes"), item.get("sha256"))
+                return signature
+
+            raw_signature = artifact_signature(raw_artifacts)
+            physical_signature = artifact_signature(physical_artifacts)
+            if (
+                set(raw_signature) != set(_LOCAL_WINDOWS_CAPTURE_ARTIFACTS)
+                or raw_signature != physical_signature
+            ):
+                raise WindowsCaptureError(
+                    "The Windows capture worker returned mismatched artifacts.",
+                    code="invalid_worker_result",
+                )
+            artifact_records = self._validate_local_windows_capture_artifact_records(
+                run_id,
+                capture_key,
+                raw_artifacts,
+            )
+            _raise_if_cancelled(cancel_event)
+            completion = self._complete_local_stage(
+                attempt_id,
+                production_id,
+                physical_public,
+                cancel_event,
+                artifact_records=artifact_records,
+                failure_cleanup=discard_published_output,
+            )
+            completion_handed_off = True
+            return completion
+        except JobCancelled:
+            if published_output and not completion_handed_off:
+                try:
+                    discard_published_output()
+                except WindowsCaptureError as cleanup_exc:
+                    raise cleanup_exc
+            raise
+        except Exception as exc:
+            if published_output and not completion_handed_off:
+                try:
+                    discard_published_output()
+                except WindowsCaptureError as cleanup_exc:
+                    raise cleanup_exc
+            if (
+                isinstance(exc, WindowsCaptureError)
+                and exc.error_code
+                in {"windows_capture_cleanup_failed", "windows_capture_cleanup_required"}
+            ):
+                raise
+            if cancel_event is not None and cancel_event.is_set():
+                raise JobCancelled() from exc
+            error_code, error_message = safe_windows_capture_error(exc)
+            if isinstance(exc, WindowsCaptureError):
+                raise
+            raise WindowsCaptureError(error_message, code=error_code) from exc
+
+    def execute_windows_capture(
+        self,
+        run_id: str,
+        body: dict[str, Any],
+        *,
+        session_binding_digest: str,
+    ) -> dict[str, Any]:
+        """Consume one explicit intent and admit at most one recording."""
+
+        validate_identifier(run_id, label="run id")
+        run = self.database.get_run(run_id)
+        if run is None:
+            raise KeyError("run not found")
+        if run.get("execution_profile") != "local_windows_capture":
+            raise RequestValidationError(
+                "This run is not configured for local Windows capture.",
+                code="execution_profile_required",
+            )
+        requested_stages = run.get("requested_stages")
+        if (
+            not isinstance(requested_stages, list)
+            or _LOCAL_SCREEN_CAPTURE_STAGE not in requested_stages
+        ):
+            raise RequestValidationError(
+                "The screen_capture stage was not requested by this run.",
+                code="stage_not_requested",
+            )
+        if not isinstance(session_binding_digest, str) or re.fullmatch(
+            r"[0-9A-F]{64}", session_binding_digest
+        ) is None:
+            raise RequestValidationError(
+                "A fresh Windows capture consent is required.",
+                code="windows_capture_consent_invalid",
+            )
+        try:
+            payload, consent_token = validate_windows_capture_execution_payload(
+                body
+            )
+            request_settings_digest = windows_capture_settings_digest(payload)
+            token_digest = windows_capture_consent_token_digest(consent_token)
+        except WindowsCaptureValidationError as exc:
+            raise RequestValidationError(
+                str(exc.public_message), code=str(exc.error_code)[:128]
+            ) from exc
+
+        def consent_state() -> dict[str, Any]:
+            return self.database.windows_capture_consent_state(
+                production_id=run["production_id"],
+                run_id=run_id,
+                token_digest=token_digest,
+                session_binding_digest=session_binding_digest,
+                request_settings_digest=request_settings_digest,
+            )
+
+        def existing_or_reject(state: dict[str, Any]) -> dict[str, Any] | None:
+            if state.get("state") == "consumed":
+                existing = dict(state["job"])
+                existing["deduplicated"] = True
+                return existing
+            if state.get("state") == "expired":
+                raise RequestValidationError(
+                    "The Windows capture consent expired. Confirm capture again.",
+                    code="windows_capture_consent_expired",
+                )
+            if state.get("state") != "ready":
+                raise RequestValidationError(
+                    "A fresh Windows capture consent is required.",
+                    code="windows_capture_consent_invalid",
+                )
+            return None
+
+        # Fast replay path comes before capability/lane checks. The exact same
+        # token must resolve to its original job even after that job is
+        # terminal or the workstation capability later changes.
+        existing = existing_or_reject(consent_state())
+        if existing is not None:
+            return existing
+
+        with self._windows_capture_submit_lock:
+            # Linearize two HTTP retries in this process. The DB consumption
+            # below independently enforces the same property transactionally.
+            existing = existing_or_reject(consent_state())
+            if existing is not None:
+                return existing
+
+            active = self.database.find_active_windows_capture_job()
+            active_lane_ids = set(self.jobs.active_job_ids_for_lane("capture"))
+            if active is not None or active_lane_ids:
+                raise RequestValidationError(
+                    (
+                        "Another Windows capture is already active."
+                        if active is not None
+                        else "A prior Windows capture is still retiring."
+                    ),
+                    code="windows_capture_busy",
+                )
+
+            capability = inspect_windows_capture_capability_environment(
+                self.workspace
+            )
+            tool_identity_digest = (
+                capability.get("tool_identity_digest")
+                if isinstance(capability, dict)
+                else None
+            )
+            helper = (
+                capability.get("helper") if isinstance(capability, dict) else None
+            )
+            if (
+                not isinstance(capability, dict)
+                or capability.get("status") != "ready"
+                or capability.get("foundation_ready") is not True
+                or capability.get("capture_execution_enabled") is not True
+                or capability.get("actual_capture_performed") is not False
+                or not isinstance(helper, dict)
+                or helper.get("recording_started") is not False
+                or not isinstance(tool_identity_digest, str)
+                or re.fullmatch(r"[0-9A-F]{64}", tool_identity_digest) is None
+            ):
+                raise RequestValidationError(
+                    "Local Windows capture is not ready on this workstation.",
+                    code="windows_capture_unavailable",
+                )
+            try:
+                request_digest = windows_capture_request_digest(
+                    payload,
+                    tool_identity_digest=tool_identity_digest,
+                )
+                capture_key = windows_capture_key(
+                    payload,
+                    uuid.uuid4().hex,
+                    tool_identity_digest=tool_identity_digest,
+                )
+                audit = windows_capture_audit_payload(
+                    payload,
+                    capture_key=capture_key,
+                    request_digest=request_digest,
+                    tool_identity_digest=tool_identity_digest,
+                )
+            except WindowsCaptureValidationError as exc:
+                raise RequestValidationError(
+                    str(exc.public_message), code=str(exc.error_code)[:128]
+                ) from exc
+
+            attempt_payload = {
+                "execution_profile": run["execution_profile"],
+                "request_settings_digest": request_settings_digest,
+                **audit,
+            }
+            job_payload = {
+                "run_id": run_id,
+                "production_id": run["production_id"],
+                "stage": _LOCAL_SCREEN_CAPTURE_STAGE,
+                "execution_profile": run["execution_profile"],
+                "request_settings_digest": request_settings_digest,
+                **audit,
+            }
+            try:
+                job, created = self.jobs.submit_windows_capture_once(
+                    production_id=run["production_id"],
+                    run_id=run_id,
+                    token_digest=token_digest,
+                    session_binding_digest=session_binding_digest,
+                    request_settings_digest=request_settings_digest,
+                    capture_key=capture_key,
+                    attempt_payload=attempt_payload,
+                    job_payload=job_payload,
+                    callback_factory=lambda attempt_id: (
+                        lambda _job_id, cancel_event: self._execute_windows_capture(
+                            attempt_id,
+                            run_id,
+                            run["production_id"],
+                            payload,
+                            capture_key,
+                            tool_identity_digest,
+                            cancel_event,
+                        )
+                    ),
+                )
+            except WindowsCaptureConsentError as exc:
+                raise RequestValidationError(str(exc), code=exc.code) from exc
+            job["deduplicated"] = not created
+            return job
+
+    def cancel_windows_capture_job(
+        self, job_id: str, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Publish cancellation for exactly one native-capture job."""
+
+        validate_identifier(job_id, label="job id")
+        if not isinstance(body, dict) or body:
+            raise RequestValidationError(
+                "Windows capture cancellation body must be an empty object."
+            )
+        job = self.database.get_job(job_id)
+        if job is None:
+            raise KeyError("job not found")
+        if job.get("kind") != "local_windows_capture":
+            raise RequestValidationError(
+                "Only a local Windows capture job can use this endpoint.",
+                code="windows_capture_job_required",
+            )
+        was_active = bool(
+            job.get("status") in {"queued", "running"}
+            or self.jobs.is_admitted(job_id)
+        )
+        current = (
+            self.jobs.cancel_and_wait(job_id, timeout=0.25)
+            if was_active
+            else job
+        )
+        return {
+            "job": current,
+            "cancel_requested": was_active,
+            "worker_retired": not self.jobs.is_admitted(job_id),
+        }
 
     def _cached_local_timeline_result(
         self,
@@ -6340,6 +7168,7 @@ class StudioService:
         if run.get("execution_profile") not in {
             "local_sapi",
             "local_playwright",
+            "local_windows_capture",
             LOCAL_PIPELINE_PROFILE,
         }:
             raise RequestValidationError(
@@ -6633,6 +7462,7 @@ class StudioService:
             "local_sapi",
             "local_comfyui",
             "local_playwright",
+            "local_windows_capture",
         }:
             raise RequestValidationError(
                 "This run is not configured for local Remotion composition.",

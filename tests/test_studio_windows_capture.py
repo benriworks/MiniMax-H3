@@ -12,8 +12,12 @@ from tools.studio.windows_capture import (
     WINDOWS_CAPTURE_HELPER_SOURCE_RELATIVE_PATHS,
     WindowsCaptureValidationError,
     inspect_windows_capture_capability,
+    validate_windows_capture_execution_payload,
     validate_windows_capture_payload,
     windows_capture_audit_payload,
+    windows_capture_consent_token_digest,
+    windows_capture_session_binding_digest,
+    windows_capture_settings_digest,
 )
 
 
@@ -71,6 +75,35 @@ class WindowsCaptureContractTests(unittest.TestCase):
             with self.assertRaises(WindowsCaptureValidationError):
                 validate_windows_capture_payload({**base, "duration_ms": duration})
 
+    def test_execution_token_is_separate_and_digests_bind_settings_and_session(self) -> None:
+        body = {
+            "schema_version": 1,
+            "target": "primary_display",
+            "audio_mode": "default_render_loopback",
+            "cursor_mode": "hidden",
+            "duration_ms": 5_000,
+            "confirm_capture": True,
+            "confirm_system_audio": True,
+        }
+        token = "A" * 43
+        payload, returned_token = validate_windows_capture_execution_payload(
+            {**body, "consent_token": token}
+        )
+        self.assertEqual(payload, body)
+        self.assertEqual(returned_token, token)
+        self.assertRegex(windows_capture_settings_digest(payload), r"^[0-9A-F]{64}$")
+        self.assertRegex(windows_capture_consent_token_digest(token), r"^[0-9A-F]{64}$")
+        self.assertRegex(
+            windows_capture_session_binding_digest("S" * 32),
+            r"^[0-9A-F]{64}$",
+        )
+        with self.assertRaises(WindowsCaptureValidationError):
+            validate_windows_capture_execution_payload(body)
+        with self.assertRaises(WindowsCaptureValidationError):
+            validate_windows_capture_execution_payload(
+                {**body, "consent_token": "too-short"}
+            )
+
 
 class WindowsCaptureCapabilityTests(unittest.TestCase):
     def test_non_windows_is_closed_without_running_tools(self) -> None:
@@ -89,12 +122,15 @@ class WindowsCaptureCapabilityTests(unittest.TestCase):
             helper = _write_helper_fixture(root)
             dotnet = root / "dotnet.exe"
             ffmpeg = root / "ffmpeg.exe"
+            ffprobe = root / "ffprobe.exe"
             dotnet.write_bytes(b"dotnet")
             ffmpeg.write_bytes(b"ffmpeg")
+            ffprobe.write_bytes(b"ffprobe")
             doctor = {
                 "schemaVersion": 1,
                 "operation": "doctor",
                 "ok": True,
+                "captureAvailable": True,
                 "platform": {
                     "windows": True,
                     "targetFramework": "net8.0-windows",
@@ -111,6 +147,11 @@ class WindowsCaptureCapabilityTests(unittest.TestCase):
                     },
                     "recordingStarted": False,
                 },
+                "display": {
+                    "target": "primary_display",
+                    "width": 2560,
+                    "height": 1440,
+                },
             }
             with mock.patch(
                 "tools.studio.windows_capture._run_bounded",
@@ -124,14 +165,21 @@ class WindowsCaptureCapabilityTests(unittest.TestCase):
                     platform_name="win32",
                     dotnet=dotnet,
                     ffmpeg=ffmpeg,
+                    ffprobe=ffprobe,
                 )
         self.assertEqual(runner.call_count, 2)
-        self.assertEqual(result["status"], "foundation_ready")
+        self.assertEqual(result["status"], "ready")
         self.assertTrue(result["foundation_ready"])
         self.assertTrue(result["screen_capture_ready"])
         self.assertTrue(result["system_audio_loopback_ready"])
-        self.assertFalse(result["capture_execution_enabled"])
+        self.assertTrue(result["capture_execution_enabled"])
         self.assertFalse(result["actual_capture_performed"])
+        self.assertTrue(result["helper"]["capture_command_available"])
+        self.assertTrue(result["ffmpeg"]["ffprobe_available"])
+        self.assertEqual(
+            result["display"],
+            {"target": "primary_display", "width": 2560, "height": 1440},
+        )
         self.assertEqual(result["reasons"], [])
         self.assertRegex(result["helper"]["sha256"], r"^[0-9A-F]{64}$")
         self.assertRegex(result["tool_identity_digest"], r"^[0-9A-F]{64}$")
@@ -143,12 +191,15 @@ class WindowsCaptureCapabilityTests(unittest.TestCase):
             helper = _write_helper_fixture(root)
             dotnet = root / "dotnet.exe"
             ffmpeg = root / "ffmpeg.exe"
+            ffprobe = root / "ffprobe.exe"
             dotnet.write_bytes(b"dotnet")
             ffmpeg.write_bytes(b"ffmpeg")
+            ffprobe.write_bytes(b"ffprobe")
             unsafe = {
                 "schemaVersion": 1,
                 "operation": "doctor",
                 "ok": True,
+                "captureAvailable": True,
                 "platform": {
                     "windows": True,
                     "targetFramework": "net8.0-windows",
@@ -165,6 +216,11 @@ class WindowsCaptureCapabilityTests(unittest.TestCase):
                     },
                     "recordingStarted": True,
                 },
+                "display": {
+                    "target": "primary_display",
+                    "width": 2560,
+                    "height": 1440,
+                },
             }
             with mock.patch(
                 "tools.studio.windows_capture._run_bounded",
@@ -178,6 +234,7 @@ class WindowsCaptureCapabilityTests(unittest.TestCase):
                     platform_name="win32",
                     dotnet=dotnet,
                     ffmpeg=ffmpeg,
+                    ffprobe=ffprobe,
                 )
         self.assertIn("helper_contract_invalid", result["reasons"])
         self.assertFalse(result["foundation_ready"])
@@ -189,12 +246,15 @@ class WindowsCaptureCapabilityTests(unittest.TestCase):
             helper = _write_helper_fixture(root)
             dotnet = root / "dotnet.exe"
             ffmpeg = root / "ffmpeg.exe"
+            ffprobe = root / "ffprobe.exe"
             dotnet.write_bytes(b"dotnet")
             ffmpeg.write_bytes(b"ffmpeg")
+            ffprobe.write_bytes(b"ffprobe")
             doctor = {
                 "schemaVersion": 1,
                 "operation": "doctor",
                 "ok": True,
+                "captureAvailable": True,
                 "platform": {
                     "windows": True,
                     "targetFramework": "net8.0-windows",
@@ -211,6 +271,11 @@ class WindowsCaptureCapabilityTests(unittest.TestCase):
                     },
                     "recordingStarted": False,
                 },
+                "display": {
+                    "target": "primary_display",
+                    "width": 2560,
+                    "height": 1440,
+                },
             }
             with mock.patch(
                 "tools.studio.windows_capture._run_bounded",
@@ -224,6 +289,7 @@ class WindowsCaptureCapabilityTests(unittest.TestCase):
                     platform_name="win32",
                     dotnet=dotnet,
                     ffmpeg=ffmpeg,
+                    ffprobe=ffprobe,
                 )
         self.assertFalse(result["screen_capture_ready"])
         self.assertFalse(result["foundation_ready"])

@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-"""Closed capability contract for future Windows desktop capture.
+"""Closed capability and execution contract for Windows desktop capture.
 
 The public inspector never records a screen or audio sample. It only executes
 the repository-owned native doctor and checks whether the pinned local FFmpeg
-build exposes ``gdigrab``. The capture request validator is intentionally kept
-separate from execution so an API cannot accidentally turn a diagnostic call
-into a recording operation.
+build exposes ``gdigrab`` and ``ffprobe``. Capture is a separate operation that
+requires both explicit confirmations and accepts no caller-controlled paths,
+devices, windows, microphones, commands, or FFmpeg arguments.
 """
 
 import hashlib
@@ -19,16 +19,30 @@ import sys
 import threading
 import time
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
 
 from .security import canonical_json, workspace_path
 
 
 WINDOWS_CAPTURE_SCHEMA_VERSION = 1
-WINDOWS_CAPTURE_IMPLEMENTATION_VERSION = "windows-capture-capability-v1"
+WINDOWS_CAPTURE_IMPLEMENTATION_VERSION = "windows-capture-capability-v2"
 WINDOWS_CAPTURE_REQUEST_IMPLEMENTATION_VERSION = (
-    "windows-native-primary-display-loopback-v1"
+    "windows-native-primary-display-loopback-v4"
 )
+WINDOWS_CAPTURE_PROVIDER = "local_windows_capture"
+WINDOWS_CAPTURE_TIMING_SOURCE = "ffprobe"
+WINDOWS_CAPTURE_OUTPUT_POLICY_VERSION = (
+    "h264-aac-primary-display-loopback-1920x1080-24fps-v4"
+)
+WINDOWS_CAPTURE_SYNC_VALIDATION_SCOPE = (
+    "container_timestamps_durations_and_wasapi_packet_clock_v1"
+)
+WINDOWS_CAPTURE_PUBLIC_RELEASE_GATE = (
+    "blocked_pending_live_av_sync_validation"
+)
+WINDOWS_CAPTURE_OUTPUT_WIDTH = 1920
+WINDOWS_CAPTURE_OUTPUT_HEIGHT = 1080
+WINDOWS_CAPTURE_FRAME_RATE = 24
 WINDOWS_CAPTURE_HELPER_RELATIVE_PATH = (
     "native/windows-capture-helper/bin/Release/net8.0-windows/"
     "windows-capture-helper.dll"
@@ -39,6 +53,7 @@ WINDOWS_CAPTURE_HELPER_SOURCE_RELATIVE_PATHS = (
 )
 MIN_DURATION_MS = 1_000
 MAX_DURATION_MS = 30_000
+WINDOWS_CAPTURE_CONSENT_TTL_SECONDS = 60
 
 _REQUEST_KEYS = {
     "schema_version",
@@ -49,17 +64,44 @@ _REQUEST_KEYS = {
     "confirm_capture",
     "confirm_system_audio",
 }
+_EXECUTION_REQUEST_KEYS = _REQUEST_KEYS | {"consent_token"}
 _EXPECTED_TARGET = "primary_display"
 _EXPECTED_AUDIO_MODE = "default_render_loopback"
 _EXPECTED_CURSOR_MODE = "hidden"
 _SHA256_RE = re.compile(r"^[0-9A-F]{64}$")
+_NONCE_RE = re.compile(r"^[0-9a-f]{32}$")
+_CONSENT_TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{43}$")
 _GDI_DEVICE_RE = re.compile(r"(?m)^\s*D\s+gdigrab(?:\s|$)")
 _MAX_PROCESS_OUTPUT_BYTES = 64 * 1024
 _PROCESS_TIMEOUT_SECONDS = 10
 
 
+class WindowsCaptureError(RuntimeError):
+    """A native Windows capture operation failed behind the closed contract."""
+
+    error_code = "local_windows_capture_failed"
+
+    def __init__(self, message: str, *, code: str | None = None):
+        super().__init__(message)
+        if code is not None:
+            self.error_code = code
+        self.public_message = str(message)
+
+
 class WindowsCaptureValidationError(ValueError):
-    """A future capture request escaped the fixed v1 contract."""
+    """A capture request escaped the fixed v1 contract."""
+
+    error_code = "invalid_windows_capture_request"
+
+    def __init__(self, message: str, *, code: str | None = None):
+        super().__init__(message)
+        if code is not None:
+            self.error_code = code
+        self.public_message = str(message)
+
+
+class WindowsCaptureToolError(WindowsCaptureError):
+    """The repository-owned local capture tools failed safely."""
 
 
 def _integer(value: Any, *, label: str, minimum: int, maximum: int) -> int:
@@ -114,9 +156,53 @@ def validate_windows_capture_payload(body: Any) -> dict[str, Any]:
     }
 
 
-def windows_capture_audit_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
+def windows_capture_request_digest(
+    payload: Mapping[str, Any], *, tool_identity_digest: str
+) -> str:
     normalized = validate_windows_capture_payload(dict(payload))
-    return {
+    if not isinstance(tool_identity_digest, str) or not _SHA256_RE.fullmatch(
+        tool_identity_digest
+    ):
+        raise WindowsCaptureValidationError("tool identity digest is invalid")
+    identity = {
+        "implementation_version": WINDOWS_CAPTURE_REQUEST_IMPLEMENTATION_VERSION,
+        "request": normalized,
+        "tool_identity_digest": tool_identity_digest,
+        "output_policy_version": WINDOWS_CAPTURE_OUTPUT_POLICY_VERSION,
+    }
+    return hashlib.sha256(canonical_json(identity).encode("utf-8")).hexdigest().upper()
+
+
+def windows_capture_key(
+    payload: Mapping[str, Any],
+    nonce: str,
+    *,
+    tool_identity_digest: str,
+) -> str:
+    if not isinstance(nonce, str) or not _NONCE_RE.fullmatch(nonce):
+        raise WindowsCaptureValidationError("capture nonce is invalid")
+    request_digest = windows_capture_request_digest(
+        payload, tool_identity_digest=tool_identity_digest
+    )
+    return hashlib.sha256(
+        canonical_json(
+            {
+                "request_digest": request_digest,
+                "nonce": nonce,
+            }
+        ).encode("utf-8")
+    ).hexdigest().upper()
+
+
+def windows_capture_audit_payload(
+    payload: Mapping[str, Any],
+    *,
+    capture_key: str | None = None,
+    request_digest: str | None = None,
+    tool_identity_digest: str | None = None,
+) -> dict[str, Any]:
+    normalized = validate_windows_capture_payload(dict(payload))
+    audit = {
         "schema_version": WINDOWS_CAPTURE_SCHEMA_VERSION,
         "implementation_version": WINDOWS_CAPTURE_REQUEST_IMPLEMENTATION_VERSION,
         "target": normalized["target"],
@@ -125,7 +211,177 @@ def windows_capture_audit_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
         "duration_ms": normalized["duration_ms"],
         "explicit_capture_confirmation": True,
         "explicit_system_audio_confirmation": True,
+        "output_policy": {
+            "policy_version": WINDOWS_CAPTURE_OUTPUT_POLICY_VERSION,
+            "width": WINDOWS_CAPTURE_OUTPUT_WIDTH,
+            "height": WINDOWS_CAPTURE_OUTPUT_HEIGHT,
+            "frame_rate": WINDOWS_CAPTURE_FRAME_RATE,
+            "video_codec": "h264",
+            "audio_codec": "aac",
+        },
     }
+    optional = (capture_key, request_digest, tool_identity_digest)
+    if any(value is not None for value in optional):
+        if not all(
+            isinstance(value, str) and _SHA256_RE.fullmatch(value)
+            for value in optional
+        ):
+            raise WindowsCaptureValidationError("capture audit identity is invalid")
+        audit.update(
+            {
+                "capture_key": capture_key,
+                "request_digest": request_digest,
+                "tool_identity_digest": tool_identity_digest,
+            }
+        )
+    return audit
+
+
+def windows_capture_public_result(
+    raw: Any,
+    *,
+    expected_capture_key: str,
+    expected_duration_ms: int,
+    expected_tool_identity_digest: str,
+    artifacts: list[dict[str, Any]],
+) -> dict[str, Any]:
+    if (
+        not isinstance(raw, dict)
+        or not _SHA256_RE.fullmatch(expected_capture_key)
+        or not _SHA256_RE.fullmatch(expected_tool_identity_digest)
+    ):
+        raise WindowsCaptureError(
+            "The Windows capture worker returned an invalid result.",
+            code="invalid_worker_result",
+        )
+    duration_ms = raw.get("duration_ms")
+    if (
+        isinstance(duration_ms, bool)
+        or not isinstance(duration_ms, int)
+        or abs(duration_ms - expected_duration_ms)
+        > (1000 + WINDOWS_CAPTURE_FRAME_RATE - 1) // WINDOWS_CAPTURE_FRAME_RATE
+        or raw.get("provider") != WINDOWS_CAPTURE_PROVIDER
+        or raw.get("timing_source") != WINDOWS_CAPTURE_TIMING_SOURCE
+        or raw.get("capture_key") != expected_capture_key
+        or raw.get("tool_identity_digest") != expected_tool_identity_digest
+        or raw.get("target") != _EXPECTED_TARGET
+        or raw.get("audio_mode") != _EXPECTED_AUDIO_MODE
+        or raw.get("cache_hit") is not False
+        or raw.get("provider_task_id") is not None
+        or raw.get("actual_cost") != 0
+        or raw.get("actual_capture_performed") is not True
+        or raw.get("structural_timing_verified") is not True
+        or raw.get("content_sync_verified") is not False
+        or raw.get("live_validation_required") is not True
+        or raw.get("validation_scope")
+        != WINDOWS_CAPTURE_SYNC_VALIDATION_SCOPE
+        or raw.get("public_release_ready") is not False
+        or raw.get("public_release_gate")
+        != WINDOWS_CAPTURE_PUBLIC_RELEASE_GATE
+    ):
+        raise WindowsCaptureError(
+            "The Windows capture worker returned invalid metadata.",
+            code="invalid_worker_result",
+        )
+    return {
+        "artifacts": artifacts,
+        "duration_ms": duration_ms,
+        "capture_key": expected_capture_key,
+        "cache_hit": False,
+        "provider": WINDOWS_CAPTURE_PROVIDER,
+        "provider_task_id": None,
+        "actual_cost": 0,
+        "timing_source": WINDOWS_CAPTURE_TIMING_SOURCE,
+        "target": _EXPECTED_TARGET,
+        "audio_mode": _EXPECTED_AUDIO_MODE,
+        "actual_capture_performed": True,
+        # This proves only media/container structure and timestamp arithmetic.
+        # It deliberately does not claim that visible events and audible events
+        # are aligned in the captured content.
+        "structural_timing_verified": True,
+        "content_sync_verified": False,
+        "live_validation_required": True,
+        "validation_scope": WINDOWS_CAPTURE_SYNC_VALIDATION_SCOPE,
+        "public_release_ready": False,
+        "public_release_gate": WINDOWS_CAPTURE_PUBLIC_RELEASE_GATE,
+        "tool_identity_digest": expected_tool_identity_digest,
+        "video_dimensions": {
+            "width": WINDOWS_CAPTURE_OUTPUT_WIDTH,
+            "height": WINDOWS_CAPTURE_OUTPUT_HEIGHT,
+        },
+        "frame_rate": WINDOWS_CAPTURE_FRAME_RATE,
+        "output_policy": {
+            "policy_version": WINDOWS_CAPTURE_OUTPUT_POLICY_VERSION,
+            "audio": "default_render_loopback",
+        },
+        "cost": {"amount": "0.00", "currency": "USD", "source": "local"},
+    }
+
+
+def validate_windows_capture_execution_payload(
+    body: Any,
+) -> tuple[dict[str, Any], str]:
+    """Validate one consent-token-bound execution request.
+
+    The raw consent token is deliberately kept outside the normalized capture
+    payload so it cannot be copied into stage/job audit payloads by callers.
+    """
+
+    if not isinstance(body, dict) or set(body) != _EXECUTION_REQUEST_KEYS:
+        raise WindowsCaptureValidationError(
+            "execution body must contain the fixed Windows capture fields and consent_token"
+        )
+    token = body.get("consent_token")
+    if not isinstance(token, str) or _CONSENT_TOKEN_RE.fullmatch(token) is None:
+        raise WindowsCaptureValidationError("consent_token is invalid")
+    payload = validate_windows_capture_payload(
+        {key: body[key] for key in _REQUEST_KEYS}
+    )
+    return payload, token
+
+
+def windows_capture_settings_digest(payload: Mapping[str, Any]) -> str:
+    """Bind a consent intent to the exact user-visible capture settings."""
+
+    normalized = validate_windows_capture_payload(dict(payload))
+    return hashlib.sha256(
+        canonical_json(
+            {
+                "implementation_version": WINDOWS_CAPTURE_REQUEST_IMPLEMENTATION_VERSION,
+                "request": normalized,
+            }
+        ).encode("utf-8")
+    ).hexdigest().upper()
+
+
+def windows_capture_consent_token_digest(token: str) -> str:
+    """Return the only representation of a consent token allowed in SQLite."""
+
+    if not isinstance(token, str) or _CONSENT_TOKEN_RE.fullmatch(token) is None:
+        raise WindowsCaptureValidationError("consent_token is invalid")
+    return hashlib.sha256(
+        b"minimaxh3-windows-capture-consent-v1\x00" + token.encode("ascii")
+    ).hexdigest().upper()
+
+
+def windows_capture_session_binding_digest(session_token: str) -> str:
+    """Derive a non-reversible binding for the authenticated Studio session."""
+
+    if not isinstance(session_token, str) or len(session_token) < 32:
+        raise WindowsCaptureValidationError("Studio session binding is invalid")
+    return hashlib.sha256(
+        b"minimaxh3-windows-capture-session-v1\x00"
+        + session_token.encode("utf-8")
+    ).hexdigest().upper()
+
+
+def safe_windows_capture_error(exc: BaseException) -> tuple[str, str]:
+    if isinstance(exc, (WindowsCaptureError, WindowsCaptureValidationError)):
+        return str(exc.error_code)[:128], str(exc.public_message)[:1000]
+    return (
+        "local_windows_capture_failed",
+        "The local Windows screen capture job failed.",
+    )
 
 
 def _sha256_file(path: Path) -> str:
@@ -278,7 +534,9 @@ def _run_bounded(command: list[str], *, cwd: Path) -> tuple[int, bytes, bytes]:
             reader.join(timeout=0.25)
 
 
-def _doctor_contract(value: Any) -> tuple[bool, bool, dict[str, Any]]:
+def _doctor_contract(
+    value: Any,
+) -> tuple[bool, bool, dict[str, Any], dict[str, Any]]:
     if not isinstance(value, dict):
         raise ValueError("native doctor output is not an object")
     if (
@@ -306,12 +564,18 @@ def _doctor_contract(value: Any) -> tuple[bool, bool, dict[str, Any]]:
     if not isinstance(endpoint, dict):
         if value.get("ok") is True:
             raise ValueError("native doctor omitted a successful endpoint")
-        return False, False, {
-            "doctor_ok": False,
-            "endpoint_active": False,
-            "loopback_initialized": False,
-            "recording_started": False,
-        }
+        return (
+            False,
+            False,
+            {
+                "doctor_ok": False,
+                "endpoint_active": False,
+                "loopback_initialized": False,
+                "recording_started": False,
+                "capture_command_available": False,
+            },
+            {"target": _EXPECTED_TARGET, "width": None, "height": None},
+        )
     loopback = endpoint.get("loopback")
     if not isinstance(loopback, dict):
         if value.get("ok") is True:
@@ -330,15 +594,48 @@ def _doctor_contract(value: Any) -> tuple[bool, bool, dict[str, Any]]:
         and loopback.get("initialized") is True
         and not recording_started
     )
+    capture_available = value.get("captureAvailable") is True
+    display = value.get("display")
+    if not isinstance(display, dict) or set(display) != {
+        "target",
+        "width",
+        "height",
+    }:
+        raise ValueError("native doctor display contract is invalid")
+    display_width = display.get("width")
+    display_height = display.get("height")
+    display_valid = bool(
+        display.get("target") == _EXPECTED_TARGET
+        and isinstance(display_width, int)
+        and not isinstance(display_width, bool)
+        and 1 <= display_width <= 16_384
+        and isinstance(display_height, int)
+        and not isinstance(display_height, bool)
+        and 1 <= display_height <= 16_384
+    )
+    if not display_valid:
+        raise ValueError("native doctor display result is invalid")
     doctor_ok = value.get("ok") is True
-    if doctor_ok != (endpoint_active and loopback_ready):
+    if doctor_ok != (
+        endpoint_active and loopback_ready and capture_available and display_valid
+    ):
         raise ValueError("native doctor result is internally inconsistent")
-    return doctor_ok, loopback_ready, {
-        "doctor_ok": doctor_ok,
-        "endpoint_active": endpoint_active,
-        "loopback_initialized": loopback_ready,
-        "recording_started": False,
-    }
+    return (
+        doctor_ok,
+        loopback_ready,
+        {
+            "doctor_ok": doctor_ok,
+            "endpoint_active": endpoint_active,
+            "loopback_initialized": loopback_ready,
+            "recording_started": False,
+            "capture_command_available": capture_available,
+        },
+        {
+            "target": _EXPECTED_TARGET,
+            "width": display_width,
+            "height": display_height,
+        },
+    )
 
 
 def _base_result() -> dict[str, Any]:
@@ -359,8 +656,14 @@ def _base_result() -> dict[str, Any]:
             "endpoint_active": False,
             "loopback_initialized": False,
             "recording_started": False,
+            "capture_command_available": False,
         },
-        "ffmpeg": {"available": False, "gdigrab_available": False},
+        "ffmpeg": {
+            "available": False,
+            "gdigrab_available": False,
+            "ffprobe_available": False,
+        },
+        "display": {"target": _EXPECTED_TARGET, "width": None, "height": None},
         "tool_identity_digest": None,
     }
 
@@ -371,10 +674,13 @@ def inspect_windows_capture_capability(
     platform_name: str | None = None,
     dotnet: str | Path | None = None,
     ffmpeg: str | Path | None = None,
+    ffprobe: str | Path | None = None,
+    _process_runner: Callable[[list[str], Path], tuple[int, bytes, bytes]] | None = None,
 ) -> dict[str, Any]:
     """Inspect fixed local tooling without starting capture or persisting data."""
 
     root = workspace.resolve(strict=True)
+    process_runner = _process_runner or (lambda command, cwd: _run_bounded(command, cwd=cwd))
     result = _base_result()
     reasons: list[str] = result["reasons"]
     if (platform_name or sys.platform) != "win32":
@@ -413,6 +719,9 @@ def inspect_windows_capture_capability(
     ffmpeg_path = _resolve_executable("ffmpeg", ffmpeg)
     if ffmpeg_path is None:
         reasons.append("ffmpeg_unavailable")
+    ffprobe_path = _resolve_executable("ffprobe", ffprobe)
+    if ffprobe_path is None:
+        reasons.append("ffprobe_unavailable")
 
     identities: dict[str, dict[str, str]] = {}
     if helper is not None:
@@ -449,16 +758,26 @@ def inspect_windows_capture_capability(
             reasons.append("ffmpeg_unavailable")
             ffmpeg_path = None
 
+    if ffprobe_path is not None:
+        try:
+            identities["ffprobe"] = {"sha256": _sha256_file(ffprobe_path)}
+        except OSError:
+            reasons.append("ffprobe_unavailable")
+            ffprobe_path = None
+
     if helper is not None and dotnet_path is not None:
         try:
-            return_code, output, diagnostics = _run_bounded(
-                [str(dotnet_path), str(helper), "doctor", "--json"], cwd=root
+            return_code, output, diagnostics = process_runner(
+                [str(dotnet_path), str(helper), "doctor", "--json"], root
             )
             if diagnostics:
                 raise ValueError("native doctor emitted diagnostics")
             doctor = json.loads(output.decode("utf-8"))
-            doctor_ok, loopback_ready, public_helper = _doctor_contract(doctor)
+            doctor_ok, loopback_ready, public_helper, public_display = _doctor_contract(
+                doctor
+            )
             result["helper"].update(public_helper)
+            result["display"] = public_display
             result["system_audio_loopback_ready"] = (
                 return_code == 0 and doctor_ok and loopback_ready
             )
@@ -476,8 +795,8 @@ def inspect_windows_capture_capability(
     if ffmpeg_path is not None:
         result["ffmpeg"]["available"] = True
         try:
-            return_code, stdout, stderr = _run_bounded(
-                [str(ffmpeg_path), "-hide_banner", "-devices"], cwd=root
+            return_code, stdout, stderr = process_runner(
+                [str(ffmpeg_path), "-hide_banner", "-devices"], root
             )
             output = stdout + b"\n" + stderr
             gdigrab = return_code == 0 and _GDI_DEVICE_RE.search(
@@ -490,6 +809,9 @@ def inspect_windows_capture_capability(
         except (OSError, ValueError, subprocess.SubprocessError):
             reasons.append("gdigrab_unavailable")
 
+    if ffprobe_path is not None:
+        result["ffmpeg"]["ffprobe_available"] = True
+
     result["reasons"] = list(dict.fromkeys(reasons))
     if identities:
         digest = hashlib.sha256(canonical_json(identities).encode("utf-8")).hexdigest().upper()
@@ -499,7 +821,12 @@ def inspect_windows_capture_capability(
     result["foundation_ready"] = bool(
         result["screen_capture_ready"]
         and result["system_audio_loopback_ready"]
+        and result["helper"]["capture_command_available"]
+        and result["ffmpeg"]["ffprobe_available"]
+        and result["display"]["width"] is not None
+        and result["display"]["height"] is not None
         and not result["reasons"]
     )
-    result["status"] = "foundation_ready" if result["foundation_ready"] else "blocked"
+    result["capture_execution_enabled"] = result["foundation_ready"]
+    result["status"] = "ready" if result["foundation_ready"] else "blocked"
     return result

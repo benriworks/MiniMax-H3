@@ -50,6 +50,11 @@ import type {
   StageAttempt,
   StudioEvent,
   WindowsCaptureCapability,
+  WindowsCaptureCancelResponse,
+  WindowsCaptureConsentIntent,
+  WindowsCaptureExecutionPayload,
+  WindowsCapturePayload,
+  WindowsCaptureRequest,
 } from './types';
 import { normalizeStatus } from './status';
 
@@ -998,6 +1003,153 @@ export const buildLocalScreenCapturePayload = (value: unknown): LocalScreenCaptu
   if (normalized.errors.length > 0) throw new TypeError(normalized.errors[0]);
   return normalized.payload;
 };
+
+const optionalLiteralBoolean = (value: unknown): boolean | undefined => (
+  typeof value === 'boolean' ? value : undefined
+);
+
+export const WINDOWS_CAPTURE_LIMITS = {
+  minDurationMs: 1_000,
+  maxDurationMs: 30_000,
+} as const;
+
+export const WINDOWS_CAPTURE_CONSENT_TTL_SECONDS = 60 as const;
+
+export const WINDOWS_CAPTURE_RECONCILIATION_POLL_MS = 2_000 as const;
+
+/** One immediate lookup plus one lookup every two seconds through the TTL. */
+export const WINDOWS_CAPTURE_RECONCILIATION_MAX_POLLS = 31 as const;
+
+export const WINDOWS_CAPTURE_REQUEST_TIMEOUT_MS = 10_000 as const;
+
+const WINDOWS_CAPTURE_CONSENT_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+const WINDOWS_CAPTURE_CONSENT_INTENT_ID_PATTERN = /^capture_consent_[0-9a-f]{32}$/;
+const WINDOWS_CAPTURE_DIGEST_PATTERN = /^[0-9A-F]{64}$/;
+const WINDOWS_CAPTURE_CONSENT_RESPONSE_KEYS = [
+  'schema_version',
+  'consent_intent_id',
+  'consent_token',
+  'run_id',
+  'request_settings_digest',
+  'issued_at',
+  'expires_at',
+  'expires_in_seconds',
+] as const;
+
+const hasExactKeys = (record: UnknownRecord, keys: readonly string[]): boolean => {
+  const actual = Object.keys(record);
+  return actual.length === keys.length && keys.every((key) => Object.prototype.hasOwnProperty.call(record, key));
+};
+
+/**
+ * Build the closed native request.  The UI only supplies duration and the two
+ * independent confirmations; all target/audio/cursor values are fixed here
+ * so no caller can expand the native capture surface.
+ */
+export const buildWindowsCapturePayload = (value: unknown): WindowsCapturePayload => {
+  const record = asRecord(value);
+  const durationMs = number(pick(record, ['durationMs', 'duration_ms']));
+  if (
+    durationMs === undefined
+    || !Number.isInteger(durationMs)
+    || durationMs < WINDOWS_CAPTURE_LIMITS.minDurationMs
+    || durationMs > WINDOWS_CAPTURE_LIMITS.maxDurationMs
+  ) {
+    throw new TypeError('録画時間は1,000〜30,000msの整数で指定してください。');
+  }
+  if (pick(record, ['confirmCapture', 'confirm_capture']) !== true) {
+    throw new TypeError('画面収録の明示確認が必要です。');
+  }
+  if (pick(record, ['confirmSystemAudio', 'confirm_system_audio']) !== true) {
+    throw new TypeError('システム音声収録の明示確認が必要です。');
+  }
+  return {
+    schema_version: 1,
+    target: 'primary_display',
+    audio_mode: 'default_render_loopback',
+    cursor_mode: 'hidden',
+    duration_ms: durationMs,
+    confirm_capture: true,
+    confirm_system_audio: true,
+  };
+};
+
+/** Add only the raw, short-lived token to the fixed seven-field request. */
+export const buildWindowsCaptureExecutionPayload = (
+  value: unknown,
+  consentToken: unknown,
+): WindowsCaptureExecutionPayload => {
+  if (typeof consentToken !== 'string' || !WINDOWS_CAPTURE_CONSENT_TOKEN_PATTERN.test(consentToken)) {
+    throw new TypeError('Windows収録のconsent tokenを検証できませんでした。');
+  }
+  return { ...buildWindowsCapturePayload(value), consent_token: consentToken };
+};
+
+/** Parse the closed 201 response without retaining its bearer token or raw object. */
+export const parseWindowsCaptureConsentIntent = (
+  value: unknown,
+  expectedRunId: string,
+): WindowsCaptureConsentIntent => {
+  const record = asRecord(value);
+  if (!hasExactKeys(record, WINDOWS_CAPTURE_CONSENT_RESPONSE_KEYS)) {
+    throw new TypeError('Windows収録のconsent intent応答を検証できませんでした。');
+  }
+  const issuedAt = record.issued_at;
+  const expiresAt = record.expires_at;
+  const consentIntentId = record.consent_intent_id;
+  const consentToken = record.consent_token;
+  const runId = record.run_id;
+  const requestSettingsDigest = record.request_settings_digest;
+  if (
+    record.schema_version !== 1
+    || typeof consentIntentId !== 'string'
+    || !WINDOWS_CAPTURE_CONSENT_INTENT_ID_PATTERN.test(consentIntentId)
+    || typeof consentToken !== 'string'
+    || !WINDOWS_CAPTURE_CONSENT_TOKEN_PATTERN.test(consentToken)
+    || typeof runId !== 'string'
+    || runId !== expectedRunId
+    || typeof requestSettingsDigest !== 'string'
+    || !WINDOWS_CAPTURE_DIGEST_PATTERN.test(requestSettingsDigest)
+    || typeof issuedAt !== 'string'
+    || !Number.isFinite(Date.parse(issuedAt))
+    || typeof expiresAt !== 'string'
+    || !Number.isFinite(Date.parse(expiresAt))
+    || Date.parse(expiresAt) - Date.parse(issuedAt) !== WINDOWS_CAPTURE_CONSENT_TTL_SECONDS * 1_000
+    || record.expires_in_seconds !== WINDOWS_CAPTURE_CONSENT_TTL_SECONDS
+  ) {
+    throw new TypeError('Windows収録のconsent intent応答を検証できませんでした。');
+  }
+  return {
+    schema_version: 1,
+    consent_intent_id: consentIntentId,
+    consent_token: consentToken,
+    run_id: runId,
+    request_settings_digest: requestSettingsDigest,
+    issued_at: issuedAt,
+    expires_at: expiresAt,
+    expires_in_seconds: WINDOWS_CAPTURE_CONSENT_TTL_SECONDS,
+  };
+};
+
+export const isWindowsCaptureCapabilityReady = (capability?: WindowsCaptureCapability): boolean => Boolean(
+  capability
+  && capability.status === 'ready'
+  && capability.captureExecutionEnabled === true,
+);
+
+export const canStartWindowsCapture = (
+  executionProfile: string | undefined,
+  capability: WindowsCaptureCapability | undefined,
+  confirmCapture: boolean,
+  confirmSystemAudio: boolean,
+  locked = false,
+): boolean => Boolean(
+  executionProfile === 'local_windows_capture'
+  && isWindowsCaptureCapabilityReady(capability)
+  && confirmCapture
+  && confirmSystemAudio
+  && !locked,
+);
 
 export const LOCAL_COMFYUI_WORKFLOW_PRESET = 'minimax_h3_t2v_official_q4_v1' as const;
 export const LOCAL_COMFYUI_MAX_PROMPT_CHARS = 50_000;
@@ -2002,6 +2154,72 @@ export const isLocalScreenCaptureJobForSelection = (
     && (!selection.runId || job.runId === selection.runId);
 };
 
+/** Match only native Windows primary-display capture jobs. */
+export const isWindowsCaptureJobForSelection = (
+  job: Job,
+  selection: { runId?: string; consentIntentId?: string },
+): boolean => {
+  const stage = normalizeStudioStageName(job.stage);
+  const type = normalizeStudioStageName(job.type);
+  return type === 'local_windows_capture'
+    && (!stage || stage === 'screen_capture')
+    && (!selection.runId || job.runId === selection.runId)
+    && (!selection.consentIntentId || job.consentIntentId === selection.consentIntentId);
+};
+
+/**
+ * Non-secret state kept while an ambiguous execute response is reconciled.
+ * The bearer token is deliberately not part of this guard.
+ */
+export interface WindowsCaptureSubmissionGuard {
+  runId: string;
+  consentIntentId: string;
+  reconcileDeadlineMs: number;
+  pollAttempts: number;
+}
+
+export type WindowsCaptureReconciliation =
+  | { state: 'matched'; job: Job }
+  | { state: 'pending'; guard: WindowsCaptureSubmissionGuard }
+  | { state: 'manual_review' };
+
+export const createWindowsCaptureSubmissionGuard = (
+  intent: WindowsCaptureConsentIntent,
+  receivedAtMs = Date.now(),
+): WindowsCaptureSubmissionGuard => ({
+  runId: intent.run_id,
+  consentIntentId: intent.consent_intent_id,
+  // Use a local monotonic-enough window instead of trusting clock alignment
+  // with the server. The server independently enforces the same 60-second TTL.
+  reconcileDeadlineMs: receivedAtMs + WINDOWS_CAPTURE_CONSENT_TTL_SECONDS * 1_000,
+  pollAttempts: 0,
+});
+
+/**
+ * Reconcile only the Job admitted by this exact non-secret intent lineage.
+ * A same-Run Job from another tab or a later click is never accepted.
+ */
+export const reconcileWindowsCaptureSubmission = (
+  guard: WindowsCaptureSubmissionGuard,
+  jobs: Job[],
+  nowMs = Date.now(),
+): WindowsCaptureReconciliation => {
+  const matched = jobs.find((candidate) => isWindowsCaptureJobForSelection(candidate, {
+    runId: guard.runId,
+    consentIntentId: guard.consentIntentId,
+  }));
+  if (matched) return { state: 'matched', job: matched };
+
+  const pollAttempts = guard.pollAttempts + 1;
+  if (
+    nowMs >= guard.reconcileDeadlineMs
+    || pollAttempts >= WINDOWS_CAPTURE_RECONCILIATION_MAX_POLLS
+  ) {
+    return { state: 'manual_review' };
+  }
+  return { state: 'pending', guard: { ...guard, pollAttempts } };
+};
+
 /**
  * Select the screen-capture job that represents the current attempt.
  *
@@ -2035,6 +2253,36 @@ export const selectLocalScreenCaptureJob = (
   if (currentAttempt) {
     return undefined;
   }
+
+  const ordered = [...scoped].sort((left, right) => {
+    const activeDelta = Number(isActiveJobStatus(right.status)) - Number(isActiveJobStatus(left.status));
+    if (activeDelta !== 0) return activeDelta;
+    return jobTimestamp(right).localeCompare(jobTimestamp(left));
+  });
+  return ordered[0];
+};
+
+/** Select the current native capture attempt without falling back to stale work. */
+export const selectWindowsCaptureJob = (
+  submittedJob: Job | undefined,
+  currentAttempt: StageAttempt | undefined,
+  jobs: Job[],
+  runId?: string,
+): Job | undefined => {
+  if (submittedJob && (!runId || submittedJob.runId === runId)) {
+    return submittedJob;
+  }
+
+  const scoped = jobs.filter((job) => isWindowsCaptureJobForSelection(job, { runId }));
+  if (currentAttempt?.jobId) {
+    const linked = scoped.find((job) => job.id === currentAttempt.jobId);
+    if (linked) return linked;
+  }
+  if (currentAttempt?.id) {
+    const linked = scoped.find((job) => job.stageAttemptId === currentAttempt.id);
+    if (linked) return linked;
+  }
+  if (currentAttempt) return undefined;
 
   const ordered = [...scoped].sort((left, right) => {
     const activeDelta = Number(isActiveJobStatus(right.status)) - Number(isActiveJobStatus(left.status));
@@ -2854,6 +3102,32 @@ const normalizeJobResult = (value: unknown, outerRecord: UnknownRecord = {}): Jo
     actualCostUsd: numberOrNull(externalActualCostValue(directRecord, result)),
     actualCost: number(pick(directRecord, ['actual_cost', 'actualCost']) ?? pick(result, ['actual_cost', 'actualCost'])),
     timingSource: text(pick(directRecord, ['timing_source', 'timingSource']) ?? pick(result, ['timing_source', 'timingSource']), '') || undefined,
+    structuralTimingVerified: optionalLiteralBoolean(
+      pick(directRecord, ['structural_timing_verified', 'structuralTimingVerified'])
+        ?? pick(result, ['structural_timing_verified', 'structuralTimingVerified']),
+    ),
+    contentSyncVerified: optionalLiteralBoolean(
+      pick(directRecord, ['content_sync_verified', 'contentSyncVerified'])
+        ?? pick(result, ['content_sync_verified', 'contentSyncVerified']),
+    ),
+    liveValidationRequired: optionalLiteralBoolean(
+      pick(directRecord, ['live_validation_required', 'liveValidationRequired'])
+        ?? pick(result, ['live_validation_required', 'liveValidationRequired']),
+    ),
+    validationScope: text(
+      pick(directRecord, ['validation_scope', 'validationScope'])
+        ?? pick(result, ['validation_scope', 'validationScope']),
+      '',
+    ) || undefined,
+    publicReleaseReady: optionalLiteralBoolean(
+      pick(directRecord, ['public_release_ready', 'publicReleaseReady'])
+        ?? pick(result, ['public_release_ready', 'publicReleaseReady']),
+    ),
+    publicReleaseGate: text(
+      pick(directRecord, ['public_release_gate', 'publicReleaseGate'])
+        ?? pick(result, ['public_release_gate', 'publicReleaseGate']),
+      '',
+    ) || undefined,
     message: error.message,
     errorCode: error.code,
     raw: record,
@@ -2884,10 +3158,16 @@ export const normalizeJob = (value: unknown, index = 0): Job => {
       ?? pick(asRecord(resultValue), ['stage_attempt_id', 'stageAttemptId']),
     '',
   ) || undefined;
+  const consentIntentId = text(
+    field(['consent_intent_id', 'consentIntentId'])
+      ?? pick(asRecord(resultValue), ['consent_intent_id', 'consentIntentId']),
+    '',
+  ) || undefined;
   return {
     id: text(field(['id', 'job_id']), `job-${index}`),
     productionId: text(field(['production_id', 'productionId']), '') || undefined,
     runId: text(field(['run_id', 'runId']), '') || undefined,
+    consentIntentId,
     type: text(field(['type', 'kind', 'name']), 'ジョブ'),
     stage: text(field(['stage', 'step']), '') || undefined,
     status: normalizeStatus(field(['status', 'state'])),
@@ -2997,6 +3277,19 @@ export class StudioApiError extends Error {
   }
 }
 
+/** Fetch failed before an HTTP response was received; safe for one idempotent retry. */
+export class StudioApiResponseLossError extends Error {
+  readonly responseLost = true;
+
+  constructor() {
+    super('Studio APIの応答を受信できませんでした。');
+    this.name = 'StudioApiResponseLossError';
+  }
+}
+
+export const isStudioApiResponseLoss = (error: unknown): error is StudioApiResponseLossError =>
+  error instanceof StudioApiResponseLossError;
+
 const parseError = async (response: Response): Promise<ParsedApiError> => {
   const body = await response.text();
   if (!body) return { message: `${response.status} ${response.statusText}` };
@@ -3012,24 +3305,50 @@ const parseError = async (response: Response): Promise<ParsedApiError> => {
   }
 };
 
-const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
-  const response = await fetch(path, {
-    ...init,
-    headers: {
-      ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
-      ...init?.headers,
-    },
-  });
+const request = async <T>(path: string, init?: RequestInit, expectedStatus?: number): Promise<T> => {
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      ...init,
+      headers: {
+        ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+        ...init?.headers,
+      },
+    });
+  } catch {
+    throw new StudioApiResponseLossError();
+  }
   if (!response.ok) {
     const parsed = await parseError(response);
     throw new StudioApiError(parsed.message, response.status, parsed.code);
+  }
+  if (expectedStatus !== undefined && response.status !== expectedStatus) {
+    throw new StudioApiError(`Studio APIの応答status ${response.status}は期待値${expectedStatus}と異なります。`, response.status);
   }
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
 };
 
-const post = <T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> =>
-  request<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body), signal });
+const post = <T>(path: string, body?: unknown, signal?: AbortSignal, expectedStatus?: number): Promise<T> =>
+  request<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body), signal }, expectedStatus);
+
+const postWindowsCapture = async <T>(
+  path: string,
+  body: unknown,
+  expectedStatus: number | undefined,
+  timeoutMs: number,
+): Promise<T> => {
+  const boundedTimeoutMs = Number.isInteger(timeoutMs) && timeoutMs > 0
+    ? Math.min(timeoutMs, WINDOWS_CAPTURE_REQUEST_TIMEOUT_MS)
+    : WINDOWS_CAPTURE_REQUEST_TIMEOUT_MS;
+  const controller = new AbortController();
+  const timer = globalThis.setTimeout(() => controller.abort(), boundedTimeoutMs);
+  try {
+    return await post<T>(path, body, controller.signal, expectedStatus);
+  } finally {
+    globalThis.clearTimeout(timer);
+  }
+};
 
 export const serializeLocalComfyUiPayload = (payload: LocalComfyUiPayload): string => {
   // JSON.stringify rounds numbers above Number.MAX_SAFE_INTEGER. The backend
@@ -3135,12 +3454,12 @@ export const api = {
     const record = asRecord(value);
     const helper = asRecord(pick(record, ['helper']));
     const ffmpeg = asRecord(pick(record, ['ffmpeg']));
-    const rawStatus = text(pick(record, ['status']), 'blocked');
+    const display = asRecord(pick(record, ['display']));
+    const rawStatus = text(pick(record, ['status']), 'blocked').toLowerCase();
     const capability: WindowsCaptureCapability = {
       schemaVersion: number(pick(record, ['schema_version'])) ?? 0,
       implementationVersion: text(pick(record, ['implementation_version'])),
-      status: rawStatus === 'foundation_ready' ? 'foundation_ready' : 'blocked',
-      foundationReady: boolean(pick(record, ['foundation_ready']), false),
+      status: rawStatus === 'ready' ? 'ready' : 'blocked',
       captureExecutionEnabled: boolean(pick(record, ['capture_execution_enabled']), false),
       screenCaptureReady: boolean(pick(record, ['screen_capture_ready']), false),
       systemAudioLoopbackReady: boolean(pick(record, ['system_audio_loopback_ready']), false),
@@ -3150,25 +3469,39 @@ export const api = {
       helper: {
         available: boolean(pick(helper, ['available']), false),
         doctorOk: boolean(pick(helper, ['doctor_ok']), false),
-        endpointActive: boolean(pick(helper, ['endpoint_active']), false),
-        loopbackInitialized: boolean(pick(helper, ['loopback_initialized']), false),
-        recordingStarted: boolean(pick(helper, ['recording_started']), false),
-        sha256: text(pick(helper, ['sha256'])) || undefined,
-      },
-      ffmpeg: {
-        available: boolean(pick(ffmpeg, ['available']), false),
-        gdigrabAvailable: boolean(pick(ffmpeg, ['gdigrab_available']), false),
-      },
-      toolIdentityDigest: text(pick(record, ['tool_identity_digest'])) || undefined,
+          endpointActive: boolean(pick(helper, ['endpoint_active']), false),
+          loopbackInitialized: boolean(pick(helper, ['loopback_initialized']), false),
+          recordingStarted: boolean(pick(helper, ['recording_started']), false),
+          captureCommandAvailable: boolean(pick(helper, ['capture_command_available']), false),
+          sha256: text(pick(helper, ['sha256'])) || undefined,
+        },
+        ffmpeg: {
+          available: boolean(pick(ffmpeg, ['available']), false),
+          gdigrabAvailable: boolean(pick(ffmpeg, ['gdigrab_available']), false),
+          ffprobeAvailable: boolean(pick(ffmpeg, ['ffprobe_available']), false),
+        },
+        display: {
+          target: text(pick(display, ['target']), 'primary_display') as 'primary_display',
+          width: number(pick(display, ['width'] )) ?? null,
+          height: number(pick(display, ['height'])) ?? null,
+        },
+        toolIdentityDigest: text(pick(record, ['tool_identity_digest'])) || undefined,
     };
     if (
       capability.schemaVersion !== 1
-      || capability.implementationVersion !== 'windows-capture-capability-v1'
+      || capability.implementationVersion !== 'windows-capture-capability-v2'
+      || !['ready', 'blocked'].includes(rawStatus)
       || !capability.explicitConfirmationRequired
-      || capability.captureExecutionEnabled
       || capability.actualCapturePerformed
       || capability.helper.recordingStarted
-      || capability.foundationReady !== (capability.status === 'foundation_ready')
+      || capability.captureExecutionEnabled !== (capability.status === 'ready')
+      || (capability.status === 'ready' && !capability.screenCaptureReady)
+      || (capability.status === 'ready' && !capability.systemAudioLoopbackReady)
+      || (capability.status === 'ready' && !capability.helper.captureCommandAvailable)
+      || (capability.status === 'ready' && !capability.ffmpeg.ffprobeAvailable)
+      || capability.display.target !== 'primary_display'
+      || (capability.status === 'ready'
+        && (capability.display.width === null || capability.display.height === null))
     ) {
       throw new Error('Windows収録環境の安全契約を検証できませんでした。');
     }
@@ -3217,6 +3550,9 @@ export const api = {
       body.estimated_cost = { amount: 0, currency: 'JPY' };
     } else if (changes.executionProfile === 'local_playwright') {
       body.execution_profile = 'local_playwright';
+      body.estimated_cost = { amount: 0, currency: 'JPY' };
+    } else if (changes.executionProfile === 'local_windows_capture') {
+      body.execution_profile = 'local_windows_capture';
       body.estimated_cost = { amount: 0, currency: 'JPY' };
     } else if (changes.executionProfile === 'elevenlabs_tts') {
       body.execution_profile = 'elevenlabs_tts';
@@ -3279,6 +3615,50 @@ export const api = {
       buildLocalScreenCapturePayload(body),
     );
     return normalizeJob(value);
+  },
+
+  async issueWindowsCaptureConsent(
+    runId: string,
+    body: WindowsCaptureRequest,
+    timeoutMs = WINDOWS_CAPTURE_REQUEST_TIMEOUT_MS,
+  ): Promise<WindowsCaptureConsentIntent> {
+    const value = await postWindowsCapture<unknown>(
+      `/api/runs/${encodeURIComponent(runId)}/windows-capture-consent-intents`,
+      buildWindowsCapturePayload(body),
+      201,
+      timeoutMs,
+    );
+    return parseWindowsCaptureConsentIntent(value, runId);
+  },
+
+  async executeWindowsCapture(
+    runId: string,
+    body: WindowsCaptureRequest,
+    consentToken: string,
+    timeoutMs = WINDOWS_CAPTURE_REQUEST_TIMEOUT_MS,
+  ): Promise<Job> {
+    const value = await postWindowsCapture<unknown>(
+      `/api/runs/${encodeURIComponent(runId)}/execute-windows-capture`,
+      buildWindowsCaptureExecutionPayload(body, consentToken),
+      undefined,
+      timeoutMs,
+    );
+    return normalizeJob(value);
+  },
+
+  async cancelWindowsCapture(jobId: string): Promise<WindowsCaptureCancelResponse> {
+    const value = await post<unknown>(
+      `/api/jobs/${encodeURIComponent(jobId)}/cancel-windows-capture`,
+      {},
+    );
+    const record = asRecord(value);
+    const rawJob = pick(record, ['job']);
+    return {
+      job: rawJob === undefined ? undefined : normalizeJob(rawJob),
+      cancelRequested: boolean(pick(record, ['cancel_requested', 'cancelRequested']), false),
+      workerRetired: boolean(pick(record, ['worker_retired', 'workerRetired']), false),
+      raw: record,
+    };
   },
 
   async resumeProviderTask(providerTaskId: string): Promise<Job> {

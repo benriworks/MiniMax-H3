@@ -27,6 +27,7 @@ from .security import (
     workspace_path,
 )
 from .service import RequestValidationError, StudioService
+from .windows_capture import windows_capture_session_binding_digest
 
 
 SESSION_COOKIE = "StudioSession"
@@ -71,6 +72,15 @@ _RUN_LOCAL_VIDEO_GENERATION_RE = re.compile(
 )
 _RUN_LOCAL_SCREEN_CAPTURE_RE = re.compile(
     r"^/api/runs/([^/]+)/execute-local-screen-capture$"
+)
+_RUN_WINDOWS_CAPTURE_RE = re.compile(
+    r"^/api/runs/([^/]+)/execute-windows-capture$"
+)
+_RUN_WINDOWS_CAPTURE_CONSENT_RE = re.compile(
+    r"^/api/runs/([^/]+)/windows-capture-consent-intents$"
+)
+_WINDOWS_CAPTURE_CANCEL_RE = re.compile(
+    r"^/api/jobs/([^/]+)/cancel-windows-capture$"
 )
 _PROVIDER_TASK_RESUME_RE = re.compile(r"^/api/provider-tasks/([^/]+)/resume$")
 _RUN_LOCAL_TIMELINE_RE = re.compile(r"^/api/runs/([^/]+)/execute-local-timeline$")
@@ -409,7 +419,19 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
         except SecurityError:
             self._error(400, "invalid_path", "The requested path is invalid.")
         except RequestValidationError as exc:
-            status = 415 if exc.code == "unsupported_media_type" else 413 if exc.code == "request_too_large" else 422
+            status = (
+                415
+                if exc.code == "unsupported_media_type"
+                else 413
+                if exc.code == "request_too_large"
+                else 409
+                if exc.code in {
+                    "windows_capture_busy",
+                    "windows_capture_unavailable",
+                    "windows_capture_consent_expired",
+                }
+                else 422
+            )
             self._error(status, exc.code, str(exc))
         except KeyError:
             self._error(404, "not_found", "The requested resource was not found.")
@@ -535,6 +557,9 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
 
     def _dispatch_post(self, path: str, body: dict[str, Any]) -> None:
         service = self.server.service
+        session_binding_digest = windows_capture_session_binding_digest(
+            self.server.session_token
+        )
         if path == "/api/capabilities/windows-capture/inspect":
             self._send_json(200, service.inspect_windows_capture_capability(body))
             return
@@ -608,6 +633,34 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
         if match:
             self._send_json(
                 202, service.execute_local_screen_capture(match.group(1), body)
+            )
+            return
+        match = _RUN_WINDOWS_CAPTURE_RE.fullmatch(path)
+        if match:
+            self._send_json(
+                202,
+                service.execute_windows_capture(
+                    match.group(1),
+                    body,
+                    session_binding_digest=session_binding_digest,
+                ),
+            )
+            return
+        match = _RUN_WINDOWS_CAPTURE_CONSENT_RE.fullmatch(path)
+        if match:
+            self._send_json(
+                201,
+                service.issue_windows_capture_consent(
+                    match.group(1),
+                    body,
+                    session_binding_digest=session_binding_digest,
+                ),
+            )
+            return
+        match = _WINDOWS_CAPTURE_CANCEL_RE.fullmatch(path)
+        if match:
+            self._send_json(
+                202, service.cancel_windows_capture_job(match.group(1), body)
             )
             return
         match = _PROVIDER_TASK_RESUME_RE.fullmatch(path)

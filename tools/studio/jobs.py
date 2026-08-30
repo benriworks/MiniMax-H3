@@ -110,6 +110,7 @@ _PUBLIC_ERROR_CODES = frozenset(
         "invalid_source_media",
         "invalid_tool_identity",
         "invalid_worker_result",
+        "invalid_windows_capture_request",
         "invalid_workspace",
         "insufficient_scratch_space",
         "io_error",
@@ -140,6 +141,7 @@ _PUBLIC_ERROR_CODES = frozenset(
         "remotion_unavailable",
         "remotion_stage_cleanup_failed",
         "local_screen_capture_failed",
+        "local_windows_capture_failed",
         "local_worker_unavailable",
         "metadata_too_large",
         "mismatched_provider_output",
@@ -169,6 +171,11 @@ _PUBLIC_ERROR_CODES = frozenset(
         "unsafe_provider_output",
         "unsafe_worker_artifact",
         "windows_sapi_unavailable",
+        "windows_capture_failed",
+        "windows_capture_cleanup_failed",
+        "windows_capture_cleanup_required",
+        "windows_capture_timeout",
+        "windows_capture_unavailable",
     }
 )
 
@@ -451,7 +458,7 @@ def _cleanup_uncommitted_atomic_completion(
     completion: AtomicStageCompletion | None,
     *,
     committed: bool,
-) -> None:
+) -> BaseException | None:
     """Discard newly published files only after durable success is ruled out.
 
     A worker may atomically publish a directory before returning its database
@@ -462,24 +469,30 @@ def _cleanup_uncommitted_atomic_completion(
     """
 
     if committed or completion is None or completion.failure_cleanup is None:
-        return
+        return None
     try:
         job = database.get_job(job_id)
         attempt = database.get_stage_attempt(completion.stage_attempt_id)
     except Exception:
         # If durable truth cannot be inspected, retaining the directory is
         # safer than deleting artifacts that may already have committed.
-        return
+        return None
     if job is None or attempt is None:
-        return
+        return None
     if job.get("status") == "succeeded" or attempt.get("status") == "succeeded":
-        return
+        return None
     try:
         completion.failure_cleanup()
-    except Exception:
-        # Cleanup is compensating hygiene, never a replacement for the fixed
-        # public worker error or the linked job/stage terminal transition.
-        pass
+    except Exception as exc:
+        # Most cleanup adapters remain best-effort. Native screen capture is a
+        # privacy boundary, however, so its fixed cleanup failure is returned
+        # to the worker loop and becomes the durable job/stage error.
+        if getattr(exc, "error_code", None) in {
+            "windows_capture_cleanup_failed",
+            "windows_capture_cleanup_required",
+        }:
+            return exc
+    return None
 
 
 def _is_claimed_local_pipeline_top(job: dict[str, Any]) -> bool:
@@ -582,7 +595,7 @@ def _sha256_file(path: Path) -> str:
 
 
 class JobManager:
-    _LANES = ("default", "gpu", "browser", "pipeline")
+    _LANES = ("default", "gpu", "browser", "capture", "pipeline")
 
     def __init__(self, database: StudioDatabase):
         self.database = database
@@ -597,6 +610,7 @@ class JobManager:
         self._queue = self._queues["default"]
         self._finished: dict[str, threading.Event] = {}
         self._active: dict[str, JobExecutionContext] = {}
+        self._active_lanes: dict[str, str] = {}
         # Exact top jobs whose queue admission and immediate DB compensation
         # both failed.  Retrying only these IDs avoids guessing whether an
         # unrelated durable queued job belongs to a live worker.
@@ -634,6 +648,7 @@ class JobManager:
         self._thread = self._threads["default"]
         self._gpu_thread = self._threads["gpu"]
         self._browser_thread = self._threads["browser"]
+        self._capture_thread = self._threads["capture"]
         self._pipeline_thread = self._threads["pipeline"]
         for thread in self._threads.values():
             thread.start()
@@ -665,6 +680,7 @@ class JobManager:
             context = JobExecutionContext(job["id"])
             self._finished[job["id"]] = threading.Event()
             self._active[job["id"]] = context
+            self._active_lanes[job["id"]] = lane
             try:
                 if before_enqueue is not None:
                     before_enqueue(job)
@@ -687,6 +703,7 @@ class JobManager:
                 except Exception:
                     pass
                 self._active.pop(job["id"], None)
+                self._active_lanes.pop(job["id"], None)
                 event = self._finished.get(job["id"])
                 if event:
                     event.set()
@@ -699,6 +716,82 @@ class JobManager:
         validate_identifier(job_id, label="job id")
         with self._lock:
             return job_id in self._active
+
+    def submit_windows_capture_once(
+        self,
+        *,
+        production_id: str,
+        run_id: str,
+        token_digest: str,
+        session_binding_digest: str,
+        request_settings_digest: str,
+        capture_key: str,
+        attempt_payload: Any,
+        job_payload: Any,
+        callback_factory: Callable[[str], JobCallable],
+    ) -> tuple[dict[str, Any], bool]:
+        """Atomically consume one consent and admit exactly one recording.
+
+        The database transaction creates and links the stage attempt/job while
+        consuming the one-way consent digest. Replays therefore resolve to the
+        original durable job and never enqueue another callback.
+        """
+
+        work_queue = self._queues["capture"]
+        with self._lock:
+            if self._closed:
+                raise JobManagerClosed("Studio background jobs are closed.")
+            job, created = self.database.consume_windows_capture_consent_and_create_job(
+                production_id=production_id,
+                run_id=run_id,
+                token_digest=token_digest,
+                session_binding_digest=session_binding_digest,
+                request_settings_digest=request_settings_digest,
+                capture_key=capture_key,
+                attempt_payload=attempt_payload,
+                job_payload=job_payload,
+            )
+            if not created:
+                return job, False
+            attempt_id = job.get("stage_attempt_id")
+            if not isinstance(attempt_id, str):
+                raise ValueError("Windows capture stage attempt is unavailable")
+            context = JobExecutionContext(job["id"])
+            self._finished[job["id"]] = threading.Event()
+            self._active[job["id"]] = context
+            self._active_lanes[job["id"]] = "capture"
+            try:
+                callback = callback_factory(attempt_id)
+                work_queue.put(_QueuedJob(job["id"], callback, context))
+            except Exception:
+                try:
+                    self.database.abort_windows_capture_admission(
+                        job["id"],
+                        attempt_id,
+                        error_code="job_setup_failed",
+                        error_message="The background job could not be prepared.",
+                    )
+                except Exception:
+                    pass
+                self._active.pop(job["id"], None)
+                self._active_lanes.pop(job["id"], None)
+                event = self._finished.get(job["id"])
+                if event:
+                    event.set()
+                raise
+            return job, True
+
+    def active_job_ids_for_lane(self, lane: str) -> tuple[str, ...]:
+        """Return exact queued/running/draining IDs owned by one lane."""
+
+        if lane not in self._LANES:
+            raise ValueError(f"Unsupported job lane: {lane!r}")
+        with self._lock:
+            return tuple(
+                job_id
+                for job_id, active_lane in self._active_lanes.items()
+                if active_lane == lane
+            )
 
     def repair_local_pipeline_admissions(self) -> int:
         """Retry exact failed queue-admission compensations, without guessing."""
@@ -772,6 +865,7 @@ class JobManager:
                         self._pending_operator_cancel_job_ids.discard(job_id)
                     if retire_context:
                         self._active.pop(job_id, None)
+                        self._active_lanes.pop(job_id, None)
                         event = self._finished.get(job_id)
                         if event:
                             event.set()
@@ -856,6 +950,7 @@ class JobManager:
                         self._pending_local_pipeline_admission_aborts.discard(job_id)
                     if retire_context:
                         self._active.pop(job_id, None)
+                        self._active_lanes.pop(job_id, None)
                         event = self._finished.get(job_id)
                         if event:
                             event.set()
@@ -876,6 +971,7 @@ class JobManager:
                         )
                         self._pending_operator_cancel_job_ids.discard(job_id)
                         self._active.pop(job_id, None)
+                        self._active_lanes.pop(job_id, None)
                         event = self._finished.get(job_id)
                         if event:
                             event.set()
@@ -1005,6 +1101,7 @@ class JobManager:
             context = JobExecutionContext(job["id"])
             self._finished[job["id"]] = threading.Event()
             self._active[job["id"]] = context
+            self._active_lanes[job["id"]] = "pipeline"
             try:
                 work_queue.put(_QueuedJob(job["id"], callback, context))
             except Exception:
@@ -1017,6 +1114,7 @@ class JobManager:
                 except Exception:
                     pass
                 self._active.pop(job["id"], None)
+                self._active_lanes.pop(job["id"], None)
                 event = self._finished.get(job["id"])
                 if event:
                     event.set()
@@ -1073,6 +1171,7 @@ class JobManager:
             context = JobExecutionContext(job["id"])
             self._finished[job["id"]] = threading.Event()
             self._active[job["id"]] = context
+            self._active_lanes[job["id"]] = "pipeline"
             try:
                 work_queue.put(_QueuedJob(job["id"], callback, context))
             except Exception:
@@ -1088,6 +1187,7 @@ class JobManager:
                     self._pending_local_pipeline_admission_aborts.add(job["id"])
                 if admission_aborted:
                     self._active.pop(job["id"], None)
+                    self._active_lanes.pop(job["id"], None)
                     event = self._finished.get(job["id"])
                     if event:
                         event.set()
@@ -1154,6 +1254,7 @@ class JobManager:
             context = JobExecutionContext(job["id"])
             self._finished[job["id"]] = threading.Event()
             self._active[job["id"]] = context
+            self._active_lanes[job["id"]] = "gpu"
             try:
                 callback = callback_factory(attempt_id)
                 work_queue.put(_QueuedJob(job["id"], callback, context))
@@ -1168,6 +1269,7 @@ class JobManager:
                 except Exception:
                     pass
                 self._active.pop(job["id"], None)
+                self._active_lanes.pop(job["id"], None)
                 event = self._finished.get(job["id"])
                 if event:
                     event.set()
@@ -1287,40 +1389,70 @@ class JobManager:
                         else:
                             self.database.update_job(job_id, "succeeded", result=result)
             except JobCancelled:
-                _cleanup_uncommitted_atomic_completion(
+                cleanup_error = _cleanup_uncommitted_atomic_completion(
                     self.database,
                     job_id,
                     atomic_completion,
                     committed=atomic_completion_committed,
                 )
-                try:
-                    preserve_provider_task = context.preserve_provider_task
-                    interrupted = self.database.interrupt_job(
-                        job_id,
-                        cancel_provider_task=not preserve_provider_task,
-                        provider_task_record_id=(
-                            None
-                            if preserve_provider_task
-                            else context.provider_task_record_id
-                        ),
-                        preserve_pipeline_continuation=preserve_provider_task,
-                    )
-                except Exception:
-                    pass
-                else:
-                    if not preserve_provider_task:
-                        self._settle_operator_cancellation_persistence(
-                            job_id, interrupted
+                if cleanup_error is not None:
+                    try:
+                        error_code = _public_error_code(cleanup_error)
+                        error_message = _public_error_message(
+                            cleanup_error, error_code
                         )
+                        if atomic_stage_attempt_id is not None:
+                            self.database.fail_job_with_stage_attempt(
+                                job_id,
+                                atomic_stage_attempt_id,
+                                error_code=error_code,
+                                error_message=error_message,
+                                provider_task_record_id=context.provider_task_record_id,
+                            )
+                        else:
+                            self.database.update_job(
+                                job_id,
+                                "failed",
+                                error_code=error_code,
+                                error_message=error_message,
+                            )
+                    except Exception:
+                        pass
+                else:
+                    try:
+                        preserve_provider_task = context.preserve_provider_task
+                        interrupted = self.database.interrupt_job(
+                            job_id,
+                            cancel_provider_task=not preserve_provider_task,
+                            provider_task_record_id=(
+                                None
+                                if preserve_provider_task
+                                else context.provider_task_record_id
+                            ),
+                            preserve_pipeline_continuation=preserve_provider_task,
+                        )
+                    except Exception:
+                        pass
+                    else:
+                        if not preserve_provider_task:
+                            self._settle_operator_cancellation_persistence(
+                                job_id, interrupted
+                            )
             except Exception as exc:  # The worker boundary must keep later jobs alive.
-                _cleanup_uncommitted_atomic_completion(
+                cleanup_error = _cleanup_uncommitted_atomic_completion(
                     self.database,
                     job_id,
                     atomic_completion,
                     committed=atomic_completion_committed,
                 )
+                if cleanup_error is not None:
+                    exc = cleanup_error
                 try:
-                    if context.is_set():
+                    cleanup_failure = getattr(exc, "error_code", None) in {
+                        "windows_capture_cleanup_failed",
+                        "windows_capture_cleanup_required",
+                    }
+                    if context.is_set() and not cleanup_failure:
                         preserve_provider_task = context.preserve_provider_task
                         interrupted = self.database.interrupt_job(
                             job_id,
@@ -1370,6 +1502,7 @@ class JobManager:
                     _terminate_context_processes(context)
                 with self._lock:
                     self._active.pop(job_id, None)
+                    self._active_lanes.pop(job_id, None)
                     self._dequeued_job_ids.discard(job_id)
                     self._pending_local_pipeline_admission_aborts.discard(job_id)
                     event = self._finished.get(job_id)
