@@ -13,7 +13,7 @@
 .\run-studio.ps1
 ```
 
-通常は`http://127.0.0.1:8765`を開きます。現在のMVPは既存制作台帳の閲覧、再実行計画、Run記録、有料工程の費用上限承認、監査exportに加え、Windows SAPIによる無課金のローカルナレーション生成、固定ComfyUIによるローカル動画生成、isolated Chromiumによるloopback Web画面収録、明示同意付きのWindowsプライマリ画面＋既定再生system audio収録、FFmpegによるハードカット、Remotionによる詳細timeline preview、clean／字幕焼き込みmasterのローカル合成、完成masterのローカルtechnical QCを扱えます。字幕、segment timing、発音置換、工程cache、codec／stream／duration／full-decode／全編無音の検査、Integrated loudness／true peak／黒画面のhard check、長い静止区間のwarning、ffprobe・manifestも記録します。QC policyはschema v2 / `local-ffmpeg-qc-v2` / `technical-qc-mp4-v2`で固定し、Integrated loudness -24.0〜-10.0 LUFS、true peak -1.0 dBFS以下、0.5秒以上の黒画面をtechnical verdictへ反映します。1.0秒以上の長い静止区間はwarningのみで、verdictには影響しません。ElevenLabs外部TTSは別の承認済みprofileで扱い、MiniMax外部APIのStudio workerは未接続です。Web収録は`127.0.0.1`の明示portだけを対象とします。Windowsネイティブ収録はプライマリ画面全体と既定render/console loopbackだけが対象で、外部サイトの制御、既存ログインsessionの注入、window指定、device指定、マイクは対象外です。詳細とセキュリティ境界は[STUDIO_MVP_JA.md](STUDIO_MVP_JA.md)を参照してください。
+通常は`http://127.0.0.1:8765`を開きます。現在のMVPは既存制作台帳の閲覧、再実行計画、Run記録、有料工程の費用上限承認、監査exportに加え、Windows SAPIによる無課金のローカルナレーション生成、固定ComfyUIによるローカル動画生成、isolated Chromiumによるloopback Web画面収録、明示同意付きのWindowsプライマリ画面＋既定再生system audio収録、FFmpegによるハードカット、Remotionによる詳細timeline preview、clean／字幕焼き込みmasterのローカル合成、完成masterのローカルtechnical QC、検証済みローカル納品ZIPを扱えます。字幕、segment timing、発音置換、工程cache、codec／stream／duration／full-decode／全編無音の検査、Integrated loudness／true peak／黒画面のhard check、長い静止区間のwarning、ffprobe・manifestも記録します。QC policyはschema v2 / `local-ffmpeg-qc-v2` / `technical-qc-mp4-v2`で固定し、Integrated loudness -24.0〜-10.0 LUFS、true peak -1.0 dBFS以下、0.5秒以上の黒画面をtechnical verdictへ反映します。1.0秒以上の長い静止区間はwarningのみで、verdictには影響しません。ElevenLabs外部TTSは別の承認済みprofileで扱い、高品質scene alignmentは0円backend Jobまで実装済みです。YouTubeはprivate／unlisted限定backend control-planeまでで、Studio公開UIと実upload受入は未実施です。MiniMax外部APIのStudio workerは未接続です。Web収録は`127.0.0.1`の明示portだけを対象とします。Windowsネイティブ収録はプライマリ画面全体と既定render/console loopbackだけが対象で、外部サイトの制御、既存ログインsessionの注入、window指定、device指定、マイクは対象外です。詳細とセキュリティ境界は[STUDIO_MVP_JA.md](STUDIO_MVP_JA.md)を参照してください。
 
 ### M1〜M4: かんたん制作、ライブラリ、レビュー、3カットI2VA
 
@@ -30,6 +30,18 @@ E:\anaconda3\python.exe -m tools.studio.cli --workspace . shot-project .\path\to
 ```
 
 request JSONと3枚の画像は同じprivate directoryに置き、画像pathはそのJSONからのrelative pathにします。各`video_prompt`は同梱`h3-prompt-writing` skillのI2VA形式、`duration_seconds=6`、`resolution="768P"`、`confirmed_billable_task_limit=3`に固定します。課金なしの自動試験では、3件送信、成功後の再実行0件、曖昧応答後の再送0件を確認しています。実API paid smokeはまだ実施していません。
+
+### M5〜M6: 納品、収録受入、安全公開control-plane
+
+M5のDelivery Packageは、成功済み`詳細一括`のRun／top Jobとclean master、captioned master、SRT、technical QC／ffprobe／manifestのexact lineageとhash、technical verdict `pass`を再検証します。`納品・公開`タブの`納品ZIPを作成`を押すと、上記6点、clean masterの25／50／75%から作るサムネイル3枚、title／description、production snapshot、event JSONL、自己検証manifestを決定的ZIPへまとめ、隣にSHA-256 sidecarを保存します。このJobはローカルだけで`network_used=false`／`billable=false`です。現在のタブはZIP作成とdownloadまでで、YouTube uploadを開始しません。creative／rights／public_release判定は表示しますが、確認用Deliveryの作成自体は未承認でも可能です。
+
+高品質TTSのscene alignmentは`POST /api/runs/{run_id}/execute-voice-upgrade`まで実装されています。`elevenlabs_tts` Runの成功済みnarration attemptと登録済みWAV／timingsをbytes／mtime／SHA-256まで照合し、HOOK→MESSAGE→CTAのexact scene開始へ発話を配置してWAV／SRT／timings／manifestを新しい`voice_upgrade` Job／stage attemptとしてatomic登録します。次sceneまたは出力末尾へ発話が重なる場合は停止します。新attemptをassemblyへ指定した場合も、公開結果、source lineage、4登録artifactを厳密再検証してからWAV／SRTを入力にします。この処理はproviderを呼ばずcredentialを読まず、公開結果は`provider=local_voice_upgrade`／`actual_cost=0`です。専用execution／service／HTTP／assembly入力testと公開Job error codeは実装済みですが、Studio UIと告知／Deliveryへの自動接続はありません。
+
+M6の`POST /api/runs/{run_id}/windows-capture-acceptance`は、成功済みnative captureの8成果物を再hashし、requestで受け取った自動測定値と人手確認を一つの監査eventへ束縛します。visible／audible marker差、loudness／peak、device切替、強制終了cleanup、5 attestの申告値は評価・保存しますが、requestのtool digestやattestだけでは独立した受入証拠になりません。登録済みcalibration Jobと、bytes／SHA-256／tool lineageをserviceが再検証できる証拠artifactが実装されるまでは、申告値が全条件を満たしても`content_sync_verified=false`、`public_release_ready=false`、`live_validation_required=true`でfail closedします。2026-08-30の実機smokeも合格証拠ではなく、実機受入は未完了です。このeventは元capture resultやreview gateを書き換えず、現YouTube bindingも自動参照しません。
+
+過去のroadmapでM7としていたYouTube連携は、現M6の安全公開control-planeへ統合しました。previewで検証済みDelivery、clean／captioned masterの一方、metadata、OAuthで確認したchannel、creative／rights／public_releaseの3 human gateをdigestへ束縛し、executeでは同じ内容にCommunity Guidelines certificationと明示upload確認の2つのliteral `true`を追加要求します。3 gateはいずれも`approved`、未解決0件、review 1件以上が必要です。privacyは`private`／`unlisted`だけで、`public`は拒否します。OAuth credentialとresumable session URIはWindows user-scoped DPAPIで保護し、公開ledgerへtoken／signed URLを出しません。credential-bearing redirectは拒否し、Job失敗はallowlist済みcodeと有界な公開messageへ閉じます。providerが認識したbyte位置から再開できますが、session開始応答が曖昧、保護session欠損、期限切れの場合に別sessionを自動初期化しません。interactive OAuth bootstrapは未実装で、事前取得済みrefresh tokenが必要です。
+
+実装済みなのはbackend contract、Delivery／human gate binding、durable resumable ledger、fake transport回帰です。StudioのYouTube公開UI、実Google OAuth credentialでのchannel preview、実upload、YouTube側read-backは未実施であり、公開済み／課金済みとは記録しません。一次資料はGoogle公式の[`videos.insert`](https://developers.google.com/youtube/v3/docs/videos/insert)、[resumable upload](https://developers.google.com/youtube/v3/guides/using_resumable_upload_protocol)、[OAuth 2.0 for Desktop apps](https://developers.google.com/identity/protocols/oauth2/native-app)です。
 
 ### 新しい制作、動画素材の取込、Job停止
 

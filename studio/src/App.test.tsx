@@ -10,7 +10,7 @@ import { pathToFileURL } from 'node:url';
 import assert from 'node:assert/strict';
 // @ts-ignore node-only test dependency
 import test from 'node:test';
-import type { WindowsCaptureCapability } from './types';
+import type { Artifact, Job, ProductionDetail, WindowsCaptureCapability } from './types';
 
 declare const process: { cwd(): string };
 declare const Buffer: { from(value: string): { toString(encoding: string): string } };
@@ -20,6 +20,7 @@ const productionLibraryPanelSource = readFileSync(
   resolve(process.cwd(), 'src', 'ProductionLibraryPanel.tsx'),
   'utf8',
 );
+const deliveryPanelSource = readFileSync(resolve(process.cwd(), 'src', 'DeliveryPanel.tsx'), 'utf8');
 const nativePanelSource = appSource.slice(
   appSource.indexOf('function WindowsCapturePanel'),
   appSource.indexOf('function ScreenCapturePanel'),
@@ -359,4 +360,271 @@ test('generic cancellation keeps the exact Job visible while reconciling worker 
   assert.match(appSource, /2秒間隔で再確認します/);
   assert.match(appSource, /selectGlobalJobControlTargets\(jobs, cancellingJobIds\)/);
   assert.match(appSource, /約30秒の再確認でworker終了を確認できませんでした/);
+});
+
+const deliveryFixture = (): { detail: ProductionDetail; jobs: Job[] } => {
+  const productionId = `production_${'a'.repeat(32)}`;
+  const runId = `run_${'b'.repeat(32)}`;
+  const revisionId = `rev_${'c'.repeat(32)}`;
+  const sourceJobId = `job_${'d'.repeat(32)}`;
+  const specs = [
+    ['master-clean.mp4', 'assembly', 'video', 'video/mp4'],
+    ['master-captioned.mp4', 'assembly', 'video', 'video/mp4'],
+    ['captions.srt', 'narration', 'subtitle', 'application/x-subrip'],
+    ['technical-qc.json', 'qc', 'document', 'application/json'],
+    ['ffprobe.json', 'qc', 'document', 'application/json'],
+    ['manifest.json', 'qc', 'document', 'application/json'],
+  ] as const;
+  const artifactRecords = specs.map(([name, stage, kind, mediaType], index) => ({
+    id: `art_${(index + 1).toString(16).padStart(32, '0')}`,
+    production_id: productionId,
+    origin: 'studio',
+    name,
+    kind,
+    media_type: mediaType,
+    rel_path: `outputs/studio/runs/${runId}/${stage}/${'1'.repeat(64)}/${name}`,
+    bytes: 1_000 + index,
+    sha256: String.fromCharCode(65 + index).repeat(64),
+    available: true,
+  }));
+  const childSpecs = [
+    ['narration', 'local_narration'],
+    ['timeline', 'local_remotion_timeline'],
+    ['assembly', 'local_assembly'],
+    ['qc', 'local_qc'],
+  ] as const;
+  const childJobs: Job[] = childSpecs.map(([stage, kind], index) => {
+    const jobId = `job_${(index + 1).toString(16).padStart(32, '0')}`;
+    const attemptId = `attempt_${(index + 1).toString(16).padStart(32, '0')}`;
+    return api.normalizeJob({
+      id: jobId,
+      kind,
+      status: 'succeeded',
+      production_id: productionId,
+      payload: {
+        production_id: productionId,
+        run_id: runId,
+        stage,
+        stage_attempt_id: attemptId,
+      },
+      result: {
+        stage_attempt_id: attemptId,
+        cache_hit: false,
+        artifacts: artifactRecords.filter((artifact) => artifact.rel_path.includes(`/${stage}/`)),
+      },
+      updated_at: `2026-09-01T00:0${index}:00Z`,
+    }) as Job;
+  });
+  const children = Object.fromEntries(childSpecs.map(([stage], index) => [stage, {
+    stage,
+    status: 'succeeded',
+    job_id: childJobs[index].id,
+    stage_attempt_id: childJobs[index].stageAttemptId,
+    cache_hit: false,
+  }]));
+  const sourceJob = api.normalizeJob({
+    id: sourceJobId,
+    kind: 'detailed_test_video',
+    status: 'succeeded',
+    production_id: productionId,
+    payload: {
+      production_id: productionId,
+      run_id: runId,
+      revision_id: revisionId,
+      stage: 'detailed_test_video',
+    },
+    result: {
+      schema_version: 1,
+      production_id: productionId,
+      run_id: runId,
+      revision_id: revisionId,
+      duration_ms: 15_000,
+      technical_verdict: 'pass',
+      include_captioned: true,
+      children,
+    },
+    updated_at: '2026-09-01T01:00:00Z',
+  }) as Job;
+  const run = api.normalizeRun({
+    id: runId,
+    production_id: productionId,
+    revision_id: revisionId,
+    status: 'succeeded',
+    stage_attempts: childJobs.map((job, index) => ({
+      id: job.stageAttemptId,
+      job_id: job.id,
+      production_id: productionId,
+      run_id: runId,
+      stage: childSpecs[index][0],
+      status: 'succeeded',
+      result: {
+        cache_hit: false,
+        artifacts: job.result?.artifacts.map((artifact: Artifact) => artifact.raw) ?? [],
+      },
+    })),
+  }, 0);
+  const artifacts = childJobs.flatMap((job) => job.result?.artifacts ?? []);
+  const detail = {
+    id: productionId,
+    runs: [run],
+    artifacts,
+    reviewGates: {
+      creative: { decision: 'pending', reviewCount: 0, openCount: 0, resolvedCount: 0 },
+      rights: { decision: 'approved', reviewCount: 1, openCount: 0, resolvedCount: 1 },
+      public_release: { decision: 'changes_required', reviewCount: 1, openCount: 1, resolvedCount: 0 },
+    },
+  } as unknown as ProductionDetail;
+  return { detail, jobs: [sourceJob, ...childJobs] };
+};
+
+test('delivery resolver closes one detailed Job, child attempts, and six registered artifacts', () => {
+  const { detail, jobs } = deliveryFixture();
+  const resolution = api.resolveDeliveryPackageSource(detail, jobs);
+  assert.equal(resolution.ready, true);
+  if (!resolution.ready) return;
+  const body = api.buildDeliveryPackageRequest(
+    resolution.source,
+    '  生成AIショート  ',
+    '公開用の説明です。',
+  );
+  assert.deepEqual(body, {
+    schema_version: 1,
+    run_id: `run_${'b'.repeat(32)}`,
+    source_job_id: `job_${'d'.repeat(32)}`,
+    artifacts: {
+      captioned_master: `art_${'2'.padStart(32, '0')}`,
+      captions: `art_${'3'.padStart(32, '0')}`,
+      clean_master: `art_${'1'.padStart(32, '0')}`,
+      qc_ffprobe: `art_${'5'.padStart(32, '0')}`,
+      qc_manifest: `art_${'6'.padStart(32, '0')}`,
+      technical_qc: `art_${'4'.padStart(32, '0')}`,
+    },
+    metadata: { title: '生成AIショート', description: '公開用の説明です。' },
+  });
+  assert.deepEqual(Object.keys(body).sort(), ['artifacts', 'metadata', 'run_id', 'schema_version', 'source_job_id']);
+  assert.throws(() => api.buildDeliveryPackageRequest(resolution.source, '公開\u202e禁止', '説明'));
+});
+
+test('delivery resolver explains a missing exact child artifact instead of submitting', () => {
+  const { detail, jobs } = deliveryFixture();
+  const narration = jobs.find((job) => job.type === 'local_narration');
+  if (!narration?.result) throw new Error('narration fixture is missing');
+  narration.result.artifacts = [];
+  const resolution = api.resolveDeliveryPackageSource(detail, jobs);
+  assert.equal(resolution.ready, false);
+  if (resolution.ready) return;
+  assert.match(resolution.reason, /captions\.srt/);
+});
+
+test('delivery API posts the exact closed body to the encoded production route', async () => {
+  const { detail, jobs } = deliveryFixture();
+  const resolution = api.resolveDeliveryPackageSource(detail, jobs);
+  if (!resolution.ready) throw new Error(resolution.reason);
+  const body = api.buildDeliveryPackageRequest(resolution.source, '納品タイトル', '納品説明');
+  const originalFetch = globalThis.fetch;
+  let capturedUrl = '';
+  let capturedInit: RequestInit | undefined;
+  globalThis.fetch = async (url, init) => {
+    capturedUrl = String(url);
+    capturedInit = init;
+    return new Response(JSON.stringify({
+      id: `job_${'e'.repeat(32)}`,
+      kind: 'delivery_package',
+      status: 'pending',
+      production_id: detail.id,
+      payload: {
+        production_id: detail.id,
+        run_id: body.run_id,
+        source_job_id: body.source_job_id,
+        artifact_ids: body.artifacts,
+      },
+    }), { status: 202, headers: { 'content-type': 'application/json' } });
+  };
+  try {
+    const job = await api.api.createDeliveryPackage(detail.id, body);
+    assert.equal(capturedUrl, `/api/productions/${detail.id}/delivery-packages`);
+    assert.equal(capturedInit?.method, 'POST');
+    assert.deepEqual(JSON.parse(String(capturedInit?.body)), body);
+    assert.equal(job.id, `job_${'e'.repeat(32)}`);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('delivery result parser exposes only a verified local zero-cost ZIP', () => {
+  const productionId = `production_${'a'.repeat(32)}`;
+  const runId = `run_${'b'.repeat(32)}`;
+  const packageKey = 'A'.repeat(64);
+  const job = api.normalizeJob({
+    id: `job_${'e'.repeat(32)}`,
+    kind: 'delivery_package',
+    status: 'succeeded',
+    production_id: productionId,
+    payload: { production_id: productionId, run_id: runId },
+    result: {
+      schema_version: 1,
+      production_id: productionId,
+      run_id: runId,
+      source_job_id: `job_${'d'.repeat(32)}`,
+      package_key: packageKey,
+      artifact: {
+        id: `art_${'f'.repeat(32)}`,
+        production_id: productionId,
+        origin: 'studio',
+        kind: 'delivery',
+        name: 'delivery-package.zip',
+        media_type: 'application/zip',
+        rel_path: `outputs/studio/deliveries/${productionId}/${packageKey}/delivery-package.zip`,
+        bytes: 1_234,
+        sha256: 'F'.repeat(64),
+        available: true,
+      },
+      sha256_sidecar: `outputs/studio/deliveries/${productionId}/${packageKey}/delivery-package.zip.sha256`,
+      files_included: 13,
+      thumbnail_count: 3,
+      cache_hit: false,
+      network_used: false,
+      billable: false,
+    },
+  });
+  const result = api.deliveryPackageResult(job);
+  const canonicalUrl = `/api/artifacts/art_${'f'.repeat(32)}/file`;
+  assert.equal(result?.artifact.url, canonicalUrl);
+  assert.equal(result?.networkUsed, false);
+  assert.equal(result?.billable, false);
+  const raw = job.result?.raw as Record<string, unknown>;
+  const artifact = raw.artifact as Record<string, unknown>;
+  artifact.download_url = canonicalUrl;
+  assert.equal(api.deliveryPackageResult(job)?.artifact.url, canonicalUrl);
+  artifact.download_url = 'https://attacker.invalid/package.zip';
+  assert.equal(api.deliveryPackageResult(job), undefined);
+  delete artifact.download_url;
+  artifact.bytes = 0;
+  assert.equal(api.deliveryPackageResult(job), undefined);
+  artifact.bytes = 1_234;
+  artifact.sha256 = 'f'.repeat(64);
+  assert.equal(api.deliveryPackageResult(job), undefined);
+  artifact.sha256 = 'F'.repeat(64);
+  artifact.rel_path = `outputs/studio/deliveries/${productionId}/${packageKey}/nested/delivery-package.zip`;
+  assert.equal(api.deliveryPackageResult(job), undefined);
+  artifact.rel_path = `outputs/studio/deliveries/${productionId}/${packageKey}/delivery-package.zip`;
+  raw.sha256_sidecar = `outputs/studio/deliveries/${productionId}/${packageKey}/nested/delivery-package.zip.sha256`;
+  assert.equal(api.deliveryPackageResult(job), undefined);
+  raw.sha256_sidecar = `outputs/studio/deliveries/${productionId}/${packageKey}/delivery-package.zip.sha256`;
+  raw.files_included = 14;
+  assert.equal(api.deliveryPackageResult(job), undefined);
+  raw.files_included = 13;
+  raw.network_used = true;
+  assert.equal(api.deliveryPackageResult(job), undefined);
+});
+
+test('delivery tab monitors the exact Job and shows gates without making them a creation blocker', () => {
+  assert.match(appSource, /id: 'delivery', label: '納品・公開'/);
+  assert.match(appSource, /<DeliveryPanel key=\{detail\.id\}/);
+  assert.match(deliveryPanelSource, /resolveDeliveryPackageSource\(detail, jobs\)/);
+  assert.match(deliveryPanelSource, /api\.createDeliveryPackage\(detail\.id, body\)/);
+  assert.match(deliveryPanelSource, /api\.job\(jobId\)/);
+  assert.match(deliveryPanelSource, /未承認でも確認用Deliveryの作成自体は止めません/);
+  assert.match(deliveryPanelSource, /ZIPをダウンロード/);
+  assert.match(apiSource, /delivery-packages/);
 });

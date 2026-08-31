@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import ctypes
+import hashlib
 import http.cookies
 import ipaddress
 import json
@@ -15,7 +17,7 @@ import urllib.parse
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any
+from typing import Any, BinaryIO
 
 from .instance_lock import StudioInstanceLockError, WorkspaceInstanceLock
 from .security import (
@@ -88,6 +90,7 @@ _RUN_CREATE_RE = re.compile(r"^/api/productions/([^/]+)/runs$")
 _RUN_APPROVE_RE = re.compile(r"^/api/runs/([^/]+)/approve$")
 _RUN_LOCAL_NARRATION_RE = re.compile(r"^/api/runs/([^/]+)/execute-local-narration$")
 _RUN_EXTERNAL_NARRATION_RE = re.compile(r"^/api/runs/([^/]+)/execute-external-narration$")
+_RUN_VOICE_UPGRADE_RE = re.compile(r"^/api/runs/([^/]+)/execute-voice-upgrade$")
 _RUN_LOCAL_VIDEO_GENERATION_RE = re.compile(
     r"^/api/runs/([^/]+)/execute-local-video-generation$"
 )
@@ -100,6 +103,9 @@ _RUN_WINDOWS_CAPTURE_RE = re.compile(
 _RUN_WINDOWS_CAPTURE_CONSENT_RE = re.compile(
     r"^/api/runs/([^/]+)/windows-capture-consent-intents$"
 )
+_RUN_WINDOWS_CAPTURE_ACCEPTANCE_RE = re.compile(
+    r"^/api/runs/([^/]+)/windows-capture-acceptance$"
+)
 _WINDOWS_CAPTURE_CANCEL_RE = re.compile(
     r"^/api/jobs/([^/]+)/cancel-windows-capture$"
 )
@@ -111,6 +117,15 @@ _RUN_REMOTION_TIMELINE_RE = re.compile(
 _RUN_LOCAL_ASSEMBLY_RE = re.compile(r"^/api/runs/([^/]+)/execute-local-assembly$")
 _RUN_LOCAL_QC_RE = re.compile(r"^/api/runs/([^/]+)/execute-local-qc$")
 _AUDIT_EXPORT_RE = re.compile(r"^/api/productions/([^/]+)/audit-export$")
+_DELIVERY_PACKAGE_RE = re.compile(
+    r"^/api/productions/([^/]+)/delivery-packages$"
+)
+_YOUTUBE_PUBLISH_PREVIEW_RE = re.compile(
+    r"^/api/productions/([^/]+)/youtube-publish-preview$"
+)
+_YOUTUBE_PUBLISH_RE = re.compile(
+    r"^/api/productions/([^/]+)/youtube-publish$"
+)
 
 
 def _textual_artifact(artifact: dict[str, Any], path: Path) -> bool:
@@ -135,11 +150,99 @@ def _safe_inline_artifact(artifact: dict[str, Any], path: Path) -> bool:
 def _studio_audit_download(artifact: dict[str, Any], path: Path) -> bool:
     relative = str(artifact.get("rel_path", "")).replace("\\", "/").casefold()
     return bool(
-        artifact.get("kind") == "audit"
-        and artifact.get("origin") == "studio"
+        artifact.get("origin") == "studio"
         and path.suffix.casefold() == ".zip"
-        and relative.startswith("outputs/studio/audits/")
+        and (
+            (
+                artifact.get("kind") == "audit"
+                and relative.startswith("outputs/studio/audits/")
+            )
+            or (
+                artifact.get("kind") == "delivery"
+                and relative.startswith("outputs/studio/deliveries/")
+            )
+        )
     )
+
+
+def _open_download_handle(path: Path, *, deny_mutation: bool) -> BinaryIO:
+    """Open one read handle; Windows integrity-bound downloads deny write/delete."""
+
+    if os.name != "nt" or not deny_mutation:
+        return path.open("rb")
+    import msvcrt
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    create_file = kernel32.CreateFileW
+    create_file.argtypes = (
+        ctypes.c_wchar_p,
+        ctypes.c_uint32,
+        ctypes.c_uint32,
+        ctypes.c_void_p,
+        ctypes.c_uint32,
+        ctypes.c_uint32,
+        ctypes.c_void_p,
+    )
+    create_file.restype = ctypes.c_void_p
+    close_handle = kernel32.CloseHandle
+    close_handle.argtypes = (ctypes.c_void_p,)
+    close_handle.restype = ctypes.c_int
+    raw_handle = create_file(
+        str(path),
+        0x80000000,  # GENERIC_READ
+        0x00000001,  # FILE_SHARE_READ only: deny concurrent write/delete
+        None,
+        3,  # OPEN_EXISTING
+        0x00000080 | 0x08000000,  # NORMAL | SEQUENTIAL_SCAN
+        None,
+    )
+    invalid = ctypes.c_void_p(-1).value
+    if raw_handle in {None, invalid}:
+        error = int(ctypes.get_last_error())
+        raise OSError(error, "CreateFileW failed for artifact download")
+    try:
+        descriptor = msvcrt.open_osfhandle(
+            int(raw_handle), os.O_RDONLY | getattr(os, "O_BINARY", 0)
+        )
+    except BaseException:
+        close_handle(raw_handle)
+        raise
+    return os.fdopen(descriptor, "rb", closefd=True)
+
+
+def _verify_registered_download(
+    handle: BinaryIO,
+    artifact: dict[str, Any],
+) -> int:
+    """Bind an archive download to the registered bytes, mtime and SHA-256."""
+
+    expected_bytes = artifact.get("bytes")
+    expected_mtime_ns = artifact.get("mtime_ns")
+    expected_sha256 = artifact.get("sha256")
+    if (
+        not isinstance(expected_bytes, int)
+        or isinstance(expected_bytes, bool)
+        or expected_bytes <= 0
+        or not isinstance(expected_mtime_ns, int)
+        or isinstance(expected_mtime_ns, bool)
+        or expected_mtime_ns <= 0
+        or not isinstance(expected_sha256, str)
+        or re.fullmatch(r"[0-9A-F]{64}", expected_sha256) is None
+    ):
+        raise OSError("registered artifact identity is invalid")
+    stat = os.fstat(handle.fileno())
+    if stat.st_size != expected_bytes or stat.st_mtime_ns != expected_mtime_ns:
+        raise OSError("registered artifact metadata changed")
+    digest = hashlib.sha256()
+    handle.seek(0)
+    while chunk := handle.read(1024 * 1024):
+        digest.update(chunk)
+    if digest.hexdigest().upper() != expected_sha256:
+        raise OSError("registered artifact content changed")
+    if os.fstat(handle.fileno()).st_size != expected_bytes:
+        raise OSError("registered artifact size changed")
+    handle.seek(0)
+    return expected_bytes
 
 
 def _loopback_host(host: str) -> bool:
@@ -815,6 +918,10 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
         if match:
             self._send_json(202, service.execute_external_narration(match.group(1), body))
             return
+        match = _RUN_VOICE_UPGRADE_RE.fullmatch(path)
+        if match:
+            self._send_json(202, service.execute_voice_upgrade(match.group(1), body))
+            return
         match = _RUN_LOCAL_VIDEO_GENERATION_RE.fullmatch(path)
         if match:
             self._send_json(
@@ -849,6 +956,13 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
                 ),
             )
             return
+        match = _RUN_WINDOWS_CAPTURE_ACCEPTANCE_RE.fullmatch(path)
+        if match:
+            recorded = service.record_windows_capture_acceptance(
+                match.group(1), body
+            )
+            self._send_json(201 if recorded["created"] else 200, recorded)
+            return
         match = _WINDOWS_CAPTURE_CANCEL_RE.fullmatch(path)
         if match:
             self._send_json(
@@ -882,6 +996,24 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
         match = _AUDIT_EXPORT_RE.fullmatch(path)
         if match:
             self._send_json(202, service.audit_export(match.group(1), body))
+            return
+        match = _DELIVERY_PACKAGE_RE.fullmatch(path)
+        if match:
+            self._send_json(
+                202, service.create_delivery_package(match.group(1), body)
+            )
+            return
+        match = _YOUTUBE_PUBLISH_PREVIEW_RE.fullmatch(path)
+        if match:
+            self._send_json(
+                200, service.youtube_publish_preview(match.group(1), body)
+            )
+            return
+        match = _YOUTUBE_PUBLISH_RE.fullmatch(path)
+        if match:
+            self._send_json(
+                202, service.execute_youtube_publish(match.group(1), body)
+            )
             return
         self._error(404, "not_found", "The API endpoint was not found.")
 
@@ -930,7 +1062,8 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
             self._error(404, "not_found", "The artifact file is unavailable.", send_body=send_body)
             return
         textual = _textual_artifact(artifact, path)
-        if not textual and not _safe_inline_artifact(artifact, path) and not _studio_audit_download(artifact, path):
+        archive_download = _studio_audit_download(artifact, path)
+        if not textual and not _safe_inline_artifact(artifact, path) and not archive_download:
             self._error(
                 415,
                 "artifact_format_requires_local_review",
@@ -939,6 +1072,21 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
             )
             return
         payload: bytes | None = None
+        download_handle: BinaryIO | None = None
+        if archive_download:
+            try:
+                download_handle = _open_download_handle(path, deny_mutation=True)
+                raw_size = _verify_registered_download(download_handle, artifact)
+            except OSError:
+                if download_handle is not None:
+                    download_handle.close()
+                self._error(
+                    404,
+                    "not_found",
+                    "The registered artifact file failed integrity verification.",
+                    send_body=send_body,
+                )
+                return
         if textual:
             if raw_size > MAX_REDACTED_TEXT_BYTES:
                 self._error(
@@ -962,46 +1110,58 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
             except OSError:
                 self._error(404, "not_found", "The artifact file is unavailable.", send_body=send_body)
                 return
-        size = len(payload) if payload is not None else raw_size
         try:
-            byte_range = self._range(self.headers.get("Range"), size)
-        except RequestValidationError:
-            self.send_response(416)
-            self.send_header("Content-Range", f"bytes */{size}")
-            self.send_header("Content-Length", "0")
+            size = len(payload) if payload is not None else raw_size
+            try:
+                byte_range = self._range(self.headers.get("Range"), size)
+            except RequestValidationError:
+                self.send_response(416)
+                self.send_header("Content-Range", f"bytes */{size}")
+                self.send_header("Content-Length", "0")
+                self._common_headers()
+                self.end_headers()
+                return
+            start, end = byte_range if byte_range is not None else (0, size - 1)
+            length = max(0, end - start + 1)
+            self.send_response(206 if byte_range is not None else 200)
+            content_type = artifact["media_type"]
+            if textual and "charset=" not in content_type.casefold():
+                content_type = f"{content_type}; charset=utf-8"
+            self.send_header("Content-Type", content_type)
+            self.send_header("Accept-Ranges", "bytes")
+            self.send_header("Content-Length", str(length))
+            quoted_name = urllib.parse.quote(path.name, safe="")
+            inline = _safe_inline_artifact(artifact, path) and not textual
+            disposition = "inline" if inline else "attachment"
+            self.send_header(
+                "Content-Disposition",
+                f"{disposition}; filename*=UTF-8''{quoted_name}",
+            )
+            self.send_header("Cross-Origin-Resource-Policy", "same-origin")
+            if textual:
+                self.send_header("X-Studio-Content-Redacted", "true")
+            if not inline:
+                self.send_header(
+                    "Content-Security-Policy",
+                    "sandbox; default-src 'none'; base-uri 'none'; form-action 'none'",
+                )
+            if byte_range is not None:
+                self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
             self._common_headers()
             self.end_headers()
-            return
-        start, end = byte_range if byte_range is not None else (0, size - 1)
-        length = max(0, end - start + 1)
-        self.send_response(206 if byte_range is not None else 200)
-        content_type = artifact["media_type"]
-        if textual and "charset=" not in content_type.casefold():
-            content_type = f"{content_type}; charset=utf-8"
-        self.send_header("Content-Type", content_type)
-        self.send_header("Accept-Ranges", "bytes")
-        self.send_header("Content-Length", str(length))
-        quoted_name = urllib.parse.quote(path.name, safe="")
-        inline = _safe_inline_artifact(artifact, path) and not textual
-        disposition = "inline" if inline else "attachment"
-        self.send_header("Content-Disposition", f"{disposition}; filename*=UTF-8''{quoted_name}")
-        self.send_header("Cross-Origin-Resource-Policy", "same-origin")
-        if textual:
-            self.send_header("X-Studio-Content-Redacted", "true")
-        if not inline:
-            self.send_header(
-                "Content-Security-Policy",
-                "sandbox; default-src 'none'; base-uri 'none'; form-action 'none'",
-            )
-        if byte_range is not None:
-            self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
-        self._common_headers()
-        self.end_headers()
-        if not send_body or length == 0:
-            return
-        try:
+            if not send_body or length == 0:
+                return
             if payload is not None:
                 self.wfile.write(payload[start : end + 1])
+            elif download_handle is not None:
+                download_handle.seek(start)
+                remaining = length
+                while remaining:
+                    chunk = download_handle.read(min(1024 * 1024, remaining))
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    remaining -= len(chunk)
             else:
                 with path.open("rb") as handle:
                     handle.seek(start)
@@ -1014,6 +1174,9 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
                         remaining -= len(chunk)
         except (BrokenPipeError, ConnectionResetError, OSError):
             return
+        finally:
+            if download_handle is not None:
+                download_handle.close()
 
     def _serve_static(self, request_path: str, *, send_body: bool) -> None:
         static_root = self.server.static_dir
