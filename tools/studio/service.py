@@ -94,6 +94,20 @@ from .production_library import (
     validate_production_duplicate_payload,
     validate_production_rename_payload,
 )
+from .reviews import (
+    REVIEW_SCHEMA_VERSION,
+    ReviewValidationError,
+    build_review_create_action,
+    build_review_decision_action,
+    build_review_resolve_action,
+    build_review_revision_plan_action,
+    public_review_action,
+    review_by_id,
+    validate_review_create_payload,
+    validate_review_decision_payload,
+    validate_review_plan_payload,
+    validate_review_resolve_payload,
+)
 from .job_control import (
     JOB_CONTROL_SCHEMA_VERSION,
     JobControlValidationError,
@@ -1448,10 +1462,122 @@ class StudioService:
         self, production_id: str, *, artifact_limit: int = 5000, artifact_offset: int = 0
     ) -> dict[str, Any] | None:
         validate_identifier(production_id, label="production id")
-        return self.database.get_production_detail(
+        detail = self.database.get_production_detail(
             production_id,
             artifact_limit=max(1, min(int(artifact_limit), 10_000)),
             artifact_offset=max(0, int(artifact_offset)),
+        )
+        if detail is None:
+            return None
+        reviews = self.database.review_snapshot(production_id)
+        detail["reviews"] = reviews["reviews"]
+        detail["review_gates"] = reviews["gates"]
+        detail["review_count"] = reviews["count"]
+        detail["review_open_count"] = reviews["open_count"]
+        return detail
+
+    def list_reviews(self, production_id: str) -> dict[str, Any]:
+        validate_identifier(production_id, label="production id")
+        return self.database.review_snapshot(production_id)
+
+    @staticmethod
+    def _review_action_response(
+        production_id: str,
+        snapshot: dict[str, Any],
+        event: dict[str, Any],
+        *,
+        created: bool,
+    ) -> dict[str, Any]:
+        action = event.get("payload")
+        if not isinstance(action, dict):
+            raise RuntimeError("review action event is invalid")
+        thread = review_by_id(snapshot, action["review_id"])
+        return {
+            "schema_version": REVIEW_SCHEMA_VERSION,
+            "production_id": production_id,
+            "review": thread,
+            "action": public_review_action(action, event),
+            "gates": snapshot["gates"],
+            "deduplicated": not created,
+        }
+
+    def create_review(self, production_id: str, body: dict[str, Any]) -> dict[str, Any]:
+        validate_identifier(production_id, label="production id")
+        try:
+            request = validate_review_create_payload(body)
+            self.database.validate_review_identity(
+                production_id,
+                artifact_id=request["artifact_id"],
+                revision_id=request["revision_id"],
+                run_id=request["run_id"],
+            )
+            action = build_review_create_action(production_id, request)
+            event, created = self.database.append_review_action(production_id, action)
+            snapshot = self.database.review_snapshot(production_id)
+        except ReviewValidationError as exc:
+            raise RequestValidationError(str(exc), code=exc.code) from exc
+        except ValueError as exc:
+            raise RequestValidationError(
+                "The review lineage does not belong to this production.",
+                code="invalid_review_lineage",
+            ) from exc
+        return self._review_action_response(
+            production_id, snapshot, event, created=created
+        )
+
+    def resolve_review(
+        self, production_id: str, review_id: str, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        validate_identifier(production_id, label="production id")
+        try:
+            request = validate_review_resolve_payload(body)
+            snapshot = self.database.review_snapshot(production_id)
+            thread = review_by_id(snapshot, review_id)
+            action = build_review_resolve_action(production_id, thread, request)
+            event, created = self.database.append_review_action(production_id, action)
+            snapshot = self.database.review_snapshot(production_id)
+        except ReviewValidationError as exc:
+            raise RequestValidationError(str(exc), code=exc.code) from exc
+        return self._review_action_response(
+            production_id, snapshot, event, created=created
+        )
+
+    def set_review_decision(
+        self, production_id: str, review_id: str, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        validate_identifier(production_id, label="production id")
+        try:
+            request = validate_review_decision_payload(body)
+            snapshot = self.database.review_snapshot(production_id)
+            thread = review_by_id(snapshot, review_id)
+            action = build_review_decision_action(production_id, thread, request)
+            event, created = self.database.append_review_action(production_id, action)
+            snapshot = self.database.review_snapshot(production_id)
+        except ReviewValidationError as exc:
+            raise RequestValidationError(str(exc), code=exc.code) from exc
+        return self._review_action_response(
+            production_id, snapshot, event, created=created
+        )
+
+    def create_review_revision_plan(
+        self, production_id: str, review_id: str, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Create an auditable cut-only plan without claiming a render ran."""
+
+        validate_identifier(production_id, label="production id")
+        try:
+            request = validate_review_plan_payload(body)
+            snapshot = self.database.review_snapshot(production_id)
+            thread = review_by_id(snapshot, review_id)
+            action = build_review_revision_plan_action(
+                production_id, thread, request
+            )
+            event, created = self.database.append_review_action(production_id, action)
+            snapshot = self.database.review_snapshot(production_id)
+        except ReviewValidationError as exc:
+            raise RequestValidationError(str(exc), code=exc.code) from exc
+        return self._review_action_response(
+            production_id, snapshot, event, created=created
         )
 
     def list_announcement_recipes(self, production_id: str) -> dict[str, Any]:

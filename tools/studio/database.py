@@ -1883,6 +1883,119 @@ class StudioDatabase:
             return self._append_event(connection, scope_type, scope_id, event_type, payload)
 
     @staticmethod
+    def _review_events_from_connection(
+        connection: sqlite3.Connection, production_id: str
+    ) -> list[dict[str, Any]]:
+        """Load only the closed review ledger for one production.
+
+        Reviews deliberately reuse the existing immutable, hash-chained event
+        store instead of adding a mutable status table.  The public snapshot is
+        reconstructed from these actions, including after event-mirror restore.
+        """
+
+        from .reviews import REVIEW_EVENT_TYPES
+
+        placeholders = ",".join("?" for _ in REVIEW_EVENT_TYPES)
+        rows = connection.execute(
+            "SELECT * FROM events WHERE scope_type='production' AND scope_id=? "
+            f"AND event_type IN ({placeholders}) ORDER BY id",
+            (production_id, *sorted(REVIEW_EVENT_TYPES)),
+        ).fetchall()
+        return [StudioDatabase._event_dict(row) for row in rows]
+
+    def review_snapshot(self, production_id: str) -> dict[str, Any]:
+        from .reviews import review_snapshot
+
+        with self.session() as connection:
+            production = connection.execute(
+                "SELECT 1 FROM productions WHERE id=?", (production_id,)
+            ).fetchone()
+            if production is None:
+                raise KeyError("production not found")
+            events = self._review_events_from_connection(connection, production_id)
+        return review_snapshot(production_id, events)
+
+    def validate_review_identity(
+        self,
+        production_id: str,
+        *,
+        artifact_id: str,
+        revision_id: str,
+        run_id: str,
+    ) -> None:
+        """Resolve exact review provenance without exposing local paths."""
+
+        with self.session() as connection:
+            artifact = connection.execute(
+                "SELECT production_id, available FROM artifacts WHERE id=?",
+                (artifact_id,),
+            ).fetchone()
+            revision = connection.execute(
+                "SELECT production_id FROM revisions WHERE id=?", (revision_id,)
+            ).fetchone()
+            run = connection.execute(
+                "SELECT production_id, revision_id FROM runs WHERE id=?", (run_id,)
+            ).fetchone()
+        if artifact is None or not bool(artifact["available"]):
+            raise KeyError("artifact not found")
+        if revision is None or run is None:
+            raise KeyError("review lineage not found")
+        if (
+            artifact["production_id"] != production_id
+            or revision["production_id"] != production_id
+            or run["production_id"] != production_id
+            or run["revision_id"] != revision_id
+        ):
+            raise ValueError("review identity does not belong to the production")
+
+    def append_review_action(
+        self, production_id: str, action: dict[str, Any]
+    ) -> tuple[dict[str, Any], bool]:
+        """Atomically deduplicate, validate, and append one review action.
+
+        The production-scoped idempotency key is compared inside the same
+        ``BEGIN IMMEDIATE`` transaction as the event append.  A replay of the
+        exact request returns its original event; key reuse with different
+        content fails closed.
+        """
+
+        from .reviews import (
+            ReviewValidationError,
+            review_snapshot,
+            validate_review_action,
+            validate_review_transition,
+        )
+
+        normalized = validate_review_action(action)
+        with self.transaction() as connection:
+            production = connection.execute(
+                "SELECT 1 FROM productions WHERE id=?", (production_id,)
+            ).fetchone()
+            if production is None:
+                raise KeyError("production not found")
+            events = self._review_events_from_connection(connection, production_id)
+            for event in events:
+                payload = validate_review_action(event.get("payload"))
+                if payload["idempotency_key"] != normalized["idempotency_key"]:
+                    continue
+                if payload["request_digest"] != normalized["request_digest"]:
+                    raise ReviewValidationError(
+                        "idempotency_key was already used for a different review action",
+                        code="review_idempotency_conflict",
+                    )
+                return event, False
+            snapshot = review_snapshot(production_id, events)
+            validate_review_transition(snapshot, normalized)
+            event = self._append_event(
+                connection,
+                "production",
+                production_id,
+                f"review.{normalized['action']}",
+                normalized,
+            )
+            return event, True
+
+    @staticmethod
     def _announcement_recipe_record(row: sqlite3.Row) -> dict[str, Any]:
         """Decode and verify one exact recipe carried by an append-only event."""
 

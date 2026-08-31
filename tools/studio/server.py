@@ -74,6 +74,16 @@ _ANNOUNCEMENT_RECIPE_DUPLICATE_RE = re.compile(
 _ANNOUNCEMENT_RECIPE_EXECUTE_RE = re.compile(
     r"^/api/productions/([^/]+)/announcement-recipes/([^/]+)/execute$"
 )
+_REVIEWS_RE = re.compile(r"^/api/productions/([^/]+)/reviews$")
+_REVIEW_RESOLVE_RE = re.compile(
+    r"^/api/productions/([^/]+)/reviews/([^/]+)/resolve$"
+)
+_REVIEW_DECISION_RE = re.compile(
+    r"^/api/productions/([^/]+)/reviews/([^/]+)/decision$"
+)
+_REVIEW_REVISION_PLAN_RE = re.compile(
+    r"^/api/productions/([^/]+)/reviews/([^/]+)/revision-plan$"
+)
 _RUN_CREATE_RE = re.compile(r"^/api/productions/([^/]+)/runs$")
 _RUN_APPROVE_RE = re.compile(r"^/api/runs/([^/]+)/approve$")
 _RUN_LOCAL_NARRATION_RE = re.compile(r"^/api/runs/([^/]+)/execute-local-narration$")
@@ -511,6 +521,8 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
                     "production_library_operation_conflict",
                     "production_library_revision_conflict",
                     "production_library_duplicate_conflict",
+                    "review_already_resolved",
+                    "review_idempotency_conflict",
                     "windows_capture_busy",
                     "windows_capture_unavailable",
                     "windows_capture_consent_expired",
@@ -645,6 +657,14 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
                 send_body=send_body,
             )
             return
+        match = _REVIEWS_RE.fullmatch(path)
+        if match:
+            self._send_json(
+                200,
+                service.list_reviews(match.group(1)),
+                send_body=send_body,
+            )
+            return
         match = _PRODUCTION_DETAIL_RE.fullmatch(path)
         if match:
             limit = self._query_integer(query, "artifact_limit", 5000, minimum=1, maximum=10_000)
@@ -723,6 +743,33 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
         if match:
             self._send_json(
                 202, service.execute_detailed_test_video(match.group(1), body)
+            )
+            return
+        match = _REVIEWS_RE.fullmatch(path)
+        if match:
+            self._send_json(201, service.create_review(match.group(1), body))
+            return
+        match = _REVIEW_RESOLVE_RE.fullmatch(path)
+        if match:
+            self._send_json(
+                201,
+                service.resolve_review(match.group(1), match.group(2), body),
+            )
+            return
+        match = _REVIEW_DECISION_RE.fullmatch(path)
+        if match:
+            self._send_json(
+                201,
+                service.set_review_decision(match.group(1), match.group(2), body),
+            )
+            return
+        match = _REVIEW_REVISION_PLAN_RE.fullmatch(path)
+        if match:
+            self._send_json(
+                201,
+                service.create_review_revision_plan(
+                    match.group(1), match.group(2), body
+                ),
             )
             return
         match = _ANNOUNCEMENT_RECIPE_SAVE_RE.fullmatch(path)

@@ -98,6 +98,7 @@ import { buildRemotionTimelineCompositionProps } from './remotion/model';
 import { QuickCreateForm } from './QuickCreateForm';
 import { SimpleCreateWizard } from './SimpleCreateWizard';
 import { ProductionLibraryPanel } from './ProductionLibraryPanel';
+import { ReviewPanel } from './ReviewPanel';
 import type {
   Approval,
   AnnouncementRecipeRecord,
@@ -141,7 +142,7 @@ import type {
   WindowsCaptureRequest,
 } from './types';
 
-type DetailTab = 'overview' | 'pipeline' | 'announcement' | 'detailed-test' | 'video' | 'capture' | 'narration' | 'timeline' | 'assembly' | 'qc' | 'artifacts' | 'compare' | 'logs' | 'audit';
+type DetailTab = 'overview' | 'pipeline' | 'announcement' | 'detailed-test' | 'video' | 'capture' | 'narration' | 'timeline' | 'assembly' | 'qc' | 'review' | 'artifacts' | 'compare' | 'logs' | 'audit';
 
 const STATUS_LABEL: Record<StudioStatus, string> = {
   pending: '待機',
@@ -1429,6 +1430,7 @@ function ProductionWorkspace({ detail, jobs, providers, onReload, onReloadStatus
     { id: 'timeline', label: 'カット編集' },
     { id: 'assembly', label: '編集・合成' },
     { id: 'qc', label: '品質検査' },
+    { id: 'review', label: 'レビュー', count: detail.reviews.length || undefined },
     { id: 'artifacts', label: '成果物', count: detail.artifacts.length },
     { id: 'compare', label: 'A/B比較' },
     { id: 'logs', label: 'ログ', count: detail.events.length },
@@ -1496,6 +1498,7 @@ function ProductionWorkspace({ detail, jobs, providers, onReload, onReloadStatus
         {tab === 'timeline' && <TimelinePanel detail={detail} jobs={jobs} onReload={onReload} />}
         {tab === 'assembly' && <AssemblyPanel detail={detail} jobs={jobs} onReload={onReload} />}
         {tab === 'qc' && <QcPanel detail={detail} jobs={jobs} onReload={onReload} />}
+        {tab === 'review' && <ReviewPanel key={detail.id} detail={detail} onReload={onReload} />}
         {tab === 'artifacts' && <ArtifactsPanel artifacts={detail.artifacts} />}
         {tab === 'compare' && <ComparisonPanel artifacts={detail.artifacts} />}
         {tab === 'logs' && <LogPanel events={detail.events} />}
