@@ -108,7 +108,7 @@ def validate_production_id(value: Any) -> str:
     return value
 
 
-def _bounded_title(value: Any) -> str:
+def validate_production_title(value: Any) -> str:
     if not isinstance(value, str):
         raise _error("title must be a string", "invalid_production_title")
     if value != value.strip() or not value or len(value) > PRODUCTION_TITLE_MAX_CHARS:
@@ -133,7 +133,7 @@ def validate_production_create_payload(value: Any) -> dict[str, Any]:
     return {
         "schema_version": PRODUCTION_SCHEMA_VERSION,
         "production_id": validate_production_id(value["production_id"]),
-        "title": _bounded_title(value["title"]),
+        "title": validate_production_title(value["title"]),
     }
 
 
@@ -248,7 +248,7 @@ def validate_production_metadata(value: Any, *, production_id: str) -> dict[str,
     return {
         "schema_version": PRODUCTION_SCHEMA_VERSION,
         "production_id": production_id,
-        "title": _bounded_title(value["title"]),
+        "title": validate_production_title(value["title"]),
         "imports": dict(sorted(normalized_imports.items())),
     }
 
@@ -344,6 +344,40 @@ def create_production_files(
     }
     _replace_metadata(root, production_id, metadata)
     return metadata, False, True
+
+
+def rename_production_files(
+    workspace: Path,
+    production_id: str,
+    *,
+    expected_title: str,
+    title: str,
+) -> tuple[dict[str, Any], bool]:
+    """Atomically rename one output-owned production control document.
+
+    ``deduplicated`` is true only for recovery after the exact desired title
+    already reached durable storage while its API response/DB commit was lost.
+    The service serializes this call with intake and checks tracked ownership.
+    """
+
+    normalized_id = validate_production_id(production_id)
+    normalized_expected = validate_production_title(expected_title)
+    normalized_title = validate_production_title(title)
+    if normalized_expected == normalized_title:
+        raise _error("title must change", "production_library_no_change")
+    metadata = read_production_metadata(workspace, normalized_id)
+    if metadata is None:
+        raise _error("production was not found", "production_not_found")
+    if metadata["title"] == normalized_title:
+        return metadata, True
+    if metadata["title"] != normalized_expected:
+        raise _error(
+            "production title changed since it was loaded",
+            "production_library_revision_conflict",
+        )
+    updated = {**metadata, "title": normalized_title}
+    _replace_metadata(workspace, normalized_id, updated)
+    return updated, False
 
 
 def _partial_directory(workspace: Path, production_id: str, *, create: bool) -> Path | None:
@@ -600,6 +634,7 @@ def stream_video_import(
     filename_header: Any,
     content_type: Any,
     content_length: Any,
+    expected_sha256: str | None = None,
 ) -> VideoImportResult:
     """Consume exactly Content-Length bytes and publish a verified output artifact."""
 
@@ -610,6 +645,11 @@ def stream_video_import(
     metadata = read_production_metadata(workspace, production_id)
     if metadata is None:
         raise _error("production was not found", "production_not_found")
+    if expected_sha256 is not None and (
+        not isinstance(expected_sha256, str)
+        or _SHA_RE.fullmatch(expected_sha256) is None
+    ):
+        raise _error("expected video digest is invalid", "invalid_video_digest")
     ffprobe, json_probe = _resolve_ffprobe()
     partial: Path | None = None
     destination: Path | None = None
@@ -637,6 +677,11 @@ def stream_video_import(
         finally:
             handle.close()
         digest = digest_builder.hexdigest().upper()
+        if expected_sha256 is not None and digest != expected_sha256:
+            raise _error(
+                "source video no longer matches its production metadata",
+                "video_source_digest_mismatch",
+            )
         _verify_video(ffprobe, json_probe, partial, expected_extension=extension)
 
         existing_relative = next(

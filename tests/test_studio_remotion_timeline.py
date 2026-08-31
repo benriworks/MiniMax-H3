@@ -15,6 +15,7 @@ from tools.studio.jobs import JobCancelled
 from tools.studio.remotion_timeline import (
     COMPOSITION_ID,
     PINNED_REMOTION_VERSION,
+    _FIRST_PARTY_SOURCE_PATHS,
     _clean_environment,
     _cleanup_stage_root,
     _REMOTION_STAGE_CLEANUP_ATTEMPTS,
@@ -103,12 +104,18 @@ class RemotionTimelineWorkerTests(unittest.TestCase):
         self.entry = tools / "entry.tsx"
         self.composition = tools / "TimelineComposition.tsx"
         self.model = tools / "model.ts"
+        self.api = tools / "api.ts"
+        self.status = tools / "status.ts"
+        self.types = tools / "types.ts"
         self.render_script = tools / "remotion_render.mjs"
         self.browser = tools / "chrome.exe"
         for path in (
             self.entry,
             self.composition,
             self.model,
+            self.api,
+            self.status,
+            self.types,
             self.render_script,
             self.browser,
         ):
@@ -132,6 +139,18 @@ class RemotionTimelineWorkerTests(unittest.TestCase):
             "model_source": {
                 "version": "local-remotion-timeline-v1",
                 "sha256": _sha256(self.model),
+            },
+            "api_source": {
+                "version": "local-remotion-timeline-v1",
+                "sha256": _sha256(self.api),
+            },
+            "status_source": {
+                "version": "local-remotion-timeline-v1",
+                "sha256": _sha256(self.status),
+            },
+            "types_source": {
+                "version": "local-remotion-timeline-v1",
+                "sha256": _sha256(self.types),
             },
             "render_script": {
                 "version": "local-remotion-timeline-v1",
@@ -161,6 +180,9 @@ class RemotionTimelineWorkerTests(unittest.TestCase):
                 "entry_point": self.entry,
                 "composition_source": self.composition,
                 "model_source": self.model,
+                "api_source": self.api,
+                "status_source": self.status,
+                "types_source": self.types,
                 "render_script": self.render_script,
             },
         }
@@ -798,6 +820,63 @@ class RemotionTimelineWorkerTests(unittest.TestCase):
             second = self._generate()
         self.assertFalse(second["cache_hit"])
         self.assertEqual(2, self.node_calls)
+
+    def test_transitive_api_change_during_render_fails_closed(self) -> None:
+        self.original_bounded = assembly._bounded_process
+
+        def changing_bounded(arguments, **kwargs):
+            result = self._bounded(arguments, **kwargs)
+            if arguments[0] == "mock-node":
+                self.api.write_text("changed api source", encoding="utf-8")
+            return result
+
+        with (
+            mock.patch("tools.studio.remotion_timeline._resolve_runtime", self._runtime),
+            mock.patch(
+                "tools.studio.remotion_timeline._bounded_process",
+                changing_bounded,
+            ),
+            self.assertRaises(RemotionTimelineError) as raised,
+        ):
+            self._generate()
+        self.assertEqual("tool_changed", raised.exception.error_code)
+        self.assertFalse(
+            (
+                self.workspace
+                / "outputs"
+                / "studio"
+                / "runs"
+                / self.run_id
+                / "remotion_timeline"
+                / self.cache_key
+            ).exists()
+        )
+
+    def test_first_party_build_closure_changes_cache_identity(self) -> None:
+        self.assertEqual(
+            {
+                "entry_point",
+                "composition_source",
+                "model_source",
+                "api_source",
+                "status_source",
+                "types_source",
+            },
+            set(_FIRST_PARTY_SOURCE_PATHS),
+        )
+        for name in ("api_source", "status_source", "types_source"):
+            with self.subTest(name=name):
+                changed_identity = {
+                    key: dict(value) for key, value in self.tool_identity.items()
+                }
+                changed_identity[name]["sha256"] = "F" * 64
+                self.assertNotEqual(
+                    self.cache_key,
+                    remotion_timeline_cache_key(
+                        self.clips,
+                        tool_identity=changed_identity,
+                    ),
+                )
 
     def test_forged_report_with_updated_hashes_is_rejected(self) -> None:
         first_patch, second_patch = self._patch_worker()

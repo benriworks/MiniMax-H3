@@ -784,7 +784,7 @@ class DatabaseMigrationTests(unittest.TestCase):
                 ).fetchone()[0]
             self.assertEqual(version, "999")
 
-    def test_v8_migration_rolls_back_schema_and_version_together(self) -> None:
+    def test_current_migration_rolls_back_schema_and_version_together(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             workspace = Path(temporary).resolve()
             database_path = workspace / "studio.sqlite3"
@@ -796,9 +796,9 @@ class DatabaseMigrationTests(unittest.TestCase):
                         value TEXT NOT NULL
                     );
                     INSERT INTO schema_meta(key, value) VALUES('schema_version', '1');
-                    CREATE TRIGGER reject_schema_v8
+                    CREATE TRIGGER reject_current_schema
                     BEFORE UPDATE OF value ON schema_meta
-                    WHEN NEW.key='schema_version' AND NEW.value='8'
+                    WHEN NEW.key='schema_version' AND NEW.value='9'
                     BEGIN
                         SELECT RAISE(ABORT, 'test migration rollback');
                     END;

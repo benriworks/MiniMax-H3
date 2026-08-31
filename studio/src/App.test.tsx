@@ -16,6 +16,10 @@ declare const process: { cwd(): string };
 declare const Buffer: { from(value: string): { toString(encoding: string): string } };
 
 const appSource = readFileSync(resolve(process.cwd(), 'src', 'App.tsx'), 'utf8');
+const productionLibraryPanelSource = readFileSync(
+  resolve(process.cwd(), 'src', 'ProductionLibraryPanel.tsx'),
+  'utf8',
+);
 const nativePanelSource = appSource.slice(
   appSource.indexOf('function WindowsCapturePanel'),
   appSource.indexOf('function ScreenCapturePanel'),
@@ -25,6 +29,41 @@ const apiSource = readFileSync(resolve(testDist, 'api.js'), 'utf8');
 const statusUrl = pathToFileURL(resolve(testDist, 'status.js')).href;
 const apiModule = apiSource.replaceAll("from './status'", `from '${statusUrl}'`);
 const api = await import(`data:text/javascript;base64,${Buffer.from(apiModule).toString('base64')}`);
+
+test('production library requests are closed, client-identified contracts', () => {
+  const operationId = `production_library_op_${'a'.repeat(32)}`;
+  const productionId = `production_${'b'.repeat(32)}`;
+  assert.deepEqual(api.buildProductionRenamePayload(operationId, 'Before', 'After'), {
+    schema_version: 1,
+    operation_id: operationId,
+    expected_title: 'Before',
+    title: 'After',
+  });
+  assert.deepEqual(api.buildProductionArchivePayload(operationId, false, true), {
+    schema_version: 1,
+    operation_id: operationId,
+    expected_archived: false,
+    archived: true,
+  });
+  assert.deepEqual(api.buildProductionDuplicatePayload(operationId, productionId, 'Copy', true), {
+    schema_version: 1,
+    operation_id: operationId,
+    production_id: productionId,
+    title: 'Copy',
+    include_imports: true,
+  });
+  assert.throws(() => api.buildProductionArchivePayload(operationId, true, true));
+  assert.throws(() => api.buildProductionRenamePayload(operationId, 'Same', 'Same'));
+});
+
+test('production library UI exposes archive visibility and retries only the same operation', () => {
+  assert.match(appSource, /api\.productions\(\{ includeArchived: showArchived \}\)/);
+  assert.match(appSource, /アーカイブ済みを表示/);
+  assert.match(appSource, /<ProductionLibraryPanel production=\{detail\}/);
+  assert.match(productionLibraryPanelSource, /if \(!isStudioApiResponseLoss\(error\)\) throw error;\s*return request\(\)/);
+  assert.match(productionLibraryPanelSource, /production\.libraryReadOnly/);
+  assert.match(productionLibraryPanelSource, /成果物は削除されません/);
+});
 
 const readyCapability: WindowsCaptureCapability = {
   schemaVersion: 1,

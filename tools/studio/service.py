@@ -11,6 +11,7 @@ import threading
 import uuid
 from pathlib import Path
 from typing import Any, BinaryIO, Callable
+from urllib.parse import quote_from_bytes
 
 from .assembly_execution import (
     LocalAssemblyError,
@@ -81,8 +82,31 @@ from .production_intake import (
     ProductionIntakeError,
     cleanup_stale_video_import_partials,
     create_production_files,
+    read_production_metadata,
+    rename_production_files,
     stream_video_import,
     validate_production_id,
+)
+from .production_library import (
+    ProductionLibraryValidationError,
+    production_library_request_digest,
+    validate_production_archive_payload,
+    validate_production_duplicate_payload,
+    validate_production_rename_payload,
+)
+from .reviews import (
+    REVIEW_SCHEMA_VERSION,
+    ReviewValidationError,
+    build_review_create_action,
+    build_review_decision_action,
+    build_review_resolve_action,
+    build_review_revision_plan_action,
+    public_review_action,
+    review_by_id,
+    validate_review_create_payload,
+    validate_review_decision_payload,
+    validate_review_plan_payload,
+    validate_review_resolve_payload,
 )
 from .job_control import (
     JOB_CONTROL_SCHEMA_VERSION,
@@ -1089,9 +1113,235 @@ class StudioService:
                     code="windows_capture_cleanup_failed",
                 ) from exc
 
-    def list_productions(self) -> dict[str, Any]:
-        productions = self.database.list_productions()
+    def list_productions(
+        self, *, include_archived: bool = False, query: str = ""
+    ) -> dict[str, Any]:
+        if not isinstance(include_archived, bool):
+            raise RequestValidationError(
+                "include_archived must be a boolean",
+                code="invalid_production_library_query",
+            )
+        if (
+            not isinstance(query, str)
+            or len(query) > 120
+            or any(ord(character) < 32 or ord(character) == 127 for character in query)
+        ):
+            raise RequestValidationError(
+                "q is invalid or too long",
+                code="invalid_production_library_query",
+            )
+        productions = self.database.list_productions(
+            include_archived=include_archived,
+            query=query,
+        )
         return {"productions": productions, "count": len(productions)}
+
+    def _mutable_library_production(self, production_id: str) -> dict[str, Any]:
+        validate_identifier(production_id, label="production id")
+        production = self.database.get_production(production_id)
+        if production is None:
+            raise KeyError("production not found")
+        # A checked-in production record remains explicitly read-only even if
+        # an output directory happens to share its ID.  Only the Studio intake
+        # control document authorizes a library mutation.
+        try:
+            control = read_production_metadata(self.workspace, production_id)
+        except ProductionIntakeError:
+            control = None
+        if (
+            production.get("library_read_only")
+            or production.get("source_rel") is not None
+            or control is None
+        ):
+            raise RequestValidationError(
+                "tracked productions are read-only in the Studio library",
+                code="production_library_read_only",
+            )
+        return production
+
+    @staticmethod
+    def _library_database_error(exc: ValueError) -> RequestValidationError:
+        message = str(exc)
+        if "operation conflict" in message:
+            return RequestValidationError(
+                "operation_id is already bound to another library request",
+                code="production_library_operation_conflict",
+            )
+        if "revision conflict" in message:
+            return RequestValidationError(
+                "the production library state changed since it was loaded",
+                code="production_library_revision_conflict",
+            )
+        if "read only" in message:
+            return RequestValidationError(
+                "tracked productions are read-only in the Studio library",
+                code="production_library_read_only",
+            )
+        if "target conflict" in message:
+            return RequestValidationError(
+                "duplicate target conflicts with its source",
+                code="production_library_duplicate_conflict",
+            )
+        return RequestValidationError(
+            "the production library mutation could not be accepted",
+            code="invalid_production_library_request",
+        )
+
+    def rename_production(self, production_id: str, body: dict[str, Any]) -> dict[str, Any]:
+        try:
+            payload = validate_production_rename_payload(body)
+        except (ProductionLibraryValidationError, ProductionIntakeError) as exc:
+            raise RequestValidationError(str(exc), code=exc.code) from exc
+        digest = production_library_request_digest("rename", payload)
+        with self._production_intake_lock:
+            try:
+                prior = self.database.get_production_library_operation(
+                    payload["operation_id"],
+                    production_id=production_id,
+                    action="rename",
+                    request_digest=digest,
+                )
+                if prior is not None:
+                    return prior
+                self._mutable_library_production(production_id)
+                _metadata, filesystem_deduplicated = rename_production_files(
+                    self.workspace,
+                    production_id,
+                    expected_title=payload["expected_title"],
+                    title=payload["title"],
+                )
+                return self.database.rename_production_library(
+                    production_id,
+                    operation_id=payload["operation_id"],
+                    request_digest=digest,
+                    expected_title=payload["expected_title"],
+                    title=payload["title"],
+                    filesystem_deduplicated=filesystem_deduplicated,
+                )
+            except ProductionIntakeError as exc:
+                if exc.code == "production_not_found":
+                    raise KeyError("production not found") from exc
+                raise RequestValidationError(str(exc), code=exc.code) from exc
+            except RequestValidationError:
+                raise
+            except ValueError as exc:
+                raise self._library_database_error(exc) from exc
+
+    def archive_production(self, production_id: str, body: dict[str, Any]) -> dict[str, Any]:
+        try:
+            payload = validate_production_archive_payload(body)
+        except ProductionLibraryValidationError as exc:
+            raise RequestValidationError(str(exc), code=exc.code) from exc
+        digest = production_library_request_digest("archive", payload)
+        with self._production_intake_lock:
+            try:
+                prior = self.database.get_production_library_operation(
+                    payload["operation_id"],
+                    production_id=production_id,
+                    action="archive",
+                    request_digest=digest,
+                )
+                if prior is not None:
+                    return prior
+                self._mutable_library_production(production_id)
+                return self.database.archive_production_library(
+                    production_id,
+                    operation_id=payload["operation_id"],
+                    request_digest=digest,
+                    expected_archived=payload["expected_archived"],
+                    archived=payload["archived"],
+                )
+            except RequestValidationError:
+                raise
+            except ValueError as exc:
+                raise self._library_database_error(exc) from exc
+
+    def duplicate_production(self, production_id: str, body: dict[str, Any]) -> dict[str, Any]:
+        try:
+            payload = validate_production_duplicate_payload(body)
+        except (ProductionLibraryValidationError, ProductionIntakeError) as exc:
+            raise RequestValidationError(str(exc), code=exc.code) from exc
+        target_id = payload["production_id"]
+        if target_id == production_id:
+            raise RequestValidationError(
+                "duplicate target must differ from its source",
+                code="production_library_duplicate_conflict",
+            )
+        # The source production is carried by the route, not the JSON body.
+        # Bind it into the durable operation identity so replaying the same
+        # operation ID against another source cannot return the first source's
+        # deduplicated result.
+        digest = production_library_request_digest(
+            "duplicate",
+            {"source_production_id": production_id, "request": payload},
+        )
+        with self._production_intake_lock:
+            try:
+                prior = self.database.get_production_library_operation(
+                    payload["operation_id"],
+                    production_id=target_id,
+                    action="duplicate",
+                    request_digest=digest,
+                )
+                if prior is not None:
+                    return prior
+                self._mutable_library_production(production_id)
+                source_metadata = read_production_metadata(self.workspace, production_id)
+                assert source_metadata is not None
+                create_production_files(
+                    self.workspace,
+                    {
+                        "schema_version": 1,
+                        "production_id": target_id,
+                        "title": payload["title"],
+                    },
+                )
+                imported_count = 0
+                if payload["include_imports"]:
+                    for relative in sorted(source_metadata["imports"]):
+                        source_path = workspace_path(
+                            self.workspace,
+                            f"outputs/productions/{production_id}/{relative}",
+                            must_exist=True,
+                        )
+                        if source_path.is_symlink() or not source_path.is_file():
+                            raise RequestValidationError(
+                                "a source import is unavailable",
+                                code="production_library_duplicate_source_invalid",
+                            )
+                        size = source_path.stat().st_size
+                        header = quote_from_bytes(
+                            source_path.name.encode("utf-8"),
+                            safe="-_.!~*'()",
+                        )
+                        with source_path.open("rb") as stream:
+                            stream_video_import(
+                                self.workspace,
+                                target_id,
+                                stream=stream,
+                                filename_header=header,
+                                content_type="application/octet-stream",
+                                content_length=size,
+                                expected_sha256=source_metadata["imports"][relative],
+                            )
+                        imported_count += 1
+                self.indexer.refresh_production(target_id)
+                return self.database.record_production_duplicate(
+                    target_id,
+                    source_production_id=production_id,
+                    operation_id=payload["operation_id"],
+                    request_digest=digest,
+                    include_imports=payload["include_imports"],
+                    imported_artifact_count=imported_count,
+                )
+            except ProductionIntakeError as exc:
+                if exc.code == "production_not_found":
+                    raise KeyError("production not found") from exc
+                raise RequestValidationError(str(exc), code=exc.code) from exc
+            except RequestValidationError:
+                raise
+            except ValueError as exc:
+                raise self._library_database_error(exc) from exc
 
     def create_production(self, body: dict[str, Any]) -> dict[str, Any]:
         """Create one output-owned production and immediately index it."""
@@ -1212,10 +1462,122 @@ class StudioService:
         self, production_id: str, *, artifact_limit: int = 5000, artifact_offset: int = 0
     ) -> dict[str, Any] | None:
         validate_identifier(production_id, label="production id")
-        return self.database.get_production_detail(
+        detail = self.database.get_production_detail(
             production_id,
             artifact_limit=max(1, min(int(artifact_limit), 10_000)),
             artifact_offset=max(0, int(artifact_offset)),
+        )
+        if detail is None:
+            return None
+        reviews = self.database.review_snapshot(production_id)
+        detail["reviews"] = reviews["reviews"]
+        detail["review_gates"] = reviews["gates"]
+        detail["review_count"] = reviews["count"]
+        detail["review_open_count"] = reviews["open_count"]
+        return detail
+
+    def list_reviews(self, production_id: str) -> dict[str, Any]:
+        validate_identifier(production_id, label="production id")
+        return self.database.review_snapshot(production_id)
+
+    @staticmethod
+    def _review_action_response(
+        production_id: str,
+        snapshot: dict[str, Any],
+        event: dict[str, Any],
+        *,
+        created: bool,
+    ) -> dict[str, Any]:
+        action = event.get("payload")
+        if not isinstance(action, dict):
+            raise RuntimeError("review action event is invalid")
+        thread = review_by_id(snapshot, action["review_id"])
+        return {
+            "schema_version": REVIEW_SCHEMA_VERSION,
+            "production_id": production_id,
+            "review": thread,
+            "action": public_review_action(action, event),
+            "gates": snapshot["gates"],
+            "deduplicated": not created,
+        }
+
+    def create_review(self, production_id: str, body: dict[str, Any]) -> dict[str, Any]:
+        validate_identifier(production_id, label="production id")
+        try:
+            request = validate_review_create_payload(body)
+            self.database.validate_review_identity(
+                production_id,
+                artifact_id=request["artifact_id"],
+                revision_id=request["revision_id"],
+                run_id=request["run_id"],
+            )
+            action = build_review_create_action(production_id, request)
+            event, created = self.database.append_review_action(production_id, action)
+            snapshot = self.database.review_snapshot(production_id)
+        except ReviewValidationError as exc:
+            raise RequestValidationError(str(exc), code=exc.code) from exc
+        except ValueError as exc:
+            raise RequestValidationError(
+                "The review lineage does not belong to this production.",
+                code="invalid_review_lineage",
+            ) from exc
+        return self._review_action_response(
+            production_id, snapshot, event, created=created
+        )
+
+    def resolve_review(
+        self, production_id: str, review_id: str, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        validate_identifier(production_id, label="production id")
+        try:
+            request = validate_review_resolve_payload(body)
+            snapshot = self.database.review_snapshot(production_id)
+            thread = review_by_id(snapshot, review_id)
+            action = build_review_resolve_action(production_id, thread, request)
+            event, created = self.database.append_review_action(production_id, action)
+            snapshot = self.database.review_snapshot(production_id)
+        except ReviewValidationError as exc:
+            raise RequestValidationError(str(exc), code=exc.code) from exc
+        return self._review_action_response(
+            production_id, snapshot, event, created=created
+        )
+
+    def set_review_decision(
+        self, production_id: str, review_id: str, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        validate_identifier(production_id, label="production id")
+        try:
+            request = validate_review_decision_payload(body)
+            snapshot = self.database.review_snapshot(production_id)
+            thread = review_by_id(snapshot, review_id)
+            action = build_review_decision_action(production_id, thread, request)
+            event, created = self.database.append_review_action(production_id, action)
+            snapshot = self.database.review_snapshot(production_id)
+        except ReviewValidationError as exc:
+            raise RequestValidationError(str(exc), code=exc.code) from exc
+        return self._review_action_response(
+            production_id, snapshot, event, created=created
+        )
+
+    def create_review_revision_plan(
+        self, production_id: str, review_id: str, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Create an auditable cut-only plan without claiming a render ran."""
+
+        validate_identifier(production_id, label="production id")
+        try:
+            request = validate_review_plan_payload(body)
+            snapshot = self.database.review_snapshot(production_id)
+            thread = review_by_id(snapshot, review_id)
+            action = build_review_revision_plan_action(
+                production_id, thread, request
+            )
+            event, created = self.database.append_review_action(production_id, action)
+            snapshot = self.database.review_snapshot(production_id)
+        except ReviewValidationError as exc:
+            raise RequestValidationError(str(exc), code=exc.code) from exc
+        return self._review_action_response(
+            production_id, snapshot, event, created=created
         )
 
     def list_announcement_recipes(self, production_id: str) -> dict[str, Any]:

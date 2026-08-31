@@ -96,6 +96,9 @@ import type { AnnouncementDuplicateIntent, AnnouncementSubmissionGuard } from '.
 import { TimelineComposition } from './remotion/TimelineComposition';
 import { buildRemotionTimelineCompositionProps } from './remotion/model';
 import { QuickCreateForm } from './QuickCreateForm';
+import { SimpleCreateWizard } from './SimpleCreateWizard';
+import { ProductionLibraryPanel } from './ProductionLibraryPanel';
+import { ReviewPanel } from './ReviewPanel';
 import type {
   Approval,
   AnnouncementRecipeRecord,
@@ -139,7 +142,7 @@ import type {
   WindowsCaptureRequest,
 } from './types';
 
-type DetailTab = 'overview' | 'pipeline' | 'announcement' | 'detailed-test' | 'video' | 'capture' | 'narration' | 'timeline' | 'assembly' | 'qc' | 'artifacts' | 'compare' | 'logs' | 'audit';
+type DetailTab = 'overview' | 'pipeline' | 'announcement' | 'detailed-test' | 'video' | 'capture' | 'narration' | 'timeline' | 'assembly' | 'qc' | 'review' | 'artifacts' | 'compare' | 'logs' | 'audit';
 
 const STATUS_LABEL: Record<StudioStatus, string> = {
   pending: '待機',
@@ -1004,7 +1007,9 @@ function App() {
   const [detailError, setDetailError] = useState<string>();
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState('');
+  const [showArchived, setShowArchived] = useState(false);
   const [unsavedAnnouncementProductionId, setUnsavedAnnouncementProductionId] = useState<string>();
+  const [simpleCreateOpen, setSimpleCreateOpen] = useState(false);
   const [newProductionOpen, setNewProductionOpen] = useState(false);
   const [cancellingJobIds, setCancellingJobIds] = useState<Set<string>>(() => new Set());
   const [jobActionMessage, setJobActionMessage] = useState<string>();
@@ -1016,13 +1021,15 @@ function App() {
   const loadDashboard = useCallback(async (): Promise<boolean> => {
     setLoading(true);
     setError(undefined);
-    const results = await Promise.allSettled([api.health(), api.productions(), api.jobs(), api.providers()]);
+    const results = await Promise.allSettled([api.health(), api.productions({ includeArchived: showArchived }), api.jobs(), api.providers()]);
     const [healthResult, productionResult, jobsResult, providersResult] = results;
     if (healthResult.status === 'fulfilled') setHealth(healthResult.value);
     if (productionResult.status === 'fulfilled') {
       setProductions(productionResult.value);
       setSelectedId((current) => {
-        const next = current ?? productionResult.value[0]?.id;
+        const next = current && productionResult.value.some((item) => item.id === current)
+          ? current
+          : productionResult.value[0]?.id;
         selectedIdRef.current = next;
         return next;
       });
@@ -1035,7 +1042,7 @@ function App() {
     }
     setLoading(false);
     return failures.length === 0;
-  }, []);
+  }, [showArchived]);
 
   const loadDetail = useCallback(async (id: string, signal?: AbortSignal): Promise<boolean> => {
     if (selectedIdRef.current !== id) return false;
@@ -1152,7 +1159,22 @@ function App() {
     return dashboardLoaded && detailLoaded;
   }, [loadDashboard, loadDetail]);
 
+  const refreshProductionLibrary = useCallback(async (): Promise<void> => {
+    await loadDashboard();
+    const current = selectedIdRef.current;
+    if (current) await loadDetail(current);
+  }, [loadDashboard, loadDetail]);
+
   const openNewProductionDialog = useCallback(() => {
+    setNewProductionOpen(true);
+  }, []);
+
+  const openSimpleCreateWizard = useCallback(() => {
+    setSimpleCreateOpen(true);
+  }, []);
+
+  const openAdvancedProductionDialog = useCallback(() => {
+    setSimpleCreateOpen(false);
     setNewProductionOpen(true);
   }, []);
 
@@ -1233,8 +1255,12 @@ function App() {
             <span>{health.degraded ? '監査ログ 要確認' : health.healthy ? 'API 接続中' : 'API 未接続'}</span>
             {health.version && <small>v{health.version}</small>}
           </div>
-          <button className="button button-primary" type="button" onClick={openNewProductionDialog} aria-haspopup="dialog">
+          <button className="button button-primary" type="button" onClick={openSimpleCreateWizard} aria-haspopup="dialog">
             <span aria-hidden="true">＋</span>
+            かんたん制作
+          </button>
+          <button className="button button-secondary" type="button" onClick={openNewProductionDialog} aria-haspopup="dialog">
+            <span aria-hidden="true">◇</span>
             新しい制作
           </button>
           <button className="button button-secondary" onClick={() => void refreshIndex()} disabled={refreshing}>
@@ -1260,6 +1286,10 @@ function App() {
             <span aria-hidden="true">⌕</span>
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="タイトル・タグで検索" />
           </label>
+          <label className="archive-toggle">
+            <input type="checkbox" checked={showArchived} onChange={(event) => setShowArchived(event.target.checked)} />
+            <span>アーカイブ済みを表示</span>
+          </label>
 
           {loading && <LoadingState />}
           {!loading && error && productions.length === 0 && <ErrorNotice message={error} onRetry={() => void loadDashboard()} />}
@@ -1282,7 +1312,7 @@ function App() {
                 <div className="production-card-body">
                   <div className="production-card-top">
                     <strong>{production.title}</strong>
-                    <StatusBadge status={production.status} />
+                    {production.archived ? <span className="archived-chip">保管</span> : <StatusBadge status={production.status} />}
                   </div>
                   <div className="production-meta">
                     <span>{formatDuration(production.durationSeconds)}</span>
@@ -1323,10 +1353,12 @@ function App() {
               onReload={reloadSelectedDetail}
               onReloadStatus={reloadSelectedDetailWithStatus}
               onAnnouncementDirtyChange={updateSelectedAnnouncementDirty}
+              onLibraryMutation={refreshProductionLibrary}
             />
           )}
         </main>
       </div>
+      <SimpleCreateWizard open={simpleCreateOpen} onClose={() => setSimpleCreateOpen(false)} onAdvanced={openAdvancedProductionDialog} onProductionReady={refreshProductionAfterMutation} canCreateProduction={canCreateProduction} />
       <NewProductionDialog open={newProductionOpen} onClose={() => setNewProductionOpen(false)} onProductionReady={refreshProductionAfterMutation} canCreateProduction={canCreateProduction} />
     </div>
   );
@@ -1374,7 +1406,7 @@ function JobsStrip({
   );
 }
 
-function ProductionWorkspace({ detail, jobs, providers, onReload, onReloadStatus, onAnnouncementDirtyChange }: { detail: ProductionDetail; jobs: Job[]; providers: ProviderStatus[]; onReload: (signal?: AbortSignal) => Promise<void>; onReloadStatus: (signal?: AbortSignal) => Promise<boolean>; onAnnouncementDirtyChange: (dirty: boolean) => void }) {
+function ProductionWorkspace({ detail, jobs, providers, onReload, onReloadStatus, onAnnouncementDirtyChange, onLibraryMutation }: { detail: ProductionDetail; jobs: Job[]; providers: ProviderStatus[]; onReload: (signal?: AbortSignal) => Promise<void>; onReloadStatus: (signal?: AbortSignal) => Promise<boolean>; onAnnouncementDirtyChange: (dirty: boolean) => void; onLibraryMutation: () => Promise<void> }) {
   const [tab, setTab] = useState<DetailTab>('announcement');
   const [announcementDirty, setAnnouncementDirty] = useState(false);
   const latestRun = [...detail.runs].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))[0];
@@ -1398,6 +1430,7 @@ function ProductionWorkspace({ detail, jobs, providers, onReload, onReloadStatus
     { id: 'timeline', label: 'カット編集' },
     { id: 'assembly', label: '編集・合成' },
     { id: 'qc', label: '品質検査' },
+    { id: 'review', label: 'レビュー', count: detail.reviews.length || undefined },
     { id: 'artifacts', label: '成果物', count: detail.artifacts.length },
     { id: 'compare', label: 'A/B比較' },
     { id: 'logs', label: 'ログ', count: detail.events.length },
@@ -1444,6 +1477,7 @@ function ProductionWorkspace({ detail, jobs, providers, onReload, onReloadStatus
           <div><span>費用見積・記録</span><strong>{costSummary}</strong></div>
         </div>
       </section>
+      <ProductionLibraryPanel production={detail} disabled={announcementDirty} onMutation={onLibraryMutation} />
 
       <nav className="tabs" aria-label="制作情報" role="tablist">
         {tabs.map((item) => (
@@ -1464,6 +1498,7 @@ function ProductionWorkspace({ detail, jobs, providers, onReload, onReloadStatus
         {tab === 'timeline' && <TimelinePanel detail={detail} jobs={jobs} onReload={onReload} />}
         {tab === 'assembly' && <AssemblyPanel detail={detail} jobs={jobs} onReload={onReload} />}
         {tab === 'qc' && <QcPanel detail={detail} jobs={jobs} onReload={onReload} />}
+        {tab === 'review' && <ReviewPanel key={detail.id} detail={detail} onReload={onReload} />}
         {tab === 'artifacts' && <ArtifactsPanel artifacts={detail.artifacts} />}
         {tab === 'compare' && <ComparisonPanel artifacts={detail.artifacts} />}
         {tab === 'logs' && <LogPanel events={detail.events} />}

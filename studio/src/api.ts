@@ -40,12 +40,22 @@ import type {
   ProductionDetail,
   ProductionCreatePayload,
   ProductionRun,
+  ProductionLibraryMutationResponse,
   PipelineContinuation,
   PipelineContinuationState,
   ProductionSummary,
   ProviderTask,
   ProviderTaskStatus,
   ProviderStatus,
+  ReviewAction,
+  ReviewCategory,
+  ReviewDecision,
+  ReviewGate,
+  ReviewGates,
+  ReviewIdentity,
+  ReviewMutationResponse,
+  ReviewRevisionPlan,
+  ReviewThread,
   RerunChanges,
   RerunPlan,
   QcCheck,
@@ -2941,6 +2951,7 @@ export const normalizeRun = (value: unknown, index: number): ProductionRun => {
   const latestApprovalValue = pick(record, ['latest_approval', 'approval']);
   return {
     id: text(pick(record, ['id', 'run_id']), `run-${index}`),
+    revisionId: text(pick(record, ['revision_id', 'revisionId']), '') || undefined,
     status: normalizeStatus(pick(record, ['status', 'state'])),
     label: text(pick(record, ['label', 'name', 'title', 'revision_id']), `Run ${index + 1}`),
     revision: number(pick(record, ['revision', 'version', 'revision_number'])),
@@ -3290,8 +3301,265 @@ const normalizeProduction = (value: unknown, index: number): ProductionSummary =
     technicalStatus: pick(record, ['technical_status']) === undefined ? undefined : normalizeStatus(record.technical_status),
     creativeStatus: pick(record, ['creative_status']) === undefined ? undefined : normalizeStatus(record.creative_status),
     publicReleaseStatus: pick(record, ['public_release_status']) === undefined ? undefined : normalizeStatus(record.public_release_status),
+    archived: boolean(pick(record, ['archived']), false),
+    archivedAt: text(pick(record, ['archived_at', 'archivedAt']), '') || undefined,
+    libraryReadOnly: boolean(pick(record, ['library_read_only', 'libraryReadOnly']), false),
     tags,
     raw: record,
+  };
+};
+
+export const REVIEW_SCHEMA_VERSION = 1 as const;
+export const REVIEW_ID_PATTERN = /^review_[0-9a-f]{32}$/;
+export const REVIEW_ARTIFACT_PATTERN = /^art_[0-9a-f]{32}$/;
+export const REVIEW_REVISION_PATTERN = /^rev_[0-9a-f]{32}$/;
+export const REVIEW_RUN_PATTERN = /^run_[0-9a-f]{32}$/;
+export const REVIEW_CUT_PATTERN = /^cut_[0-9a-f]{32}$/;
+const REVIEW_ACTION_PATTERN = /^review_action_[0-9a-f]{32}$/;
+const REVIEW_PLAN_PATTERN = /^review_plan_[0-9a-f]{32}$/;
+const REVIEW_DIGEST_PATTERN = /^[0-9A-F]{64}$/;
+const REVIEW_EVENT_HASH_PATTERN = /^[0-9a-f]{64}$/;
+const REVIEW_IDEMPOTENCY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/;
+const REVIEW_CATEGORIES = new Set<ReviewCategory>(['creative', 'rights', 'public_release']);
+const REVIEW_DECISIONS = new Set<ReviewDecision>(['pending', 'approved', 'changes_required', 'not_applicable']);
+const REVIEW_ACTION_TYPES = new Set<ReviewAction['type']>(['created', 'resolved', 'decision_set', 'revision_plan_created']);
+
+export interface ReviewCreateInput extends ReviewIdentity {
+  idempotencyKey: string;
+  category: ReviewCategory;
+  body: string;
+  actor: string;
+}
+
+const canonicalReviewText = (value: string, label: string, minimum: number, maximum: number): string => {
+  if (typeof value !== 'string' || value !== value.trim() || value.length < minimum || value.length > maximum) {
+    throw new TypeError(`${label}が不正です。`);
+  }
+  return value;
+};
+
+const validateReviewIdempotencyKey = (value: string): string => {
+  if (!REVIEW_IDEMPOTENCY_PATTERN.test(value)) throw new TypeError('idempotency keyが不正です。');
+  return value;
+};
+
+export const buildReviewCreatePayload = (input: ReviewCreateInput) => {
+  if (!REVIEW_ARTIFACT_PATTERN.test(input.artifactId)) throw new TypeError('artifact IDが不正です。');
+  if (!REVIEW_REVISION_PATTERN.test(input.revisionId)) throw new TypeError('revision IDが不正です。');
+  if (!REVIEW_RUN_PATTERN.test(input.runId)) throw new TypeError('Run IDが不正です。');
+  if (!REVIEW_CUT_PATTERN.test(input.cutId)) throw new TypeError('cut IDが不正です。');
+  if (!Number.isInteger(input.timecodeMs) || input.timecodeMs < 0 || input.timecodeMs > 86_400_000) throw new TypeError('timecodeが不正です。');
+  if (!REVIEW_CATEGORIES.has(input.category)) throw new TypeError('レビュー区分が不正です。');
+  return {
+    schema_version: REVIEW_SCHEMA_VERSION,
+    idempotency_key: validateReviewIdempotencyKey(input.idempotencyKey),
+    artifact_id: input.artifactId,
+    revision_id: input.revisionId,
+    run_id: input.runId,
+    cut_id: input.cutId,
+    timecode_ms: input.timecodeMs,
+    category: input.category,
+    body: canonicalReviewText(input.body, '指摘内容', 1, 2_000),
+    actor: canonicalReviewText(input.actor, '担当者', 1, 80),
+  };
+};
+
+export const buildReviewResolvePayload = (idempotencyKey: string, actor: string, note: string) => ({
+  schema_version: REVIEW_SCHEMA_VERSION,
+  idempotency_key: validateReviewIdempotencyKey(idempotencyKey),
+  actor: canonicalReviewText(actor, '担当者', 1, 80),
+  note: canonicalReviewText(note, '解決メモ', 0, 1_000),
+});
+
+export const buildReviewDecisionPayload = (
+  idempotencyKey: string,
+  actor: string,
+  decision: Exclude<ReviewDecision, 'pending'>,
+  note: string,
+) => {
+  if (!REVIEW_DECISIONS.has(decision)) throw new TypeError('判定が不正です。');
+  return {
+    schema_version: REVIEW_SCHEMA_VERSION,
+    idempotency_key: validateReviewIdempotencyKey(idempotencyKey),
+    actor: canonicalReviewText(actor, '担当者', 1, 80),
+    decision,
+    note: canonicalReviewText(note, '判定メモ', 0, 1_000),
+  };
+};
+
+export const buildReviewPlanPayload = (idempotencyKey: string, actor: string) => ({
+  schema_version: REVIEW_SCHEMA_VERSION,
+  idempotency_key: validateReviewIdempotencyKey(idempotencyKey),
+  actor: canonicalReviewText(actor, '担当者', 1, 80),
+});
+
+const normalizeReviewIdentity = (value: unknown): ReviewIdentity => {
+  const record = asRecord(value);
+  return {
+    artifactId: text(pick(record, ['artifact_id', 'artifactId'])),
+    revisionId: text(pick(record, ['revision_id', 'revisionId'])),
+    runId: text(pick(record, ['run_id', 'runId'])),
+    cutId: text(pick(record, ['cut_id', 'cutId'])),
+    timecodeMs: number(pick(record, ['timecode_ms', 'timecodeMs'])) ?? -1,
+  };
+};
+
+const normalizeReviewPlan = (value: unknown): ReviewRevisionPlan | null => {
+  if (value === null || value === undefined) return null;
+  const record = asRecord(value);
+  const execution = asRecord(pick(record, ['execution']));
+  const request = asRecord(pick(execution, ['request']));
+  return {
+    id: text(pick(record, ['id'])),
+    status: text(pick(record, ['status'])) as ReviewRevisionPlan['status'],
+    renderStatus: text(pick(record, ['render_status', 'renderStatus'])) as ReviewRevisionPlan['renderStatus'],
+    exactCutIdentity: normalizeReviewIdentity(pick(record, ['exact_cut_identity', 'exactCutIdentity'])),
+    identityDigest: text(pick(record, ['identity_digest', 'identityDigest'])),
+    affectedStages: stringList(pick(record, ['affected_stages', 'affectedStages'])),
+    reusePolicy: text(pick(record, ['reuse_policy', 'reusePolicy'])) as ReviewRevisionPlan['reusePolicy'],
+    execution: {
+      adapter: text(pick(execution, ['adapter'])) as ReviewRevisionPlan['execution']['adapter'],
+      connected: pick(execution, ['connected']) as false,
+      status: text(pick(execution, ['status'])) as ReviewRevisionPlan['execution']['status'],
+      jobId: pickIncludingNull(execution, ['job_id', 'jobId']) as null,
+      endpointTemplate: text(pick(execution, ['endpoint_template', 'endpointTemplate'])),
+      request: {
+        schema_version: pick(request, ['schema_version']),
+        revision_plan_id: pick(request, ['revision_plan_id']),
+        production_id: pick(request, ['production_id']),
+        review_id: pick(request, ['review_id']),
+        revision_id: pick(request, ['revision_id']),
+        source_run_id: pick(request, ['source_run_id']),
+        source_artifact_id: pick(request, ['source_artifact_id']),
+        cut_id: pick(request, ['cut_id']),
+        timecode_ms: pick(request, ['timecode_ms']),
+        identity_digest: pick(request, ['identity_digest']),
+      },
+    },
+  };
+};
+
+const normalizeReviewAction = (value: unknown): ReviewAction => {
+  const record = asRecord(value);
+  return {
+    id: text(pick(record, ['id'])),
+    type: text(pick(record, ['type'])) as ReviewAction['type'],
+    actor: text(pick(record, ['actor'])),
+    decision: text(pick(record, ['decision'])) as ReviewDecision,
+    note: text(pick(record, ['note'])),
+    createdAt: text(pick(record, ['created_at', 'createdAt'])),
+    eventId: number(pick(record, ['event_id', 'eventId'])) ?? 0,
+    eventHash: text(pick(record, ['event_hash', 'eventHash'])),
+    revisionPlan: normalizeReviewPlan(pickIncludingNull(record, ['revision_plan', 'revisionPlan'])),
+  };
+};
+
+const normalizeReviewThread = (value: unknown): ReviewThread => {
+  const record = asRecord(value);
+  return {
+    id: text(pick(record, ['id'])),
+    status: text(pick(record, ['status'])) as ReviewThread['status'],
+    category: text(pick(record, ['category'])) as ReviewCategory,
+    decision: text(pick(record, ['decision'])) as ReviewDecision,
+    body: text(pick(record, ['body'])),
+    actor: text(pick(record, ['actor'])),
+    createdAt: text(pick(record, ['created_at', 'createdAt'])),
+    updatedAt: text(pick(record, ['updated_at', 'updatedAt'])),
+    identity: normalizeReviewIdentity(pick(record, ['identity'])),
+    actions: items(pick(record, ['actions']), ['items', 'actions']).map(normalizeReviewAction),
+    revisionPlans: items(pick(record, ['revision_plans', 'revisionPlans']), ['items', 'plans']).map((item) => normalizeReviewPlan(item)).filter((item): item is ReviewRevisionPlan => item !== null),
+  };
+};
+
+const emptyReviewGate = (): ReviewGate => ({ decision: 'pending', reviewCount: 0, openCount: 0, resolvedCount: 0 });
+
+const normalizeReviewGate = (value: unknown): ReviewGate => {
+  const record = asRecord(value);
+  const rawDecision = text(pick(record, ['decision']));
+  return {
+    decision: ['approved', 'changes_required', 'not_applicable'].includes(rawDecision) ? rawDecision as ReviewGate['decision'] : 'pending',
+    reviewCount: number(pick(record, ['review_count', 'reviewCount'])) ?? 0,
+    openCount: number(pick(record, ['open_count', 'openCount'])) ?? 0,
+    resolvedCount: number(pick(record, ['resolved_count', 'resolvedCount'])) ?? 0,
+  };
+};
+
+const normalizeReviewGates = (value: unknown): ReviewGates => {
+  const record = asRecord(value);
+  return {
+    creative: record.creative === undefined ? emptyReviewGate() : normalizeReviewGate(record.creative),
+    rights: record.rights === undefined ? emptyReviewGate() : normalizeReviewGate(record.rights),
+    public_release: record.public_release === undefined ? emptyReviewGate() : normalizeReviewGate(record.public_release),
+  };
+};
+
+const validReviewIdentity = (identity: ReviewIdentity): boolean => (
+  REVIEW_ARTIFACT_PATTERN.test(identity.artifactId)
+  && REVIEW_REVISION_PATTERN.test(identity.revisionId)
+  && REVIEW_RUN_PATTERN.test(identity.runId)
+  && REVIEW_CUT_PATTERN.test(identity.cutId)
+  && Number.isInteger(identity.timecodeMs)
+  && identity.timecodeMs >= 0
+  && identity.timecodeMs <= 86_400_000
+);
+
+const normalizeReviewMutation = (
+  value: unknown,
+  expectedProductionId: string,
+  expectedReviewId?: string,
+): ReviewMutationResponse => {
+  const record = asRecord(value);
+  const review = normalizeReviewThread(pick(record, ['review']));
+  const action = normalizeReviewAction(pick(record, ['action']));
+  const productionId = text(pick(record, ['production_id', 'productionId']));
+  const deduplicated = pick(record, ['deduplicated']);
+  const plan = action.revisionPlan;
+  const planRequest = plan?.execution.request ?? {};
+  if (
+    record.schema_version !== REVIEW_SCHEMA_VERSION
+    || productionId !== expectedProductionId
+    || !REVIEW_ID_PATTERN.test(review.id)
+    || (expectedReviewId !== undefined && review.id !== expectedReviewId)
+    || !REVIEW_ACTION_PATTERN.test(action.id)
+    || !REVIEW_ACTION_TYPES.has(action.type)
+    || action.eventId < 1
+    || !REVIEW_EVENT_HASH_PATTERN.test(action.eventHash)
+    || !validReviewIdentity(review.identity)
+    || !REVIEW_CATEGORIES.has(review.category)
+    || !REVIEW_DECISIONS.has(review.decision)
+    || !['open', 'resolved'].includes(review.status)
+    || !review.body
+    || !review.actor
+    || (action.type === 'revision_plan_created') !== (plan !== null)
+    || typeof deduplicated !== 'boolean'
+    || (plan !== null && (
+      !REVIEW_PLAN_PATTERN.test(plan.id)
+      || plan.status !== 'planned_not_executed'
+      || plan.renderStatus !== 'not_started'
+      || plan.execution.connected !== false
+      || plan.execution.status !== 'not_connected'
+      || plan.execution.jobId !== null
+      || plan.execution.adapter !== 'm4_cut_revision_job_v1'
+      || plan.execution.endpointTemplate !== '/api/productions/{production_id}/cuts/{cut_id}/reruns'
+      || !REVIEW_DIGEST_PATTERN.test(plan.identityDigest)
+      || plan.reusePolicy !== 'reuse_all_other_exact_cut_artifacts'
+      || plan.affectedStages.join('\0') !== ['video_generation', 'timeline', 'assembly', 'qc'].join('\0')
+      || plan.exactCutIdentity.cutId !== review.identity.cutId
+      || plan.exactCutIdentity.artifactId !== review.identity.artifactId
+      || planRequest.production_id !== expectedProductionId
+      || planRequest.review_id !== review.id
+      || planRequest.cut_id !== review.identity.cutId
+      || planRequest.identity_digest !== plan.identityDigest
+    ))
+  ) {
+    throw new StudioApiError('レビュー応答のidentityが要求と一致しません。', 502, 'invalid_review_response');
+  }
+  return {
+    productionId,
+    review,
+    action,
+    gates: normalizeReviewGates(pick(record, ['gates'])),
+    deduplicated,
   };
 };
 
@@ -3399,6 +3667,7 @@ export const serializeLocalComfyUiPayload = (payload: LocalComfyUiPayload): stri
 export const MAX_VIDEO_IMPORT_FILES = 16;
 export const MAX_VIDEO_IMPORT_BYTES = 2 * 1024 * 1024 * 1024;
 export const PRODUCTION_ID_PATTERN = /^production_[0-9a-f]{32}$/;
+export const PRODUCTION_LIBRARY_OPERATION_ID_PATTERN = /^production_library_op_[0-9a-f]{32}$/;
 export const PRODUCTION_TITLE_MAX_LENGTH = 120;
 const VIDEO_IMPORT_EXTENSIONS = new Set([
   '.avi', '.m4v', '.mkv', '.mov', '.mp4', '.webm',
@@ -3415,6 +3684,105 @@ export const buildProductionCreatePayload = (productionId: unknown, title: unkno
     schema_version: 1,
     production_id: normalizedId,
     title: normalizedTitle,
+  };
+};
+
+const productionLibraryOperationId = (value: unknown): string => {
+  if (typeof value !== 'string' || !PRODUCTION_LIBRARY_OPERATION_ID_PATTERN.test(value)) {
+    throw new TypeError('制作ライブラリ操作IDの形式が正しくありません。');
+  }
+  return value;
+};
+
+const productionLibraryTitle = (value: unknown, label: string): string => {
+  const title = typeof value === 'string' ? value.trim() : '';
+  if (!title || title.length > PRODUCTION_TITLE_MAX_LENGTH || /[\u0000-\u001f\u007f]/.test(title)) {
+    throw new TypeError(`${label}は1〜${PRODUCTION_TITLE_MAX_LENGTH}文字で入力してください。`);
+  }
+  return title;
+};
+
+export const buildProductionRenamePayload = (
+  operationId: unknown,
+  expectedTitle: unknown,
+  title: unknown,
+) => {
+  const expected = productionLibraryTitle(expectedTitle, '現在のタイトル');
+  const next = productionLibraryTitle(title, '新しいタイトル');
+  if (expected === next) throw new TypeError('新しいタイトルを入力してください。');
+  return {
+    schema_version: 1 as const,
+    operation_id: productionLibraryOperationId(operationId),
+    expected_title: expected,
+    title: next,
+  };
+};
+
+export const buildProductionArchivePayload = (
+  operationId: unknown,
+  expectedArchived: unknown,
+  archived: unknown,
+) => {
+  if (typeof expectedArchived !== 'boolean' || typeof archived !== 'boolean' || expectedArchived === archived) {
+    throw new TypeError('アーカイブ状態の変更指定が正しくありません。');
+  }
+  return {
+    schema_version: 1 as const,
+    operation_id: productionLibraryOperationId(operationId),
+    expected_archived: expectedArchived,
+    archived,
+  };
+};
+
+export const buildProductionDuplicatePayload = (
+  operationId: unknown,
+  productionId: unknown,
+  title: unknown,
+  includeImports: unknown,
+) => {
+  const id = typeof productionId === 'string' ? productionId : '';
+  if (!PRODUCTION_ID_PATTERN.test(id)) throw new TypeError('複製先production_idの形式が正しくありません。');
+  if (typeof includeImports !== 'boolean') throw new TypeError('素材複製指定が正しくありません。');
+  return {
+    schema_version: 1 as const,
+    operation_id: productionLibraryOperationId(operationId),
+    production_id: id,
+    title: productionLibraryTitle(title, '複製タイトル'),
+    include_imports: includeImports,
+  };
+};
+
+const normalizeProductionLibraryMutation = (
+  value: unknown,
+  expected: { operationId: string; action: 'rename' | 'archive' | 'duplicate'; productionId: string },
+): ProductionLibraryMutationResponse => {
+  const root = asRecord(value);
+  const production = normalizeProduction(pick(root, ['production', 'item', 'data']), 0);
+  const operationId = text(pick(root, ['operation_id', 'operationId']), '');
+  const action = text(pick(root, ['action']), '') as ProductionLibraryMutationResponse['action'];
+  const deduplicated = pick(root, ['deduplicated']);
+  if (
+    root.schema_version !== 1
+    || operationId !== expected.operationId
+    || action !== expected.action
+    || production.id !== expected.productionId
+    || typeof deduplicated !== 'boolean'
+  ) {
+    throw new StudioApiError(
+      '制作ライブラリ応答identityが要求と一致しません。',
+      502,
+      'invalid_production_library_response',
+    );
+  }
+  return {
+    schemaVersion: 1,
+    operationId,
+    action,
+    production,
+    sourceProductionId: text(pick(root, ['source_production_id', 'sourceProductionId']), '') || undefined,
+    includeImports: typeof root.include_imports === 'boolean' ? root.include_imports : undefined,
+    importedArtifactCount: number(pick(root, ['imported_artifact_count', 'importedArtifactCount'])),
+    deduplicated,
   };
 };
 
@@ -3502,14 +3870,19 @@ export const api = {
     }
   },
 
-  async productions(): Promise<ProductionSummary[]> {
-    const value = await request<unknown>('/api/productions');
+  async productions(options: { includeArchived?: boolean; query?: string } = {}): Promise<ProductionSummary[]> {
+    const parameters = new URLSearchParams();
+    if (options.includeArchived) parameters.set('include_archived', 'true');
+    const query = options.query?.trim();
+    if (query) parameters.set('q', query);
+    const suffix = parameters.size > 0 ? `?${parameters.toString()}` : '';
+    const value = await request<unknown>(`/api/productions${suffix}`);
     return items(value, ['items', 'productions', 'data']).map(normalizeProduction);
   },
 
-  async createProduction(productionId: string, title: string): Promise<ProductionSummary> {
+  async createProduction(productionId: string, title: string, signal?: AbortSignal): Promise<ProductionSummary> {
     const payload = buildProductionCreatePayload(productionId, title);
-    const value = await post<unknown>('/api/productions', payload, undefined, 201);
+    const value = await post<unknown>('/api/productions', payload, signal, 201);
     const root = asRecord(value);
     const candidate = pick(root, ['production', 'item', 'data']) ?? value;
     const production = normalizeProduction(candidate, 0);
@@ -3527,7 +3900,72 @@ export const api = {
     return production;
   },
 
-  async importVideo(productionId: string, file: File): Promise<ArtifactImportResponse> {
+  async renameProduction(
+    productionId: string,
+    operationId: string,
+    expectedTitle: string,
+    title: string,
+  ): Promise<ProductionLibraryMutationResponse> {
+    const payload = buildProductionRenamePayload(operationId, expectedTitle, title);
+    const value = await post<unknown>(
+      `/api/productions/${encodeURIComponent(productionId)}/library/rename`,
+      payload,
+      undefined,
+      200,
+    );
+    const result = normalizeProductionLibraryMutation(value, { operationId, action: 'rename', productionId });
+    if (result.production.title !== payload.title) {
+      throw new StudioApiError('表示名変更の応答が要求と一致しません。', 502, 'invalid_production_library_response');
+    }
+    return result;
+  },
+
+  async archiveProduction(
+    productionId: string,
+    operationId: string,
+    expectedArchived: boolean,
+    archived: boolean,
+  ): Promise<ProductionLibraryMutationResponse> {
+    const payload = buildProductionArchivePayload(operationId, expectedArchived, archived);
+    const value = await post<unknown>(
+      `/api/productions/${encodeURIComponent(productionId)}/library/archive`,
+      payload,
+      undefined,
+      200,
+    );
+    const result = normalizeProductionLibraryMutation(value, { operationId, action: 'archive', productionId });
+    if (result.production.archived !== payload.archived) {
+      throw new StudioApiError('アーカイブ応答が要求と一致しません。', 502, 'invalid_production_library_response');
+    }
+    return result;
+  },
+
+  async duplicateProduction(
+    sourceProductionId: string,
+    operationId: string,
+    productionId: string,
+    title: string,
+    includeImports: boolean,
+  ): Promise<ProductionLibraryMutationResponse> {
+    const payload = buildProductionDuplicatePayload(operationId, productionId, title, includeImports);
+    const value = await post<unknown>(
+      `/api/productions/${encodeURIComponent(sourceProductionId)}/library/duplicate`,
+      payload,
+      undefined,
+      201,
+    );
+    const result = normalizeProductionLibraryMutation(value, { operationId, action: 'duplicate', productionId });
+    if (
+      result.production.title !== payload.title
+      || result.sourceProductionId !== sourceProductionId
+      || result.includeImports !== payload.include_imports
+    ) {
+      throw new StudioApiError('制作複製の応答が要求と一致しません。', 502, 'invalid_production_library_response');
+    }
+    return result;
+  },
+
+  async importVideo(productionId: string, file: File, signal?: AbortSignal): Promise<ArtifactImportResponse> {
     const value = await request<unknown>(
       `/api/productions/${encodeURIComponent(productionId)}/artifacts/import-video`,
       {
@@ -3537,6 +3975,7 @@ export const api = {
           'Content-Type': file.type || 'application/octet-stream',
           'X-Studio-Filename-Encoded': encodeURIComponent(file.name),
         },
+        signal,
       },
       201,
     );
@@ -3615,8 +4054,83 @@ export const api = {
       announcementRecipes: items(section('announcement_recipes') ?? section('announcementRecipes'), ['items', 'recipes']).map(normalizeAnnouncementRecipeRecord),
       announcementRecipeVersions: items(section('announcement_recipe_versions') ?? section('announcementRecipeVersions'), ['items', 'recipes']).map(normalizeAnnouncementRecipeRecord),
       announcementExecutions: items(section('announcement_executions') ?? section('announcementExecutions'), ['items', 'executions']).map(normalizeAnnouncementExecutionRecord),
+      reviews: items(section('reviews'), ['items', 'reviews']).map(normalizeReviewThread),
+      reviewGates: normalizeReviewGates(section('review_gates') ?? section('reviewGates')),
       specification: asRecord(pick(root, ['specification', 'spec', 'production_spec'])),
     };
+  },
+
+  async reviews(productionId: string): Promise<{ reviews: ReviewThread[]; gates: ReviewGates }> {
+    const value = await request<unknown>(`/api/productions/${encodeURIComponent(productionId)}/reviews`);
+    const record = asRecord(value);
+    if (record.schema_version !== REVIEW_SCHEMA_VERSION || text(pick(record, ['production_id', 'productionId'])) !== productionId) {
+      throw new StudioApiError('レビュー一覧のidentityが要求と一致しません。', 502, 'invalid_review_response');
+    }
+    return {
+      reviews: items(pick(record, ['reviews']), ['items', 'reviews']).map(normalizeReviewThread),
+      gates: normalizeReviewGates(pick(record, ['gates'])),
+    };
+  },
+
+  async createReview(productionId: string, input: ReviewCreateInput): Promise<ReviewMutationResponse> {
+    const value = await post<unknown>(
+      `/api/productions/${encodeURIComponent(productionId)}/reviews`,
+      buildReviewCreatePayload(input),
+      undefined,
+      201,
+    );
+    return normalizeReviewMutation(value, productionId);
+  },
+
+  async resolveReview(
+    productionId: string,
+    reviewId: string,
+    idempotencyKey: string,
+    actor: string,
+    note: string,
+  ): Promise<ReviewMutationResponse> {
+    if (!REVIEW_ID_PATTERN.test(reviewId)) throw new TypeError('review IDが不正です。');
+    const value = await post<unknown>(
+      `/api/productions/${encodeURIComponent(productionId)}/reviews/${encodeURIComponent(reviewId)}/resolve`,
+      buildReviewResolvePayload(idempotencyKey, actor, note),
+      undefined,
+      201,
+    );
+    return normalizeReviewMutation(value, productionId, reviewId);
+  },
+
+  async setReviewDecision(
+    productionId: string,
+    reviewId: string,
+    idempotencyKey: string,
+    actor: string,
+    decision: Exclude<ReviewDecision, 'pending'>,
+    note: string,
+  ): Promise<ReviewMutationResponse> {
+    if (!REVIEW_ID_PATTERN.test(reviewId)) throw new TypeError('review IDが不正です。');
+    const value = await post<unknown>(
+      `/api/productions/${encodeURIComponent(productionId)}/reviews/${encodeURIComponent(reviewId)}/decision`,
+      buildReviewDecisionPayload(idempotencyKey, actor, decision, note),
+      undefined,
+      201,
+    );
+    return normalizeReviewMutation(value, productionId, reviewId);
+  },
+
+  async createReviewRevisionPlan(
+    productionId: string,
+    reviewId: string,
+    idempotencyKey: string,
+    actor: string,
+  ): Promise<ReviewMutationResponse> {
+    if (!REVIEW_ID_PATTERN.test(reviewId)) throw new TypeError('review IDが不正です。');
+    const value = await post<unknown>(
+      `/api/productions/${encodeURIComponent(productionId)}/reviews/${encodeURIComponent(reviewId)}/revision-plan`,
+      buildReviewPlanPayload(idempotencyKey, actor),
+      undefined,
+      201,
+    );
+    return normalizeReviewMutation(value, productionId, reviewId);
   },
 
   async jobs(signal?: AbortSignal): Promise<Job[]> {
@@ -3928,12 +4442,12 @@ export const api = {
     return normalizeJob(value);
   },
 
-  async announcementRecipes(productionId: string): Promise<{
+  async announcementRecipes(productionId: string, signal?: AbortSignal): Promise<{
     recipes: AnnouncementRecipeRecord[];
     recipeVersions: AnnouncementRecipeRecord[];
     executions: AnnouncementExecutionRecord[];
   }> {
-    const value = await request<unknown>(`/api/productions/${encodeURIComponent(productionId)}/announcement-recipes`);
+    const value = await request<unknown>(`/api/productions/${encodeURIComponent(productionId)}/announcement-recipes`, { signal });
     const record = asRecord(value);
     return {
       recipes: items(pick(record, ['recipes']), ['items', 'recipes']).map(normalizeAnnouncementRecipeRecord),

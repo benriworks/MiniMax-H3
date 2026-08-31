@@ -82,6 +82,19 @@ MVPが行わないこと:
 
 告知recipeの保存と複製はversion eventを追記するだけで、media workerを開始しません。`かんたん作成`はfrontendのpresentation layerで、独自APIを持たず、既存の告知recipe保存→`execute`を共有します。保存済みexact revisionを実行した場合だけDetailed Test Videoの0円`local_sapi` Run／top Jobを作成または再利用し、詳細設定と同じRun／Job／artifact／QC／event／監査exportへ記録します。新しいendpoint、worker、lane、DB schemaは追加せず、ElevenLabs、MiniMax API、ComfyUI、費用approvalへも到達しません。
 
+## M1〜M4到達点
+
+| Milestone | 実装済み | 重要な境界 |
+|---|---|---|
+| M1 かんたん制作v2 | 上部の`かんたん制作`から制作名、`告知／イベント案内／採用・募集`、動画1〜3本、主文、確認の約5判断で、既存production intake／announcement／Detailed経路を一括実行 | 0円local SAPI。安定production／recipe IDをPOST前にlocalStorageへ保存し、応答消失後も同一IDで再開。path／token／動画本体は保存しない。一般素材は5.2秒以上を推奨 |
+| M2 制作ライブラリ | case-insensitive検索、rename、archive/unarchive、取込素材付きduplicate | schema v9のstate／operation ledgerとaudit event。物理削除なし。route sourceを含むdigestで再送を束縛。tracked／制御metadataなし制作はread-only |
+| M3 レビュー／部分修正計画 | artifact／revision／Run／cut／timecodeコメント、open/resolved、creative／rights／public_release判定、cut限定revision plan | technical QCとhuman gateを分離。revision planは監査用で、M4実行adapterはまだ`not_connected`。render成功を記録しない |
+| M4 3カットI2VAオーケストレーション | 3始点画像＋3 I2VA prompt→公式MiniMax H3 V2 APIの6秒／768P task 3件→hash検証→Quick Createの15秒master | `confirmed_billable_task_limit=3`必須。cutごとにprepared/task/outputを永続化し、曖昧送信を自動再送しない。local ComfyUIはT2VA-only |
+
+M1〜M3はStudio UI、M4はCodex／CLI control-planeです。M3の「このcutの修正plan」はM4の3カット一括生成とまだ自動接続していないため、`planned_not_executed`／`not_started`／`not_connected`を表示します。
+
+2026-09-01のM1〜M4統合検証では、リポジトリ管理下のPython製品テスト570件が合格し、Windows以外専用1件をskipしました。Studioは141/141件、本番build、`compileall`、example contract、`git diff --check`が成功しています。課金なしのM4オフライン実動画smokeでは、既存MP4 3本を偽providerのsubmit／status／downloadへ注入した後、実`StudioService`→Quick Create→Remotion→字幕・音声→assembly→technical QCを通しました。masterは15.000秒、1080×1920、H.264／yuv420p、24fps、360 frame、AAC 48kHz stereo、10,188,592 bytes、SHA-256 `DD722F811EB98EAB31B7A50C781F1290F94EDF11C5F786AEA6FB945C72C07DAD`で、black／staticを含む全technical checkが`pass`です。完了後の同一requestは3.722秒、provider再送0件、同一master hashへ収束しました。これはcontrol-planeとローカル後段の実動画検証であり、公式MiniMax APIの実画質、所要時間、費用を保証するpaid smokeではありません。
+
 ## 制作作成、動画取込、Job停止
 
 新しい制作と素材追加のHTTP境界は次のとおりです。すべて通常のloopback Host、session cookie、same-origin検査を通ります。
@@ -90,6 +103,10 @@ MVPが行わないこと:
 |---|---|---|
 | `POST /api/productions` | JSON `schema_version`、`production_id`、`title` | `201`。同一ID＋同一タイトルは既存productionへ冪等収束し、異なるタイトルやtracked台帳との衝突は`409` |
 | `POST /api/productions/{production_id}/artifacts/import-video` | raw body、`Content-Length`、`Content-Type`、canonical percent-encoded `X-Studio-Filename-Encoded` | `201`。検証・publish・索引更新後のartifactと`deduplicated` |
+| `GET /api/productions?include_archived=true&q=...` | queryだけ | `{productions,count}`。既定はarchive済みを除外し、title／IDをcase-insensitive検索 |
+| `POST /api/productions/{production_id}/library/rename` | `schema_version`、client-issued `operation_id`、`expected_title`、`title` | `200`。CAS変更、監査event、同一operation再送dedupe |
+| `POST /api/productions/{production_id}/library/archive` | `schema_version`、`operation_id`、`expected_archived`、`archived` | `200`。一覧表示だけを変更しartifactを保持 |
+| `POST /api/productions/{source_id}/library/duplicate` | `schema_version`、`operation_id`、新`production_id`／`title`、`include_imports` | `201`。複製元routeもrequest digestへ束縛し、取込素材をSHA-256検証して新artifact IDへ複製 |
 | `POST /api/jobs/{job_id}/cancel` | JSON `{"schema_version":1}` | `202`。最新Job、`cancel_requested`、`worker_retired` |
 
 frontendは上記のstatus codeとresponse identityを再検証します。制作作成は要求したID／title、動画取込はproduction／`origin=output`／video／制御された相対path／bytes／SHA-256、停止は要求したJob IDとbooleanの`cancel_requested`／`worker_retired`が完全に揃った場合だけ成功として扱います。HTTPが成功でも別identityまたは欠落fieldなら`invalid_*_response`で停止します。
@@ -123,6 +140,21 @@ CLIはworkspace lockを保持したまま、索引更新、CAS保存、exact rev
 CLIはrequestを先に有界検証し、workspace lock内でproductionを冪等作成して索引を更新します。各sourceはopen中のfile descriptorから順次streamし、importと索引更新の後にfile identity／size／mtimeと消費bytesが変化していないことを再照合します。import responseはcontrolled `imports/`相対path、物理filename、SHA-256 prefix、stable artifact IDまで照合します。取込済みartifact IDをsceneへcompileした後だけ、既存`quick-create`のCAS保存、Detailed実行、terminal照合へ進みます。制作作成からterminal照合までを一つのmonotonic deadlineに閉じます。
 
 成功出力は`schema_version`、`production: {id, title, deduplicated}`、`videos: [{source_index, artifact_id, bytes, sha256, deduplicated}]`、既存のredacted `quick_create`結果です。source path／filename、recipe本文は出力とerrorに含めません。取込中や後段で失敗しても、成功済みproduction／importをrollbackや削除しません。同じID／title／source bytesで再実行し、productionの冪等作成と取込content dedupeによって中間状態から続行できます。これらの処理は新しいHTTP endpoint、worker、lane、DB schema、renderer、課金経路を追加せず、既存service contractを同一process内で順番に呼びます。
+
+### `shot-project`: 3始点画像から15秒へ
+
+画像生成スキルで作成した3枚の始点画像とrequest JSONをprivate directoryへ置き、画像はJSONからのrelative pathで指定します。credentialは対話入力でDPAPIへ保存します。
+
+```powershell
+E:\anaconda3\python.exe -m tools.studio.cli --workspace . secret set minimax
+E:\anaconda3\python.exe -m tools.studio.cli --workspace . shot-project .\private\shot-project.json
+```
+
+request schema v1は`project_id`、安定production、順序固定`shot_1..3`、recipe ID／expected revision、exact Announcement recipe、timeout、`confirmed_billable_task_limit=3`だけを許します。各shotはrelative `first_frame_path`、監査用`first_frame_prompt`、同梱`h3-prompt-writing` skill準拠のI2VA `video_prompt`、`duration_seconds=6`、`resolution="768P"`です。recipeはvideo index `[0,1,2]`、各sourceの0〜6,000ms内trim、fade後15,000msを必須とします。
+
+`outputs/studio/shot_projects/<project_id>/plan.json`はprompt、画像relative name／bytes／SHA-256、recipe、generation preset、plan hashを保持します。`state.json`は各task ID、status、出力name／bytes／SHA-256を保持します。secretはどちらにも含みません。送信前の`prepared`を先にfsyncするため、providerへ届いた可能性があるのにtask ID応答が失われた場合は`shot_submission_ambiguous`で停止し、自動課金再送しません。既知task IDは再照合し、成功MP4は物理bytes／hash／MP4 signatureを再検証します。
+
+3本成功後は既存`quick-create-project`へ同じdeadline内で渡し、production作成、取込、recipe CAS保存、Detailed実行、QCへ進みます。mock E2Eでは初回3件、成功後再実行0件、曖昧応答後再送0件を確認しました。実MiniMax APIのpaid smokeは未実施です。
 
 ## かんたん作成（Announcement Video v1）
 
@@ -216,6 +248,20 @@ compile結果は既存Detailed Test Video v1のexact schemaへ再検証されま
 UIは実行中のJob一覧を2秒間隔で取得し、production detailは最初のpollと3回ごと、すなわちおおむね6秒間隔へ抑えます。告知用の保存・複製・実行・Job／production照合requestはprivateな`AbortSignal`を必ずforwardし、15秒でabortします。保存の応答が不明なら同じrecipe ID・`expected_revision`・canonical内容を1回だけ再送します。複製はsource identity／コピー名から128-bit clone IDを決定的に導出し、intent固有のversioned `localStorage` keyへPOST前に保存します。画面移動／再読込後も同じIDを使い、複数tabの同時操作も同じbackend recipe IDへ収束します。成功応答またはimmutable版履歴のexact clone lineageを確認した場合だけ消去し、timeout／通信／再送後4xxでは保持します。保存領域のruntime検証またはread-after-writeに失敗した場合はPOSTせず、明示破棄もbrowser intentだけを対象にします。backendのCAS／digest／clone-source lost-response dedupeと合わせ、応答消失で別revisionや別cloneを作りません。実行POST応答を受け取れなかった場合、送信前snapshotになかったexact recipe versionのexecution linkだけを受理証拠とし、そのJob IDを`GET /api/jobs/{job_id}`で取得してproduction、Run、revision、request keyまで照合します。既知の成功Jobは、今回のPOST到達や現在の成果物健全性を証明しないため、履歴表示だけに使い曖昧状態を解除しません。新しいlinkが確認できなければ、同じimmutable recipe ID／revisionを1回だけ自動再送します。この再送はDetailedのcontent claimへ直列化され、queued／runningと、全child lineage・全成果物のbytes／SHA-256を物理再検証できたsucceeded Jobだけを再利用し、欠損・改変時だけ同じRunの修復Jobを作ります。2回目のPOSTまたはfresh linkのexact Job照合がtimeout／通信／5xxで不明なら自動requestを止め、フォームの永久lockを避けて`同一revisionを再照合`を表示し、明示した場合だけ1回ずつ同じPOSTを行います。実行requestで受信済みの4xxは未受理としてlockを解除します。別tabで最新revisionが進んだ場合は、cleanかつidleなら自動同期し、編集中または実行中なら内容を上書きせず警告して保存・実行を止めます。未保存変更がある状態でrecipeを切り替える、productionを移動する、別タブへ移る操作は確認を挟み、未保存状態では複製を無効にします。productionを切り替えると旧detail requestをabortし、request generationと現在の選択IDが一致した応答だけをstateへ反映・描画します。
 
 補足: ここでいう自動request停止は、追加POSTと同じ候補へのexact Job GETを止める境界です。2秒のJob／おおむね6秒のproduction detail照合は継続し、後からfreshなexact linkを確認できれば再POSTせず復旧します。idle時に別tabのproduction detailをbackground取得する機能はありません。別tabの新revisionは、手動再読込または実行／曖昧応答中のdetail再取得で検出した後、cleanかつidleなら読み込み、編集中または実行中なら上書きせず保存・実行を止めます。複製intent用`localStorage`が壊れているか利用できない場合は、複製だけでなく告知フォーム全体を明示破棄または環境復旧までロックします。
+
+## レビューとcut修正plan
+
+`レビュー`タブはproduction detailに含まれるavailable artifact、revision付きRun、0〜86,400秒のtimecode、`creative | rights | public_release`、1〜2,000文字の指摘、actorをexact identityとして保存します。create／decision／resolve／revision-planはclient-issued idempotency keyを使い、同一要求の応答消失再送を1 eventへ収束させます。eventは`review.created | review.decision_set | review.resolved | review.revision_plan_created`としてhash chainと監査exportに含まれます。body／noteは保存前にsecret-like値をredactします。
+
+| Method / path | 役割 |
+|---|---|
+| `GET /api/productions/{id}/reviews` | immutable eventからレビュー一覧と3 human gateを再構築 |
+| `POST /api/productions/{id}/reviews` | artifact／revision／Run／cut／timecodeへ指摘を追加 |
+| `POST /api/productions/{id}/reviews/{review_id}/decision` | `approved | changes_required | not_applicable`を追記 |
+| `POST /api/productions/{id}/reviews/{review_id}/resolve` | open threadをresolvedへ追記遷移 |
+| `POST /api/productions/{id}/reviews/{review_id}/revision-plan` | exact cutだけを対象にし他cutを再利用する計画を追記 |
+
+レビューのresolvedとdecisionは別です。`changes_required`のままresolvedにしてもgateは自動承認されません。修正版を確認後に新しいdecisionを明示してください。revision planの`execution.adapter=m4_cut_revision_job_v1`と将来endpoint templateは予約契約で、現時点では`connected=false`／`status=not_connected`／`job_id=null`です。
 
 ## 詳細一括（Detailed Test Video v1）
 
@@ -574,9 +620,10 @@ tools/studio/                   Python backendと索引・監査処理
 productions/<production-id>/    Git管理する既存の制作仕様と台帳
 outputs/productions/<id>/       ignoredの画像・音声・動画・詳細QC
 outputs/studio/
-  studio.sqlite3                schema v8のSQLite検索索引、Studio記録、provider task／pipeline／detailed-test claim台帳
+  studio.sqlite3                schema v9のSQLite索引、provider／pipeline／detailed-test claim、production library台帳
   events/<scope>/<id>.jsonl     hash chain付きevent mirror
   secrets/<provider>.dpapi      Windowsユーザーに紐づく暗号化secret
+  shot_projects/<project>/      plan.json / state.json / shot_1.mp4..shot_3.mp4
   external-submissions/elevenlabs/<production>/<cache>/.submission-unknown.json
                                 課金POST前に作るproduction/cache単位の再送防止marker
   external-submissions/comfyui/<production>/<cache>/.submission-unknown.json
@@ -603,6 +650,10 @@ outputs/studio/
 Production
   ├─ Artifact / Artifact version
   ├─ Event hash chain
+  ├─ Library state / immutable operation ledger
+  ├─ Review thread
+  │    ├─ Exact artifact / revision / Run / cut / timecode identity
+  │    └─ Decision / resolution / planned-not-executed cut plan
   ├─ Announcement recipe
   │    ├─ Immutable exact version / parent / clone source
   │    └─ Execution link -> Detailed top Job / Run / Revision
@@ -645,7 +696,7 @@ Studioでは次を別々に扱います。
 
 | 種類 | 記録例 |
 |---|---|
-| event | 索引、revision/run、job、費用承認、告知recipe version／execution linkの時刻、状態、hash chain |
+| event | 索引、revision/run、job、費用承認、告知recipe、production library操作、review action／decision／planの時刻、状態、hash chain |
 | artifact | path、bytes、MIME、origin、version、取得できた場合のSHA-256 |
 | run cost | 見積、通貨、承認上限、承認／却下履歴 |
 | stage attempt | stage、attempt番号、cache key、状態、所要時間、provider、task ID、実費、timing source |
@@ -746,10 +797,12 @@ Run契約修正後の再受入では、run `run_c0745a922f814b67b1c45f7fbac8fd80
 
 実装済み: Windows SAPI adapter、ElevenLabs Multilingual v2 `with-timestamps` adapter、文字alignmentからのsegment字幕、費用承認＋payload確認gate、成功cache＋曖昧送信marker、provider request ID／character cost／未確定USD欄、発音置換、固定公式INT8＋Q4 ComfyUI graph、閉じたruntime argv／model／live process照合、Windows model handle保護、GPU FIFO lane、pre-issued UUID、schema v8 provider task／pipeline continuation／detailed-test claim／Windows capture consent、DPAPI resume／pipeline request payload、Studio起動時の自動照合、新attempt追記、CAS重複防止、手動resume UI、復旧済み動画のcache-only自動継続、atomic `cancel_requested`＋GET-only targeted cancel再照合、provider／job／attempt／artifactの原子的確定、isolated Chromiumによるloopback Web収録、単回consent・kill-on-close Job Object・固定WASAPI loopback・決定的private stagingを備えたWindowsネイティブ収録、登録済み動画1〜32カットのtrim／並べ替え／ハードカットpreview、schema v1のRemotion詳細timeline、共通compositionのPlayer preview、fade／素材音量／固定テロップ、Source Fidelity v2の`preserve_v1 | h3_low_res_sharp_v1`、pre-overlay固定Lanczos／luma-only unsharp、PNG中間frame／CRF 16、cache／監査／report／manifest policy、旧recipeの`preserve_v1`互換、exact 5成果物、画面収録とRemotion renderを直列化するbrowser FIFO lane、FFmpeg clean／captioned master、`shorts_ja_large_v1`字幕preset、schema v2 / `local-ffmpeg-qc-v2` / `technical-qc-mp4-v2`のIntegrated loudness／true peak／黒画面hard checkと長い静止warningを含むローカルtechnical QC、ffprobe／manifest、stage attempt/cache。専用`local_pipeline` lane、6 requested／5 executed stage、DB-level Run/top-job dedupe、same-run failed／interrupted retry、parent-child cancellation wait、local stage artifactのatomic completion、Detailed Test Video v1のSAPI→Remotion→assembly→QC一括、固定字幕preflight、content dedupe、same-run retry、2秒UI監視、およびHOOK／MESSAGE／CTA告知recipeのCAS保存、immutable exact version、複製、Detailed compile、atomic execution link、fresh exact Job復旧と1回限定の同一revision冪等再送。HTTP／worker／SQLite writerのdrain成功時だけworkspace lockを解放する単一writer境界。
 
-1. 明示承認付きのWindowsネイティブ実機smoke（A/V開始差、音質、既定device切替、親強制終了時の停止確認）
-2. 実ComfyUIでのStudio強制終了／再起動→`local_pipeline`自動継続E2E、ComfyUI自体の再起動でtaskが404になった場合と旧IDなしmarkerの手動判断・破棄UI
-3. ElevenLabs請求情報とのUSD実費照合と、必要に応じた別TTS provider adapter
-4. frame/timecode精度の連動比較、指定cutだけの再実行、cut/timecode単位コメントとcreative／rights human review UI
-5. 外部送信素材の秘密情報検査、監査bundle署名
+M1の5判断ウィザード、M2の非破壊制作ライブラリ、M3のcut/timecodeレビュー、M4の3始点画像→公式I2VA→15秒Quick Createは実装済みです。M3の指定cut修正は計画まで、M4の実API品質・費用は未検証です。
+
+1. M4の最小paid smoke。3件のtask上限、実生成時間、費用、人物／動作のcreative品質、15秒masterを人が明示確認する
+2. M3 `m4_cut_revision_job_v1`を実endpointへ接続し、指定cut 1件だけを再生成して他cut、timeline、narration、QC cacheを安全に再利用する
+3. M1素材取込でduration／codec／fps／解像度／音声streamを永続化し、5.167秒未満をJob登録前に案内または閉じた正規化へ送る
+4. 明示承認付きのWindowsネイティブ実機smoke（A/V開始差、音質、既定device切替、親強制終了時の停止確認）と、実ComfyUI強制終了／再起動E2E
+5. ElevenLabs請求情報とのUSD実費照合、外部送信素材の秘密情報検査、監査bundle署名
 
 実装済み範囲を超える工程はRun計画内の未実行項目として表示し、`running`や`complete`とは記録しません。

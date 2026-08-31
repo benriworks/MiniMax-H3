@@ -102,6 +102,14 @@ _REMOTION_PACKAGES = (
     "@remotion/bundler",
     "@remotion/transitions",
 )
+_FIRST_PARTY_SOURCE_PATHS = {
+    "entry_point": "studio/src/remotion/entry.tsx",
+    "composition_source": "studio/src/remotion/TimelineComposition.tsx",
+    "model_source": "studio/src/remotion/model.ts",
+    "api_source": "studio/src/api.ts",
+    "status_source": "studio/src/status.ts",
+    "types_source": "studio/src/types.ts",
+}
 _RUNTIME_ATTESTATION_ALGORITHM = "sha256-node-dependency-closure-v1"
 _RUNTIME_ROOT_PACKAGES = tuple(sorted((*_REMOTION_PACKAGES, "playwright")))
 _ARTIFACT_SPECS: tuple[dict[str, str], ...] = (
@@ -642,11 +650,11 @@ def _resolve_runtime(
         ffprobe_executable = _assembly._find_tool("ffprobe", ffprobe)
         render_script = workspace_path(workspace, "tools/studio/remotion_render.mjs", must_exist=True)
         doctor_script = workspace_path(workspace, "tools/studio/remotion_doctor.mjs", must_exist=True)
-        entry_point = workspace_path(workspace, "studio/src/remotion/entry.tsx", must_exist=True)
-        composition_source = workspace_path(
-            workspace, "studio/src/remotion/TimelineComposition.tsx", must_exist=True
-        )
-        model_source = workspace_path(workspace, "studio/src/remotion/model.ts", must_exist=True)
+        first_party_source_files = {
+            name: workspace_path(workspace, relative_path, must_exist=True)
+            for name, relative_path in _FIRST_PARTY_SOURCE_PATHS.items()
+        }
+        entry_point = first_party_source_files["entry_point"]
         package_lock = workspace_path(workspace, "studio/package-lock.json", must_exist=True)
         studio_package = workspace_path(workspace, "studio/package.json", must_exist=True)
     except (AssemblyError, SecurityError, OSError) as exc:
@@ -712,15 +720,12 @@ def _resolve_runtime(
             ),
             "studio_package": _file_identity(studio_package, version=IMPLEMENTATION_VERSION),
             "package_lock": _file_identity(package_lock, version=IMPLEMENTATION_VERSION),
-            "entry_point": _file_identity(entry_point, version=IMPLEMENTATION_VERSION),
-            "composition_source": _file_identity(
-                composition_source, version=IMPLEMENTATION_VERSION
-            ),
-            "model_source": _file_identity(model_source, version=IMPLEMENTATION_VERSION),
             "render_script": _file_identity(render_script, version=IMPLEMENTATION_VERSION),
             "doctor_script": _file_identity(doctor_script, version=IMPLEMENTATION_VERSION),
             "runtime_dependency_closure": runtime_attestation_identity,
         }
+        for name, path in first_party_source_files.items():
+            identity[name] = _file_identity(path, version=IMPLEMENTATION_VERSION)
         for name in _REMOTION_PACKAGES:
             identity[f"package:{name}"] = _file_identity(
                 _package_path(workspace, name), version=PINNED_REMOTION_VERSION
@@ -741,9 +746,7 @@ def _resolve_runtime(
             "doctor_script": doctor_script,
             "runtime_attestation_identity": runtime_attestation_identity,
             "source_files": {
-                "entry_point": entry_point,
-                "composition_source": composition_source,
-                "model_source": model_source,
+                **first_party_source_files,
                 "render_script": render_script,
                 "doctor_script": doctor_script,
             },

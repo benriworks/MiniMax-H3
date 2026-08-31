@@ -59,6 +59,12 @@
 
 > PNG中間frameは長尺ほど一時diskを消費します。開始前は「全frameのRGBA bytes×1.25＋raw出力2GiB＋正規化出力2GiB＋安全余白1GiB」に、`preserve_v1`の実source bytesまたはsharpカットごとの最大2GiBを足して検査します。source staging後に実staged bytesを記録し、残容量をframe／出力／余白分でもう一度検査します。不足時は`insufficient_scratch_space`でNode起動前に停止します。Remotion／Chromiumの`TEMP`／`TMP`／`TMPDIR`はatomic stage内へ閉じ、成功・失敗・cancelの全終了経路で削除します。Windowsの一時lockにはbounded retryを行い、残留時は`remotion_stage_cleanup_failed`として失敗を公開します。両検査値はrender report／manifestに残ります。
 
+## Studio M1-M4 workflow
+
+The loopback Studio now includes a five-decision Simple Create wizard, a non-destructive production library, and immutable artifact/revision/run/cut/timecode reviews. Library rename, archive/unarchive, and import-preserving duplicate operations use client-issued operation identities; archive never deletes artifacts. Review decisions remain separate from technical QC. A cut revision plan is currently audit-only and explicitly reports `planned_not_executed` / `not_connected` rather than claiming a render.
+
+The `shot-project` CLI accepts three pre-generated first-frame images plus three I2VA prompts, submits exactly three 6-second 768P tasks to the official MiniMax H3 V2 API, persists task IDs and input/output hashes under `outputs/studio/shot_projects/`, and passes the verified clips to the existing Quick Create pipeline for an exact 15-second result. `confirmed_billable_task_limit=3` is required. A durable `prepared` marker blocks automatic paid resubmission after an ambiguous response. The API credential is read from the DPAPI-backed Studio secret store and is never written to the plan or state files. The local ComfyUI Studio preset remains T2VA-only; this I2VA path does not pretend to be local generation. Mock tests cover three submissions, zero successful-resume submissions, and zero ambiguous-response resubmissions. No paid API smoke was run.
+
 ## Prompt Writing Skill
 
 Install the H3 prompt writing skill — one of nine skills bundled with this repository:

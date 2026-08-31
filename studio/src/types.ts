@@ -22,8 +22,25 @@ export interface ProductionSummary {
   technicalStatus?: StudioStatus;
   creativeStatus?: StudioStatus;
   publicReleaseStatus?: StudioStatus;
+  archived: boolean;
+  archivedAt?: string;
+  libraryReadOnly: boolean;
   tags: string[];
   raw: Record<string, unknown>;
+}
+
+export type ProductionLibraryAction = 'rename' | 'archive' | 'duplicate';
+
+/** Verified response projection for one idempotent library mutation. */
+export interface ProductionLibraryMutationResponse {
+  schemaVersion: 1;
+  operationId: string;
+  action: ProductionLibraryAction;
+  production: ProductionSummary;
+  sourceProductionId?: string;
+  includeImports?: boolean;
+  importedArtifactCount?: number;
+  deduplicated: boolean;
 }
 
 /** Exact request body for creating a production from the Studio UI. */
@@ -74,6 +91,7 @@ export interface PipelineContinuation {
 
 export interface ProductionRun {
   id: string;
+  revisionId?: string;
   status: StudioStatus;
   label: string;
   revision?: number;
@@ -90,6 +108,82 @@ export interface ProductionRun {
   currency?: string;
   latestApproval?: Approval;
   raw: Record<string, unknown>;
+}
+
+export type ReviewCategory = 'creative' | 'rights' | 'public_release';
+export type ReviewDecision = 'pending' | 'approved' | 'changes_required' | 'not_applicable';
+export type ReviewStatus = 'open' | 'resolved';
+
+export interface ReviewIdentity {
+  artifactId: string;
+  revisionId: string;
+  runId: string;
+  cutId: string;
+  timecodeMs: number;
+}
+
+export interface ReviewRevisionPlanExecution {
+  adapter: 'm4_cut_revision_job_v1';
+  connected: false;
+  status: 'not_connected';
+  jobId: null;
+  endpointTemplate: string;
+  request: Record<string, unknown>;
+}
+
+/** A cut-only revision plan is not proof that a render ran. */
+export interface ReviewRevisionPlan {
+  id: string;
+  status: 'planned_not_executed';
+  renderStatus: 'not_started';
+  exactCutIdentity: ReviewIdentity;
+  identityDigest: string;
+  affectedStages: string[];
+  reusePolicy: 'reuse_all_other_exact_cut_artifacts';
+  execution: ReviewRevisionPlanExecution;
+}
+
+export interface ReviewAction {
+  id: string;
+  type: 'created' | 'resolved' | 'decision_set' | 'revision_plan_created';
+  actor: string;
+  decision: ReviewDecision;
+  note: string;
+  createdAt: string;
+  eventId: number;
+  eventHash: string;
+  revisionPlan: ReviewRevisionPlan | null;
+}
+
+export interface ReviewThread {
+  id: string;
+  status: ReviewStatus;
+  category: ReviewCategory;
+  decision: ReviewDecision;
+  body: string;
+  actor: string;
+  createdAt: string;
+  updatedAt: string;
+  identity: ReviewIdentity;
+  actions: ReviewAction[];
+  revisionPlans: ReviewRevisionPlan[];
+}
+
+export interface ReviewGate {
+  decision: ReviewDecision;
+  reviewCount: number;
+  openCount: number;
+  resolvedCount: number;
+}
+
+export type ReviewGates = Record<ReviewCategory, ReviewGate>;
+
+export interface ReviewMutationResponse {
+  productionId: string;
+  review: ReviewThread;
+  action: ReviewAction;
+  gates: ReviewGates;
+  deduplicated: boolean;
 }
 
 export type ArtifactKind = 'video' | 'audio' | 'image' | 'text' | 'document' | 'archive' | 'other';
@@ -228,6 +322,8 @@ export interface ProductionDetail extends ProductionSummary {
   announcementRecipes: AnnouncementRecipeRecord[];
   announcementRecipeVersions: AnnouncementRecipeRecord[];
   announcementExecutions: AnnouncementExecutionRecord[];
+  reviews: ReviewThread[];
+  reviewGates: ReviewGates;
   specification?: Record<string, unknown>;
 }
 
