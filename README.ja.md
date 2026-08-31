@@ -15,6 +15,16 @@
 
 通常は`http://127.0.0.1:8765`を開きます。現在のMVPは既存制作台帳の閲覧、再実行計画、Run記録、有料工程の費用上限承認、監査exportに加え、Windows SAPIによる無課金のローカルナレーション生成、固定ComfyUIによるローカル動画生成、isolated Chromiumによるloopback Web画面収録、明示同意付きのWindowsプライマリ画面＋既定再生system audio収録、FFmpegによるハードカット、Remotionによる詳細timeline preview、clean／字幕焼き込みmasterのローカル合成、完成masterのローカルtechnical QCを扱えます。字幕、segment timing、発音置換、工程cache、codec／stream／duration／full-decode／全編無音の検査、Integrated loudness／true peak／黒画面のhard check、長い静止区間のwarning、ffprobe・manifestも記録します。QC policyはschema v2 / `local-ffmpeg-qc-v2` / `technical-qc-mp4-v2`で固定し、Integrated loudness -24.0〜-10.0 LUFS、true peak -1.0 dBFS以下、0.5秒以上の黒画面をtechnical verdictへ反映します。1.0秒以上の長い静止区間はwarningのみで、verdictには影響しません。ElevenLabs外部TTSは別の承認済みprofileで扱い、MiniMax外部APIのStudio workerは未接続です。Web収録は`127.0.0.1`の明示portだけを対象とします。Windowsネイティブ収録はプライマリ画面全体と既定render/console loopbackだけが対象で、外部サイトの制御、既存ログインsessionの注入、window指定、device指定、マイクは対象外です。詳細とセキュリティ境界は[STUDIO_MVP_JA.md](STUDIO_MVP_JA.md)を参照してください。
 
+### 新しい制作、動画素材の取込、Job停止
+
+上部の`新しい制作`から、タイトルと任意の動画素材を指定して制作を開始できます。ブラウザは`production_`に32桁の小文字hexを続けたIDを最初の送信前に固定し、作成応答が不明でもversioned `localStorage`に同じIDとタイトルを保持します。再照合ではIDとタイトルの両方が一致する制作だけを採用し、保留情報を明示破棄しない限り別IDを自動発行しません。告知動画に未保存の変更がある場合は、破棄確認を通るまで制作作成へ進みません。
+
+動画は`mp4`、`m4v`、`mov`、`mkv`、`webm`、`avi`を一度に最大16件、1件あたり0より大きく2 GiB以下で選べます。UIは1件ずつ送信し、失敗した項目だけを再試行できます。backendはraw request bodyをproduction内の非公開partialへstreamし、SHA-256とffprobeのvideo stream／container検査を通した後だけ`outputs/productions/<id>/imports/`へatomic publishします。同じbytesはファイル名や対応拡張子が違っても既存artifactへ収束します。`.studio-production.json`はタイトルと取込済み相対path／SHA-256だけを保持する制御ファイルで、artifactとして公開しません。Studio再起動時は閉じた命名規則の残留partialだけを清掃し、Indexerはこの制御情報からtitleと既知hashを復元します。
+
+実行中Jobには`停止`操作が表示されます。`POST /api/jobs/{job_id}/cancel`は`{"schema_version":1}`だけを受け、process、provider、force、timeoutをクライアントに選ばせません。responseは最新Job、`cancel_requested`、`worker_retired`を分けて返すため、停止要求の受付とworker終了確認を同一視しません。terminal Jobへの再送は新しい処理を起こさない冪等な照合です。
+
+ブラウザ側も成功statusだけでは確定せず、制作作成は`201`＋exact production ID／title、動画取込は`201`＋exact production／output artifact／SHA-256、Job停止は`202`＋exact Job ID／停止状態を照合します。別identityや不完全な成功responseは表示へ採用せずfail closedにします。
+
 `local_playwright`で実行できる工程は`screen_capture`と`timeline`です。`assembly`と`qc`は影響工程としてRun計画に残りますが、このprofileでは実行しません。画面収録とtimelineのジョブ状態・進捗率はUIが2秒pollingで再取得します。
 
 `setup-studio.ps1`はWindows上で外部NuGet依存のない`native/windows-capture-helper`もRelease buildします。認証済み`POST /api/capabilities/windows-capture/inspect`は空objectだけを受け、固定helperのCore Audio doctor、物理プライマリ解像度、FFmpeg `gdigrab`／ffprobeを有界検査します。この診断自体は画面・音声dataの取得、保存、送信、Job／Run／artifact／event作成を行わず、ready時も`actual_capture_performed=false`です。実収録は`local_windows_capture` Runで、画面とsystem audioを別々に確認して60秒有効の単回consent intentを発行した後、同じ固定条件とtokenを`POST /api/runs/{run_id}/execute-windows-capture`へ送ります。tokenはsession／Run／条件に拘束しraw値を永続化しません。同tokenの再送は完了後も元Jobを返し、新しい録画には新しい同意が必要です。収録は1〜30秒、プライマリ画面、既定render loopback、cursor非表示へ固定し、path、window、device ID、マイク、任意FFmpeg引数は入力できません。helperとFFmpegは録画開始前にkill-on-close Windows Job Objectへ割り当て、秘密を含まないallowlist環境だけを渡します。専用capture laneは同時1件だけを許可し、raw masterは決定的partialとして起動前にも清掃します。cleanup失敗はRun配下marker、pathを含まないfsync済みfallback ledger、DBのexact cleanup-error lineageへ記録し、JobManager作成前にexact targetだけを再清掃します。ledger／DB／削除の失敗は起動をfail closedにし、一般failed Jobや別成果物へ対象を広げません。成功時はcombined MP4、video-only MP4、loopback WAV、始点／終点PNG、sanitized report、ffprobe、manifestの8成果物を原子的に登録します。masterと最終MP4のvideo/audio `start_time`／duration、frame／sample境界はfresh ffprobeで構造検証しますが、映像内容と音声内容を同一時計で直接観測してはいません。report／manifest／Job resultは`structural_timing_verified=true`と`content_sync_verified=false`／`live_validation_required=true`を分離し、UIも実機A/V同期確認まで公開利用を保留表示します。自動テストでは実録routeを呼んでおらず、A/V実内容同期・音質・収録中の既定device切替は明示承認付き実機smokeの残課題です。
@@ -50,6 +60,16 @@ recipeは保存のたびにimmutableなversionをproduction eventへ追加し、
 ここで「自動処理を止める」とは、追加POSTと同じ候補へのexact Job GETを止めることです。2秒のJob／おおむね6秒のproduction detail照合は継続し、後からfreshなexact linkを確認できれば再POSTせず復旧します。また、複製intent用`localStorage`が壊れているか利用できない場合は、安全なIDを保持できないため告知フォーム全体を明示破棄または環境復旧までロックします。
 
 完全なcanonical recipeは再調整と監査のため`announcement.recipe.saved` eventへBase64で保存され、hash-chain JSONL mirrorと監査exportに含まれ得ます。Base64は暗号化ではなく平文相当です。API key、token、password、公開不要の個人情報はrecipe名、見出し、ナレーション、発音置換へ書かないでください。v1はBGM、ロゴ画像、任意renderer／CSS／React component、新規H3生成を扱いません。
+
+#### Codex／CLIからのQuick Create一括実行
+
+画面を開かずに既存の告知recipe契約を使う場合は、versioned JSONを1ファイル用意して次を実行します。
+
+```powershell
+.\.venv\Scripts\python.exe -m tools.studio.cli quick-create .\quick-create-request.json
+```
+
+requestは`schema_version`、既存`production_id`、事前発行した`recipe_id`、`expected_revision`、画面と同じexact `recipe`、任意の`timeout_seconds`（1〜3,600秒、既定600秒）だけを受けます。CLIはworkspace lockを取得し、同じtimeout budget内で索引更新、CAS保存、告知実行、2秒間隔のtop Job照合を行います。成功時はRun／Job／recipe revision、4 child、完成master、QC文書の相対path／bytes／SHA-256だけをbounded JSONで返し、recipe本文や絶対pathは返しません。終了codeは成功`0`、request／Job／timeout失敗`2`、technical QC non-pass`3`です。これは新しいrendererや課金経路ではなく、Studio UIと同じWindows SAPI→Remotion→assembly→QCを呼ぶcontrol-plane入口です。
 
 ### `詳細一括`（既存素材からのテスト動画）
 

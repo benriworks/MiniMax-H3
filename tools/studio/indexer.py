@@ -9,6 +9,13 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from .database import StudioDatabase
+from .production_intake import (
+    PRODUCTION_METADATA_FILENAME,
+    PRODUCTION_ID_RE,
+    VIDEO_IMPORT_PARTIALS_DIRNAME,
+    VIDEO_IMPORTS_DIRNAME,
+    read_production_metadata,
+)
 from .security import (
     IDENTIFIER_RE,
     relative_workspace_path,
@@ -69,6 +76,14 @@ _DOCUMENT_EXTENSIONS = {
     ".xhtml",
 }
 _SHA_RE = re.compile(r"^[0-9a-fA-F]{64}$")
+_VIDEO_MEDIA_TYPES = {
+    ".mp4": "video/mp4",
+    ".m4v": "video/mp4",
+    ".mov": "video/quicktime",
+    ".mkv": "video/x-matroska",
+    ".webm": "video/webm",
+    ".avi": "video/x-msvideo",
+}
 
 
 def _sha256(path: Path) -> str:
@@ -102,11 +117,16 @@ def _iter_files(root: Path) -> Iterator[Path]:
         directory_names[:] = [
             name
             for name in directory_names
-            if not (directory_path / name).is_symlink()
+            if name != VIDEO_IMPORT_PARTIALS_DIRNAME
+            and not (directory_path / name).is_symlink()
             and not sensitive_artifact_path(name)
         ]
         for name in file_names:
-            if sensitive_artifact_path(name):
+            if (
+                name == PRODUCTION_METADATA_FILENAME
+                or (name.startswith(".studio-production.") and name.endswith(".partial"))
+                or sensitive_artifact_path(name)
+            ):
                 continue
             path = directory_path / name
             if path.is_symlink():
@@ -213,7 +233,11 @@ class ProductionIndexer:
                 digest = _sha256(path)
             except OSError:
                 digest = None
-        media_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+        media_type = (
+            _VIDEO_MEDIA_TYPES.get(path.suffix.casefold())
+            or mimetypes.guess_type(path.name)[0]
+            or "application/octet-stream"
+        )
         is_heavy = kind in {"video", "audio", "image"} or stat.st_size > 10 * 1024 * 1024
         return {
             "id": stable_id("art", relative.casefold()),
@@ -229,7 +253,7 @@ class ProductionIndexer:
             "is_heavy": is_heavy,
         }
 
-    def refresh(self) -> dict[str, Any]:
+    def _refresh_ids(self, production_ids: list[str]) -> dict[str, Any]:
         totals = {
             "productions": 0,
             "artifacts_seen": 0,
@@ -237,17 +261,42 @@ class ProductionIndexer:
             "artifact_versions_added": 0,
             "skipped_files": 0,
         }
-        for production_id in self._production_ids():
+        for production_id in production_ids:
             source_directory = self.records_root / production_id
             output_directory = self.outputs_root / production_id
             source = source_directory if source_directory.is_dir() else None
             output = output_directory if output_directory.is_dir() else None
             manifest, known_hashes = _manifest_data(source)
+            control = (
+                read_production_metadata(self.workspace, production_id)
+                if PRODUCTION_ID_RE.fullmatch(production_id)
+                else None
+            )
+            controlled_imports: set[str] | None = None
+            if control is not None:
+                controlled_imports = set(control["imports"])
+                for relative, digest in control["imports"].items():
+                    workspace_relative = (
+                        f"outputs/productions/{production_id}/{relative}"
+                    )
+                    known_hashes[workspace_relative.casefold()] = digest
             artifacts: list[dict[str, Any]] = []
             for origin, directory in (("record", source), ("output", output)):
                 if directory is None:
                     continue
                 for path in _iter_files(directory):
+                    if origin == "output" and controlled_imports is not None:
+                        try:
+                            output_relative = path.relative_to(directory).as_posix()
+                        except ValueError:
+                            totals["skipped_files"] += 1
+                            continue
+                        if (
+                            output_relative.startswith(f"{VIDEO_IMPORTS_DIRNAME}/")
+                            and output_relative not in controlled_imports
+                        ):
+                            totals["skipped_files"] += 1
+                            continue
                     artifact = self._artifact(production_id, path, origin, known_hashes)
                     if artifact is None:
                         totals["skipped_files"] += 1
@@ -255,7 +304,11 @@ class ProductionIndexer:
                         artifacts.append(artifact)
             metadata = {
                 "id": production_id,
-                "title": _title(source, production_id),
+                "title": (
+                    control["title"]
+                    if control is not None
+                    else _title(source, production_id)
+                ),
                 "status": manifest.get("status", "discovered"),
                 "technical_status": manifest.get("technical_status"),
                 "creative_status": manifest.get("creative_status"),
@@ -274,3 +327,13 @@ class ProductionIndexer:
         totals["domain_records_restored"] = self.database.restore_domain_records_from_events()
         self.database.append_event("studio", "index", "index.refresh.completed", totals)
         return totals
+
+    def refresh_production(self, production_id: str) -> dict[str, Any]:
+        """Refresh one already-validated production without unrelated failure coupling."""
+
+        if not isinstance(production_id, str) or IDENTIFIER_RE.fullmatch(production_id) is None:
+            raise ValueError("invalid production id")
+        return self._refresh_ids([production_id])
+
+    def refresh(self) -> dict[str, Any]:
+        return self._refresh_ids(self._production_ids())

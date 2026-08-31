@@ -5,11 +5,19 @@ import getpass
 import json
 import re
 import sys
+import time
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
 from .instance_lock import StudioInstanceLockError, WorkspaceInstanceLock
+from .quick_create import (
+    QUICK_CREATE_SCHEMA_VERSION,
+    QuickCreateError,
+    QuickCreateQcNonPass,
+    load_quick_create_request,
+    run_quick_create,
+)
 from .secrets import PROVIDERS, SecretStorageUnavailable, SecretStore
 from .service import StudioService
 from .test_video import TestVideoError, run_test_video
@@ -21,6 +29,7 @@ _MAX_OUTPUT_DEPTH = 5
 _MAX_OUTPUT_ITEMS = 64
 _MAX_OUTPUT_STRING = 1024
 _SAFE_CODE_RE = re.compile(r"^[a-z0-9_.-]{1,128}$")
+_SAFE_IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9_.-]{1,128}$")
 # A close failure means a daemon worker may still touch the workspace.  Keep
 # the OS lock object reachable until process exit instead of letting Python
 # finalization release it while that old work is still draining.
@@ -28,7 +37,7 @@ _RETAINED_INSTANCE_LOCKS: list[WorkspaceInstanceLock] = []
 
 
 class _CliOperationError(RuntimeError):
-    """An internal, non-sensitive error for the test-video command."""
+    """An internal, non-sensitive Studio CLI operation error."""
 
     def __init__(self, code: str):
         super().__init__(code)
@@ -140,6 +149,81 @@ def _write_test_video_error(code: str, *, stream: Any | None = None) -> None:
     )
 
 
+def _quick_create_error_message(code: str) -> str:
+    """Return fixed operator text without reflecting request or job data."""
+
+    if code == "workspace_in_use":
+        return "The Studio workspace is already in use."
+    if code == "quick_create_timeout":
+        return "The Quick Create job did not reach a terminal state in time."
+    if code == "technical_qc_failed":
+        return "The Quick Create technical quality check did not pass."
+    if code == "announcement_recipe_conflict":
+        return "The Quick Create recipe revision changed before it was saved."
+    if code.startswith("invalid") or code.startswith("quick_create_input"):
+        return "The Quick Create request was rejected."
+    return "The Quick Create operation failed."
+
+
+def _safe_quick_create_context(value: Any) -> dict[str, Any]:
+    if not isinstance(value, Mapping):
+        return {}
+    result: dict[str, Any] = {}
+    identifier_keys = (
+        "production_id",
+        "recipe_id",
+        "recipe_version_id",
+        "job_id",
+        "run_id",
+        "revision_id",
+    )
+    for key in identifier_keys:
+        item = value.get(key)
+        if isinstance(item, str) and _SAFE_IDENTIFIER_RE.fullmatch(item):
+            result[key] = item
+    request_key = value.get("request_key")
+    if isinstance(request_key, str) and re.fullmatch(r"[0-9A-F]{64}", request_key):
+        result["request_key"] = request_key
+    recipe_revision = value.get("recipe_revision")
+    if (
+        isinstance(recipe_revision, int)
+        and not isinstance(recipe_revision, bool)
+        and recipe_revision >= 1
+    ):
+        result["recipe_revision"] = recipe_revision
+    for key in ("recipe_deduplicated", "job_deduplicated"):
+        item = value.get(key)
+        if isinstance(item, bool):
+            result[key] = item
+    status = value.get("status")
+    if status in {"queued", "running", "succeeded", "failed", "interrupted"}:
+        result["status"] = status
+    return result
+
+
+def _write_quick_create_error(
+    code: str,
+    *,
+    context: Any = None,
+    stream: Any | None = None,
+) -> None:
+    if stream is None:
+        stream = sys.stderr
+    safe_code = _safe_error_code(code, "quick_create_failed")
+    document = {
+        "schema_version": QUICK_CREATE_SCHEMA_VERSION,
+        **_safe_quick_create_context(context),
+        "error": {
+            "code": safe_code,
+            "message": _quick_create_error_message(safe_code),
+        },
+    }
+    print(
+        json.dumps(document, ensure_ascii=False, separators=(",", ":")),
+        file=stream,
+    )
+
+
 def _is_technical_qc_failure(value: Any) -> bool:
     if isinstance(value, Mapping):
         verdict = value.get("technical_verdict")
@@ -187,6 +271,12 @@ def build_parser() -> argparse.ArgumentParser:
     test_video.add_argument("--end-ms", type=_non_negative_int, required=True)
     test_video.add_argument("--variant", choices=("captioned", "clean"), default="captioned")
     test_video.add_argument("--timeout-seconds", type=_positive_int, default=600)
+
+    quick_create = commands.add_parser(
+        "quick-create",
+        help="Save and execute one versioned Quick Create JSON request",
+    )
+    quick_create.add_argument("request_file", type=Path)
     return parser
 
 
@@ -194,6 +284,8 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "test-video":
         return _run_test_video_command(args)
+    if args.command == "quick-create":
+        return _run_quick_create_command(args)
 
     return _run_secret_command(args)
 
@@ -237,7 +329,7 @@ def _test_video_request(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
-def _refresh_index_or_raise(service: StudioService, timeout_seconds: int) -> None:
+def _refresh_index_or_raise(service: StudioService, timeout_seconds: float) -> None:
     refresh_job = service.refresh_index()
     if not isinstance(refresh_job, Mapping) or not isinstance(
         refresh_job.get("id"), str
@@ -245,6 +337,8 @@ def _refresh_index_or_raise(service: StudioService, timeout_seconds: int) -> Non
         raise _CliOperationError("index_refresh_failed")
     completed = service.jobs.wait(refresh_job["id"], timeout=timeout_seconds)
     if not isinstance(completed, Mapping):
+        raise _CliOperationError("index_refresh_timeout")
+    if completed.get("status") in {"queued", "running"}:
         raise _CliOperationError("index_refresh_timeout")
     if completed.get("status") != "succeeded":
         raise _CliOperationError("index_refresh_failed")
@@ -325,6 +419,86 @@ def _run_test_video_command(args: argparse.Namespace) -> int:
             pending_result = None
     if exit_code == 0 and pending_result is not None:
         _write_bounded_json(pending_result)
+    return exit_code
+
+
+def _run_quick_create_command(args: argparse.Namespace) -> int:
+    lock: WorkspaceInstanceLock | None = None
+    service: StudioService | None = None
+    exit_code = 2
+    pending_result: dict[str, Any] | None = None
+    pending_error: tuple[str, dict[str, Any]] | None = None
+    try:
+        workspace = args.workspace.resolve(strict=True)
+        request = load_quick_create_request(args.request_file)
+        deadline = time.monotonic() + request["timeout_seconds"]
+        try:
+            lock = WorkspaceInstanceLock(workspace)
+        except StudioInstanceLockError:
+            pending_error = ("workspace_in_use", {})
+        else:
+            service = StudioService(workspace)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise _CliOperationError("index_refresh_timeout")
+            _refresh_index_or_raise(service, remaining)
+            pending_result = run_quick_create(
+                service,
+                request,
+                deadline=deadline,
+            )
+            exit_code = 0
+    except QuickCreateQcNonPass as exc:
+        pending_error = (exc.code, exc.context)
+        exit_code = 3
+    except QuickCreateError as exc:
+        pending_error = (exc.code, exc.context)
+        exit_code = 2
+    except _CliOperationError as exc:
+        pending_error = (exc.code, {})
+        exit_code = 2
+    except (OSError, ValueError, TypeError, KeyError):
+        pending_error = ("quick_create_failed", {})
+        exit_code = 2
+    except Exception:
+        # Service and worker exceptions can contain local paths, recipe text,
+        # or provider diagnostics.  Never reflect them into the CLI stream.
+        pending_error = ("quick_create_failed", {})
+        exit_code = 2
+    except KeyboardInterrupt:
+        pending_error = ("process_interrupted", {})
+        exit_code = 130
+    finally:
+        service_closed = service is None
+        if service is not None:
+            try:
+                service.close()
+            except Exception:
+                service_closed = False
+            else:
+                service_closed = True
+        if lock is not None:
+            if service_closed:
+                try:
+                    lock.close()
+                except Exception:
+                    _RETAINED_INSTANCE_LOCKS.append(lock)
+                    service_closed = False
+            else:
+                _RETAINED_INSTANCE_LOCKS.append(lock)
+        if not service_closed:
+            pending_result = None
+            pending_error = ("process_interrupted", {})
+            if exit_code != 130:
+                exit_code = 2
+
+    if exit_code == 0 and pending_result is not None:
+        _write_bounded_json(pending_result)
+    elif pending_error is not None:
+        _write_quick_create_error(
+            pending_error[0],
+            context=pending_error[1],
+        )
     return exit_code
 
 

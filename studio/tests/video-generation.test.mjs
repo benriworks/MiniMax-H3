@@ -363,3 +363,182 @@ test('provider task resume sends an exact empty JSON object to the backend', asy
     globalThis.fetch = originalFetch;
   }
 });
+
+test('production creation keeps the exact body contract and import uses a raw file with encoded filename', async () => {
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  const productionId = `production_${'a'.repeat(32)}`;
+  globalThis.fetch = async (input, init = {}) => {
+    requests.push({ input: String(input), init });
+    if (String(input) === '/api/productions') {
+      return {
+        ok: true,
+        status: 201,
+        json: async () => ({ schema_version: 1, production: { id: productionId, title: 'テスト制作', status: 'pending' } }),
+      };
+    }
+    return {
+      ok: true,
+      status: 201,
+      json: async () => ({
+        schema_version: 1,
+        artifact: {
+          id: `art_${'b'.repeat(32)}`,
+          production_id: productionId,
+          origin: 'output',
+          rel_path: `outputs/productions/${productionId}/imports/${'c'.repeat(16)}_素材.mp4`,
+          name: '素材.mp4',
+          kind: 'video',
+          mime_type: 'video/mp4',
+          bytes: 11,
+          sha256: 'D'.repeat(64),
+        },
+        deduplicated: false,
+      }),
+    };
+  };
+  try {
+    const created = await api.api.createProduction(productionId, 'テスト制作');
+    assert.equal(created.id, productionId);
+    assert.deepEqual(JSON.parse(String(requests[0].init.body)), {
+      schema_version: 1,
+      production_id: productionId,
+      title: 'テスト制作',
+    });
+    assert.deepEqual(Object.keys(JSON.parse(String(requests[0].init.body))).sort(), ['production_id', 'schema_version', 'title']);
+
+    const source = new Blob(['video-bytes'], { type: 'video/mp4' });
+    Object.defineProperty(source, 'name', { value: '素材 01.mp4' });
+    const imported = await api.api.importVideo(productionId, source);
+    assert.equal(imported.artifact?.id, `art_${'b'.repeat(32)}`);
+    assert.equal(imported.deduplicated, false);
+    const importRequest = requests[1];
+    assert.equal(importRequest.input, `/api/productions/${productionId}/artifacts/import-video`);
+    assert.equal(importRequest.init.method, 'POST');
+    assert.equal(importRequest.init.body, source);
+    assert.equal(importRequest.init.headers['Content-Type'], 'video/mp4');
+    assert.equal(importRequest.init.headers['X-Studio-Filename-Encoded'], encodeURIComponent('素材 01.mp4'));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('job cancellation posts only the schema version and exposes worker wait status', async () => {
+  const originalFetch = globalThis.fetch;
+  let seen;
+  const jobId = `job_${'e'.repeat(32)}`;
+  globalThis.fetch = async (input, init = {}) => {
+    seen = { input: String(input), method: init.method, body: init.body };
+    return {
+      ok: true,
+      status: 202,
+      json: async () => ({
+        schema_version: 1,
+        job: { id: jobId, status: 'running', stage: 'video_generation' },
+        cancel_requested: true,
+        worker_retired: false,
+      }),
+    };
+  };
+  try {
+    const result = await api.api.cancelJob(jobId);
+    assert.deepEqual(seen, {
+      input: `/api/jobs/${jobId}/cancel`,
+      method: 'POST',
+      body: JSON.stringify({ schema_version: 1 }),
+    });
+    assert.equal(result.job?.status, 'running');
+    assert.equal(result.status, 'running');
+    assert.equal(result.cancelRequested, true);
+    assert.equal(result.workerRetired, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('new mutation APIs reject mismatched success identities', async () => {
+  const originalFetch = globalThis.fetch;
+  const productionId = `production_${'f'.repeat(32)}`;
+  const jobId = `job_${'1'.repeat(32)}`;
+  try {
+    globalThis.fetch = async () => ({
+      ok: true,
+      status: 201,
+      json: async () => ({
+        schema_version: 1,
+        production: { id: `production_${'0'.repeat(32)}`, title: '別制作' },
+      }),
+    });
+    await assert.rejects(
+      () => api.api.createProduction(productionId, 'テスト制作'),
+      /応答identity/,
+    );
+
+    globalThis.fetch = async () => ({
+      ok: true,
+      status: 202,
+      json: async () => ({
+        schema_version: 1,
+        job: { id: `job_${'2'.repeat(32)}`, status: 'interrupted' },
+        cancel_requested: true,
+        worker_retired: true,
+      }),
+    });
+    await assert.rejects(() => api.api.cancelJob(jobId), /応答identity/);
+
+    globalThis.fetch = async () => ({
+      ok: true,
+      status: 201,
+      json: async () => ({
+        schema_version: 1,
+        artifact: {
+          id: `art_${'3'.repeat(32)}`,
+          production_id: `production_${'4'.repeat(32)}`,
+          origin: 'output',
+          rel_path: 'outputs/productions/wrong/imports/wrong.mp4',
+          kind: 'video',
+          bytes: 1,
+          sha256: 'A'.repeat(64),
+        },
+        deduplicated: false,
+      }),
+    });
+    const source = new Blob(['x'], { type: 'video/mp4' });
+    Object.defineProperty(source, 'name', { value: 'source.mp4' });
+    await assert.rejects(
+      () => api.api.importVideo(productionId, source),
+      /応答identity/,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('video import validation rejects empty, oversized, too many, and unsupported files', () => {
+  assert.equal(api.validateVideoImportFiles([{ name: 'ok.mp4', size: 1 }]).valid, true);
+  const empty = api.validateVideoImportFiles([{ name: 'empty.mp4', size: 0 }]);
+  assert.equal(empty.valid, false);
+  assert.match(empty.errors[0], /0より大きく/);
+  const oversized = api.validateVideoImportFiles([{ name: 'large.mp4', size: 2 * 1024 * 1024 * 1024 + 1 }]);
+  assert.equal(oversized.valid, false);
+  assert.match(oversized.errors[0], /2 GiB/);
+  const tooMany = api.validateVideoImportFiles(Array.from({ length: 17 }, (_, index) => ({ name: `clip-${index}.mp4`, size: 1 })));
+  assert.equal(tooMany.valid, false);
+  assert.match(tooMany.errors[0], /16個まで/);
+  const unsupported = api.validateVideoImportFiles([{ name: 'notes.txt', size: 1 }]);
+  assert.equal(unsupported.valid, false);
+  assert.match(unsupported.errors[0], /動画拡張子/);
+  const missingExtension = api.validateVideoImportFiles([{ name: 'camera-recording', size: 1 }]);
+  assert.equal(missingExtension.valid, false);
+});
+
+test('production create builder fails closed for non-stable ids and long titles', () => {
+  const id = `production_${'f'.repeat(32)}`;
+  assert.deepEqual(api.buildProductionCreatePayload(id, '  stable title  '), {
+    schema_version: 1,
+    production_id: id,
+    title: 'stable title',
+  });
+  assert.throws(() => api.buildProductionCreatePayload('production_client_1', 'title'), /production_id/);
+  assert.throws(() => api.buildProductionCreatePayload(id, 'x'.repeat(121)), /120/);
+});

@@ -6,6 +6,7 @@ import type {
   AnnouncementVideoRecipe,
   AnnouncementVideoScene,
   Artifact,
+  ArtifactImportResponse,
   ArtifactKind,
   CostEntry,
   DetailedTestVideoRequest,
@@ -14,6 +15,7 @@ import type {
   ExternalVoiceSettings,
   HealthStatus,
   Job,
+  JobCancellationResponse,
   JobResult,
   LocalAssemblyAudioMixPreset,
   LocalAssemblyCaptionStylePreset,
@@ -36,6 +38,7 @@ import type {
   LocalQcVerdict,
   LocalNarrationRequest,
   ProductionDetail,
+  ProductionCreatePayload,
   ProductionRun,
   PipelineContinuation,
   PipelineContinuationState,
@@ -3359,6 +3362,61 @@ export const serializeLocalComfyUiPayload = (payload: LocalComfyUiPayload): stri
   return `${rest.slice(0, -1)},"seed":${payload.seed}}`;
 };
 
+export const MAX_VIDEO_IMPORT_FILES = 16;
+export const MAX_VIDEO_IMPORT_BYTES = 2 * 1024 * 1024 * 1024;
+export const PRODUCTION_ID_PATTERN = /^production_[0-9a-f]{32}$/;
+export const PRODUCTION_TITLE_MAX_LENGTH = 120;
+const VIDEO_IMPORT_EXTENSIONS = new Set([
+  '.avi', '.m4v', '.mkv', '.mov', '.mp4', '.webm',
+]);
+
+/** Build the closed production-creation request body. */
+export const buildProductionCreatePayload = (productionId: unknown, title: unknown): ProductionCreatePayload => {
+  const normalizedId = typeof productionId === 'string' ? productionId.trim() : '';
+  const normalizedTitle = typeof title === 'string' ? title.trim() : '';
+  if (!PRODUCTION_ID_PATTERN.test(normalizedId)) throw new TypeError('production_idの形式が正しくありません。');
+  if (!normalizedTitle) throw new TypeError('タイトルを入力してください。');
+  if (normalizedTitle.length > PRODUCTION_TITLE_MAX_LENGTH) throw new TypeError(`タイトルは${PRODUCTION_TITLE_MAX_LENGTH}文字以内にしてください。`);
+  return {
+    schema_version: 1,
+    production_id: normalizedId,
+    title: normalizedTitle,
+  };
+};
+
+/** The cancellation endpoint intentionally accepts no client-selected state. */
+export const buildJobCancelPayload = (): { schema_version: 1 } => ({ schema_version: 1 });
+
+export interface VideoImportValidation {
+  valid: boolean;
+  errors: string[];
+}
+
+/** Client-side guard for the bounded raw-file import lane. */
+export const validateVideoImportFiles = (
+  files: readonly { name?: unknown; size?: unknown }[],
+): VideoImportValidation => {
+  const errors: string[] = [];
+  if (files.length > MAX_VIDEO_IMPORT_FILES) {
+    errors.push(`動画は一度に${MAX_VIDEO_IMPORT_FILES}個まで選択できます（選択数: ${files.length}）。`);
+  }
+  files.forEach((file, index) => {
+    const size = typeof file.size === 'number' ? file.size : Number(file.size);
+    if (!Number.isFinite(size) || size <= 0 || size > MAX_VIDEO_IMPORT_BYTES) {
+      const name = typeof file.name === 'string' && file.name ? file.name : `ファイル${index + 1}`;
+      errors.push(`${name} は0より大きく、1ファイルあたり2 GiB以下にしてください。`);
+      return;
+    }
+    const name = typeof file.name === 'string' ? file.name.trim() : '';
+    const extensionIndex = name.lastIndexOf('.');
+    const extension = extensionIndex >= 0 ? name.slice(extensionIndex).toLowerCase() : '';
+    if (!extension || !VIDEO_IMPORT_EXTENSIONS.has(extension)) {
+      errors.push(`${name || `ファイル${index + 1}`} は対応する動画拡張子（mp4/webm/mov等）を指定してください。`);
+    }
+  });
+  return { valid: errors.length === 0, errors };
+};
+
 export const api = {
   async health(): Promise<HealthStatus> {
     try {
@@ -3379,6 +3437,78 @@ export const api = {
   async productions(): Promise<ProductionSummary[]> {
     const value = await request<unknown>('/api/productions');
     return items(value, ['items', 'productions', 'data']).map(normalizeProduction);
+  },
+
+  async createProduction(productionId: string, title: string): Promise<ProductionSummary> {
+    const payload = buildProductionCreatePayload(productionId, title);
+    const value = await post<unknown>('/api/productions', payload, undefined, 201);
+    const root = asRecord(value);
+    const candidate = pick(root, ['production', 'item', 'data']) ?? value;
+    const production = normalizeProduction(candidate, 0);
+    if (
+      root.schema_version !== 1
+      || production.id !== payload.production_id
+      || production.title !== payload.title
+    ) {
+      throw new StudioApiError(
+        '制作作成の応答identityが要求と一致しません。',
+        502,
+        'invalid_production_create_response',
+      );
+    }
+    return production;
+  },
+
+  async importVideo(productionId: string, file: File): Promise<ArtifactImportResponse> {
+    const value = await request<unknown>(
+      `/api/productions/${encodeURIComponent(productionId)}/artifacts/import-video`,
+      {
+        method: 'POST',
+        body: file,
+        headers: {
+          'Content-Type': file.type || 'application/octet-stream',
+          'X-Studio-Filename-Encoded': encodeURIComponent(file.name),
+        },
+      },
+      201,
+    );
+    const record = asRecord(value);
+    const candidate = pick(record, ['artifact', 'item', 'data']);
+    const artifactRecord = asRecord(candidate ?? value);
+    const artifact = normalizeArtifact(artifactRecord, 0);
+    const deduplicatedValue = pick(record, ['deduplicated', 'dedupe', 'is_deduplicated']);
+    const rawArtifactId = text(pick(artifactRecord, ['id', 'artifact_id']), '');
+    const rawProductionId = text(pick(artifactRecord, ['production_id', 'productionId']), '');
+    const rawOrigin = text(pick(artifactRecord, ['origin']), '');
+    const rawKind = text(pick(artifactRecord, ['kind', 'type']), '');
+    const rawPath = text(pick(artifactRecord, ['rel_path', 'path']), '');
+    const rawSha256 = text(pick(artifactRecord, ['sha256']), '');
+    const rawBytes = pick(artifactRecord, ['bytes', 'size_bytes', 'size']);
+    if (
+      record.schema_version !== 1
+      || candidate === undefined
+      || !/^art_[0-9a-f]{32}$/.test(rawArtifactId)
+      || rawProductionId !== productionId
+      || rawOrigin !== 'output'
+      || rawKind !== 'video'
+      || !rawPath.startsWith(`outputs/productions/${productionId}/imports/`)
+      || !/^[0-9A-F]{64}$/.test(rawSha256)
+      || typeof rawBytes !== 'number'
+      || !Number.isSafeInteger(rawBytes)
+      || rawBytes <= 0
+      || typeof deduplicatedValue !== 'boolean'
+    ) {
+      throw new StudioApiError(
+        '動画取込の応答identityが要求と一致しません。',
+        502,
+        'invalid_video_import_response',
+      );
+    }
+    return {
+      artifact,
+      deduplicated: deduplicatedValue,
+      raw: record,
+    };
   },
 
   async production(id: string, signal?: AbortSignal): Promise<ProductionDetail> {
@@ -3429,6 +3559,47 @@ export const api = {
   async job(jobId: string, signal?: AbortSignal): Promise<Job> {
     const value = await request<unknown>(`/api/jobs/${encodeURIComponent(jobId)}`, { signal });
     return normalizeJob(value);
+  },
+
+  async cancelJob(jobId: string): Promise<JobCancellationResponse> {
+    const value = await post<unknown>(
+      `/api/jobs/${encodeURIComponent(jobId)}/cancel`,
+      buildJobCancelPayload(),
+      undefined,
+      202,
+    );
+    const record = asRecord(value);
+    const cancellation = asRecord(pick(record, ['cancellation', 'cancel']));
+    const candidate = pick(record, ['job', 'item', 'data']);
+    const candidateRecord = asRecord(candidate);
+    const jobRecord = Object.keys(candidateRecord).length > 0
+      ? candidateRecord
+      : (record.id !== undefined || record.job_id !== undefined ? record : undefined);
+    const statusValue = pick(record, ['status', 'cancellation_status', 'cancellationStatus'])
+      ?? pick(cancellation, ['status', 'state']);
+    const cancelRequestedValue = pick(record, ['cancel_requested', 'cancelRequested'])
+      ?? pick(cancellation, ['cancel_requested', 'cancelRequested']);
+    const normalizedJob = jobRecord ? normalizeJob(jobRecord) : undefined;
+    const workerRetiredValue = pick(record, ['worker_retired', 'workerRetired']);
+    if (
+      record.schema_version !== 1
+      || normalizedJob?.id !== jobId
+      || typeof cancelRequestedValue !== 'boolean'
+      || typeof workerRetiredValue !== 'boolean'
+    ) {
+      throw new StudioApiError(
+        'Job停止の応答identityが要求と一致しません。',
+        502,
+        'invalid_job_cancel_response',
+      );
+    }
+    return {
+      job: normalizedJob,
+      status: text(statusValue ?? normalizedJob?.status, '') || undefined,
+      cancelRequested: cancelRequestedValue,
+      workerRetired: workerRetiredValue,
+      raw: record,
+    };
   },
 
   async providers(): Promise<ProviderStatus[]> {

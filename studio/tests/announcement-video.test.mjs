@@ -192,7 +192,7 @@ test('Quick Create keeps hidden settings fixed and reveals any advanced saved re
   assert.match(announcementSource, /type="radio" name="announcement-editor-mode"/);
   assert.ok(announcementSource.indexOf("duplicateIntentStore.status !== 'ready'") < announcementSource.indexOf('<QuickCreateForm'));
   assert.equal((announcementSource.match(/className="announcement-recipe-browser"/g) ?? []).length, 1);
-  assert.ok(announcementSource.indexOf('className="announcement-recipe-browser"') < announcementSource.indexOf("{activeEditorMode === 'quick' ? (\n            <QuickCreateForm"));
+  assert.match(announcementSource, /className="announcement-recipe-browser"[\s\S]*\{activeEditorMode === 'quick' \? \(\r?\n            <QuickCreateForm/);
   assert.match(announcementSource, /選択した内容には詳細設定が含まれるため、詳細設定を表示しました。/);
   assert.match(announcementSource, /validationErrors=\{validationErrors\}/);
   assert.match(announcementSource, /outputDurationMs=\{normalized\.outputDurationMs\}/);
