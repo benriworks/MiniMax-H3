@@ -7644,6 +7644,56 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(status, 416)
         self.assertEqual(headers["content-range"], f"bytes */{len(VIDEO_BYTES)}")
 
+    def test_delivery_download_revalidates_registered_bytes_and_sha256(self) -> None:
+        package_key = "A" * 64
+        artifact_id = "art_" + "7" * 32
+        relative = (
+            f"outputs/studio/deliveries/{PRODUCTION_ID}/{package_key}/"
+            "delivery-package.zip"
+        )
+        package = self.fixture.root / relative
+        package.parent.mkdir(parents=True, exist_ok=True)
+        original = b"PK\x03\x04registered-delivery-package"
+        package.write_bytes(original)
+        stat = package.stat()
+        self.server.service.database.register_studio_artifact(
+            PRODUCTION_ID,
+            {
+                "id": artifact_id,
+                "rel_path": relative,
+                "name": "delivery-package.zip",
+                "kind": "delivery",
+                "media_type": "application/zip",
+                "bytes": stat.st_size,
+                "mtime_ns": stat.st_mtime_ns,
+                "sha256": hashlib.sha256(original).hexdigest().upper(),
+                "is_heavy": False,
+            },
+        )
+
+        status, _headers, body = self.request(
+            "GET", f"/api/artifacts/{artifact_id}/file"
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(body, original)
+
+        replacement = b"X" * len(original)
+        deadline = time.monotonic() + 2.0
+        while True:
+            try:
+                package.write_bytes(replacement)
+                break
+            except PermissionError:
+                if time.monotonic() >= deadline:
+                    raise
+                time.sleep(0.01)
+        os.utime(package, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+        status, _headers, body = self.request(
+            "GET", f"/api/artifacts/{artifact_id}/file"
+        )
+        self.assertEqual(status, 404)
+        self.assertNotIn(replacement, body)
+
     def test_text_artifacts_are_redacted_and_active_content_is_sandboxed(self) -> None:
         status, _headers, body = self.request("GET", f"/api/productions/{PRODUCTION_ID}")
         self.assertEqual(status, 200)

@@ -15,6 +15,10 @@ PROVIDERS: dict[str, tuple[str, ...]] = {
     "elevenlabs": ("ELEVENLABS_API_KEY",),
     "azure_speech": ("AZURE_SPEECH_KEY",),
     "openai": ("OPENAI_API_KEY",),
+    # A single-line JSON object containing client_id, client_secret and
+    # refresh_token.  It is resolved only inside the YouTube adapter; status
+    # APIs expose the configured flag and never the JSON or its fields.
+    "youtube": ("YOUTUBE_OAUTH_CREDENTIAL_JSON",),
 }
 
 

@@ -1,6 +1,6 @@
 # Architecture diagram
 
-この図は、tracked workspace、untracked local runtime、Studio、外部配布元、MiniMax API、ElevenLabs APIの信頼境界と主要データフローを示します。責務と制約の詳細は[ARCHITECTURE.md](ARCHITECTURE.md)を参照してください。
+この図は、tracked workspace、untracked local runtime、Studio、外部配布元、MiniMax API、ElevenLabs API、YouTube Data APIの信頼境界と主要データフローを示します。責務と制約の詳細は[ARCHITECTURE.md](ARCHITECTURE.md)を参照してください。
 
 RemotionのPNG frame scratchは、開始前にsharpカットを各2GiB、preserveカットを実source bytesとして予約し、source staging後に実staged bytesと残容量を再検査します。残りの必要量はRGBA frame bytes×1.25＋raw出力2GiB＋正規化出力2GiB＋安全余白1GiBです。`TEMP`／`TMP`／`TMPDIR`をatomic stage内へ閉じてNode側でもattestし、成功・失敗・cancelの全経路でstageを削除します。両検査値と実staged bytesをreport／manifestへ記録します。
 
@@ -68,13 +68,19 @@ flowchart LR
         RemotionDoctor["remotion_doctor.mjs<br/>dependency closure attestation<br/>exact packages / Chromium reuse check"]
         AssemblyWorker["tools/studio/assembly.py<br/>validated FFmpeg worker / cache<br/>closed caption + audio mix presets"]
         QcWorker["tools/studio/qc.py<br/>technical QC v2 / cache<br/>loudness + peak + black hard checks<br/>long-static advisory"]
+        DeliveryContract["delivery.py + DeliveryPanel.tsx<br/>verified local package / 3 thumbnails<br/>ZIP manifest + SHA-256 sidecar"]
+        VoiceUpgradeCore["voice_upgrade.py + voice_upgrade_execution.py<br/>closed alignment + exact source/result binding<br/>zero-network Job / no Studio UI"]
+        CaptureAcceptance["windows_capture_acceptance.py<br/>A/V + loudness + device / exit evidence<br/>5 operator attestations"]
+        YouTubeBinding["youtube_publish_binding.py<br/>delivery + selected master<br/>3 approved human gates"]
+        YouTubePublishContract["youtube_publish.py + service routes<br/>preview -> explicit execute<br/>private / unlisted only"]
+        YouTubePublishExecution["youtube_publish_execution.py<br/>resume acknowledged bytes<br/>no ambiguous re-initiation"]
         SapiHelper["sapi_synthesize.ps1<br/>UTF-8 JSON IPC"]
         StudioCli["tools.studio.cli<br/>secret + test-video + quick-create<br/>quick-create-project + shot-project"]
         TestVideoOrchestrator["test_video.py<br/>ordered local orchestration<br/>bounded result"]
     end
 
     subgraph LocalSecrets["Local secret / untracked boundary"]
-        Env["process env / .env<br/>MiniMax + ElevenLabs API key"]
+        Env["process env / .env<br/>MiniMax + ElevenLabs + YouTube credential"]
         StudioSecrets["outputs/studio/secrets<br/>Windows DPAPI ciphertext"]
     end
 
@@ -117,6 +123,9 @@ flowchart LR
         RemotionOutputs["outputs/studio/runs/.../remotion_timeline<br/>MP4 / timeline / render report<br/>ffprobe / manifest"]
         AssemblyOutputs["outputs/studio/runs/.../assembly<br/>clean / captioned MP4 / ffprobe / manifest"]
         QcOutputs["outputs/studio/runs/.../qc<br/>technical QC / ffprobe / manifest"]
+        DeliveryOutputs["outputs/studio/deliveries<br/>delivery-package.zip + .sha256<br/>clean / captioned / SRT / QC / audit"]
+        VoiceUpgradeOutputs["local voice-upgrade cache<br/>aligned WAV / SRT / timing / manifest"]
+        YouTubePublishLedger["outputs/studio/youtube<br/>public state + staged source<br/>session URI in separate DPAPI ciphertext"]
         AuditExports["outputs/studio/audits<br/>ZIP + SHA-256 sidecar"]
         ProductionArtifacts["outputs/productions<br/>media / logs / QC / imported videos"]
         ProductionControlMetadata[".studio-production.json<br/>title + import relative path -> SHA-256<br/>hidden partials / not an artifact"]
@@ -139,6 +148,10 @@ flowchart LR
 
     subgraph ElevenLabsBoundary["ElevenLabs service boundary"]
         ElevenLabsApi["ElevenLabs with-timestamps API<br/>billable single POST"]
+    end
+
+    subgraph YouTubeBoundary["Google / YouTube service boundary"]
+        YouTubeApi["YouTube Data API v3<br/>OAuth channel lookup + videos.insert<br/>resumable upload"]
     end
 
     Operator --> Setup
@@ -310,6 +323,10 @@ flowchart LR
     ElevenLabsApi -->|"audio_base64 + character alignment<br/>request-id + character-cost"| ElevenLabsWorker
     ElevenLabsWorker -->|"MP3 decode / shell=false"| MediaTools
     ElevenLabsWorker -->|"atomic WAV / SRT / timing / manifest<br/>actual_cost remains null"| NarrationOutputs
+    StudioBackend -->|"POST /api/runs/{id}/execute-voice-upgrade<br/>elevenlabs_tts narration only"| VoiceUpgradeCore
+    NarrationOutputs -->|"succeeded ElevenLabs attempt<br/>registered WAV + timing reverified"| VoiceUpgradeCore
+    VoiceUpgradeCore -->|"voice_upgrade Job + atomic attempt/artifacts<br/>closed 3-scene schedule / zero cost"| VoiceUpgradeOutputs
+    VoiceUpgradeOutputs -->|"registered public result + 4 artifacts<br/>strictly reverified before assembly"| AssemblyWorker
     StudioBackend -->|"POST /api/runs/{id}/execute-local-screen-capture<br/>local_playwright / explicit zero-cost execute"| ScreenCaptureContract
     StudioUi -->|"POST /api/capabilities/windows-capture/inspect<br/>exact empty object / explicit button"| StudioBackend
     StudioBackend -->|"no DB / Job / artifact / event<br/>10s + 64KiB bounded probes"| WindowsCaptureCapability
@@ -333,6 +350,10 @@ flowchart LR
     WindowsCaptureCleanupLedger -->|"before JobManager startup<br/>full-set preflight then exact cleanup"| StudioBackend
     StudioDb -->|"exact lineage + artifact truth<br/>any ambiguity blocks all deletion/startup"| WindowsCaptureCleanupLedger
     WindowsCaptureOutputs -->|"8 exact artifacts + SHA-256<br/>atomic job/attempt registration"| StudioBackend
+    StudioBackend -->|"POST /api/runs/{id}/windows-capture-acceptance<br/>exact successful capture + bounded evidence"| CaptureAcceptance
+    WindowsCaptureOutputs -->|"8 artifacts reverified<br/>bytes / mtime / SHA-256"| CaptureAcceptance
+    Operator -->|"full-view + sync + cursor + target + privacy attest"| CaptureAcceptance
+    CaptureAcceptance -->|"append-only acceptance event<br/>public gate remains false unless all pass"| StudioEvents
     ScreenCaptureContract -->|"canonical origin + hashes only persisted<br/>raw URL remains transient"| BrowserLane
     BrowserLane -->|"bounded child process tree"| ScreenCaptureWorker
     ScreenCaptureWorker -->|"new isolated context<br/>same exact loopback port only<br/>redirect/subresource checked"| PinnedChromium
@@ -379,6 +400,22 @@ flowchart LR
     MediaTools -->|"probe / full decode / loudness / peak / black / freeze facts"| QcWorker
     QcWorker -->|"atomic JSON + SHA-256"| QcOutputs
     QcOutputs -->|"exact path / kind / MIME / hash allowlist"| StudioBackend
+    StudioUi -->|"納品・公開 tab<br/>local package only"| StudioBackend
+    StudioBackend -->|"POST /api/productions/{id}/delivery-packages<br/>zero network / zero billable cost"| DeliveryContract
+    AssemblyOutputs -->|"verified clean + captioned masters"| DeliveryContract
+    QcOutputs -->|"pass + exact ffprobe / manifest"| DeliveryContract
+    StudioEvents -->|"production snapshot + event lines"| DeliveryContract
+    DeliveryContract -->|"deterministic 13-entry ZIP<br/>external SHA-256 sidecar"| DeliveryOutputs
+    DeliveryOutputs -->|"registered delivery + selected master<br/>physical bytes / manifest reverified"| YouTubeBinding
+    ReviewEvents -->|"creative + rights + public_release<br/>approved / no open / at least one review"| YouTubeBinding
+    StudioBackend -->|"POST youtube-publish-preview<br/>resolve channel + bind confirmation digest"| YouTubePublishContract
+    YouTubeBinding --> YouTubePublishContract
+    StudioSecrets -->|"Windows-user DPAPI<br/>OAuth client + refresh credential"| YouTubePublishContract
+    YouTubePublishContract -->|"OAuth refresh + channels mine=true<br/>no upload during preview"| YouTubeApi
+    StudioBackend -->|"POST youtube-publish<br/>same digest + 2 literal confirmations"| YouTubePublishExecution
+    YouTubePublishContract -->|"private / unlisted confirmation only<br/>public rejected"| YouTubePublishExecution
+    YouTubePublishExecution -->|"session / query / resume<br/>no second insert after ambiguity"| YouTubeApi
+    YouTubePublishExecution -->|"public state without token/session URL<br/>signed URL DPAPI-encrypted separately"| YouTubePublishLedger
     StudioBackend -->|"entry hashes + scope tails<br/>text redaction / media opt-in"| AuditExports
     Operator --> StudioCli
     StudioCli -->|"set / status / delete"| StudioSecrets
@@ -403,11 +440,15 @@ flowchart LR
     classDef external fill:#fff3df,stroke:#9a6300,color:#432b00;
     classDef secret fill:#ffe8ee,stroke:#9c284b,color:#481023;
 
-    class Setup,RuntimeLock,Downloader,ModelManifest,Doctor,Launcher,Metrics,LowWorkflow,TurboWorkflow,Q4TurboWorkflow,OfficialQ4Workflow,OfficialQ4TurboWorkflow,StudioApiWorkflow,ApiWrapper,ApiCli,ProductionLedgers,StudioSetup,StudioLauncher,StudioFrontend,StudioBackend,HttpLifecycle,ShutdownGate,ProviderRecovery,PipelineContinuationCoordinator,LocalPipelineContract,LocalPipelineOrchestrator,DetailedTestContract,DetailedTestOrchestrator,AnnouncementContract,QuickCreatePresentation,AnnouncementTemplateUi,AnnouncementRequestGuard,ProductionIntakeContract,SimpleCreateWizard,ProductionLibraryContract,ReviewContract,JobControlContract,QuickCreateProjectContract,ShotProjectContract,StudioComfyContract,StudioComfyWorker,NarrationWorker,ExternalTtsContract,ElevenLabsWorker,ScreenCaptureContract,ScreenCaptureWorker,PlaywrightDoctor,WindowsCaptureCapability,WindowsCaptureContract,WindowsCaptureWorker,WindowsCaptureHelperSource,TimelineWorker,RemotionContract,SourceFidelityPolicy,RemotionWorker,RemotionComposition,RemotionDoctor,AssemblyWorker,QcWorker,SapiHelper,StudioCli,TestVideoOrchestrator tracked;
-    class Venv,Comfy,GgufNode,TurboNode,Models,OfficialWorkflow,Outputs,HardwareMetrics,StudioBuild,StudioUi,StudioDb,VideoClaims,ProviderTasks,PipelineClaims,DetailedTestClaims,AnnouncementEvents,ReviewEvents,ShotProjectState,StudioEvents,ExternalSubmissionState,GpuLane,PipelineLane,BrowserLane,CaptureLane,WindowsCaptureConsents,DefaultLane,PinnedChromium,LoopbackWebTarget,ScreenCaptureOutputs,WindowsCaptureOutputs,VideoGenerationOutputs,NarrationOutputs,TimelineOutputs,RemotionOutputs,AssemblyOutputs,QcOutputs,AuditExports,ProductionArtifacts,ProductionControlMetadata,WindowsSapi,MediaTools,WindowsCaptureHelper,WindowsDefaultRender local;
-    class GitHub,PackageIndexes,HuggingFace,MiniMaxApi,OutputCdn,ElevenLabsApi external;
+    class Setup,RuntimeLock,Downloader,ModelManifest,Doctor,Launcher,Metrics,LowWorkflow,TurboWorkflow,Q4TurboWorkflow,OfficialQ4Workflow,OfficialQ4TurboWorkflow,StudioApiWorkflow,ApiWrapper,ApiCli,ProductionLedgers,StudioSetup,StudioLauncher,StudioFrontend,StudioBackend,HttpLifecycle,ShutdownGate,ProviderRecovery,PipelineContinuationCoordinator,LocalPipelineContract,LocalPipelineOrchestrator,DetailedTestContract,DetailedTestOrchestrator,AnnouncementContract,QuickCreatePresentation,AnnouncementTemplateUi,AnnouncementRequestGuard,ProductionIntakeContract,SimpleCreateWizard,ProductionLibraryContract,ReviewContract,JobControlContract,QuickCreateProjectContract,ShotProjectContract,StudioComfyContract,StudioComfyWorker,NarrationWorker,ExternalTtsContract,ElevenLabsWorker,ScreenCaptureContract,ScreenCaptureWorker,PlaywrightDoctor,WindowsCaptureCapability,WindowsCaptureContract,WindowsCaptureWorker,WindowsCaptureHelperSource,CaptureAcceptance,TimelineWorker,RemotionContract,SourceFidelityPolicy,RemotionWorker,RemotionComposition,RemotionDoctor,AssemblyWorker,QcWorker,DeliveryContract,VoiceUpgradeCore,YouTubeBinding,YouTubePublishContract,YouTubePublishExecution,SapiHelper,StudioCli,TestVideoOrchestrator tracked;
+    class Venv,Comfy,GgufNode,TurboNode,Models,OfficialWorkflow,Outputs,HardwareMetrics,StudioBuild,StudioUi,StudioDb,VideoClaims,ProviderTasks,PipelineClaims,DetailedTestClaims,AnnouncementEvents,ReviewEvents,ShotProjectState,StudioEvents,ExternalSubmissionState,GpuLane,PipelineLane,BrowserLane,CaptureLane,WindowsCaptureConsents,DefaultLane,PinnedChromium,LoopbackWebTarget,ScreenCaptureOutputs,WindowsCaptureOutputs,VideoGenerationOutputs,NarrationOutputs,TimelineOutputs,RemotionOutputs,AssemblyOutputs,QcOutputs,DeliveryOutputs,VoiceUpgradeOutputs,YouTubePublishLedger,AuditExports,ProductionArtifacts,ProductionControlMetadata,WindowsSapi,MediaTools,WindowsCaptureHelper,WindowsDefaultRender local;
+    class GitHub,PackageIndexes,HuggingFace,MiniMaxApi,OutputCdn,ElevenLabsApi,YouTubeApi external;
     class Env,StudioSecrets secret;
 ```
+
+M5の`DeliveryContract`は成功済みDetailed topと6 source artifactのexact lineage、物理bytes／SHA-256、technical QC passを再確認し、clean／captioned master、SRT、QC、3 thumbnail、title／description、production snapshot、event JSONL、自己検証manifestを13-entry ZIPへまとめ、外側へZIPのSHA-256 sidecarを置きます。すべてlocal／0円で、Studioの`納品・公開`タブはこの作成とdownloadだけを扱い、YouTube APIへedgeを持ちません。`VoiceUpgradeCore`は`execute-voice-upgrade` routeから既存ElevenLabs attemptのWAV／timingsを再検証し、HOOK／MESSAGE／CTA開始へ配置する0円`voice_upgrade` Jobとして4 artifactをatomic登録します。新たなprovider call、credential解決、課金は行いません。登録済み公開結果、source lineage、4 artifactはassembly入力時にも厳密再検証されます。backend service／Job／HTTP／assembly入力testは接続済みですが、Studio UIと告知／Deliveryへの自動接続はまだありません。
+
+M6の`CaptureAcceptance`は`POST /api/runs/{id}/windows-capture-acceptance`から、8収録artifactとrequest提供のA/V・loudness・device切替・強制終了cleanup・operator attestationを一つの監査eventへ束縛します。申告閾値は計算・保存しますが、request内のtool digestやattestは独立したcalibration lineageではありません。登録済みcalibration Jobと、serviceがbytes／SHA-256／tool lineageを再検証できる証拠artifactが実装されるまで、このnodeは常に`blocked_unverified_calibration_lineage`へfail closedし、`content_sync_verified`／`public_release_ready`をtrueにしません。acceptance eventは元capture result／review gateを変更せず、現`YouTubeBinding`へもedgeを持ちません。`YouTubeBinding`以降は、旧roadmapのM7を現M6の安全公開control-planeへ統合した経路です。Deliveryとcreative／rights／public_releaseの3承認をpreviewでchannel／metadataへhash拘束し、execute時に同じdigest、Community Guidelines certification、明示upload確認を再要求します。`public`を拒否し、private／unlistedだけをGoogle公式[`videos.insert`](https://developers.google.com/youtube/v3/docs/videos/insert)の[resumable protocol](https://developers.google.com/youtube/v3/guides/using_resumable_upload_protocol)へ送れる設計です。OAuth credentialとsigned session URIはWindows user-scoped DPAPI境界へ置き、公開ledgerへ出しません。interactive OAuth bootstrapは実装せず事前取得済みrefresh tokenを要求します。credential-bearing redirectは拒否し、公開Job失敗はallowlist済みcodeと有界messageへ閉じます。ambiguousまたはsession欠損時は新しいupload sessionを自動作成しません。backend control-planeとfake transport回帰は実装済みですが、公開操作UI、実OAuth／channel preview、実upload、YouTube側read-backは未受入です。
 
 `ProductionIntakeContract`はoutput-owned productionだけを`production_`＋32桁hexへ閉じ、同一ID／同一titleの再送だけを冪等に扱います。video importは既知の6拡張子、1 byte〜2 GiB、canonical encoded filename、exact Content-Lengthを受け、hidden production-local partialへstreamします。SHA-256とffprobeのvideo／container検証後だけ`ProductionArtifacts`へhard-link publishし、`ProductionControlMetadata`をatomic replaceします。同じdigestはname／互換extensionを越えて既存pathへ収束し、別extensionへ収束する場合も既存destination側のcontainer契約を再検証します。Indexerはcontrol file／partialをartifactにせず、titleとknown hashを読むだけです。service lockが同時mutationを直列化し、起動cleanupは閉じたpartial名以外を削除しません。UIは201 responseのexact production／artifact identityを再照合します。
 

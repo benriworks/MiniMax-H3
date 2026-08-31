@@ -10,6 +10,12 @@ import type {
   ArtifactKind,
   CostEntry,
   DetailedTestVideoRequest,
+  DeliveryArtifactIds,
+  DeliveryArtifactRole,
+  DeliveryPackageRequest,
+  DeliveryPackageResolution,
+  DeliveryPackageResult,
+  DeliveryPackageSource,
   ExternalNarrationPayload,
   ExternalNarrationRequest,
   ExternalVoiceSettings,
@@ -2432,6 +2438,309 @@ export const detailedTestVideoJobMatchesSubmissionGuard = (
 export const isDetailedTestVideoExecutionActive = (value: unknown): boolean =>
   isLocalPipelineExecutionActive(value);
 
+export const DELIVERY_PACKAGE_SCHEMA_VERSION = 1 as const;
+export const DELIVERY_PACKAGE_TITLE_MAX_LENGTH = 100;
+export const DELIVERY_PACKAGE_DESCRIPTION_MAX_LENGTH = 5_000;
+
+const DELIVERY_RUN_ID = /^run_[0-9a-f]{32}$/;
+const DELIVERY_JOB_ID = /^job_[0-9a-f]{32}$/;
+const DELIVERY_ARTIFACT_ID = /^art_[0-9a-f]{32}$/;
+const DELIVERY_SHA256 = /^[0-9A-F]{64}$/;
+const DELIVERY_PACKAGE_KEY = /^[0-9A-F]{64}$/;
+const DELIVERY_STAGES = ['narration', 'timeline', 'assembly', 'qc'] as const;
+const DELIVERY_CHILD_TYPES: Record<typeof DELIVERY_STAGES[number], string> = {
+  narration: 'local_narration',
+  timeline: 'local_remotion_timeline',
+  assembly: 'local_assembly',
+  qc: 'local_qc',
+};
+const DELIVERY_REQUIRED_ARTIFACTS: Record<DeliveryArtifactRole, { stage: typeof DELIVERY_STAGES[number]; name: string }> = {
+  clean_master: { stage: 'assembly', name: 'master-clean.mp4' },
+  captioned_master: { stage: 'assembly', name: 'master-captioned.mp4' },
+  captions: { stage: 'narration', name: 'captions.srt' },
+  technical_qc: { stage: 'qc', name: 'technical-qc.json' },
+  qc_ffprobe: { stage: 'qc', name: 'ffprobe.json' },
+  qc_manifest: { stage: 'qc', name: 'manifest.json' },
+};
+const DELIVERY_ARTIFACT_ROLES = Object.keys(DELIVERY_REQUIRED_ARTIFACTS) as DeliveryArtifactRole[];
+const DELIVERY_FORBIDDEN_TEXT = /[\u0000-\u0009\u000B-\u001F\u007F\u00A0\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/u;
+
+const deliveryJobPayload = (job: Job): UnknownRecord =>
+  asRecord(pick(job.raw, ['payload', 'request', 'meta']));
+
+const deliveryArtifactIsComplete = (artifact: Artifact, name: string): boolean => Boolean(
+  DELIVERY_ARTIFACT_ID.test(artifact.id)
+  && artifact.name === name
+  && typeof artifact.path === 'string'
+  && artifact.path.length > 0
+  && typeof artifact.sizeBytes === 'number'
+  && Number.isSafeInteger(artifact.sizeBytes)
+  && artifact.sizeBytes > 0
+  && typeof artifact.sha256 === 'string'
+  && DELIVERY_SHA256.test(artifact.sha256.toUpperCase()),
+);
+
+const deliveryArtifactsMatch = (left: Artifact, right: Artifact): boolean => (
+  left.id === right.id
+  && left.name === right.name
+  && left.path === right.path
+  && left.sizeBytes === right.sizeBytes
+  && left.sha256?.toUpperCase() === right.sha256?.toUpperCase()
+);
+
+const resolveDeliveryCandidate = (
+  detail: ProductionDetail,
+  jobs: readonly Job[],
+  sourceJob: Job,
+): DeliveryPackageResolution => {
+  if (!DELIVERY_JOB_ID.test(sourceJob.id) || !DELIVERY_RUN_ID.test(sourceJob.runId ?? '')) {
+    return { ready: false, reason: '詳細一括JobのIDまたはRun IDが納品契約と一致しません。' };
+  }
+  const runId = sourceJob.runId as string;
+  const sourcePayload = deliveryJobPayload(sourceJob);
+  if (
+    text(pick(sourcePayload, ['production_id', 'productionId']), '') !== detail.id
+    || text(pick(sourcePayload, ['run_id', 'runId']), '') !== runId
+    || normalizeStudioStageName(pick(sourcePayload, ['stage'])) !== 'detailed_test_video'
+  ) {
+    return { ready: false, reason: '詳細一括JobのProduction／Run系統が一致しません。' };
+  }
+  const sourceResult = sourceJob.result;
+  const resultRaw = asRecord(sourceResult?.raw);
+  if (
+    sourceJob.status !== 'succeeded'
+    || sourceResult?.technicalVerdict !== 'pass'
+    || pick(resultRaw, ['include_captioned', 'includeCaptioned']) !== true
+  ) {
+    return { ready: false, reason: '字幕あり版を含む技術QC合格済みの詳細一括Jobが必要です。' };
+  }
+  const run = detail.runs.find((candidate) => candidate.id === runId);
+  if (!run) return { ready: false, reason: `Run ${runId} が制作詳細にありません。` };
+  if (
+    sourceResult.revisionId
+    && run.revisionId
+    && sourceResult.revisionId !== run.revisionId
+  ) {
+    return { ready: false, reason: '詳細一括JobとRunのRevisionが一致しません。' };
+  }
+  const childViews = sourceResult.jobs;
+  if (!childViews || Object.keys(childViews).sort().join(',') !== [...DELIVERY_STAGES].sort().join(',')) {
+    return { ready: false, reason: '詳細一括Jobの4工程（音声・編集・合成・QC）の系統が揃っていません。' };
+  }
+
+  const childJobs = new Map<typeof DELIVERY_STAGES[number], Job>();
+  const attempts = new Map<typeof DELIVERY_STAGES[number], StageAttempt>();
+  for (const stage of DELIVERY_STAGES) {
+    const view = childViews[stage];
+    if (
+      !view
+      || view.stage !== stage
+      || view.status !== 'succeeded'
+      || !DELIVERY_JOB_ID.test(view.jobId ?? '')
+      || typeof view.stageAttemptId !== 'string'
+      || view.stageAttemptId.length === 0
+    ) {
+      return { ready: false, reason: `${stageLabelForDelivery(stage)}工程の成功Job系統を確認できません。` };
+    }
+    const childJob = jobs.find((candidate) => candidate.id === view.jobId);
+    const attempt = run.stageAttempts.find((candidate) => candidate.id === view.stageAttemptId);
+    const childPayload = childJob ? deliveryJobPayload(childJob) : {};
+    if (
+      !childJob
+      || childJob.type !== DELIVERY_CHILD_TYPES[stage]
+      || childJob.status !== 'succeeded'
+      || childJob.productionId !== detail.id
+      || childJob.runId !== runId
+      || childJob.stageAttemptId !== view.stageAttemptId
+      || text(pick(childPayload, ['production_id', 'productionId']), '') !== detail.id
+      || text(pick(childPayload, ['run_id', 'runId']), '') !== runId
+      || normalizeStudioStageName(pick(childPayload, ['stage'])) !== stage
+      || text(pick(childPayload, ['stage_attempt_id', 'stageAttemptId']), '') !== view.stageAttemptId
+      || !attempt
+      || attempt.status !== 'succeeded'
+      || attempt.stage !== stage
+      || attempt.jobId !== childJob.id
+    ) {
+      return { ready: false, reason: `${stageLabelForDelivery(stage)}工程のJobとstage attemptが一致しません。` };
+    }
+    childJobs.set(stage, childJob);
+    attempts.set(stage, attempt);
+  }
+
+  const artifacts = {} as DeliveryArtifactIds;
+  for (const role of DELIVERY_ARTIFACT_ROLES) {
+    const requirement = DELIVERY_REQUIRED_ARTIFACTS[role];
+    const childJob = childJobs.get(requirement.stage) as Job;
+    const attempt = attempts.get(requirement.stage) as StageAttempt;
+    const matches = (childJob.result?.artifacts ?? []).filter((artifact) => artifact.name === requirement.name);
+    if (matches.length !== 1 || !deliveryArtifactIsComplete(matches[0], requirement.name)) {
+      return { ready: false, reason: `${requirement.name} を${stageLabelForDelivery(requirement.stage)}工程から一意に解決できません。` };
+    }
+    const artifact = matches[0];
+    const attemptArtifact = attempt.artifacts.find((candidate) => candidate.id === artifact.id);
+    const registeredArtifact = detail.artifacts.find((candidate) => candidate.id === artifact.id);
+    if (
+      !attemptArtifact
+      || !registeredArtifact
+      || !deliveryArtifactsMatch(artifact, attemptArtifact)
+      || !deliveryArtifactsMatch(artifact, registeredArtifact)
+    ) {
+      return { ready: false, reason: `${requirement.name} のJob・Run・登録成果物identityが一致しません。` };
+    }
+    artifacts[role] = artifact.id;
+  }
+  if (new Set(Object.values(artifacts)).size !== DELIVERY_ARTIFACT_ROLES.length) {
+    return { ready: false, reason: '納品に必要な6成果物のIDが重複しています。' };
+  }
+  return {
+    ready: true,
+    source: {
+      runId,
+      revisionId: run.revisionId,
+      sourceJobId: sourceJob.id,
+      artifacts,
+    },
+  };
+};
+
+const stageLabelForDelivery = (stage: typeof DELIVERY_STAGES[number]): string => ({
+  narration: 'ナレーション',
+  timeline: 'カット編集',
+  assembly: '編集・合成',
+  qc: '品質検査',
+})[stage];
+
+/** Select the newest fully closed Detailed Test Video lineage, never a partial latest attempt. */
+export const resolveDeliveryPackageSource = (
+  detail: ProductionDetail,
+  jobs: readonly Job[],
+): DeliveryPackageResolution => {
+  const candidates = jobs
+    .filter((job) => job.productionId === detail.id && job.type === 'detailed_test_video' && job.status === 'succeeded')
+    .sort((left, right) => jobTimestamp(right).localeCompare(jobTimestamp(left)));
+  if (candidates.length === 0) {
+    return { ready: false, reason: '完了済みの「詳細一括」Jobがありません。先に字幕あり版を生成してください。' };
+  }
+  let newestReason = '詳細一括Jobの系統を解決できません。';
+  for (const candidate of candidates) {
+    const resolution = resolveDeliveryCandidate(detail, jobs, candidate);
+    if (resolution.ready) return resolution;
+    if (candidate === candidates[0]) newestReason = resolution.reason;
+  }
+  return { ready: false, reason: newestReason };
+};
+
+const normalizedDeliveryText = (
+  value: string,
+  field: string,
+  maximum: number,
+  allowNewline: boolean,
+): string => {
+  const normalized = value.trim();
+  if (!normalized) throw new TypeError(`${field}を入力してください。`);
+  if (normalized.length > maximum) throw new TypeError(`${field}は${maximum}文字以内にしてください。`);
+  if (DELIVERY_FORBIDDEN_TEXT.test(normalized) || (!allowNewline && normalized.includes('\n'))) {
+    throw new TypeError(`${field}に使用できない制御文字が含まれています。`);
+  }
+  return normalized;
+};
+
+export const buildDeliveryPackageRequest = (
+  source: DeliveryPackageSource,
+  title: string,
+  description: string,
+): DeliveryPackageRequest => {
+  if (!DELIVERY_RUN_ID.test(source.runId) || !DELIVERY_JOB_ID.test(source.sourceJobId)) {
+    throw new TypeError('納品元のRun／Job IDが不正です。');
+  }
+  if (
+    Object.keys(source.artifacts).sort().join(',') !== [...DELIVERY_ARTIFACT_ROLES].sort().join(',')
+    || DELIVERY_ARTIFACT_ROLES.some((role) => !DELIVERY_ARTIFACT_ID.test(source.artifacts[role]))
+    || new Set(Object.values(source.artifacts)).size !== DELIVERY_ARTIFACT_ROLES.length
+  ) {
+    throw new TypeError('納品元の成果物identityが不正です。');
+  }
+  return {
+    schema_version: DELIVERY_PACKAGE_SCHEMA_VERSION,
+    run_id: source.runId,
+    source_job_id: source.sourceJobId,
+    artifacts: { ...source.artifacts },
+    metadata: {
+      title: normalizedDeliveryText(title, 'タイトル', DELIVERY_PACKAGE_TITLE_MAX_LENGTH, false),
+      description: normalizedDeliveryText(description, '説明文', DELIVERY_PACKAGE_DESCRIPTION_MAX_LENGTH, true),
+    },
+  };
+};
+
+/** Parse only the closed, zero-network v1 delivery result used by the download UI. */
+export const deliveryPackageResult = (job: Job): DeliveryPackageResult | undefined => {
+  if (job.type !== 'delivery_package' || job.status !== 'succeeded') return undefined;
+  const raw = asRecord(job.result?.raw ?? pick(job.raw, ['result', 'output']));
+  const artifactRaw = asRecord(pick(raw, ['artifact']));
+  const artifact = normalizeArtifact(artifactRaw, 0);
+  const schemaVersion = number(pick(raw, ['schema_version', 'schemaVersion']));
+  const productionId = text(pick(raw, ['production_id', 'productionId']), '');
+  const runId = text(pick(raw, ['run_id', 'runId']), '');
+  const sourceJobId = text(pick(raw, ['source_job_id', 'sourceJobId']), '');
+  const packageKey = text(pick(raw, ['package_key', 'packageKey']), '');
+  const sha256Sidecar = text(pick(raw, ['sha256_sidecar', 'sha256Sidecar']), '');
+  const filesIncluded = number(pick(raw, ['files_included', 'filesIncluded']));
+  const thumbnailCount = number(pick(raw, ['thumbnail_count', 'thumbnailCount']));
+  const cacheHit = pick(raw, ['cache_hit', 'cacheHit']);
+  const networkUsed = pick(raw, ['network_used', 'networkUsed']);
+  const billable = pick(raw, ['billable']);
+  const artifactPath = text(pick(artifactRaw, ['rel_path', 'path']), '');
+  const artifactBytes = pick(artifactRaw, ['bytes', 'size_bytes', 'size']);
+  const artifactSha256 = text(pick(artifactRaw, ['sha256']), '');
+  const canonicalArtifactUrl = `/api/artifacts/${encodeURIComponent(artifact.id)}/file`;
+  const suppliedArtifactUrl = text(
+    pick(artifactRaw, ['preview_url', 'download_url', 'content_url', 'file_url', 'url', 'href']),
+    '',
+  );
+  const canonicalArtifactPath = `outputs/studio/deliveries/${productionId}/${packageKey}/delivery-package.zip`;
+  const canonicalSidecarPath = `${canonicalArtifactPath}.sha256`;
+  if (
+    schemaVersion !== DELIVERY_PACKAGE_SCHEMA_VERSION
+    || productionId !== job.productionId
+    || runId !== job.runId
+    || !DELIVERY_RUN_ID.test(runId)
+    || !DELIVERY_JOB_ID.test(sourceJobId)
+    || !DELIVERY_PACKAGE_KEY.test(packageKey)
+    || text(pick(artifactRaw, ['kind']), '') !== 'delivery'
+    || text(pick(artifactRaw, ['origin']), '') !== 'studio'
+    || text(pick(artifactRaw, ['media_type', 'mime_type']), '') !== 'application/zip'
+    || artifact.name !== 'delivery-package.zip'
+    || !DELIVERY_ARTIFACT_ID.test(artifact.id)
+    || artifactPath !== canonicalArtifactPath
+    || sha256Sidecar !== canonicalSidecarPath
+    || (suppliedArtifactUrl !== '' && suppliedArtifactUrl !== canonicalArtifactUrl)
+    || typeof artifactBytes !== 'number'
+    || !Number.isSafeInteger(artifactBytes)
+    || artifactBytes <= 0
+    || !DELIVERY_SHA256.test(artifactSha256)
+    || !Number.isSafeInteger(filesIncluded)
+    || filesIncluded !== 13
+    || thumbnailCount !== 3
+    || typeof cacheHit !== 'boolean'
+    || networkUsed !== false
+    || billable !== false
+  ) return undefined;
+  return {
+    schemaVersion: 1,
+    productionId,
+    runId,
+    sourceJobId,
+    packageKey,
+    artifact: { ...artifact, url: canonicalArtifactUrl },
+    sha256Sidecar,
+    filesIncluded: filesIncluded as number,
+    thumbnailCount: 3,
+    cacheHit,
+    networkUsed: false,
+    billable: false,
+  };
+};
+
 const rawAttemptArtifacts = (value: unknown): unknown[] => {
   const record = asRecord(value);
   const result = asRecord(pick(record, ['result', 'output']));
@@ -4440,6 +4749,47 @@ export const api = {
       buildDetailedTestVideoPayload(body),
     );
     return normalizeJob(value);
+  },
+
+  async createDeliveryPackage(productionId: string, body: DeliveryPackageRequest): Promise<Job> {
+    if (
+      Object.keys(asRecord(body)).sort().join(',') !== 'artifacts,metadata,run_id,schema_version,source_job_id'
+      || Object.keys(asRecord(body.artifacts)).sort().join(',') !== [...DELIVERY_ARTIFACT_ROLES].sort().join(',')
+      || Object.keys(asRecord(body.metadata)).sort().join(',') !== 'description,title'
+    ) throw new TypeError('納品パッケージ要求のフィールドが不正です。');
+    const payload = buildDeliveryPackageRequest(
+      {
+        runId: body.run_id,
+        sourceJobId: body.source_job_id,
+        artifacts: body.artifacts,
+      },
+      body.metadata.title,
+      body.metadata.description,
+    );
+    const value = await post<unknown>(
+      `/api/productions/${encodeURIComponent(productionId)}/delivery-packages`,
+      payload,
+      undefined,
+      202,
+    );
+    const job = normalizeJob(value);
+    const audit = deliveryJobPayload(job);
+    const responseArtifacts = asRecord(pick(audit, ['artifact_ids', 'artifactIds']));
+    if (
+      !DELIVERY_JOB_ID.test(job.id)
+      || job.type !== 'delivery_package'
+      || job.productionId !== productionId
+      || job.runId !== payload.run_id
+      || text(pick(audit, ['source_job_id', 'sourceJobId']), '') !== payload.source_job_id
+      || DELIVERY_ARTIFACT_ROLES.some((role) => responseArtifacts[role] !== payload.artifacts[role])
+    ) {
+      throw new StudioApiError(
+        '納品パッケージJobの応答identityが要求と一致しません。',
+        502,
+        'invalid_delivery_package_response',
+      );
+    }
+    return job;
   },
 
   async announcementRecipes(productionId: string, signal?: AbortSignal): Promise<{

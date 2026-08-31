@@ -327,6 +327,54 @@ export interface ProductionDetail extends ProductionSummary {
   specification?: Record<string, unknown>;
 }
 
+export type DeliveryArtifactRole =
+  | 'clean_master'
+  | 'captioned_master'
+  | 'captions'
+  | 'technical_qc'
+  | 'qc_ffprobe'
+  | 'qc_manifest';
+
+export type DeliveryArtifactIds = Record<DeliveryArtifactRole, string>;
+
+/** Exact v1 wire request for the local, zero-cost Delivery Package worker. */
+export interface DeliveryPackageRequest {
+  schema_version: 1;
+  run_id: string;
+  source_job_id: string;
+  artifacts: DeliveryArtifactIds;
+  metadata: {
+    title: string;
+    description: string;
+  };
+}
+
+export interface DeliveryPackageSource {
+  runId: string;
+  revisionId?: string;
+  sourceJobId: string;
+  artifacts: DeliveryArtifactIds;
+}
+
+export type DeliveryPackageResolution =
+  | { ready: true; source: DeliveryPackageSource }
+  | { ready: false; reason: string };
+
+export interface DeliveryPackageResult {
+  schemaVersion: 1;
+  productionId: string;
+  runId: string;
+  sourceJobId: string;
+  packageKey: string;
+  artifact: Artifact;
+  sha256Sidecar: string;
+  filesIncluded: number;
+  thumbnailCount: 3;
+  cacheHit: boolean;
+  networkUsed: false;
+  billable: false;
+}
+
 export interface JobResult {
   runId?: string;
   revisionId?: string;

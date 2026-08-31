@@ -108,6 +108,17 @@ from .reviews import (
     validate_review_plan_payload,
     validate_review_resolve_payload,
 )
+from .delivery import (
+    DELIVERY_PACKAGE_JOB_KIND,
+    DeliveryPackageError,
+    DeliveryPackageValidationError,
+    create_delivery_package,
+    delivery_request_audit,
+    remove_created_delivery_package,
+    resolve_delivery_lineage,
+    validate_delivery_audit_snapshot,
+    validate_delivery_package_payload,
+)
 from .job_control import (
     JOB_CONTROL_SCHEMA_VERSION,
     JobControlValidationError,
@@ -182,6 +193,38 @@ from .windows_capture import (
     windows_capture_request_digest,
     windows_capture_settings_digest,
 )
+from .windows_capture_acceptance import (
+    WINDOWS_CAPTURE_ACCEPTANCE_EVENT_TYPE,
+    WindowsCaptureAcceptanceValidationError,
+    evaluate_windows_capture_acceptance,
+    windows_capture_acceptance_binding,
+)
+from .voice_upgrade_execution import (
+    VoiceUpgradeExecutionError,
+    execute_voice_upgrade as run_voice_upgrade,
+    resolve_voice_upgrade_source,
+    safe_voice_upgrade_execution_error,
+    validate_voice_upgrade_execution_request,
+    validate_voice_upgrade_public_result,
+)
+from .youtube_publish import (
+    YouTubeOAuthCredential,
+    YouTubePublishError,
+    YouTubePublishValidationError,
+    YouTubeResumableTransport,
+    validate_youtube_execute_payload,
+    youtube_confirmation_summary,
+    youtube_publish_request_digest,
+)
+from .youtube_publish_binding import (
+    YouTubePublishBindingError,
+    resolve_youtube_publish_binding,
+)
+from .youtube_publish_execution import (
+    execute_youtube_publish as execute_youtube_publish_upload,
+    verified_confirmation_summary,
+)
+from .youtube_publish_state import YouTubePublishLedger
 from .security import (
     SecurityError,
     canonical_json,
@@ -645,6 +688,10 @@ class StudioService:
         self.secret_store = SecretStore(self.workspace)
         self.jobs = JobManager(self.database)
         self.audit_exporter = AuditExporter(self.workspace, self.database)
+        # Public upload state and resumable-session ciphertext live outside
+        # SQLite.  Construction performs no OAuth or network operation;
+        # Windows DPAPI is asserted only after an explicit upload confirmation.
+        self.youtube_publish_ledger = YouTubePublishLedger(self.workspace)
         self._pipeline_submit_lock = threading.Lock()
         self._detailed_test_video_submit_lock = threading.Lock()
         self._local_video_submit_lock = threading.Lock()
@@ -6122,6 +6169,138 @@ class StudioService:
         job["cache_key"] = cache_key
         return job
 
+    def _execute_voice_upgrade(
+        self,
+        attempt_id: str,
+        run_id: str,
+        production_id: str,
+        request: dict[str, Any],
+        cancel_event: JobExecutionContext | None = None,
+    ) -> dict[str, Any] | AtomicStageCompletion:
+        """Align an already-paid ElevenLabs result without another API call."""
+
+        _raise_if_cancelled(cancel_event)
+        self.database.update_stage_attempt(attempt_id, "running")
+        try:
+            outcome = run_voice_upgrade(
+                self.workspace,
+                self.database,
+                production_id,
+                run_id,
+                request,
+                cancel_event=cancel_event,
+            )
+            _raise_if_cancelled(cancel_event)
+            return self._complete_local_stage(
+                attempt_id,
+                production_id,
+                outcome.public_result,
+                cancel_event,
+                artifact_records=outcome.artifact_records,
+            )
+        except JobCancelled:
+            raise
+        except VoiceUpgradeExecutionError:
+            raise
+        except Exception as exc:
+            raise VoiceUpgradeExecutionError(
+                "The local voice-upgrade job failed.",
+                code="voice_upgrade_execution_failed",
+            ) from exc
+
+    def execute_voice_upgrade(
+        self, run_id: str, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Queue local scene alignment for one succeeded ElevenLabs attempt."""
+
+        validate_identifier(run_id, label="run id")
+        run = self.database.get_run(run_id)
+        if run is None:
+            raise KeyError("run not found")
+        if run.get("execution_profile") != "elevenlabs_tts":
+            raise RequestValidationError(
+                "This run is not configured for ElevenLabs narration.",
+                code="execution_profile_required",
+            )
+        if "narration" not in (run.get("requested_stages") or []):
+            raise RequestValidationError(
+                "The narration stage was not requested by this run.",
+                code="stage_not_requested",
+            )
+        try:
+            request = validate_voice_upgrade_execution_request(body)
+            source = resolve_voice_upgrade_source(
+                self.workspace,
+                self.database,
+                run["production_id"],
+                run_id,
+                request,
+            )
+        except VoiceUpgradeExecutionError as exc:
+            code, message = safe_voice_upgrade_execution_error(exc)
+            raise RequestValidationError(message, code=code) from exc
+
+        scenes = request["schedule"]["scenes"]
+        audit = {
+            "schema_version": 1,
+            "run_id": run_id,
+            "production_id": run["production_id"],
+            "stage": "narration",
+            "execution_profile": "elevenlabs_tts",
+            "provider": "local_voice_upgrade",
+            "source_attempt_id": request["source_attempt_id"],
+            "source_binding_digest": source.lineage["source_binding_digest"],
+            "cache_key": source.cache_key,
+            "schedule_sha256": hashlib.sha256(
+                canonical_json(source.request["schedule"]).encode("utf-8")
+            ).hexdigest().upper(),
+            "total_duration_ms": request["schedule"]["total_duration_ms"],
+            "scenes": [
+                {
+                    "role": scene["role"],
+                    "start_ms": scene["start_ms"],
+                    "text_characters": len(scene["text"]),
+                }
+                for scene in scenes
+            ],
+            "network_used": False,
+            "billable": False,
+        }
+        attempt = self.database.create_stage_attempt(
+            run_id,
+            "narration",
+            source.cache_key,
+            audit,
+        )
+        try:
+            job = self.jobs.submit(
+                "voice_upgrade",
+                audit,
+                lambda _job_id, cancel_event: self._execute_voice_upgrade(
+                    attempt["id"],
+                    run_id,
+                    run["production_id"],
+                    request,
+                    cancel_event,
+                ),
+                production_id=run["production_id"],
+                before_enqueue=lambda created_job: self.database.link_stage_attempt_job(
+                    attempt["id"], created_job["id"]
+                ),
+            )
+        except Exception as exc:
+            code, message = safe_voice_upgrade_execution_error(exc)
+            self.database.update_stage_attempt(
+                attempt["id"],
+                "failed",
+                error_code=code,
+                error_message=message,
+            )
+            raise
+        job["stage_attempt_id"] = attempt["id"]
+        job["cache_key"] = source.cache_key
+        return job
+
     def _validated_timeline_inputs(
         self,
         run: dict[str, Any],
@@ -8257,14 +8436,23 @@ class StudioService:
             )
         try:
             if run.get("execution_profile") == "elevenlabs_tts":
-                contract = _load_external_tts_contract()
-                self._external_public_result(
-                    contract,
-                    narration_result,
-                    expected_cache_key=narration_attempt["cache_key"],
-                    artifacts=narration_artifacts,
-                    cache_hit=cache_hit,
-                )
+                if narration_result.get("provider") == "local_voice_upgrade":
+                    validate_voice_upgrade_public_result(
+                        narration_result,
+                        expected_production_id=production_id,
+                        expected_run_id=run["id"],
+                        expected_cache_key=narration_attempt["cache_key"],
+                        artifacts=narration_artifacts,
+                    )
+                else:
+                    contract = _load_external_tts_contract()
+                    self._external_public_result(
+                        contract,
+                        narration_result,
+                        expected_cache_key=narration_attempt["cache_key"],
+                        artifacts=narration_artifacts,
+                        cache_hit=cache_hit,
+                    )
             elif run.get("execution_profile") in {"local_sapi", LOCAL_PIPELINE_PROFILE}:
                 public_result(
                     narration_result,
@@ -9563,6 +9751,525 @@ class StudioService:
             {"include_media": include_media},
             lambda job_id: self.audit_exporter.export(
                 production_id, job_id, include_media=include_media
+            ),
+            production_id=production_id,
+        )
+
+    def _execute_delivery_package(
+        self,
+        production_id: str,
+        job_id: str,
+        payload: dict[str, Any],
+        cancel_event: JobExecutionContext,
+    ) -> dict[str, Any]:
+        cancel_event.raise_if_cancelled()
+        try:
+            lineage = resolve_delivery_lineage(
+                self.database, production_id, payload
+            )
+            snapshot = self.database.production_audit_snapshot(production_id)
+            _snapshot, audit_digest = validate_delivery_audit_snapshot(
+                snapshot, lineage
+            )
+            generated = create_delivery_package(
+                self.workspace,
+                production_id=production_id,
+                job_id=job_id,
+                lineage=lineage,
+                audit_snapshot=snapshot,
+                cancel_event=cancel_event,
+            )
+            try:
+                cancel_event.raise_if_cancelled()
+                current_lineage = resolve_delivery_lineage(
+                    self.database, production_id, payload
+                )
+                current_snapshot = self.database.production_audit_snapshot(
+                    production_id
+                )
+                _current, current_audit_digest = validate_delivery_audit_snapshot(
+                    current_snapshot, current_lineage
+                )
+                if (
+                    canonical_json(current_lineage) != canonical_json(lineage)
+                    or current_audit_digest != audit_digest
+                ):
+                    raise DeliveryPackageError(
+                        "A delivery input changed during packaging.",
+                        code="input_changed",
+                    )
+                artifact_record = generated.get("artifact_record")
+                if not isinstance(artifact_record, dict):
+                    raise DeliveryPackageError(
+                        "The delivery package returned invalid metadata.",
+                        code="invalid_worker_result",
+                    )
+                registered = self.database.register_studio_artifact(
+                    production_id, artifact_record
+                )
+            except Exception:
+                remove_created_delivery_package(self.workspace, generated)
+                raise
+            return {
+                "schema_version": 1,
+                "production_id": production_id,
+                "run_id": lineage["run_id"],
+                "source_job_id": lineage["source_job_id"],
+                "package_key": generated["package_key"],
+                "artifact": registered,
+                "sha256_sidecar": generated["sha256_sidecar"],
+                "files_included": generated["files_included"],
+                "thumbnail_count": generated["thumbnail_count"],
+                "cache_hit": generated["cache_hit"],
+                "network_used": False,
+                "billable": False,
+            }
+        except DeliveryPackageError:
+            raise
+        except DeliveryPackageValidationError as exc:
+            raise DeliveryPackageError(
+                "A delivery input changed before packaging.", code="input_changed"
+            ) from exc
+        except JobCancelled:
+            raise
+        except Exception as exc:
+            raise DeliveryPackageError() from exc
+
+    def create_delivery_package(
+        self, production_id: str, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        validate_identifier(production_id, label="production id")
+        if self.database.get_production(production_id) is None:
+            raise KeyError("production not found")
+        try:
+            payload = validate_delivery_package_payload(body)
+            # Reject mismatched route/run/job/artifact identities before a
+            # durable Job exists. Physical bytes are re-read in the worker.
+            resolve_delivery_lineage(self.database, production_id, payload)
+            audit = delivery_request_audit(payload)
+        except DeliveryPackageValidationError as exc:
+            raise RequestValidationError(str(exc), code=exc.code) from exc
+        return self.jobs.submit(
+            DELIVERY_PACKAGE_JOB_KIND,
+            audit,
+            lambda job_id, cancel_event: self._execute_delivery_package(
+                production_id, job_id, payload, cancel_event
+            ),
+            production_id=production_id,
+        )
+
+    def _resolve_windows_capture_acceptance_source(
+        self, run_id: str
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Resolve and re-read one exact successful native-capture Job."""
+
+        run = self.database.get_run(run_id)
+        if run is None:
+            raise KeyError("run not found")
+        production_id = run.get("production_id")
+        if (
+            not isinstance(production_id, str)
+            or run.get("execution_profile") != "local_windows_capture"
+            or "screen_capture" not in set(run.get("requested_stages") or [])
+        ):
+            raise RequestValidationError(
+                "The run does not contain a Windows capture.",
+                code="windows_capture_acceptance_source_required",
+            )
+        job = self.database.find_latest_job_for_run(
+            "local_windows_capture", production_id, run_id
+        )
+        if (
+            not isinstance(job, dict)
+            or job.get("kind") != "local_windows_capture"
+            or job.get("production_id") != production_id
+            or job.get("status") != "succeeded"
+            or not isinstance(job.get("payload"), dict)
+            or job["payload"].get("run_id") != run_id
+            or not isinstance(job.get("result"), dict)
+        ):
+            raise RequestValidationError(
+                "A successful Windows capture Job is required.",
+                code="windows_capture_acceptance_source_required",
+            )
+
+        result = job["result"]
+        try:
+            windows_capture_acceptance_binding(result)
+        except WindowsCaptureAcceptanceValidationError as exc:
+            raise RequestValidationError(
+                "The registered Windows capture result is invalid.",
+                code="windows_capture_acceptance_source_changed",
+            ) from exc
+
+        artifacts = result.get("artifacts")
+        if not isinstance(artifacts, list):
+            raise RequestValidationError(
+                "The registered Windows capture artifacts are invalid.",
+                code="windows_capture_acceptance_source_changed",
+            )
+        for stored in artifacts:
+            if not isinstance(stored, dict) or not isinstance(stored.get("id"), str):
+                raise RequestValidationError(
+                    "The registered Windows capture artifacts are invalid.",
+                    code="windows_capture_acceptance_source_changed",
+                )
+            current = self.database.get_artifact(stored["id"])
+            stable_artifact_fields = (
+                "id",
+                "production_id",
+                "rel_path",
+                "origin",
+                "name",
+                "kind",
+                "media_type",
+                "bytes",
+                "mtime_ns",
+                "sha256",
+                "is_heavy",
+                "available",
+            )
+            if not isinstance(current, dict) or any(
+                current.get(field) != stored.get(field)
+                for field in stable_artifact_fields
+            ):
+                raise RequestValidationError(
+                    "A registered Windows capture artifact changed.",
+                    code="windows_capture_acceptance_source_changed",
+                )
+            relative = current.get("rel_path")
+            try:
+                if (
+                    not isinstance(relative, str)
+                    or sensitive_artifact_path(relative)
+                    or _has_symlink_component(self.workspace, relative)
+                ):
+                    raise SecurityError("unsafe capture artifact")
+                path = workspace_path(self.workspace, relative, must_exist=True)
+                stat = path.stat()
+                if (
+                    path.is_symlink()
+                    or not path.is_file()
+                    or relative_workspace_path(self.workspace, path) != relative
+                    or stat.st_size != current.get("bytes")
+                    or stat.st_mtime_ns != current.get("mtime_ns")
+                    or _sha256_file(path) != current.get("sha256")
+                ):
+                    raise SecurityError("changed capture artifact")
+            except (OSError, RuntimeError, SecurityError, ValueError) as exc:
+                raise RequestValidationError(
+                    "A registered Windows capture artifact changed.",
+                    code="windows_capture_acceptance_source_changed",
+                ) from exc
+        return run, job
+
+    @staticmethod
+    def _windows_capture_acceptance_response(
+        *,
+        production_id: str,
+        run_id: str,
+        source_job_id: str,
+        acceptance: dict[str, Any],
+        event: dict[str, Any],
+        created: bool,
+    ) -> dict[str, Any]:
+        return {
+            "schema_version": 1,
+            "production_id": production_id,
+            "run_id": run_id,
+            "source_job_id": source_job_id,
+            "acceptance_digest": acceptance["acceptance_digest"],
+            "event": {
+                "id": event["id"],
+                "event_hash": event["event_hash"],
+                "created_at": event["created_at"],
+            },
+            "created": created,
+            "acceptance": acceptance,
+        }
+
+    def record_windows_capture_acceptance(
+        self, run_id: str, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Persist one hash-bound live acceptance as a production event."""
+
+        validate_identifier(run_id, label="run id")
+        # Reuse native-capture admission serialization.  A report cannot race
+        # a new capture Job in this single-writer Studio process.
+        with self._windows_capture_submit_lock:
+            run, job = self._resolve_windows_capture_acceptance_source(run_id)
+            production_id = str(run["production_id"])
+            source_job_id = str(job["id"])
+            try:
+                acceptance = evaluate_windows_capture_acceptance(job["result"], body)
+            except WindowsCaptureAcceptanceValidationError as exc:
+                raise RequestValidationError(str(exc), code=exc.code) from exc
+
+            snapshot = self.database.production_audit_snapshot(production_id)
+            if not isinstance(snapshot, dict) or not isinstance(
+                snapshot.get("events"), list
+            ):
+                raise RequestValidationError(
+                    "The production event ledger is unavailable.",
+                    code="windows_capture_acceptance_ledger_invalid",
+                )
+            matches: list[dict[str, Any]] = []
+            for event in snapshot["events"]:
+                if (
+                    not isinstance(event, dict)
+                    or event.get("scope_type") != "production"
+                    or event.get("scope_id") != production_id
+                    or event.get("event_type")
+                    != WINDOWS_CAPTURE_ACCEPTANCE_EVENT_TYPE
+                ):
+                    continue
+                payload = event.get("payload")
+                if (
+                    not isinstance(payload, dict)
+                    or payload.get("run_id") != run_id
+                    or payload.get("source_job_id") != source_job_id
+                ):
+                    continue
+                stored_acceptance = payload.get("acceptance")
+                if (
+                    isinstance(stored_acceptance, dict)
+                    and stored_acceptance.get("acceptance_digest")
+                    == acceptance["acceptance_digest"]
+                ):
+                    if canonical_json(stored_acceptance) != canonical_json(acceptance):
+                        raise RequestValidationError(
+                            "The acceptance event ledger is invalid.",
+                            code="windows_capture_acceptance_ledger_invalid",
+                        )
+                    matches.append(event)
+            if len(matches) > 1:
+                raise RequestValidationError(
+                    "The acceptance event ledger contains duplicates.",
+                    code="windows_capture_acceptance_ledger_invalid",
+                )
+            if matches:
+                return self._windows_capture_acceptance_response(
+                    production_id=production_id,
+                    run_id=run_id,
+                    source_job_id=source_job_id,
+                    acceptance=acceptance,
+                    event=matches[0],
+                    created=False,
+                )
+
+            event = self.database.append_event(
+                "production",
+                production_id,
+                WINDOWS_CAPTURE_ACCEPTANCE_EVENT_TYPE,
+                {
+                    "schema_version": 1,
+                    "run_id": run_id,
+                    "source_job_id": source_job_id,
+                    "acceptance": acceptance,
+                },
+            )
+            return self._windows_capture_acceptance_response(
+                production_id=production_id,
+                run_id=run_id,
+                source_job_id=source_job_id,
+                acceptance=acceptance,
+                event=event,
+                created=True,
+            )
+
+    @staticmethod
+    def _youtube_request_error(exc: BaseException) -> RequestValidationError:
+        code = getattr(exc, "code", None) or getattr(
+            exc, "error_code", "youtube_publish_failed"
+        )
+        if not isinstance(code, str) or re.fullmatch(
+            r"(?:invalid_youtube|youtube)_[a-z0-9_]{1,96}", code
+        ) is None:
+            code = "youtube_publish_failed"
+        message = str(exc)
+        if not message or len(message) > 1_000:
+            message = "The YouTube publication request could not be verified."
+        return RequestValidationError(message, code=code)
+
+    def _youtube_transport(self) -> YouTubeResumableTransport:
+        """Resolve the DPAPI/env credential only inside an explicit action."""
+
+        try:
+            raw = self.secret_store.resolve("youtube")
+        except Exception as exc:
+            raise YouTubePublishError(
+                "The YouTube OAuth credential is not configured.",
+                code="youtube_oauth_credential_invalid",
+            ) from exc
+        if not isinstance(raw, str) or not raw:
+            raise YouTubePublishError(
+                "The YouTube OAuth credential is not configured.",
+                code="youtube_oauth_credential_invalid",
+            )
+        return YouTubeResumableTransport(YouTubeOAuthCredential.parse(raw))
+
+    @staticmethod
+    def _youtube_channel(transport: YouTubeResumableTransport) -> dict[str, str]:
+        token = transport.access_token()
+        return transport.channel(token)
+
+    def youtube_publish_preview(
+        self, production_id: str, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Resolve the exact channel and inputs without starting an upload."""
+
+        validate_identifier(production_id, label="production id")
+        try:
+            binding = resolve_youtube_publish_binding(
+                self.workspace, self.database, production_id, body
+            )
+            transport = self._youtube_transport()
+            channel = self._youtube_channel(transport)
+            confirmation = youtube_confirmation_summary(
+                binding.request,
+                channel,
+                delivery_sha256=binding.delivery_artifact["sha256"],
+                video_sha256=binding.video_artifact["sha256"],
+                video_bytes=binding.video_artifact["bytes"],
+            )
+        except KeyError:
+            raise
+        except (
+            TypeError,
+            ValueError,
+            YouTubePublishBindingError,
+            YouTubePublishError,
+            YouTubePublishValidationError,
+        ) as exc:
+            raise self._youtube_request_error(exc) from exc
+        return {
+            "schema_version": 1,
+            "production_id": production_id,
+            "binding": binding.public_summary(),
+            "confirmation": confirmation,
+            "network_used": True,
+            "upload_started": False,
+            "public_upload_supported": False,
+        }
+
+    def _execute_youtube_publish_job(
+        self,
+        production_id: str,
+        confirmation: dict[str, Any],
+        expected_binding: dict[str, Any],
+        cancel_event: JobExecutionContext,
+    ) -> dict[str, Any]:
+        """Re-verify every mutable boundary immediately before publication."""
+
+        cancel_event.raise_if_cancelled()
+        try:
+            normalized_confirmation = verified_confirmation_summary(confirmation)
+            current = resolve_youtube_publish_binding(
+                self.workspace,
+                self.database,
+                production_id,
+                normalized_confirmation["request"],
+            )
+            if canonical_json(current.public_summary()) != canonical_json(
+                expected_binding
+            ):
+                raise YouTubePublishError(
+                    "A confirmed YouTube publication input changed.",
+                    code="youtube_source_changed",
+                )
+            transport = self._youtube_transport()
+            return execute_youtube_publish_upload(
+                production_id=production_id,
+                confirmation_summary=normalized_confirmation,
+                video_path=current.video_path,
+                transport=transport,
+                ledger=self.youtube_publish_ledger,
+                cancel_event=cancel_event,
+            )
+        except JobCancelled:
+            raise
+        except YouTubePublishError:
+            raise
+        except YouTubePublishBindingError as exc:
+            raise YouTubePublishError(
+                "A confirmed YouTube publication input changed.",
+                code=exc.code,
+            ) from exc
+        except Exception as exc:
+            raise YouTubePublishError(
+                "The YouTube publication failed.", code="youtube_publish_failed"
+            ) from exc
+
+    def execute_youtube_publish(
+        self, production_id: str, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Queue one explicitly certified private/unlisted upload."""
+
+        validate_identifier(production_id, label="production id")
+        if not isinstance(body, dict) or not isinstance(body.get("request"), dict):
+            raise RequestValidationError(
+                "The YouTube execute request is invalid.",
+                code="invalid_youtube_publish_request",
+            )
+        try:
+            binding = resolve_youtube_publish_binding(
+                self.workspace, self.database, production_id, body["request"]
+            )
+            transport = self._youtube_transport()
+            channel = self._youtube_channel(transport)
+            confirmed = validate_youtube_execute_payload(
+                body,
+                expected_preview=binding.request,
+                expected_channel=channel,
+                delivery_sha256=binding.delivery_artifact["sha256"],
+                video_sha256=binding.video_artifact["sha256"],
+            )
+            confirmation = youtube_confirmation_summary(
+                confirmed["request"],
+                channel,
+                delivery_sha256=binding.delivery_artifact["sha256"],
+                video_sha256=binding.video_artifact["sha256"],
+                video_bytes=binding.video_artifact["bytes"],
+            )
+            expected_binding = binding.public_summary()
+        except KeyError:
+            raise
+        except (
+            TypeError,
+            ValueError,
+            YouTubePublishBindingError,
+            YouTubePublishError,
+            YouTubePublishValidationError,
+        ) as exc:
+            raise self._youtube_request_error(exc) from exc
+        audit = {
+            "schema_version": 1,
+            "provider": "youtube",
+            "production_id": production_id,
+            "run_id": binding.run_id,
+            "source_job_id": binding.source_job_id,
+            "delivery_artifact_id": binding.delivery_artifact["id"],
+            "delivery_sha256": binding.delivery_artifact["sha256"],
+            "video_artifact_id": binding.video_artifact["id"],
+            "video_sha256": binding.video_artifact["sha256"],
+            "video_bytes": binding.video_artifact["bytes"],
+            "video_role": binding.video_role,
+            "channel_id": channel["id"],
+            "privacy_status": binding.request["privacy_status"],
+            "request_digest": youtube_publish_request_digest(binding.request),
+            "confirmation_digest": confirmation["confirmation_digest"],
+            "community_guidelines_certified": True,
+            "explicit_upload_confirmation": True,
+            "public_upload_supported": False,
+        }
+        return self.jobs.submit(
+            "youtube_publish",
+            audit,
+            lambda _job_id, cancel_event: self._execute_youtube_publish_job(
+                production_id,
+                confirmation,
+                expected_binding,
+                cancel_event,
             ),
             production_id=production_id,
         )

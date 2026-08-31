@@ -2,9 +2,9 @@
 
 ## 目的
 
-MiniMaxH3 Studioは、制作案件、ログ、中間成果物、費用、承認履歴を1か所で確認するためのローカルWebアプリです。チャットは企画と監督の窓口、Studioは実行状態と証跡を保持する制御盤として分離します。Studio内で新しい制作を作り、ローカル動画を安全に取り込んでから、`一括生成`タブでは新しいH3素材を含む固定local-only経路を、`詳細一括`タブでは登録済み素材を使うSAPI／Remotion／assembly／QC経路を、それぞれ一つのRunとして実行できます。既定の`かんたん作成`タブは後者をHOOK／MESSAGE／CTAの固定3シーンへ絞り、保存・一括実行を3段階の入力で案内します。同じ画面の`詳細設定`はtrim、素材音、映像補正、音声、字幕を調整でき、どちらも同じ告知recipeと実行記録を共有します。実行中Jobは汎用停止APIから明示的に停止要求でき、Codex／CLIは画面と同じ告知契約を1コマンドで実行できます。
+MiniMaxH3 Studioは、制作案件、ログ、中間成果物、費用、承認履歴を1か所で確認するためのローカルWebアプリです。チャットは企画と監督の窓口、Studioは実行状態と証跡を保持する制御盤として分離します。Studio内で新しい制作を作り、ローカル動画を安全に取り込んでから、`一括生成`タブでは新しいH3素材を含む固定local-only経路を、`詳細一括`タブでは登録済み素材を使うSAPI／Remotion／assembly／QC経路を、それぞれ一つのRunとして実行できます。既定の`かんたん作成`タブは後者をHOOK／MESSAGE／CTAの固定3シーンへ絞り、保存・一括実行を3段階の入力で案内します。同じ画面の`詳細設定`はtrim、素材音、映像補正、音声、字幕を調整でき、どちらも同じ告知recipeと実行記録を共有します。`納品・公開`タブは検証済みローカル納品ZIPを作成しますが、現UIからYouTube uploadは起動しません。実行中Jobは汎用停止APIから明示的に停止要求でき、Codex／CLIは画面と同じ告知契約を1コマンドで実行できます。
 
-このMVPはPowerDirectorのような汎用ノンリニア編集ソフトではありません。既存の`productions/`と`outputs/productions/`を読み込み、制作記録の閲覧、再実行計画、承認、監査exportを扱う土台です。Windows SAPIによるローカルナレーションworker、ElevenLabs Multilingual v2の文字時刻付き外部TTS worker、固定workflowによるローカルComfyUI MiniMax H3動画worker、isolated Chromiumでloopback Webページを縦動画へ記録するPlaywright画面収録worker、明示同意付きでWindowsの物理プライマリ画面と既定再生system audioを記録するnative capture worker、登録済み動画をトリムして順序付きハードカットへ連結するFFmpeg timeline worker、fade／素材音量／固定テロップと同一compositionのPlayer previewを備えたRemotion詳細timeline worker、既存4 workerを束ねる詳細テスト動画orchestrator、そのcontractへcompileする告知動画recipe、音声・字幕合成worker、完成masterのローカルtechnical QC workerまでを実装済みです。任意window／device／microphone収録、任意track／effect／componentを扱う汎用編集、MiniMax外部APIのStudio workerは後続段階です。
+このMVPはPowerDirectorのような汎用ノンリニア編集ソフトではありません。既存の`productions/`と`outputs/productions/`を読み込み、制作記録の閲覧、再実行計画、承認、監査exportを扱う土台です。Windows SAPIによるローカルナレーションworker、ElevenLabs Multilingual v2の文字時刻付き外部TTS worker、固定workflowによるローカルComfyUI MiniMax H3動画worker、isolated Chromiumでloopback Webページを縦動画へ記録するPlaywright画面収録worker、明示同意付きでWindowsの物理プライマリ画面と既定再生system audioを記録するnative capture worker、登録済み動画をトリムして順序付きハードカットへ連結するFFmpeg timeline worker、fade／素材音量／固定テロップと同一compositionのPlayer previewを備えたRemotion詳細timeline worker、既存4 workerを束ねる詳細テスト動画orchestrator、そのcontractへcompileする告知動画recipe、音声・字幕合成worker、完成masterのローカルtechnical QC worker、Delivery Package workerまでを実装済みです。Windows capture acceptanceとYouTube private／unlisted安全公開はbackend control-planeまで、ElevenLabs scene alignmentはbackend Jobとassembly入力までです。任意window／device／microphone収録、任意track／effect／componentを扱う汎用編集、MiniMax外部APIのStudio worker、YouTube公開UIは後続段階です。
 
 ## MVPでできること
 
@@ -61,6 +61,10 @@ MiniMaxH3 Studioは、制作案件、ログ、中間成果物、費用、承認�
 - `ffprobe.json`と自己hash付き`manifest.json`へ入力hash、FFmpeg/ffprobeの実体・version・binary hash、音声方針、出力方針を記録する。
 - 同じRunの成功済みassembly attemptからcleanまたはcaptioned masterを選び、MP4 container、stream構成、H.264／yuv420p、AAC 48 kHz stereo、尺、full decode、全編無音をローカル検査する。schema v2の固定`technical-qc-mp4-v2`ではIntegrated loudness -24.0〜-10.0 LUFS、true peak -1.0 dBFS以下、0.5秒以上の黒画面をhard checkとして追加する。
 - QC解析結果を`technical-qc.json`、`ffprobe.json`、自己hash付き`manifest.json`として保存し、解析完了とtechnical verdictのpass／failを分けて表示する。1.0秒以上の長い静止区間は`media_facts.long_static.warning=true`のadvisoryとして保存し、technical verdictには影響させない。
+- `納品・公開`タブから、成功済み詳細一括のclean／captioned master、SRT、QC 3文書、clean master由来のサムネイル3枚、title／description、production snapshot、event JSONL、自己検証manifestを決定的ZIP＋SHA-256 sidecarへローカルでまとめる。結果は`network_used=false`／`billable=false`。
+- `POST /api/runs/{run_id}/execute-voice-upgrade`から取得済みElevenLabs attemptをHOOK／MESSAGE／CTA scene開始へ再配置し、0円`voice_upgrade` Job／narration attemptとしてWAV／SRT／timings／manifestをatomic登録する。登録済み結果はassembly入力時にも再検証する。provider call／credential／課金はなく、Studio UIと告知／Delivery自動接続は未実装。
+- `POST /api/runs/{run_id}/windows-capture-acceptance`から、8成果物のhash、A/V marker、loudness／peak、device切替、親強制終了cleanup、5 operator attestを一つの受入eventへ記録する。policy実装と実機合格は別で、現時点の実機gateは未合格。eventはcapture result／review gateを書き換えず、YouTube bindingも自動参照しない。
+- YouTube preview／execute backendから、検証済みDelivery／master、OAuth channel、creative／rights／public_releaseの3承認を束縛し、Community Guidelines certificationと明示upload確認を再要求する。private／unlistedだけを許し、publicを拒否する。曖昧なresumable sessionを自動再初期化しない。
 - stage attemptと実行jobの永続リンク、queued/running/succeeded/failed、所要時間、cache hit、provider、task ID、実費、timing source、成果物hashをUIと監査記録で追跡する。
 - 同一入力の成功cacheをhash検証後に再利用し、改変・欠落時は再生成する。
 - `test-video` CLIから、索引更新、0円Run作成、narration、1カットtimeline、assembly、technical QCを順番に実行し、完成MP4と監査識別子を1つのJSONで受け取る。
@@ -69,7 +73,8 @@ MiniMaxH3 Studioは、制作案件、ログ、中間成果物、費用、承認�
 
 MVPが行わないこと:
 
-- ElevenLabs以外の外部有料provider、MiniMax外部APIの実行
+- Studio UIからのYouTube公開、実Google OAuth／実uploadの受入、MiniMax外部APIのStudio worker
+- voice upgradeのStudio UIと、既存告知／Deliveryへの自動接続
 - 任意window／任意display／任意audio device、microphone、外部Webサイト、既存ログインsessionを指定した収録
 - 複数audio track、任意transition／effect、free-form CSS／font／React component、keyframe、任意映像filter／鮮明化強度、任意resolution／fpsを含む汎用タイムライン編集
 - 詳細一括からのH3／ComfyUI生成、外部provider呼出し、任意path／URL／gain指定
@@ -94,6 +99,58 @@ MVPが行わないこと:
 M1〜M3はStudio UI、M4はCodex／CLI control-planeです。M3の「このcutの修正plan」はM4の3カット一括生成とまだ自動接続していないため、`planned_not_executed`／`not_started`／`not_connected`を表示します。
 
 2026-09-01のM1〜M4統合検証では、リポジトリ管理下のPython製品テスト570件が合格し、Windows以外専用1件をskipしました。Studioは141/141件、本番build、`compileall`、example contract、`git diff --check`が成功しています。課金なしのM4オフライン実動画smokeでは、既存MP4 3本を偽providerのsubmit／status／downloadへ注入した後、実`StudioService`→Quick Create→Remotion→字幕・音声→assembly→technical QCを通しました。masterは15.000秒、1080×1920、H.264／yuv420p、24fps、360 frame、AAC 48kHz stereo、10,188,592 bytes、SHA-256 `DD722F811EB98EAB31B7A50C781F1290F94EDF11C5F786AEA6FB945C72C07DAD`で、black／staticを含む全technical checkが`pass`です。完了後の同一requestは3.722秒、provider再送0件、同一master hashへ収束しました。これはcontrol-planeとローカル後段の実動画検証であり、公式MiniMax APIの実画質、所要時間、費用を保証するpaid smokeではありません。
+
+## M5〜M6到達点
+
+| Milestone | 実装済み | 未実施／重要な境界 |
+|---|---|---|
+| M5 Delivery Package | `POST /api/productions/{production_id}/delivery-packages`、`delivery_package` Job、Studio `納品・公開`タブ、clean／captioned／SRT／QC／3 thumbnail／title-description／audit／manifestの13-entry ZIP、外部SHA-256 sidecar、cache | local-onlyで`network_used=false`／`billable=false`。Delivery作成はhuman gateを要求せず、UIはYouTubeを呼ばない |
+| M5 高品質TTS scene alignment | `voice_upgrade.py`のpure-local alignment core、成功済みElevenLabs attempt／WAV／timingsを再検証する`voice_upgrade_execution.py`、`POST /api/runs/{run_id}/execute-voice-upgrade`、0円`voice_upgrade` Job、新narration attempt＋4 artifact atomic登録、assembly入力再検証、専用test／公開error | Studio UIと告知／Delivery自動接続は未実装。provider再呼出し／credential解決／課金は行わない |
+| M6 Windows capture acceptance | `POST /api/runs/{run_id}/windows-capture-acceptance`、8 artifact再検証、A/V・LUFS・peak・device switch・forced-exit facts、5 operator attest、append-only result event | report作成UI／CLIと新contractを満たす実機証跡は未実施。元capture／reviewを更新せず、YouTube bindingも自動参照しない |
+| M6 YouTube safe publish control-plane | Delivery／master／channel／3 human gateを束縛するpreview、2つの明示確認を要求するexecute、private／unlisted限定、DPAPI OAuth／session、resumable ledger | 旧roadmapのM7を現M6へ統合。Studio公開UI、interactive OAuth bootstrap、実credential／channel、実upload、provider read-backは未実施。`public`は拒否 |
+
+2026-09-01のM5〜M6統合検証では、リポジトリ管理下のPython製品テスト648件が合格し、Windows以外専用1件をskipしました。Studioは146/146件、本番build、`compileall`、`git diff --check`が成功しています。Delivery、voice alignment、Windows受入判定、YouTube公開制御はlocal／fake transportで検証しており、実Google OAuth／YouTube upload、課金API、Windows実機受入を成功済みとは扱いません。
+
+### Delivery Package
+
+Studioの`納品・公開`タブは最新の完全なDetailed Test Video lineageを解決し、100文字以内のtitleと5,000文字以内のdescriptionを受け付けます。`納品ZIPを作成`は次のexact schema v1を`POST /api/productions/{production_id}/delivery-packages`へ送り、HTTP `202`のJobを2秒間隔で追跡します。
+
+```json
+{
+  "schema_version": 1,
+  "run_id": "run_<32 lowercase hex>",
+  "source_job_id": "job_<32 lowercase hex>",
+  "artifacts": {
+    "clean_master": "art_...",
+    "captioned_master": "art_...",
+    "captions": "art_...",
+    "technical_qc": "art_...",
+    "qc_ffprobe": "art_...",
+    "qc_manifest": "art_..."
+  },
+  "metadata": {"title": "...", "description": "..."}
+}
+```
+
+backendは成功済み`detailed_test_video`、同一production／Run／revision、captioned有効、technical verdict `pass`、narration／timeline／assembly／QCの4 child、6 source artifactのJob result／attempt／DB row／物理file／bytes／SHA-256／kind／MIMEをqueue前とworker内で再確認します。ZIPは`outputs/studio/deliveries/<production>/<package_key>/delivery-package.zip`、sidecarは隣接`delivery-package.zip.sha256`です。ZIP内の13 entryとsidecarを再検証したcacheだけを再利用します。sidecarは独立artifactとして登録せず、resultの相対pathから確認します。
+
+### 高品質TTS scene alignment
+
+`POST /api/runs/{run_id}/execute-voice-upgrade`は、`elevenlabs_tts` profileでnarrationをrequested stageに持つRunだけを受けます。bodyは`schema_version`、同じRunの成功済みElevenLabs `source_attempt_id`、`schedule`だけです。scheduleはHOOK／MESSAGE／CTAの順、先頭0ms、単調増加する開始時刻、最大60秒の総尺へ閉じます。原稿、WAV、timingsの内容が一致しない場合や、発話が次sceneまたは出力末尾へ重なる場合はJob登録またはworkerでfail closedにします。
+
+serviceはsource attemptと登録済み`narration.wav`／`timings.json`をID／path／bytes／mtime／SHA-256までqueue前とworker後に再検証し、`voice_upgrade` Jobと新しいnarration stage attemptを作ります。出力4点は同じRunのcontent-addressed narration cacheへatomic登録され、公開結果は`provider=local_voice_upgrade`、`provider_task_id=null`、`actual_cost=0`、Job auditは`network_used=false`、`billable=false`です。新attemptをassemblyへ指定すると、公開結果のexact key、provider、0円cost、schedule、source lineage、4登録artifactの一致を再検証してからWAV／SRTを入力にします。ElevenLabsの再呼出し、credential解決、追加費用approvalはありません。現時点ではAPIを直接呼ぶbackend経路で、Studio画面のボタンと告知／Deliveryへの自動選択はありません。
+
+### Windows capture acceptance
+
+`POST /api/runs/{run_id}/windows-capture-acceptance`は新しい自己申告reportを`201`、同一reportの冪等再送を`200`で返します。最大A/V差50ms、Integrated loudness -24〜-10 LUFS、true peak -1 dBFS以下、device switchの`failed_closed_no_publish`＋再収録成功、親強制終了時のchild終了／partial削除／公開artifact 0件と、全編目視／知覚同期／cursorなし／ログイン済み対象／機密なしの5 attestは`self_reported_thresholds_met`を計算するために保存します。しかしoperator／window／calibration toolのdigestを含め、これらはrequest本文の自己申告であり、登録済みcalibration Jobと、serviceがbytes／SHA-256／tool lineageを再検証できる証拠artifactではありません。その実装が入るまでは、閾値の申告値にかかわらず`blocked_unverified_calibration_lineage`、`content_sync_verified=false`、`public_release_ready=false`、`live_validation_required=true`とし、lineage不足をfailed checkへ残します。不合格値もmalformed扱いせず、追加のfailed checksを持つblocked eventとして保存します。
+
+### YouTube安全公開control-plane
+
+previewは`POST /api/productions/{production_id}/youtube-publish-preview`へDelivery artifact、選択master、title／description／tags／category、`private | unlisted`、made-for-kids、synthetic-mediaを送ります。backendはDelivery ZIPの外側hash、全entry、選択master、creative／rights／public_releaseの`approved`・未解決0件・review 1件以上を再検証し、OAuth channelとconfirmation digestを返します。previewはchannel確認のnetwork accessを行いますが、upload sessionを作りません。
+
+executeは`POST /api/productions/{production_id}/youtube-publish`へ同じrequest、expected channel、confirmation digest、`certify_community_guidelines=true`、`confirm_upload=true`を送り、HTTP `202`のJobを作ります。OAuth credentialは`{client_id,client_secret,refresh_token}`のexact JSONで、解決順は`YOUTUBE_OAUTH_CREDENTIAL_JSON`、`.env`、Windows user-scoped DPAPI storeです。interactive OAuth bootstrapはなく、事前取得済みrefresh tokenが必要です。公開stateは`outputs/studio/youtube/<publish_id>/state.json`、確認済みsource copyは同directoryの`source.mp4`、signed resumable URLだけは`session.dpapi`へ分離します。既知sessionはprovider offsetを照会して再開し、曖昧または失効したsessionから新しい`videos.insert`を自動開始しません。成功後はsession ciphertextとstaged sourceを削除します。
+
+credential-bearing requestのHTTP redirectは`youtube_redirect_rejected`で拒否し、background Jobの失敗はallowlist済み`error_code`と1,000文字以内の`public_message`だけを公開します。token、signed session URI、生provider errorは公開errorへ出しません。一次資料はGoogle公式の[`videos.insert`](https://developers.google.com/youtube/v3/docs/videos/insert)、[resumable upload protocol](https://developers.google.com/youtube/v3/guides/using_resumable_upload_protocol)、[OAuth 2.0 for Desktop apps](https://developers.google.com/identity/protocols/oauth2/native-app)です。backendとfake transportの成功は、実upload／実公開／YouTube側read-backや外部費用の証拠ではありません。
 
 ## 制作作成、動画取込、Job停止
 
@@ -580,17 +637,18 @@ frontend開発時:
 
 ## API secretの登録
 
-APIキーをチャットへ貼りません。PowerShellの非表示入力を使うCLIから登録します。現在登録できるprovider識別子は`minimax`、`elevenlabs`、`azure_speech`、`openai`です。
+APIキーやOAuth credentialをチャットへ貼りません。PowerShellの非表示入力を使うCLIから登録します。現在登録できるprovider識別子は`minimax`、`elevenlabs`、`azure_speech`、`openai`、`youtube`です。
 
 ```powershell
 python -m tools.studio.cli secret set minimax
 python -m tools.studio.cli secret status minimax
 python -m tools.studio.cli secret delete minimax
+python -m tools.studio.cli secret set youtube
 ```
 
 `python`がPATHにない場合は`py -3 -m tools.studio.cli ...`を使います。既存`.venv`を明示する場合は`.\.venv\Scripts\python.exe -m tools.studio.cli ...`でも同じです。
 
-登録値は現在のWindowsユーザーに紐づくDPAPIで暗号化し、`outputs/studio/secrets/<provider>.dpapi`へ保存します。平文値は再表示せず、SQLite、ログ、監査ZIP、Gitへ含めません。provider workerで必要になった瞬間だけ、process環境変数、workspaceの`.env`、DPAPI storeの順に解決します。secret登録や状態確認だけでは外部APIを実行しません。費用承認済み`elevenlabs_tts` Runで外部ナレーションを明示実行した場合だけ、ナレーション本文と固定設定をElevenLabsへ送信します。
+登録値は現在のWindowsユーザーに紐づくDPAPIで暗号化し、`outputs/studio/secrets/<provider>.dpapi`へ保存します。平文値は再表示せず、SQLite、ログ、監査ZIP、Gitへ含めません。provider workerで必要になった瞬間だけ、process環境変数、workspaceの`.env`、DPAPI storeの順に解決します。secret登録や状態確認だけでは外部APIを実行しません。費用承認済み`elevenlabs_tts` Runで外部ナレーションを明示実行した場合だけ、ナレーション本文と固定設定をElevenLabsへ送信します。`youtube`には`client_id`、`client_secret`、事前取得済み`refresh_token`だけのJSONを登録します。対話OAuth取得は行わず、previewでchannelを確認し、別のexecute確認後だけprivate／unlisted resumable uploadへ進みます。
 
 ## 契約不要のテスト動画
 
@@ -797,12 +855,12 @@ Run契約修正後の再受入では、run `run_c0745a922f814b67b1c45f7fbac8fd80
 
 実装済み: Windows SAPI adapter、ElevenLabs Multilingual v2 `with-timestamps` adapter、文字alignmentからのsegment字幕、費用承認＋payload確認gate、成功cache＋曖昧送信marker、provider request ID／character cost／未確定USD欄、発音置換、固定公式INT8＋Q4 ComfyUI graph、閉じたruntime argv／model／live process照合、Windows model handle保護、GPU FIFO lane、pre-issued UUID、schema v8 provider task／pipeline continuation／detailed-test claim／Windows capture consent、DPAPI resume／pipeline request payload、Studio起動時の自動照合、新attempt追記、CAS重複防止、手動resume UI、復旧済み動画のcache-only自動継続、atomic `cancel_requested`＋GET-only targeted cancel再照合、provider／job／attempt／artifactの原子的確定、isolated Chromiumによるloopback Web収録、単回consent・kill-on-close Job Object・固定WASAPI loopback・決定的private stagingを備えたWindowsネイティブ収録、登録済み動画1〜32カットのtrim／並べ替え／ハードカットpreview、schema v1のRemotion詳細timeline、共通compositionのPlayer preview、fade／素材音量／固定テロップ、Source Fidelity v2の`preserve_v1 | h3_low_res_sharp_v1`、pre-overlay固定Lanczos／luma-only unsharp、PNG中間frame／CRF 16、cache／監査／report／manifest policy、旧recipeの`preserve_v1`互換、exact 5成果物、画面収録とRemotion renderを直列化するbrowser FIFO lane、FFmpeg clean／captioned master、`shorts_ja_large_v1`字幕preset、schema v2 / `local-ffmpeg-qc-v2` / `technical-qc-mp4-v2`のIntegrated loudness／true peak／黒画面hard checkと長い静止warningを含むローカルtechnical QC、ffprobe／manifest、stage attempt/cache。専用`local_pipeline` lane、6 requested／5 executed stage、DB-level Run/top-job dedupe、same-run failed／interrupted retry、parent-child cancellation wait、local stage artifactのatomic completion、Detailed Test Video v1のSAPI→Remotion→assembly→QC一括、固定字幕preflight、content dedupe、same-run retry、2秒UI監視、およびHOOK／MESSAGE／CTA告知recipeのCAS保存、immutable exact version、複製、Detailed compile、atomic execution link、fresh exact Job復旧と1回限定の同一revision冪等再送。HTTP／worker／SQLite writerのdrain成功時だけworkspace lockを解放する単一writer境界。
 
-M1の5判断ウィザード、M2の非破壊制作ライブラリ、M3のcut/timecodeレビュー、M4の3始点画像→公式I2VA→15秒Quick Createは実装済みです。M3の指定cut修正は計画まで、M4の実API品質・費用は未検証です。
+M1の5判断ウィザード、M2の非破壊制作ライブラリ、M3のcut/timecodeレビュー、M4の3始点画像→公式I2VA→15秒Quick Create、M5のDelivery Packageとvoice-upgrade backend Job／assembly入力、M6のWindows acceptance endpointとYouTube safe publish backend control-planeは実装済みです。ただしM3の指定cut修正は計画まで、M4の実API品質・費用、M6の実機acceptanceと実Google uploadは未検証です。voice upgradeはAPI／Job／assembly入力まででStudio UIと告知／Deliveryへの自動接続がありません。旧roadmapのM7 YouTubeは現M6へ整理しましたが、これは外部公開完了を意味しません。
 
-1. M4の最小paid smoke。3件のtask上限、実生成時間、費用、人物／動作のcreative品質、15秒masterを人が明示確認する
-2. M3 `m4_cut_revision_job_v1`を実endpointへ接続し、指定cut 1件だけを再生成して他cut、timeline、narration、QC cacheを安全に再利用する
-3. M1素材取込でduration／codec／fps／解像度／音声streamを永続化し、5.167秒未満をJob登録前に案内または閉じた正規化へ送る
-4. 明示承認付きのWindowsネイティブ実機smoke（A/V開始差、音質、既定device切替、親強制終了時の停止確認）と、実ComfyUI強制終了／再起動E2E
-5. ElevenLabs請求情報とのUSD実費照合、外部送信素材の秘密情報検査、監査bundle署名
+1. voice upgradeのStudio UIを追加し、既存告知のexact scene scheduleとDelivery lineageへ接続する
+2. Windows acceptance用のcalibration report生成tool／提出UIを作り、最大A/V差、音量、device切替、親強制終了、cursor、privacyの全条件を実機で合格させる
+3. Google公式手順でOAuth desktop credential／refresh tokenをローカル準備し、channel preview→同一digestの2段階確認→private最小upload→YouTube側read-backを人の明示承認で1件だけ受入する。public uploadは追加しない
+4. M4の最小paid smokeとM3 `m4_cut_revision_job_v1`接続。3件task上限、費用、creative品質を確認し、指定cut以外のcacheを安全に再利用する
+5. M1素材取込のduration／codec／fps／解像度／音声stream永続化、実ComfyUI強制終了／再起動E2E、ElevenLabs請求情報とのUSD実費照合、外部送信素材の秘密情報検査、監査bundle署名
 
 実装済み範囲を超える工程はRun計画内の未実行項目として表示し、`running`や`complete`とは記録しません。
