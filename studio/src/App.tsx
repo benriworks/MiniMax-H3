@@ -97,6 +97,7 @@ import { TimelineComposition } from './remotion/TimelineComposition';
 import { buildRemotionTimelineCompositionProps } from './remotion/model';
 import { QuickCreateForm } from './QuickCreateForm';
 import { SimpleCreateWizard } from './SimpleCreateWizard';
+import { ProductionLibraryPanel } from './ProductionLibraryPanel';
 import type {
   Approval,
   AnnouncementRecipeRecord,
@@ -1005,6 +1006,7 @@ function App() {
   const [detailError, setDetailError] = useState<string>();
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState('');
+  const [showArchived, setShowArchived] = useState(false);
   const [unsavedAnnouncementProductionId, setUnsavedAnnouncementProductionId] = useState<string>();
   const [simpleCreateOpen, setSimpleCreateOpen] = useState(false);
   const [newProductionOpen, setNewProductionOpen] = useState(false);
@@ -1018,13 +1020,15 @@ function App() {
   const loadDashboard = useCallback(async (): Promise<boolean> => {
     setLoading(true);
     setError(undefined);
-    const results = await Promise.allSettled([api.health(), api.productions(), api.jobs(), api.providers()]);
+    const results = await Promise.allSettled([api.health(), api.productions({ includeArchived: showArchived }), api.jobs(), api.providers()]);
     const [healthResult, productionResult, jobsResult, providersResult] = results;
     if (healthResult.status === 'fulfilled') setHealth(healthResult.value);
     if (productionResult.status === 'fulfilled') {
       setProductions(productionResult.value);
       setSelectedId((current) => {
-        const next = current ?? productionResult.value[0]?.id;
+        const next = current && productionResult.value.some((item) => item.id === current)
+          ? current
+          : productionResult.value[0]?.id;
         selectedIdRef.current = next;
         return next;
       });
@@ -1037,7 +1041,7 @@ function App() {
     }
     setLoading(false);
     return failures.length === 0;
-  }, []);
+  }, [showArchived]);
 
   const loadDetail = useCallback(async (id: string, signal?: AbortSignal): Promise<boolean> => {
     if (selectedIdRef.current !== id) return false;
@@ -1152,6 +1156,12 @@ function App() {
     setSelectedId(productionId);
     const detailLoaded = await loadDetail(productionId);
     return dashboardLoaded && detailLoaded;
+  }, [loadDashboard, loadDetail]);
+
+  const refreshProductionLibrary = useCallback(async (): Promise<void> => {
+    await loadDashboard();
+    const current = selectedIdRef.current;
+    if (current) await loadDetail(current);
   }, [loadDashboard, loadDetail]);
 
   const openNewProductionDialog = useCallback(() => {
@@ -1275,6 +1285,10 @@ function App() {
             <span aria-hidden="true">⌕</span>
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="タイトル・タグで検索" />
           </label>
+          <label className="archive-toggle">
+            <input type="checkbox" checked={showArchived} onChange={(event) => setShowArchived(event.target.checked)} />
+            <span>アーカイブ済みを表示</span>
+          </label>
 
           {loading && <LoadingState />}
           {!loading && error && productions.length === 0 && <ErrorNotice message={error} onRetry={() => void loadDashboard()} />}
@@ -1297,7 +1311,7 @@ function App() {
                 <div className="production-card-body">
                   <div className="production-card-top">
                     <strong>{production.title}</strong>
-                    <StatusBadge status={production.status} />
+                    {production.archived ? <span className="archived-chip">保管</span> : <StatusBadge status={production.status} />}
                   </div>
                   <div className="production-meta">
                     <span>{formatDuration(production.durationSeconds)}</span>
@@ -1338,6 +1352,7 @@ function App() {
               onReload={reloadSelectedDetail}
               onReloadStatus={reloadSelectedDetailWithStatus}
               onAnnouncementDirtyChange={updateSelectedAnnouncementDirty}
+              onLibraryMutation={refreshProductionLibrary}
             />
           )}
         </main>
@@ -1390,7 +1405,7 @@ function JobsStrip({
   );
 }
 
-function ProductionWorkspace({ detail, jobs, providers, onReload, onReloadStatus, onAnnouncementDirtyChange }: { detail: ProductionDetail; jobs: Job[]; providers: ProviderStatus[]; onReload: (signal?: AbortSignal) => Promise<void>; onReloadStatus: (signal?: AbortSignal) => Promise<boolean>; onAnnouncementDirtyChange: (dirty: boolean) => void }) {
+function ProductionWorkspace({ detail, jobs, providers, onReload, onReloadStatus, onAnnouncementDirtyChange, onLibraryMutation }: { detail: ProductionDetail; jobs: Job[]; providers: ProviderStatus[]; onReload: (signal?: AbortSignal) => Promise<void>; onReloadStatus: (signal?: AbortSignal) => Promise<boolean>; onAnnouncementDirtyChange: (dirty: boolean) => void; onLibraryMutation: () => Promise<void> }) {
   const [tab, setTab] = useState<DetailTab>('announcement');
   const [announcementDirty, setAnnouncementDirty] = useState(false);
   const latestRun = [...detail.runs].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))[0];
@@ -1460,6 +1475,7 @@ function ProductionWorkspace({ detail, jobs, providers, onReload, onReloadStatus
           <div><span>費用見積・記録</span><strong>{costSummary}</strong></div>
         </div>
       </section>
+      <ProductionLibraryPanel production={detail} disabled={announcementDirty} onMutation={onLibraryMutation} />
 
       <nav className="tabs" aria-label="制作情報" role="tablist">
         {tabs.map((item) => (

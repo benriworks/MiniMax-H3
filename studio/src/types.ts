@@ -22,8 +22,25 @@ export interface ProductionSummary {
   technicalStatus?: StudioStatus;
   creativeStatus?: StudioStatus;
   publicReleaseStatus?: StudioStatus;
+  archived: boolean;
+  archivedAt?: string;
+  libraryReadOnly: boolean;
   tags: string[];
   raw: Record<string, unknown>;
+}
+
+export type ProductionLibraryAction = 'rename' | 'archive' | 'duplicate';
+
+/** Verified response projection for one idempotent library mutation. */
+export interface ProductionLibraryMutationResponse {
+  schemaVersion: 1;
+  operationId: string;
+  action: ProductionLibraryAction;
+  production: ProductionSummary;
+  sourceProductionId?: string;
+  includeImports?: boolean;
+  importedArtifactCount?: number;
+  deduplicated: boolean;
 }
 
 /** Exact request body for creating a production from the Studio UI. */

@@ -81,6 +81,8 @@ img, video { max-width: 100%; }
 .search-box:focus-within { border-color: rgba(92,200,181,.7); box-shadow: 0 0 0 3px rgba(92,200,181,.07); }
 .search-box input { width: 100%; background: transparent; border: 0; outline: 0; color: var(--text); font-size: 12px; }
 .search-box input::placeholder { color: #617083; }
+.archive-toggle { display: flex; align-items: center; gap: 7px; margin: -1px 4px 10px; color: var(--muted); font-size: 11px; cursor: pointer; }
+.archive-toggle input { accent-color: var(--accent); }
 .production-list { display: flex; flex-direction: column; gap: 7px; }
 .production-card { width: 100%; border: 1px solid transparent; border-radius: 9px; background: transparent; padding: 8px; text-align: left; display: grid; grid-template-columns: 54px minmax(0,1fr); gap: 10px; cursor: pointer; transition: .15s ease; }
 .production-card:hover { background: var(--surface-2); border-color: var(--line-soft); }
@@ -89,6 +91,10 @@ img, video { max-width: 100%; }
 .production-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .production-card-body { min-width: 0; padding-top: 1px; }
 .production-card-top strong { font-size: 12px; max-width: 118px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.archived-chip { border: 1px solid #657384; border-radius: 999px; color: #b8c1cc; padding: 1px 6px; font-size: 9px; white-space: nowrap; }
+.production-library-panel { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 22px; border-bottom: 1px solid var(--line-soft); background: rgba(17, 23, 31, .65); }
+.production-library-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.production-library-panel small { color: var(--muted); font-size: 11px; }
 .production-meta { margin-top: 8px; display: flex; justify-content: space-between; color: #748397; font-size: 9px; }
 .status-badge { width: max-content; display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); color: var(--muted); background: rgba(255,255,255,.025); border-radius: 20px; padding: 3px 7px; font-size: 9px; font-weight: 700; white-space: nowrap; }
 .status-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }

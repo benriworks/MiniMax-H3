@@ -40,6 +40,7 @@ import type {
   ProductionDetail,
   ProductionCreatePayload,
   ProductionRun,
+  ProductionLibraryMutationResponse,
   PipelineContinuation,
   PipelineContinuationState,
   ProductionSummary,
@@ -3290,6 +3291,9 @@ const normalizeProduction = (value: unknown, index: number): ProductionSummary =
     technicalStatus: pick(record, ['technical_status']) === undefined ? undefined : normalizeStatus(record.technical_status),
     creativeStatus: pick(record, ['creative_status']) === undefined ? undefined : normalizeStatus(record.creative_status),
     publicReleaseStatus: pick(record, ['public_release_status']) === undefined ? undefined : normalizeStatus(record.public_release_status),
+    archived: boolean(pick(record, ['archived']), false),
+    archivedAt: text(pick(record, ['archived_at', 'archivedAt']), '') || undefined,
+    libraryReadOnly: boolean(pick(record, ['library_read_only', 'libraryReadOnly']), false),
     tags,
     raw: record,
   };
@@ -3399,6 +3403,7 @@ export const serializeLocalComfyUiPayload = (payload: LocalComfyUiPayload): stri
 export const MAX_VIDEO_IMPORT_FILES = 16;
 export const MAX_VIDEO_IMPORT_BYTES = 2 * 1024 * 1024 * 1024;
 export const PRODUCTION_ID_PATTERN = /^production_[0-9a-f]{32}$/;
+export const PRODUCTION_LIBRARY_OPERATION_ID_PATTERN = /^production_library_op_[0-9a-f]{32}$/;
 export const PRODUCTION_TITLE_MAX_LENGTH = 120;
 const VIDEO_IMPORT_EXTENSIONS = new Set([
   '.avi', '.m4v', '.mkv', '.mov', '.mp4', '.webm',
@@ -3415,6 +3420,105 @@ export const buildProductionCreatePayload = (productionId: unknown, title: unkno
     schema_version: 1,
     production_id: normalizedId,
     title: normalizedTitle,
+  };
+};
+
+const productionLibraryOperationId = (value: unknown): string => {
+  if (typeof value !== 'string' || !PRODUCTION_LIBRARY_OPERATION_ID_PATTERN.test(value)) {
+    throw new TypeError('制作ライブラリ操作IDの形式が正しくありません。');
+  }
+  return value;
+};
+
+const productionLibraryTitle = (value: unknown, label: string): string => {
+  const title = typeof value === 'string' ? value.trim() : '';
+  if (!title || title.length > PRODUCTION_TITLE_MAX_LENGTH || /[\u0000-\u001f\u007f]/.test(title)) {
+    throw new TypeError(`${label}は1〜${PRODUCTION_TITLE_MAX_LENGTH}文字で入力してください。`);
+  }
+  return title;
+};
+
+export const buildProductionRenamePayload = (
+  operationId: unknown,
+  expectedTitle: unknown,
+  title: unknown,
+) => {
+  const expected = productionLibraryTitle(expectedTitle, '現在のタイトル');
+  const next = productionLibraryTitle(title, '新しいタイトル');
+  if (expected === next) throw new TypeError('新しいタイトルを入力してください。');
+  return {
+    schema_version: 1 as const,
+    operation_id: productionLibraryOperationId(operationId),
+    expected_title: expected,
+    title: next,
+  };
+};
+
+export const buildProductionArchivePayload = (
+  operationId: unknown,
+  expectedArchived: unknown,
+  archived: unknown,
+) => {
+  if (typeof expectedArchived !== 'boolean' || typeof archived !== 'boolean' || expectedArchived === archived) {
+    throw new TypeError('アーカイブ状態の変更指定が正しくありません。');
+  }
+  return {
+    schema_version: 1 as const,
+    operation_id: productionLibraryOperationId(operationId),
+    expected_archived: expectedArchived,
+    archived,
+  };
+};
+
+export const buildProductionDuplicatePayload = (
+  operationId: unknown,
+  productionId: unknown,
+  title: unknown,
+  includeImports: unknown,
+) => {
+  const id = typeof productionId === 'string' ? productionId : '';
+  if (!PRODUCTION_ID_PATTERN.test(id)) throw new TypeError('複製先production_idの形式が正しくありません。');
+  if (typeof includeImports !== 'boolean') throw new TypeError('素材複製指定が正しくありません。');
+  return {
+    schema_version: 1 as const,
+    operation_id: productionLibraryOperationId(operationId),
+    production_id: id,
+    title: productionLibraryTitle(title, '複製タイトル'),
+    include_imports: includeImports,
+  };
+};
+
+const normalizeProductionLibraryMutation = (
+  value: unknown,
+  expected: { operationId: string; action: 'rename' | 'archive' | 'duplicate'; productionId: string },
+): ProductionLibraryMutationResponse => {
+  const root = asRecord(value);
+  const production = normalizeProduction(pick(root, ['production', 'item', 'data']), 0);
+  const operationId = text(pick(root, ['operation_id', 'operationId']), '');
+  const action = text(pick(root, ['action']), '') as ProductionLibraryMutationResponse['action'];
+  const deduplicated = pick(root, ['deduplicated']);
+  if (
+    root.schema_version !== 1
+    || operationId !== expected.operationId
+    || action !== expected.action
+    || production.id !== expected.productionId
+    || typeof deduplicated !== 'boolean'
+  ) {
+    throw new StudioApiError(
+      '制作ライブラリ応答identityが要求と一致しません。',
+      502,
+      'invalid_production_library_response',
+    );
+  }
+  return {
+    schemaVersion: 1,
+    operationId,
+    action,
+    production,
+    sourceProductionId: text(pick(root, ['source_production_id', 'sourceProductionId']), '') || undefined,
+    includeImports: typeof root.include_imports === 'boolean' ? root.include_imports : undefined,
+    importedArtifactCount: number(pick(root, ['imported_artifact_count', 'importedArtifactCount'])),
+    deduplicated,
   };
 };
 
@@ -3502,8 +3606,13 @@ export const api = {
     }
   },
 
-  async productions(): Promise<ProductionSummary[]> {
-    const value = await request<unknown>('/api/productions');
+  async productions(options: { includeArchived?: boolean; query?: string } = {}): Promise<ProductionSummary[]> {
+    const parameters = new URLSearchParams();
+    if (options.includeArchived) parameters.set('include_archived', 'true');
+    const query = options.query?.trim();
+    if (query) parameters.set('q', query);
+    const suffix = parameters.size > 0 ? `?${parameters.toString()}` : '';
+    const value = await request<unknown>(`/api/productions${suffix}`);
     return items(value, ['items', 'productions', 'data']).map(normalizeProduction);
   },
 
@@ -3525,6 +3634,71 @@ export const api = {
       );
     }
     return production;
+  },
+
+  async renameProduction(
+    productionId: string,
+    operationId: string,
+    expectedTitle: string,
+    title: string,
+  ): Promise<ProductionLibraryMutationResponse> {
+    const payload = buildProductionRenamePayload(operationId, expectedTitle, title);
+    const value = await post<unknown>(
+      `/api/productions/${encodeURIComponent(productionId)}/library/rename`,
+      payload,
+      undefined,
+      200,
+    );
+    const result = normalizeProductionLibraryMutation(value, { operationId, action: 'rename', productionId });
+    if (result.production.title !== payload.title) {
+      throw new StudioApiError('表示名変更の応答が要求と一致しません。', 502, 'invalid_production_library_response');
+    }
+    return result;
+  },
+
+  async archiveProduction(
+    productionId: string,
+    operationId: string,
+    expectedArchived: boolean,
+    archived: boolean,
+  ): Promise<ProductionLibraryMutationResponse> {
+    const payload = buildProductionArchivePayload(operationId, expectedArchived, archived);
+    const value = await post<unknown>(
+      `/api/productions/${encodeURIComponent(productionId)}/library/archive`,
+      payload,
+      undefined,
+      200,
+    );
+    const result = normalizeProductionLibraryMutation(value, { operationId, action: 'archive', productionId });
+    if (result.production.archived !== payload.archived) {
+      throw new StudioApiError('アーカイブ応答が要求と一致しません。', 502, 'invalid_production_library_response');
+    }
+    return result;
+  },
+
+  async duplicateProduction(
+    sourceProductionId: string,
+    operationId: string,
+    productionId: string,
+    title: string,
+    includeImports: boolean,
+  ): Promise<ProductionLibraryMutationResponse> {
+    const payload = buildProductionDuplicatePayload(operationId, productionId, title, includeImports);
+    const value = await post<unknown>(
+      `/api/productions/${encodeURIComponent(sourceProductionId)}/library/duplicate`,
+      payload,
+      undefined,
+      201,
+    );
+    const result = normalizeProductionLibraryMutation(value, { operationId, action: 'duplicate', productionId });
+    if (
+      result.production.title !== payload.title
+      || result.sourceProductionId !== sourceProductionId
+      || result.includeImports !== payload.include_imports
+    ) {
+      throw new StudioApiError('制作複製の応答が要求と一致しません。', 502, 'invalid_production_library_response');
+    }
+    return result;
   },
 
   async importVideo(productionId: string, file: File, signal?: AbortSignal): Promise<ArtifactImportResponse> {

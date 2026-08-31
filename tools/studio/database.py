@@ -25,7 +25,7 @@ from .security import (
 )
 
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 MAX_EVENT_LINE_BYTES = 2 * 1024 * 1024
 MAX_ANNOUNCEMENT_RECIPE_BYTES = 256 * 1024
 _RUN_EXECUTION_PROFILES = {
@@ -1169,6 +1169,73 @@ class StudioDatabase:
                     CREATE TRIGGER IF NOT EXISTS windows_capture_consent_immutable_delete
                     BEFORE DELETE ON windows_capture_consent_intents BEGIN
                         SELECT RAISE(ABORT, 'Windows capture consents are append-only');
+                    END
+                    """
+                )
+
+                # v9 adds a non-destructive production library overlay.  The
+                # source production, artifacts, revisions, and runs never move
+                # or change identity.  Every client-issued mutation identity is
+                # recorded once with the append-only audit event that accepted
+                # it, making response-loss retries side-effect free.
+                connection.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS production_library_states (
+                        production_id TEXT PRIMARY KEY REFERENCES productions(id),
+                        archived INTEGER NOT NULL DEFAULT 0
+                            CHECK(archived IN (0, 1)),
+                        archived_at TEXT,
+                        updated_at TEXT NOT NULL,
+                        CHECK(
+                            (archived=0 AND archived_at IS NULL)
+                            OR (archived=1 AND archived_at IS NOT NULL)
+                        )
+                    )
+                    """
+                )
+                connection.execute(
+                    "CREATE INDEX IF NOT EXISTS production_library_states_archived_idx "
+                    "ON production_library_states(archived, updated_at, production_id)"
+                )
+                connection.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS production_library_operations (
+                        operation_id TEXT PRIMARY KEY,
+                        production_id TEXT NOT NULL REFERENCES productions(id),
+                        action TEXT NOT NULL
+                            CHECK(action IN ('rename', 'archive', 'duplicate')),
+                        request_digest TEXT NOT NULL CHECK(length(request_digest)=64),
+                        event_id INTEGER NOT NULL UNIQUE REFERENCES events(id),
+                        result_json TEXT NOT NULL,
+                        created_at TEXT NOT NULL
+                    )
+                    """
+                )
+                connection.execute(
+                    "CREATE INDEX IF NOT EXISTS production_library_operations_production_idx "
+                    "ON production_library_operations(production_id, created_at, operation_id)"
+                )
+                connection.execute(
+                    """
+                    CREATE TRIGGER IF NOT EXISTS production_library_operations_immutable_update
+                    BEFORE UPDATE ON production_library_operations BEGIN
+                        SELECT RAISE(ABORT, 'production library operations are immutable');
+                    END
+                    """
+                )
+                connection.execute(
+                    """
+                    CREATE TRIGGER IF NOT EXISTS production_library_operations_immutable_delete
+                    BEFORE DELETE ON production_library_operations BEGIN
+                        SELECT RAISE(ABORT, 'production library operations are append-only');
+                    END
+                    """
+                )
+                connection.execute(
+                    """
+                    CREATE TRIGGER IF NOT EXISTS production_library_states_immutable_delete
+                    BEFORE DELETE ON production_library_states BEGIN
+                        SELECT RAISE(ABORT, 'production library state cannot be deleted');
                     END
                     """
                 )
@@ -2641,6 +2708,8 @@ class StudioDatabase:
 
     @staticmethod
     def _production_dict(row: sqlite3.Row) -> dict[str, Any]:
+        keys = set(row.keys())
+        archived = bool(row["archived"]) if "archived" in keys else False
         return {
             "id": row["id"],
             "title": row["title"],
@@ -2652,6 +2721,9 @@ class StudioDatabase:
             "output_rel": row["output_rel"],
             "discovered_at": row["discovered_at"],
             "refreshed_at": row["refreshed_at"],
+            "archived": archived,
+            "archived_at": row["archived_at"] if "archived_at" in keys else None,
+            "library_read_only": bool(row["source_rel"]),
         }
 
     @staticmethod
@@ -2676,11 +2748,16 @@ class StudioDatabase:
             "download_url": file_url,
         }
 
-    def list_productions(self) -> list[dict[str, Any]]:
+    def list_productions(
+        self, *, include_archived: bool = False, query: str = ""
+    ) -> list[dict[str, Any]]:
+        normalized_query = query.strip().casefold()
         with self.session() as connection:
             rows = connection.execute(
                 """
                 SELECT p.*,
+                       COALESCE(ls.archived, 0) AS archived,
+                       ls.archived_at AS archived_at,
                        (SELECT COUNT(*) FROM artifacts a
                         WHERE a.production_id=p.id AND a.available=1) AS artifact_count,
                        (SELECT COALESCE(SUM(a.bytes), 0) FROM artifacts a
@@ -2688,8 +2765,17 @@ class StudioDatabase:
                        (SELECT MAX(j.created_at) FROM jobs j
                         WHERE j.production_id=p.id) AS latest_job_at
                 FROM productions p
+                LEFT JOIN production_library_states ls ON ls.production_id=p.id
+                WHERE (?=1 OR COALESCE(ls.archived, 0)=0)
+                  AND (?='' OR instr(lower(p.title), ?) > 0 OR instr(lower(p.id), ?) > 0)
                 ORDER BY p.id
-                """
+                """,
+                (
+                    int(include_archived),
+                    normalized_query,
+                    normalized_query,
+                    normalized_query,
+                ),
             ).fetchall()
         result = []
         for row in rows:
@@ -2704,8 +2790,313 @@ class StudioDatabase:
 
     def get_production(self, production_id: str) -> dict[str, Any] | None:
         with self.session() as connection:
-            row = connection.execute("SELECT * FROM productions WHERE id=?", (production_id,)).fetchone()
+            row = connection.execute(
+                "SELECT p.*, COALESCE(ls.archived, 0) AS archived, "
+                "ls.archived_at AS archived_at FROM productions p "
+                "LEFT JOIN production_library_states ls ON ls.production_id=p.id "
+                "WHERE p.id=?",
+                (production_id,),
+            ).fetchone()
         return self._production_dict(row) if row else None
+
+    @staticmethod
+    def _library_operation_result(
+        row: sqlite3.Row,
+        *,
+        production_id: str,
+        action: str,
+        request_digest: str,
+    ) -> dict[str, Any]:
+        if any(
+            (
+                row["production_id"] != production_id,
+                row["action"] != action,
+                row["request_digest"] != request_digest,
+            )
+        ):
+            raise ValueError("production library operation conflict")
+        result = _loads(row["result_json"], None)
+        if not isinstance(result, dict):
+            raise sqlite3.IntegrityError("production library operation result is invalid")
+        return {**result, "deduplicated": True}
+
+    def get_production_library_operation(
+        self,
+        operation_id: str,
+        *,
+        production_id: str,
+        action: str,
+        request_digest: str,
+    ) -> dict[str, Any] | None:
+        """Return one exact prior result or reject operation-ID reuse."""
+
+        with self.session() as connection:
+            row = connection.execute(
+                "SELECT * FROM production_library_operations WHERE operation_id=?",
+                (operation_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return self._library_operation_result(
+            row,
+            production_id=production_id,
+            action=action,
+            request_digest=request_digest,
+        )
+
+    @staticmethod
+    def _library_production_row(
+        connection: sqlite3.Connection, production_id: str
+    ) -> sqlite3.Row | None:
+        return connection.execute(
+            "SELECT p.*, COALESCE(ls.archived, 0) AS archived, "
+            "ls.archived_at AS archived_at FROM productions p "
+            "LEFT JOIN production_library_states ls ON ls.production_id=p.id "
+            "WHERE p.id=?",
+            (production_id,),
+        ).fetchone()
+
+    @staticmethod
+    def _require_mutable_library_row(row: sqlite3.Row | None) -> sqlite3.Row:
+        if row is None:
+            raise KeyError("production not found")
+        if row["source_rel"] is not None or row["output_rel"] is None:
+            raise ValueError("production library is read only")
+        return row
+
+    def _record_library_operation(
+        self,
+        connection: sqlite3.Connection,
+        *,
+        operation_id: str,
+        production_id: str,
+        action: str,
+        request_digest: str,
+        event: dict[str, Any],
+        result: dict[str, Any],
+        created_at: str,
+    ) -> dict[str, Any]:
+        connection.execute(
+            "INSERT INTO production_library_operations("
+            "operation_id, production_id, action, request_digest, event_id, "
+            "result_json, created_at) VALUES(?, ?, ?, ?, ?, ?, ?)",
+            (
+                operation_id,
+                production_id,
+                action,
+                request_digest,
+                event["id"],
+                canonical_json(result),
+                created_at,
+            ),
+        )
+        return result
+
+    def rename_production_library(
+        self,
+        production_id: str,
+        *,
+        operation_id: str,
+        request_digest: str,
+        expected_title: str,
+        title: str,
+        filesystem_deduplicated: bool,
+    ) -> dict[str, Any]:
+        timestamp = utc_now()
+        with self.transaction() as connection:
+            prior_operation = connection.execute(
+                "SELECT * FROM production_library_operations WHERE operation_id=?",
+                (operation_id,),
+            ).fetchone()
+            if prior_operation is not None:
+                return self._library_operation_result(
+                    prior_operation,
+                    production_id=production_id,
+                    action="rename",
+                    request_digest=request_digest,
+                )
+            row = self._require_mutable_library_row(
+                self._library_production_row(connection, production_id)
+            )
+            if row["title"] not in {expected_title, title}:
+                raise ValueError("production library revision conflict")
+            connection.execute(
+                "UPDATE productions SET title=?, refreshed_at=? WHERE id=?",
+                (title, timestamp, production_id),
+            )
+            event = self._append_event(
+                connection,
+                "production",
+                production_id,
+                "production.library.renamed",
+                {
+                    "schema_version": 1,
+                    "operation_id": operation_id,
+                    "request_digest": request_digest,
+                    "previous_title": expected_title,
+                    "title": title,
+                    "filesystem_deduplicated": filesystem_deduplicated,
+                },
+                created_at=timestamp,
+            )
+            updated = self._library_production_row(connection, production_id)
+            assert updated is not None
+            result = {
+                "schema_version": 1,
+                "operation_id": operation_id,
+                "action": "rename",
+                "production": self._production_dict(updated),
+                "deduplicated": False,
+            }
+            return self._record_library_operation(
+                connection,
+                operation_id=operation_id,
+                production_id=production_id,
+                action="rename",
+                request_digest=request_digest,
+                event=event,
+                result=result,
+                created_at=timestamp,
+            )
+
+    def archive_production_library(
+        self,
+        production_id: str,
+        *,
+        operation_id: str,
+        request_digest: str,
+        expected_archived: bool,
+        archived: bool,
+    ) -> dict[str, Any]:
+        timestamp = utc_now()
+        with self.transaction() as connection:
+            prior_operation = connection.execute(
+                "SELECT * FROM production_library_operations WHERE operation_id=?",
+                (operation_id,),
+            ).fetchone()
+            if prior_operation is not None:
+                return self._library_operation_result(
+                    prior_operation,
+                    production_id=production_id,
+                    action="archive",
+                    request_digest=request_digest,
+                )
+            row = self._require_mutable_library_row(
+                self._library_production_row(connection, production_id)
+            )
+            if bool(row["archived"]) != expected_archived:
+                raise ValueError("production library revision conflict")
+            archived_at = timestamp if archived else None
+            connection.execute(
+                "INSERT INTO production_library_states("
+                "production_id, archived, archived_at, updated_at) VALUES(?, ?, ?, ?) "
+                "ON CONFLICT(production_id) DO UPDATE SET "
+                "archived=excluded.archived, archived_at=excluded.archived_at, "
+                "updated_at=excluded.updated_at",
+                (production_id, int(archived), archived_at, timestamp),
+            )
+            event = self._append_event(
+                connection,
+                "production",
+                production_id,
+                "production.library.archived"
+                if archived
+                else "production.library.unarchived",
+                {
+                    "schema_version": 1,
+                    "operation_id": operation_id,
+                    "request_digest": request_digest,
+                    "previous_archived": expected_archived,
+                    "archived": archived,
+                },
+                created_at=timestamp,
+            )
+            updated = self._library_production_row(connection, production_id)
+            assert updated is not None
+            result = {
+                "schema_version": 1,
+                "operation_id": operation_id,
+                "action": "archive",
+                "production": self._production_dict(updated),
+                "deduplicated": False,
+            }
+            return self._record_library_operation(
+                connection,
+                operation_id=operation_id,
+                production_id=production_id,
+                action="archive",
+                request_digest=request_digest,
+                event=event,
+                result=result,
+                created_at=timestamp,
+            )
+
+    def record_production_duplicate(
+        self,
+        production_id: str,
+        *,
+        source_production_id: str,
+        operation_id: str,
+        request_digest: str,
+        include_imports: bool,
+        imported_artifact_count: int,
+    ) -> dict[str, Any]:
+        timestamp = utc_now()
+        with self.transaction() as connection:
+            prior_operation = connection.execute(
+                "SELECT * FROM production_library_operations WHERE operation_id=?",
+                (operation_id,),
+            ).fetchone()
+            if prior_operation is not None:
+                return self._library_operation_result(
+                    prior_operation,
+                    production_id=production_id,
+                    action="duplicate",
+                    request_digest=request_digest,
+                )
+            source = self._require_mutable_library_row(
+                self._library_production_row(connection, source_production_id)
+            )
+            target = self._require_mutable_library_row(
+                self._library_production_row(connection, production_id)
+            )
+            if source["id"] == target["id"]:
+                raise ValueError("production duplicate target conflict")
+            event = self._append_event(
+                connection,
+                "production",
+                production_id,
+                "production.library.duplicated",
+                {
+                    "schema_version": 1,
+                    "operation_id": operation_id,
+                    "request_digest": request_digest,
+                    "source_production_id": source_production_id,
+                    "include_imports": include_imports,
+                    "imported_artifact_count": imported_artifact_count,
+                },
+                created_at=timestamp,
+            )
+            result = {
+                "schema_version": 1,
+                "operation_id": operation_id,
+                "action": "duplicate",
+                "source_production_id": source_production_id,
+                "include_imports": include_imports,
+                "imported_artifact_count": imported_artifact_count,
+                "production": self._production_dict(target),
+                "deduplicated": False,
+            }
+            return self._record_library_operation(
+                connection,
+                operation_id=operation_id,
+                production_id=production_id,
+                action="duplicate",
+                request_digest=request_digest,
+                event=event,
+                result=result,
+                created_at=timestamp,
+            )
 
     def get_production_detail(
         self,
@@ -2731,7 +3122,11 @@ class StudioDatabase:
         artifact_offset: int,
     ) -> dict[str, Any] | None:
         production = connection.execute(
-            "SELECT * FROM productions WHERE id=?", (production_id,)
+            "SELECT p.*, COALESCE(ls.archived, 0) AS archived, "
+            "ls.archived_at AS archived_at FROM productions p "
+            "LEFT JOIN production_library_states ls ON ls.production_id=p.id "
+            "WHERE p.id=?",
+            (production_id,),
         ).fetchone()
         if not production:
             return None
@@ -5711,6 +6106,8 @@ class StudioDatabase:
             "stage_attempts": 0,
             "artifacts": 0,
             "approvals": 0,
+            "production_library_states": 0,
+            "production_library_operations": 0,
         }
         with self.transaction() as connection:
             revision_events = connection.execute(
@@ -6187,6 +6584,148 @@ class StudioDatabase:
                         observed_at=observed_at,
                     )
                 except (OSError, TypeError, ValueError, sqlite3.IntegrityError):
+                    continue
+
+            library_events = connection.execute(
+                "SELECT id, scope_id, event_type, created_at, payload_json FROM events "
+                "WHERE scope_type='production' AND event_type IN ("
+                "'production.library.renamed', 'production.library.archived', "
+                "'production.library.unarchived', 'production.library.duplicated') "
+                "ORDER BY id"
+            ).fetchall()
+            for event in library_events:
+                payload = _loads(event["payload_json"], {})
+                if not isinstance(payload, dict):
+                    continue
+                operation_id = payload.get("operation_id")
+                request_digest = payload.get("request_digest")
+                production_id = event["scope_id"]
+                if (
+                    payload.get("schema_version") != 1
+                    or not isinstance(operation_id, str)
+                    or re.fullmatch(
+                        r"production_library_op_[0-9a-f]{32}", operation_id
+                    )
+                    is None
+                    or not isinstance(request_digest, str)
+                    or re.fullmatch(r"[0-9a-f]{64}", request_digest) is None
+                    or not connection.execute(
+                        "SELECT 1 FROM productions WHERE id=?", (production_id,)
+                    ).fetchone()
+                ):
+                    continue
+                try:
+                    event_type = event["event_type"]
+                    source_production_id: str | None = None
+                    include_imports: bool | None = None
+                    imported_artifact_count: int | None = None
+                    if event_type == "production.library.renamed":
+                        title = payload.get("title")
+                        previous_title = payload.get("previous_title")
+                        if (
+                            not isinstance(title, str)
+                            or not 1 <= len(title) <= 120
+                            or title != title.strip()
+                            or any(ord(character) < 32 or ord(character) == 127 for character in title)
+                            or not isinstance(previous_title, str)
+                        ):
+                            continue
+                        connection.execute(
+                            "UPDATE productions SET title=? WHERE id=?",
+                            (title, production_id),
+                        )
+                        action = "rename"
+                    elif event_type in {
+                        "production.library.archived",
+                        "production.library.unarchived",
+                    }:
+                        archived = payload.get("archived")
+                        previous_archived = payload.get("previous_archived")
+                        if (
+                            not isinstance(archived, bool)
+                            or not isinstance(previous_archived, bool)
+                            or archived == previous_archived
+                            or archived
+                            != (event_type == "production.library.archived")
+                        ):
+                            continue
+                        archived_at = event["created_at"] if archived else None
+                        state_existed = connection.execute(
+                            "SELECT 1 FROM production_library_states WHERE production_id=?",
+                            (production_id,),
+                        ).fetchone()
+                        connection.execute(
+                            "INSERT INTO production_library_states("
+                            "production_id, archived, archived_at, updated_at) "
+                            "VALUES(?, ?, ?, ?) ON CONFLICT(production_id) DO UPDATE SET "
+                            "archived=excluded.archived, archived_at=excluded.archived_at, "
+                            "updated_at=excluded.updated_at",
+                            (
+                                production_id,
+                                int(archived),
+                                archived_at,
+                                event["created_at"],
+                            ),
+                        )
+                        restored["production_library_states"] += int(
+                            state_existed is None
+                        )
+                        action = "archive"
+                    else:
+                        source_production_id = payload.get("source_production_id")
+                        include_imports = payload.get("include_imports")
+                        imported_artifact_count = payload.get(
+                            "imported_artifact_count"
+                        )
+                        if (
+                            not isinstance(source_production_id, str)
+                            or not isinstance(include_imports, bool)
+                            or isinstance(imported_artifact_count, bool)
+                            or not isinstance(imported_artifact_count, int)
+                            or imported_artifact_count < 0
+                            or not connection.execute(
+                                "SELECT 1 FROM productions WHERE id=?",
+                                (source_production_id,),
+                            ).fetchone()
+                        ):
+                            continue
+                        action = "duplicate"
+                    production = self._library_production_row(
+                        connection, production_id
+                    )
+                    if production is None:
+                        continue
+                    result: dict[str, Any] = {
+                        "schema_version": 1,
+                        "operation_id": operation_id,
+                        "action": action,
+                        "production": self._production_dict(production),
+                        "deduplicated": False,
+                    }
+                    if action == "duplicate":
+                        result.update(
+                            source_production_id=source_production_id,
+                            include_imports=include_imports,
+                            imported_artifact_count=imported_artifact_count,
+                        )
+                    cursor = connection.execute(
+                        "INSERT OR IGNORE INTO production_library_operations("
+                        "operation_id, production_id, action, request_digest, "
+                        "event_id, result_json, created_at) VALUES(?, ?, ?, ?, ?, ?, ?)",
+                        (
+                            operation_id,
+                            production_id,
+                            action,
+                            request_digest,
+                            event["id"],
+                            canonical_json(result),
+                            event["created_at"],
+                        ),
+                    )
+                    restored["production_library_operations"] += int(
+                        cursor.rowcount == 1
+                    )
+                except (TypeError, ValueError, sqlite3.IntegrityError):
                     continue
 
             approval_events = connection.execute(

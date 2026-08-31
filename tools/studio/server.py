@@ -48,6 +48,9 @@ _PRODUCTION_DETAIL_RE = re.compile(r"^/api/productions/([^/]+)$")
 _PRODUCTION_IMPORT_VIDEO_RE = re.compile(
     r"^/api/productions/([^/]+)/artifacts/import-video$"
 )
+_PRODUCTION_RENAME_RE = re.compile(r"^/api/productions/([^/]+)/library/rename$")
+_PRODUCTION_ARCHIVE_RE = re.compile(r"^/api/productions/([^/]+)/library/archive$")
+_PRODUCTION_DUPLICATE_RE = re.compile(r"^/api/productions/([^/]+)/library/duplicate$")
 _ARTIFACT_FILE_RE = re.compile(r"^/api/artifacts/([^/]+)/(?:file|content)$")
 _JOB_DETAIL_RE = re.compile(r"^/api/jobs/([^/]+)$")
 _JOB_CANCEL_RE = re.compile(r"^/api/jobs/([^/]+)/cancel$")
@@ -505,6 +508,9 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
                 else 409
                 if exc.code in {
                     "production_id_conflict",
+                    "production_library_operation_conflict",
+                    "production_library_revision_conflict",
+                    "production_library_duplicate_conflict",
                     "windows_capture_busy",
                     "windows_capture_unavailable",
                     "windows_capture_consent_expired",
@@ -577,6 +583,34 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
             raise RequestValidationError(f"{name} must be an integer") from exc
         return max(minimum, min(value, maximum))
 
+    @staticmethod
+    def _query_boolean(
+        query: dict[str, list[str]], name: str, default: bool
+    ) -> bool:
+        values = query.get(name)
+        if values is None:
+            return default
+        if len(values) != 1 or values[0] not in {"true", "false"}:
+            raise RequestValidationError(
+                f"{name} must be true or false",
+                code="invalid_production_library_query",
+            )
+        return values[0] == "true"
+
+    @staticmethod
+    def _query_text(
+        query: dict[str, list[str]], name: str, default: str, *, maximum: int
+    ) -> str:
+        values = query.get(name)
+        if values is None:
+            return default
+        if len(values) != 1 or len(values[0]) > maximum:
+            raise RequestValidationError(
+                f"{name} is invalid or too long",
+                code="invalid_production_library_query",
+            )
+        return values[0]
+
     def _get_api(
         self, path: str, query: dict[str, list[str]], *, send_body: bool
     ) -> None:
@@ -585,7 +619,16 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
             self._send_json(200, service.health(), send_body=send_body)
             return
         if path == "/api/productions":
-            self._send_json(200, service.list_productions(), send_body=send_body)
+            self._send_json(
+                200,
+                service.list_productions(
+                    include_archived=self._query_boolean(
+                        query, "include_archived", False
+                    ),
+                    query=self._query_text(query, "q", "", maximum=120),
+                ),
+                send_body=send_body,
+            )
             return
         if path == "/api/jobs":
             limit = self._query_integer(query, "limit", 100, minimum=1, maximum=500)
@@ -645,6 +688,18 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
         )
         if path == "/api/productions":
             self._send_json(201, service.create_production(body))
+            return
+        match = _PRODUCTION_RENAME_RE.fullmatch(path)
+        if match:
+            self._send_json(200, service.rename_production(match.group(1), body))
+            return
+        match = _PRODUCTION_ARCHIVE_RE.fullmatch(path)
+        if match:
+            self._send_json(200, service.archive_production(match.group(1), body))
+            return
+        match = _PRODUCTION_DUPLICATE_RE.fullmatch(path)
+        if match:
+            self._send_json(201, service.duplicate_production(match.group(1), body))
             return
         if path == "/api/capabilities/windows-capture/inspect":
             self._send_json(200, service.inspect_windows_capture_capability(body))
