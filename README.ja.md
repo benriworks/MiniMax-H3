@@ -15,6 +15,22 @@
 
 通常は`http://127.0.0.1:8765`を開きます。現在のMVPは既存制作台帳の閲覧、再実行計画、Run記録、有料工程の費用上限承認、監査exportに加え、Windows SAPIによる無課金のローカルナレーション生成、固定ComfyUIによるローカル動画生成、isolated Chromiumによるloopback Web画面収録、明示同意付きのWindowsプライマリ画面＋既定再生system audio収録、FFmpegによるハードカット、Remotionによる詳細timeline preview、clean／字幕焼き込みmasterのローカル合成、完成masterのローカルtechnical QCを扱えます。字幕、segment timing、発音置換、工程cache、codec／stream／duration／full-decode／全編無音の検査、Integrated loudness／true peak／黒画面のhard check、長い静止区間のwarning、ffprobe・manifestも記録します。QC policyはschema v2 / `local-ffmpeg-qc-v2` / `technical-qc-mp4-v2`で固定し、Integrated loudness -24.0〜-10.0 LUFS、true peak -1.0 dBFS以下、0.5秒以上の黒画面をtechnical verdictへ反映します。1.0秒以上の長い静止区間はwarningのみで、verdictには影響しません。ElevenLabs外部TTSは別の承認済みprofileで扱い、MiniMax外部APIのStudio workerは未接続です。Web収録は`127.0.0.1`の明示portだけを対象とします。Windowsネイティブ収録はプライマリ画面全体と既定render/console loopbackだけが対象で、外部サイトの制御、既存ログインsessionの注入、window指定、device指定、マイクは対象外です。詳細とセキュリティ境界は[STUDIO_MVP_JA.md](STUDIO_MVP_JA.md)を参照してください。
 
+### M1〜M4: かんたん制作、ライブラリ、レビュー、3カットI2VA
+
+- 上部の`かんたん制作`は、制作名、`告知／イベント案内／採用・募集`、動画1〜3本、主文、最終確認という約5判断で、制作作成からローカル音声・大字幕・technical QCのJob登録まで進めます。既存APIへ収束し、同じ保留IDで応答消失から再開します。一般素材は各scene既定trimが最大5.167秒のため、現時点では5.2秒以上を推奨します。
+- 制作ライブラリは大文字小文字を区別しない検索、表示名変更、archive/unarchive、取込素材付き複製を提供します。archiveは一覧から隠すだけで、artifactを削除しません。tracked制作と制御metadataを持たない制作はread-onlyです。
+- `レビュー`タブはartifact／revision／Run／cut／timecodeを固定した指摘、creative／rights／public release判定、解決履歴をappend-only eventへ保存します。`このcutの修正planを作成`は監査用計画までで、現時点では`render未実行`／M4 adapter未接続です。
+- `shot-project` CLIは、Codexの画像生成スキル等で作成済みの始点画像3枚を公式MiniMax H3 V2 APIのI2VAで各6秒／768Pにし、既存Quick Createへ渡します。3件の有料task上限をrequest内で明示し、task ID、入力／出力hash、`plan.json`、`state.json`をcut別に残します。応答が失われた送信は自動再送しません。3本を5,167ms／5,167ms／5,166msへtrimし、250ms fade 2箇所を差し引いた15.000秒を組み立てます。local ComfyUI presetはT2VA-onlyなので、このI2VA CLIは公式API契約が必要です。
+
+credentialはコマンドラインやrequest JSONへ書かず、対話入力でDPAPI保存します。
+
+```powershell
+E:\anaconda3\python.exe -m tools.studio.cli --workspace . secret set minimax
+E:\anaconda3\python.exe -m tools.studio.cli --workspace . shot-project .\path\to\shot-project.json
+```
+
+request JSONと3枚の画像は同じprivate directoryに置き、画像pathはそのJSONからのrelative pathにします。各`video_prompt`は同梱`h3-prompt-writing` skillのI2VA形式、`duration_seconds=6`、`resolution="768P"`、`confirmed_billable_task_limit=3`に固定します。課金なしの自動試験では、3件送信、成功後の再実行0件、曖昧応答後の再送0件を確認しています。実API paid smokeはまだ実施していません。
+
 ### 新しい制作、動画素材の取込、Job停止
 
 上部の`新しい制作`から、タイトルと任意の動画素材を指定して制作を開始できます。ブラウザは`production_`に32桁の小文字hexを続けたIDを最初の送信前に固定し、作成応答が不明でもversioned `localStorage`に同じIDとタイトルを保持します。再照合ではIDとタイトルの両方が一致する制作だけを採用し、保留情報を明示破棄しない限り別IDを自動発行しません。告知動画に未保存の変更がある場合は、そのdraftが現在のproductionに紐付いているときだけ破棄確認を求めます。まだproductionを1件も選択していない初回作成で、存在しないdraftの破棄確認は表示しません。

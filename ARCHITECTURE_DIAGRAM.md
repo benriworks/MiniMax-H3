@@ -42,8 +42,12 @@ flowchart LR
         AnnouncementTemplateUi["Studio かんたん作成 tab<br/>quick / detailed settings<br/>shared save / revision / clone / execute"]
         AnnouncementRequestGuard["announcementRecovery.ts + App request guard<br/>15s AbortSignal / selected generation<br/>deterministic clone ID / durable intent"]
         ProductionIntakeContract["production_intake.py<br/>exact create + bounded raw video import<br/>SHA-256 / ffprobe / atomic publish"]
+        SimpleCreateWizard["SimpleCreateWizard.tsx<br/>about five decisions / 3 fixed templates<br/>stable local intent / existing endpoints"]
+        ProductionLibraryContract["production_library.py<br/>rename / archive / duplicate<br/>non-destructive operation ledger"]
+        ReviewContract["reviews.py + ReviewPanel.tsx<br/>artifact / revision / run / cut / timecode<br/>immutable actions + explicit human gates"]
         JobControlContract["job_control.py + JobManager<br/>exact-ID registered process-tree cancel<br/>requested vs worker-retired truth"]
         QuickCreateProjectContract["quick_create_project.py<br/>production + 1..3 relative videos<br/>indexed recipe / shared deadline / redaction"]
+        ShotProjectContract["shot_orchestration.py<br/>3 first frames + exact I2VA prompts<br/>3-task cap / resume / exact 15s compile"]
         StudioComfyContract["comfyui_execution.py<br/>fixed payload / provenance / cache contract"]
         StudioComfyWorker["comfyui.py<br/>pre-issued UUID / observe / resume / targeted cancel / cache"]
         NarrationWorker["tools/studio/narration.py<br/>validated SAPI worker / cache"]
@@ -60,12 +64,12 @@ flowchart LR
         RemotionContract["remotion_timeline_execution.py<br/>schema v1 / closed edit + visual preset<br/>local_remotion_timeline"]
         SourceFidelityPolicy["remotion-source-fidelity-v2<br/>preserve / low-res portrait sharp<br/>fixed cache + audit + manifest policy"]
         RemotionWorker["remotion_timeline.py + remotion_render.mjs<br/>pre-overlay FFmpeg + Remotion 4.0.517<br/>PNG frames / CRF 16 / concurrency 1"]
-        RemotionComposition["studio/src/remotion<br/>shared Player / renderer composition"]
+        RemotionComposition["studio/src/remotion + api/status/types<br/>shared Player / renderer build closure"]
         RemotionDoctor["remotion_doctor.mjs<br/>dependency closure attestation<br/>exact packages / Chromium reuse check"]
         AssemblyWorker["tools/studio/assembly.py<br/>validated FFmpeg worker / cache<br/>closed caption + audio mix presets"]
         QcWorker["tools/studio/qc.py<br/>technical QC v2 / cache<br/>loudness + peak + black hard checks<br/>long-static advisory"]
         SapiHelper["sapi_synthesize.ps1<br/>UTF-8 JSON IPC"]
-        StudioCli["tools.studio.cli<br/>secret + test-video + quick-create<br/>quick-create-project control"]
+        StudioCli["tools.studio.cli<br/>secret + test-video + quick-create<br/>quick-create-project + shot-project"]
         TestVideoOrchestrator["test_video.py<br/>ordered local orchestration<br/>bounded result"]
     end
 
@@ -85,13 +89,15 @@ flowchart LR
         HardwareMetrics["Windows CIM / sensor WMI<br/>NVIDIA nvidia-smi"]
         StudioBuild["studio/node_modules + dist"]
         StudioUi["Studio UI<br/>127.0.0.1 only"]
-        StudioDb["outputs/studio/studio.sqlite3<br/>schema v8 / immutable run + job-attempt link"]
+        StudioDb["outputs/studio/studio.sqlite3<br/>schema v9 / immutable run + job-attempt link<br/>library state + operation ledger"]
         WorkspaceLock["system-wide workspace lock<br/>held until full drain, retry, or process exit"]
         VideoClaims["local_video_generation_claims<br/>Run + cache + payload digest<br/>one active job"]
         ProviderTasks["provider_tasks ledger<br/>state + CAS owner / exact-once submission<br/>cancel_requested fence / DPAPI restart payload"]
         PipelineClaims["local_pipeline_claims<br/>continuation state + CAS<br/>DPAPI request / video checkpoint"]
         DetailedTestClaims["detailed_test_video_claims<br/>production + request key<br/>immutable Run / active top / retry"]
         AnnouncementEvents["production events<br/>exact Base64 recipe revisions<br/>atomic Detailed job links"]
+        ReviewEvents["production events<br/>review action projection<br/>planned_not_executed cut plans"]
+        ShotProjectState["outputs/studio/shot_projects<br/>plan.json + state.json + 3 MP4<br/>hashes / provider task IDs / no secret"]
         StudioEvents["outputs/studio/events<br/>hash-chained JSONL mirror"]
         ExternalSubmissionState["outputs/studio/external-submissions<br/>production/cache ambiguity marker"]
         GpuLane["Studio GPU FIFO lane<br/>single ComfyUI worker"]
@@ -215,6 +221,15 @@ flowchart LR
     AnnouncementTemplateUi -->|"save / duplicate / execute<br/>2s jobs / approx 6s production detail"| AnnouncementRequestGuard
     AnnouncementRequestGuard -->|"15s abort / selected production only<br/>stable save or clone identity<br/>fresh exact Job / then manual reconcile"| StudioBackend
     StudioUi -->|"stable production ID + title intent<br/>draft-bound discard guard<br/>sequential raw File upload"| ProductionIntakeContract
+    StudioUi -->|"primary 5-decision flow"| SimpleCreateWizard
+    SimpleCreateWizard -->|"create / import / recipe save / execute<br/>one deadline + read-before-write recovery"| StudioBackend
+    StudioUi -->|"search / rename / archive / duplicate"| ProductionLibraryContract
+    StudioBackend -->|"closed library mutations"| ProductionLibraryContract
+    ProductionLibraryContract -->|"state + idempotent operation + audit event"| StudioDb
+    StudioUi -->|"time-coded comments / decisions / plan only"| ReviewContract
+    StudioBackend -->|"closed review routes"| ReviewContract
+    ReviewContract -->|"append-only actions"| ReviewEvents
+    ReviewEvents -->|"validated projection"| StudioDb
     StudioBackend -->|"session-protected create/import<br/>service-level intake lock"| ProductionIntakeContract
     ProductionIntakeContract -->|"production-local partial<br/>hash + ffprobe then hard-link publish"| ProductionArtifacts
     ProductionIntakeContract -->|"atomic exact metadata replace"| ProductionControlMetadata
@@ -339,7 +354,7 @@ flowchart LR
     RemotionContract -->|"registered video IDs only<br/>1-16 clips / max 60s<br/>preserve_v1 or h3_low_res_sharp_v1"| BrowserLane
     BrowserLane -->|"FIFO / bounded child process tree"| RemotionWorker
     SourceFidelityPolicy -->|"legacy omission -> preserve<br/>no arbitrary filter / strength"| RemotionWorker
-    RemotionComposition -->|"tracked composition + model"| RemotionWorker
+    RemotionComposition -->|"first-party source hashes<br/>cache key + post-render recheck"| RemotionWorker
     ProductionArtifacts -->|"same-production videos<br/>bytes + SHA-256 verified"| RemotionWorker
     ScreenCaptureOutputs -->|"registered capture video"| RemotionWorker
     TimelineOutputs -->|"registered hard-cut preview"| RemotionWorker
@@ -372,6 +387,12 @@ flowchart LR
     StudioCli -->|"quick-create-project<br/>one workspace lock / path-private result"| QuickCreateProjectContract
     QuickCreateProjectContract -->|"idempotent create + sequential import<br/>relative regular files / durable partial progress"| ProductionIntakeContract
     QuickCreateProjectContract -->|"video_index -> verified artifact ID<br/>existing Quick Create execution"| AnnouncementContract
+    StudioCli -->|"shot-project / exact 3-task confirmation"| ShotProjectContract
+    StudioSecrets -->|"DPAPI-resolved minimax credential"| ShotProjectContract
+    ShotProjectContract -->|"3 independent first-frame submissions<br/>prepared marker blocks ambiguous resubmit"| MiniMaxApi
+    MiniMaxApi -->|"task status / completed MP4 location"| ShotProjectContract
+    ShotProjectContract -->|"plan + durable task/output state"| ShotProjectState
+    ShotProjectState -->|"three verified 6s MP4<br/>5.167 / 5.167 / 5.166s trims"| QuickCreateProjectContract
     TestVideoOrchestrator -->|"refresh + immutable local_sapi run<br/>narration -> timeline -> assembly -> QC"| StudioBackend
     StudioBackend -->|"terminal IDs / cache / hashes<br/>technical verdict"| TestVideoOrchestrator
     StudioSecrets -->|"configured status only"| StudioBackend
@@ -382,8 +403,8 @@ flowchart LR
     classDef external fill:#fff3df,stroke:#9a6300,color:#432b00;
     classDef secret fill:#ffe8ee,stroke:#9c284b,color:#481023;
 
-    class Setup,RuntimeLock,Downloader,ModelManifest,Doctor,Launcher,Metrics,LowWorkflow,TurboWorkflow,Q4TurboWorkflow,OfficialQ4Workflow,OfficialQ4TurboWorkflow,StudioApiWorkflow,ApiWrapper,ApiCli,ProductionLedgers,StudioSetup,StudioLauncher,StudioFrontend,StudioBackend,HttpLifecycle,ShutdownGate,ProviderRecovery,PipelineContinuationCoordinator,LocalPipelineContract,LocalPipelineOrchestrator,DetailedTestContract,DetailedTestOrchestrator,AnnouncementContract,QuickCreatePresentation,AnnouncementTemplateUi,AnnouncementRequestGuard,ProductionIntakeContract,JobControlContract,QuickCreateProjectContract,StudioComfyContract,StudioComfyWorker,NarrationWorker,ExternalTtsContract,ElevenLabsWorker,ScreenCaptureContract,ScreenCaptureWorker,PlaywrightDoctor,WindowsCaptureCapability,WindowsCaptureContract,WindowsCaptureWorker,WindowsCaptureHelperSource,TimelineWorker,RemotionContract,SourceFidelityPolicy,RemotionWorker,RemotionComposition,RemotionDoctor,AssemblyWorker,QcWorker,SapiHelper,StudioCli,TestVideoOrchestrator tracked;
-    class Venv,Comfy,GgufNode,TurboNode,Models,OfficialWorkflow,Outputs,HardwareMetrics,StudioBuild,StudioUi,StudioDb,VideoClaims,ProviderTasks,PipelineClaims,DetailedTestClaims,AnnouncementEvents,StudioEvents,ExternalSubmissionState,GpuLane,PipelineLane,BrowserLane,CaptureLane,WindowsCaptureConsents,DefaultLane,PinnedChromium,LoopbackWebTarget,ScreenCaptureOutputs,WindowsCaptureOutputs,VideoGenerationOutputs,NarrationOutputs,TimelineOutputs,RemotionOutputs,AssemblyOutputs,QcOutputs,AuditExports,ProductionArtifacts,ProductionControlMetadata,WindowsSapi,MediaTools,WindowsCaptureHelper,WindowsDefaultRender local;
+    class Setup,RuntimeLock,Downloader,ModelManifest,Doctor,Launcher,Metrics,LowWorkflow,TurboWorkflow,Q4TurboWorkflow,OfficialQ4Workflow,OfficialQ4TurboWorkflow,StudioApiWorkflow,ApiWrapper,ApiCli,ProductionLedgers,StudioSetup,StudioLauncher,StudioFrontend,StudioBackend,HttpLifecycle,ShutdownGate,ProviderRecovery,PipelineContinuationCoordinator,LocalPipelineContract,LocalPipelineOrchestrator,DetailedTestContract,DetailedTestOrchestrator,AnnouncementContract,QuickCreatePresentation,AnnouncementTemplateUi,AnnouncementRequestGuard,ProductionIntakeContract,SimpleCreateWizard,ProductionLibraryContract,ReviewContract,JobControlContract,QuickCreateProjectContract,ShotProjectContract,StudioComfyContract,StudioComfyWorker,NarrationWorker,ExternalTtsContract,ElevenLabsWorker,ScreenCaptureContract,ScreenCaptureWorker,PlaywrightDoctor,WindowsCaptureCapability,WindowsCaptureContract,WindowsCaptureWorker,WindowsCaptureHelperSource,TimelineWorker,RemotionContract,SourceFidelityPolicy,RemotionWorker,RemotionComposition,RemotionDoctor,AssemblyWorker,QcWorker,SapiHelper,StudioCli,TestVideoOrchestrator tracked;
+    class Venv,Comfy,GgufNode,TurboNode,Models,OfficialWorkflow,Outputs,HardwareMetrics,StudioBuild,StudioUi,StudioDb,VideoClaims,ProviderTasks,PipelineClaims,DetailedTestClaims,AnnouncementEvents,ReviewEvents,ShotProjectState,StudioEvents,ExternalSubmissionState,GpuLane,PipelineLane,BrowserLane,CaptureLane,WindowsCaptureConsents,DefaultLane,PinnedChromium,LoopbackWebTarget,ScreenCaptureOutputs,WindowsCaptureOutputs,VideoGenerationOutputs,NarrationOutputs,TimelineOutputs,RemotionOutputs,AssemblyOutputs,QcOutputs,AuditExports,ProductionArtifacts,ProductionControlMetadata,WindowsSapi,MediaTools,WindowsCaptureHelper,WindowsDefaultRender local;
     class GitHub,PackageIndexes,HuggingFace,MiniMaxApi,OutputCdn,ElevenLabsApi external;
     class Env,StudioSecrets secret;
 ```
@@ -393,6 +414,12 @@ flowchart LR
 `JobControlContract`はexact Job IDと`schema_version=1`だけを受けます。process ID、provider task、force、timeoutは外から指定できず、SQLiteとJobManagerが登録済みchild/process lineageを解決します。operatorのexact Job cancelはそのcontextへ登録したroot processとそのdescendant treeだけを終了します。process全体の未登録descendant sweepは`ShutdownGate`によるJobManager全体shutdownのみで使い、別laneで後から開始したsibling Jobを巻き込みません。responseの`cancel_requested`と`worker_retired`は別の事実で、terminal retryは副作用を持ちません。UIは202 responseのJob IDと両booleanを再照合し、worker未退役なら同じendpointを2秒間隔・最大15回だけ再照合します。同じRunのtop-level `local_pipeline`／`detailed_test_video` Jobがactiveまたは停止照合中なら、全体停止はその親だけを表示し、topのない孤立childはfallbackとして残します。
 
 `StudioCli`の`quick-create`はHTTPを迂回して同じservice contractをworkspace lock内で呼び、索引更新、Announcement CAS保存、Detailed実行、2秒terminal照合を共有deadlineで行います。`QuickCreateProjectContract`はその手前に、安定production ID／titleの冪等作成、requestの論理的な親directory基準のrelative regular video 1〜3件の順次stream import、0-based `video_index`から検証済みartifact IDへのcompileを加えます。制作作成からterminal照合までは同じmonotonic deadlineで、出力はproduction／videoのidentity、bytes、hash、dedupeと既存Quick Create resultだけへredactし、source path／filenameとrecipe本文を含みません。途中失敗で確定済みproduction／importをrollbackせず、同じID／bytesの再実行を冪等create／content dedupeへ収束させます。
+
+`SimpleCreateWizard`は同じ既存endpointを、制作名、version固定テンプレート、動画1〜3本、主文、最終確認という約5判断へ閉じます。production／recipe／execution IDは最初のPOST前にversioned localStorageへ固定し、応答消失時も別IDを発行しません。`ProductionLibraryContract`はoutput-owned productionだけをrename、archive/unarchive、取込素材付きduplicateでき、物理削除を行いません。client-issued operation ID、route sourceを含むrequest digest、CAS stateをschema v9 ledgerへ保存し、eventから復元できます。tracked制作と制御metadataを持たないoutput-only制作はfail closedのread-onlyです。
+
+`ReviewContract`はartifact、revision、Run、cut、timecodeを一つのidentityとしてcreative／rights／public_releaseのコメント、判定、解決をappend-only eventへ保存します。technical QCとは独立したhuman gateです。cut修正planはexact identityと他cut再利用policyを記録しますが、現時点でM4 rerun endpointには接続せず、常に`planned_not_executed`／`not_started`／`not_connected`／`job_id=null`です。
+
+`ShotProjectContract`はCodexの画像生成スキル等で先に作られた3枚の始点画像と、H3 prompt skill形式の3本のI2VA promptを入力にします。各clipは公式MiniMax H3 V2 APIへ6秒／768Pで個別送信し、`confirmed_billable_task_limit=3`をexactに要求します。送信直前の`prepared`、provider task ID、出力bytes／SHA-256をcut単位でatomic保存し、応答消失後の自動有料再送を拒否します。3本のMP4をhash検証後、5,167ms／5,167ms／5,166msのsceneと2つの250ms fadeでexact 15,000msの既存Quick Createへ渡します。local ComfyUIのStudio presetはT2VA-onlyなので、このI2VA経路をローカル対応と偽装しません。
 
 HTTP終了境界は`HttpLifecycle`と`ShutdownGate`に分けています。全responseを`Connection: close`にし、終了時は未解析socketだけを遮断して解析済みservice処理をdrainします。provider recovery、worker lane、SQLite interruption writerがすべて終了した場合だけworkspace lockを解放し、timeout／例外時は再試行またはprocess終了までlockを保持します。
 
@@ -404,7 +431,7 @@ Playwright画面収録は`ScreenCaptureContract`でcanonicalなloopback URLと�
 
 2026-08-30の明示承認付き実機smokeでは`WindowsCaptureWorker`から6秒の8成果物をatomic登録し、full decode、exact PCM、構造timingまで完走しました。既知flash／toneの実内容開始差は約27〜111ms、endpoint音量も低めで、automation pointer overlayが映像へ入ったため、A/V実内容同期とcursor非表示の公開gateは未解除です。device切替と親強制終了も残ります。
 
-Remotion詳細timelineは既存の`TimelineWorker`によるハードカットを残したまま、別の`RemotionContract`／`RemotionWorker`として同じ`timeline` stageに接続します。schema v1は登録済み動画、trim、素材音量、fade、固定テロップと、カットごとの閉じた`preserve_v1 | h3_low_res_sharp_v1`だけを許し、旧recipeのpreset省略は`preserve_v1`として読み続けます。`h3_low_res_sharp_v1`は幅1080未満・高さ1920未満、両辺64px以上、幅÷高さ0.50〜0.625、cover拡大後300万画素以下の低解像度縦長sourceだけを許可し、条件外はFFmpeg起動前に拒否します。`MediaTools`で必要frameへ先にtrimし、固定Lanczos cover 1080×1920＋luma-only unsharp 5×5／0.25をテロップ前に適用します。任意filter／強度／chroma sharpenは受け付けません。これは欠落detailを復元する超解像ではなく、追加のCPU時間、一時I/O、encode時間を使います。`BrowserLane`で画面収録とFIFO直列化し、UIの`@remotion/player`とbackend rendererは同じ`RemotionComposition`を使いますが、PlayerはFFmpeg前処理を再現しないため完成artifactを正本にします。rendererはsetup済み`PinnedChromium`を再利用し、PNG中間frame、H.264 CRF 16へ固定します。`RemotionDoctor`はsetup時にRemotion 5 packageとPlaywrightの実dependency closureをattestし、worker開始時とrender後にfile treeを再計算します。pathを含まないdigest／package・file・bytes数に加え、Source Fidelity v2のpreset／固定前処理／出力policyがcacheと監査summaryへ入り、各clipの実適用結果はrender reportとmanifestへ入ります。policy変更時は旧cacheを再利用せず、tool変更時はpublish前に失敗します。5成果物はcache／manifest／入力・tool hash、full decode、fresh ffprobeを再検証してからatomic登録します。`RemotionOutputs`の素材音声は詳細previewで確認でき、`AssemblyWorker`の互換既定ではナレーションへ置換、固定mix presetではpreview音声をさらに25%へ下げてナレーションと合成します。mixは素材音声1 streamと両入力の非無音を必須とし、任意gainやBGMは受け付けません。
+Remotion詳細timelineは既存の`TimelineWorker`によるハードカットを残したまま、別の`RemotionContract`／`RemotionWorker`として同じ`timeline` stageに接続します。schema v1は登録済み動画、trim、素材音量、fade、固定テロップと、カットごとの閉じた`preserve_v1 | h3_low_res_sharp_v1`だけを許し、旧recipeのpreset省略は`preserve_v1`として読み続けます。`h3_low_res_sharp_v1`は幅1080未満・高さ1920未満、両辺64px以上、幅÷高さ0.50〜0.625、cover拡大後300万画素以下の低解像度縦長sourceだけを許可し、条件外はFFmpeg起動前に拒否します。`MediaTools`で必要frameへ先にtrimし、固定Lanczos cover 1080×1920＋luma-only unsharp 5×5／0.25をテロップ前に適用します。任意filter／強度／chroma sharpenは受け付けません。これは欠落detailを復元する超解像ではなく、追加のCPU時間、一時I/O、encode時間を使います。`BrowserLane`で画面収録とFIFO直列化し、UIの`@remotion/player`とbackend rendererは同じ`RemotionComposition`を使いますが、PlayerはFFmpeg前処理を再現しないため完成artifactを正本にします。rendererはsetup済み`PinnedChromium`を再利用し、PNG中間frame、H.264 CRF 16へ固定します。`RemotionDoctor`はsetup時にRemotion 5 packageとPlaywrightの実dependency closureをattestし、worker開始時とrender後にfile treeを再計算します。さらにfirst-party build closureの`entry.tsx`、`TimelineComposition.tsx`、`model.ts`、`api.ts`、`status.ts`、`types.ts`を個別にhashし、cache keyとrender後の再照合へ同じ集合を使います。pathを含まないdigest／package・file・bytes数に加え、Source Fidelity v2のpreset／固定前処理／出力policyがcacheと監査summaryへ入り、各clipの実適用結果はrender reportとmanifestへ入ります。policy変更時は旧cacheを再利用せず、tool変更時はpublish前に失敗します。5成果物はcache／manifest／入力・tool hash、full decode、fresh ffprobeを再検証してからatomic登録します。`RemotionOutputs`の素材音声は詳細previewで確認でき、`AssemblyWorker`の互換既定ではナレーションへ置換、固定mix presetではpreview音声をさらに25%へ下げてナレーションと合成します。mixは素材音声1 streamと両入力の非無音を必須とし、任意gainやBGMは受け付けません。
 
 `DetailedTestContract`は`POST /api/productions/{id}/execute-detailed-test-video`のschema v1を、登録済みclip、SAPI segment、固定字幕／mix／variantだけへ閉じます。Shorts大字幕は1〜6 segment、表示幅38単位、ASCII token 20文字、不可視／bidi制御文字の固定preflightをqueue前に通します。schema v8の`DetailedTestClaims`は正規化payload、source bytes／SHA-256、Remotion tool identity、preflight policyから作るrequest keyをimmutableな0円Runとactive topへ結び、同時要求をdedupeします。内部実装世代`detailed-test-video-v3`はSource Fidelity v2／visual preset互換既定を含まない旧ローカルclaimとkeyを分離します。failed／interruptedや成果物改変は同じRunの新topでretryし、event mirrorはstrictなclaim identityだけをactive jobなしで復元します。direct POSTが曖昧終了した場合、UIのrequest guardは送信前Job集合と正規化requestのcanonical SHA-256を保持し、fresh ID、production、kind、stage、profile、request key形式、監査ダイジェストの完全一致を要求します。告知専用timing fieldを持つJob、既知Job、ダイジェスト欠落は採用しません。`DetailedTestOrchestrator`は`PipelineLane`からSAPI／assembly／QCを`DefaultLane`へ、Remotionを`BrowserLane`へ順番に投入し、exact child job／attempt lineageとartifactを再hashしてQC passだけを公開します。UIはtop jobを2秒pollingし、cancel／failure時はcurrent childのjoinを待ちます。この経路から`GpuLane`、ComfyUI、MiniMax API、ElevenLabsへedgeはなく、既存`local_pipeline`は変更しません。
 

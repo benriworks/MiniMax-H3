@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "project_id": "shotproj_11111111111111111111111111111111",
+  "production": {
+    "id": "production_22222222222222222222222222222222",
+    "title": "3カットI2VAサンプル"
+  },
+  "shots": [
+    {
+      "shot_id": "shot_1",
+      "first_frame_path": "shot-1.png",
+      "first_frame_prompt": "縦型CMの始点。人物は正面を向き、落ち着いた背景でカメラを見る。",
+      "video_prompt": "For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\nintegrated_multimodal_description: [Shot 1] Live-action vertical commercial. The person in <Picture 1> fully preserves identity, facial structure, hair, clothing, and the environment. The person looks into the camera, takes one calm breath, and makes one small confident nod. The camera slowly pushes in with low amplitude and stable motion. Natural blinking, subtle hair movement, realistic skin texture, and temporally consistent hands.\n\noverall_soundscape: Quiet indoor room tone with subtle clothing movement.\n\nnon_diegetic_music: N/A",
+      "duration_seconds": 6,
+      "resolution": "768P"
+    },
+    {
+      "shot_id": "shot_2",
+      "first_frame_path": "shot-2.png",
+      "first_frame_prompt": "同じ縦型CMの別アングル。人物が説明を始める直前の自然な姿勢。",
+      "video_prompt": "For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\nintegrated_multimodal_description: [Shot 1] Live-action vertical commercial. The person in <Picture 1> fully preserves identity, facial structure, hair, clothing, and the environment. The person turns slightly toward the lens and raises one hand in a compact explanatory gesture while maintaining eye contact. The camera makes a gentle rightward arc with stable framing. Natural blinking, controlled hand anatomy, and consistent lighting.\n\noverall_soundscape: Quiet indoor ambience with a soft sleeve rustle.\n\nnon_diegetic_music: N/A",
+      "duration_seconds": 6,
+      "resolution": "768P"
+    },
+    {
+      "shot_id": "shot_3",
+      "first_frame_path": "shot-3.png",
+      "first_frame_prompt": "縦型CMの締めカット。人物がカメラを見て柔らかく微笑む直前。",
+      "video_prompt": "For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\nintegrated_multimodal_description: [Shot 1] Live-action vertical commercial. The person in <Picture 1> fully preserves identity, facial structure, hair, clothing, and the environment. The person lowers the hand, leans forward slightly, and finishes with a gentle confident smile while holding direct eye contact. The camera eases closer and remains stable through the final frame. Natural blinking and temporally consistent facial motion.\n\noverall_soundscape: Quiet indoor ambience with a subtle breath.\n\nnon_diegetic_music: N/A",
+      "duration_seconds": 6,
+      "resolution": "768P"
+    }
+  ],
+  "recipe_id": "announcement_33333333333333333333333333333333",
+  "expected_revision": 0,
+  "recipe": {
+    "schema_version": 1,
+    "name": "3カットI2VAサンプル",
+    "template_preset": "shorts_ja_15s_v1",
+    "scenes": [
+      {
+        "role": "hook",
+        "video_index": 0,
+        "start_ms": 0,
+        "end_ms": 5167,
+        "volume_percent": 0,
+        "headline": "新しい一歩",
+        "narration": "新しいお知らせです。",
+        "visual_preset": "preserve_v1"
+      },
+      {
+        "role": "message",
+        "video_index": 1,
+        "start_ms": 0,
+        "end_ms": 5167,
+        "volume_percent": 0,
+        "headline": "映像で伝える",
+        "narration": "大切なことを映像で伝えます。",
+        "visual_preset": "preserve_v1"
+      },
+      {
+        "role": "cta",
+        "video_index": 2,
+        "start_ms": 0,
+        "end_ms": 5166,
+        "volume_percent": 0,
+        "headline": "詳しくはこちら",
+        "narration": "詳しくはプロフィールをご覧ください。",
+        "visual_preset": "preserve_v1"
+      }
+    ],
+    "voice": null,
+    "rate": 0,
+    "pronunciations": [],
+    "include_captioned": true,
+    "caption_style_preset": "shorts_ja_large_v1",
+    "audio_mix_preset": "narration_only_v1",
+    "variant": "captioned"
+  },
+  "timeout_seconds": 3600,
+  "confirmed_billable_task_limit": 3
+}
