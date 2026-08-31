@@ -27,6 +27,10 @@ from .security import (
     workspace_path,
 )
 from .service import RequestValidationError, StudioService
+from .production_intake import (
+    MAX_VIDEO_IMPORT_BYTES,
+    VIDEO_IMPORT_FILENAME_HEADER,
+)
 from .windows_capture import windows_capture_session_binding_digest
 
 
@@ -41,8 +45,12 @@ MAX_REDACTED_TEXT_BYTES = 16 * 1024 * 1024
 REQUEST_SOCKET_TIMEOUT_SECONDS = 1.0
 _SAFE_INLINE_IMAGE_SUFFIXES = {".bmp", ".gif", ".jpeg", ".jpg", ".png", ".webp"}
 _PRODUCTION_DETAIL_RE = re.compile(r"^/api/productions/([^/]+)$")
+_PRODUCTION_IMPORT_VIDEO_RE = re.compile(
+    r"^/api/productions/([^/]+)/artifacts/import-video$"
+)
 _ARTIFACT_FILE_RE = re.compile(r"^/api/artifacts/([^/]+)/(?:file|content)$")
 _JOB_DETAIL_RE = re.compile(r"^/api/jobs/([^/]+)$")
+_JOB_CANCEL_RE = re.compile(r"^/api/jobs/([^/]+)/cancel$")
 _RUN_DETAIL_RE = re.compile(r"^/api/runs/([^/]+)$")
 _RERUN_PLAN_RE = re.compile(r"^/api/productions/([^/]+)/rerun-plan$")
 _LOCAL_PIPELINE_RE = re.compile(
@@ -369,6 +377,45 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
             raise RequestValidationError("request body must be an object")
         return value
 
+    def _video_import_content_length(self) -> int:
+        if self.headers.get_all("Transfer-Encoding"):
+            raise RequestValidationError(
+                "Transfer-Encoding is not supported for video import",
+                code="invalid_content_length",
+            )
+        values = self.headers.get_all("Content-Length") or []
+        raw = values[0] if len(values) == 1 else None
+        if raw is None or re.fullmatch(r"[0-9]+", raw) is None:
+            raise RequestValidationError(
+                "Content-Length is required for video import",
+                code="invalid_content_length",
+            )
+        length = int(raw)
+        if length <= 0:
+            raise RequestValidationError(
+                "Content-Length must be positive",
+                code="invalid_content_length",
+            )
+        if length > MAX_VIDEO_IMPORT_BYTES:
+            raise RequestValidationError(
+                "video import is larger than the 2 GiB limit",
+                code="request_too_large",
+            )
+        return length
+
+    def _video_import_header(self, name: str, *, code: str, message: str) -> str:
+        """Return one unambiguous upload header.
+
+        The raw lane already rejects duplicate Content-Length fields. Apply
+        the same closed framing rule to the media type and filename so two
+        HTTP parsers cannot select different upload identities.
+        """
+
+        values = self.headers.get_all(name) or []
+        if len(values) != 1 or not values[0]:
+            raise RequestValidationError(message, code=code)
+        return values[0]
+
     def _discard_bounded_request_body(self) -> None:
         """Drain a small unauthorized POST body before closing its socket.
 
@@ -411,14 +458,45 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
             self.close_connection = True
             self._error(403, "forbidden", "A valid Studio session is required.")
             return
+        raw_video_request = False
         try:
             path, _query = self._decoded_request()
+            import_match = _PRODUCTION_IMPORT_VIDEO_RE.fullmatch(path)
+            if import_match:
+                raw_video_request = True
+                length = self._video_import_content_length()
+                filename_header = self._video_import_header(
+                    VIDEO_IMPORT_FILENAME_HEADER,
+                    code="invalid_video_filename",
+                    message="X-Studio-Filename-Encoded is required exactly once",
+                )
+                content_type = self._video_import_header(
+                    "Content-Type",
+                    code="unsupported_media_type",
+                    message="Content-Type is required exactly once",
+                )
+                self._mark_request_active()
+                self._send_json(
+                    201,
+                    self.server.service.import_production_video(
+                        import_match.group(1),
+                        stream=self.rfile,
+                        filename_header=filename_header,
+                        content_type=content_type,
+                        content_length=length,
+                    ),
+                )
+                return
             body = self._read_json()
             self._mark_request_active()
             self._dispatch_post(path, body)
         except SecurityError:
             self._error(400, "invalid_path", "The requested path is invalid.")
         except RequestValidationError as exc:
+            if raw_video_request:
+                # A failed verifier may not have consumed the declared body.
+                # Closing prevents it from becoming a second request.
+                self.close_connection = True
             status = (
                 415
                 if exc.code == "unsupported_media_type"
@@ -426,6 +504,7 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
                 if exc.code == "request_too_large"
                 else 409
                 if exc.code in {
+                    "production_id_conflict",
                     "windows_capture_busy",
                     "windows_capture_unavailable",
                     "windows_capture_consent_expired",
@@ -434,8 +513,12 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
             )
             self._error(status, exc.code, str(exc))
         except KeyError:
+            if raw_video_request:
+                self.close_connection = True
             self._error(404, "not_found", "The requested resource was not found.")
         except Exception:
+            if raw_video_request:
+                self.close_connection = True
             self._error(500, "internal_error", "The request could not be completed.")
 
     def do_OPTIONS(self) -> None:  # noqa: N802
@@ -560,11 +643,18 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
         session_binding_digest = windows_capture_session_binding_digest(
             self.server.session_token
         )
+        if path == "/api/productions":
+            self._send_json(201, service.create_production(body))
+            return
         if path == "/api/capabilities/windows-capture/inspect":
             self._send_json(200, service.inspect_windows_capture_capability(body))
             return
         if path == "/api/index/refresh":
             self._send_json(202, service.refresh_index())
+            return
+        match = _JOB_CANCEL_RE.fullmatch(path)
+        if match:
+            self._send_json(202, service.cancel_job(match.group(1), body))
             return
         match = _RERUN_PLAN_RE.fullmatch(path)
         if match:

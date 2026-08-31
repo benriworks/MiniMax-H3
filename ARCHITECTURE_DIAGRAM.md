@@ -41,6 +41,8 @@ flowchart LR
         QuickCreatePresentation["QuickCreateForm.tsx<br/>かんたん作成 3-step presentation<br/>fixed announcement defaults / no direct API"]
         AnnouncementTemplateUi["Studio かんたん作成 tab<br/>quick / detailed settings<br/>shared save / revision / clone / execute"]
         AnnouncementRequestGuard["announcementRecovery.ts + App request guard<br/>15s AbortSignal / selected generation<br/>deterministic clone ID / durable intent"]
+        ProductionIntakeContract["production_intake.py<br/>exact create + bounded raw video import<br/>SHA-256 / ffprobe / atomic publish"]
+        JobControlContract["job_control.py + JobManager<br/>exact-ID cancel / child tree join<br/>requested vs worker-retired truth"]
         StudioComfyContract["comfyui_execution.py<br/>fixed payload / provenance / cache contract"]
         StudioComfyWorker["comfyui.py<br/>pre-issued UUID / observe / resume / targeted cancel / cache"]
         NarrationWorker["tools/studio/narration.py<br/>validated SAPI worker / cache"]
@@ -62,7 +64,7 @@ flowchart LR
         AssemblyWorker["tools/studio/assembly.py<br/>validated FFmpeg worker / cache<br/>closed caption + audio mix presets"]
         QcWorker["tools/studio/qc.py<br/>technical QC v2 / cache<br/>loudness + peak + black hard checks<br/>long-static advisory"]
         SapiHelper["sapi_synthesize.ps1<br/>UTF-8 JSON IPC"]
-        StudioCli["tools.studio.cli<br/>secret + local test-video control"]
+        StudioCli["tools.studio.cli<br/>secret + test-video + quick-create control"]
         TestVideoOrchestrator["test_video.py<br/>ordered local orchestration<br/>bounded result"]
     end
 
@@ -109,7 +111,8 @@ flowchart LR
         AssemblyOutputs["outputs/studio/runs/.../assembly<br/>clean / captioned MP4 / ffprobe / manifest"]
         QcOutputs["outputs/studio/runs/.../qc<br/>technical QC / ffprobe / manifest"]
         AuditExports["outputs/studio/audits<br/>ZIP + SHA-256 sidecar"]
-        ProductionArtifacts["outputs/productions<br/>media / logs / QC"]
+        ProductionArtifacts["outputs/productions<br/>media / logs / QC / imported videos"]
+        ProductionControlMetadata[".studio-production.json<br/>title + import relative path -> SHA-256<br/>hidden partials / not an artifact"]
         WindowsSapi["Windows System.Speech<br/>installed local voices"]
         MediaTools["FFmpeg / ffprobe<br/>resolved binary identity"]
         WindowsCaptureHelper["Release net8.0-windows helper DLL<br/>doctor Initialize only<br/>gated PCM + timestamp/gap checks"]
@@ -210,6 +213,14 @@ flowchart LR
     StudioUi -->|"詳細設定 / muted Player preview"| AnnouncementTemplateUi
     AnnouncementTemplateUi -->|"save / duplicate / execute<br/>2s jobs / approx 6s production detail"| AnnouncementRequestGuard
     AnnouncementRequestGuard -->|"15s abort / selected production only<br/>stable save or clone identity<br/>fresh exact Job / then manual reconcile"| StudioBackend
+    StudioUi -->|"stable production ID + title intent<br/>sequential raw File upload"| ProductionIntakeContract
+    StudioBackend -->|"session-protected create/import<br/>service-level intake lock"| ProductionIntakeContract
+    ProductionIntakeContract -->|"production-local partial<br/>hash + ffprobe then hard-link publish"| ProductionArtifacts
+    ProductionIntakeContract -->|"atomic exact metadata replace"| ProductionControlMetadata
+    ProductionControlMetadata -->|"title + known import hashes<br/>control file excluded from artifacts"| StudioBackend
+    StudioUi -->|"POST /api/jobs/{id}/cancel<br/>schema_version only"| JobControlContract
+    StudioBackend -->|"resolve exact durable lineage"| JobControlContract
+    JobControlContract -->|"cancel requested + worker retirement<br/>terminal retry is a no-op"| StudioDb
     ProductionLedgers -->|"read / refresh index"| StudioBackend
     ProductionArtifacts -->|"registered artifacts only"| StudioBackend
     StudioBackend -->|"atomic artifact + job + stage<br/>terminal transaction"| StudioDb
@@ -356,6 +367,7 @@ flowchart LR
     Operator --> StudioCli
     StudioCli -->|"set / status / delete"| StudioSecrets
     StudioCli -->|"test-video / workspace lock"| TestVideoOrchestrator
+    StudioCli -->|"quick-create / shared deadline<br/>CAS save + exact revision execute"| AnnouncementContract
     TestVideoOrchestrator -->|"refresh + immutable local_sapi run<br/>narration -> timeline -> assembly -> QC"| StudioBackend
     StudioBackend -->|"terminal IDs / cache / hashes<br/>technical verdict"| TestVideoOrchestrator
     StudioSecrets -->|"configured status only"| StudioBackend
@@ -366,11 +378,15 @@ flowchart LR
     classDef external fill:#fff3df,stroke:#9a6300,color:#432b00;
     classDef secret fill:#ffe8ee,stroke:#9c284b,color:#481023;
 
-    class Setup,RuntimeLock,Downloader,ModelManifest,Doctor,Launcher,Metrics,LowWorkflow,TurboWorkflow,Q4TurboWorkflow,OfficialQ4Workflow,OfficialQ4TurboWorkflow,StudioApiWorkflow,ApiWrapper,ApiCli,ProductionLedgers,StudioSetup,StudioLauncher,StudioFrontend,StudioBackend,HttpLifecycle,ShutdownGate,ProviderRecovery,PipelineContinuationCoordinator,LocalPipelineContract,LocalPipelineOrchestrator,DetailedTestContract,DetailedTestOrchestrator,AnnouncementContract,QuickCreatePresentation,AnnouncementTemplateUi,AnnouncementRequestGuard,StudioComfyContract,StudioComfyWorker,NarrationWorker,ExternalTtsContract,ElevenLabsWorker,ScreenCaptureContract,ScreenCaptureWorker,PlaywrightDoctor,WindowsCaptureCapability,WindowsCaptureContract,WindowsCaptureWorker,WindowsCaptureHelperSource,TimelineWorker,RemotionContract,SourceFidelityPolicy,RemotionWorker,RemotionComposition,RemotionDoctor,AssemblyWorker,QcWorker,SapiHelper,StudioCli,TestVideoOrchestrator tracked;
-    class Venv,Comfy,GgufNode,TurboNode,Models,OfficialWorkflow,Outputs,HardwareMetrics,StudioBuild,StudioUi,StudioDb,VideoClaims,ProviderTasks,PipelineClaims,DetailedTestClaims,AnnouncementEvents,StudioEvents,ExternalSubmissionState,GpuLane,PipelineLane,BrowserLane,CaptureLane,WindowsCaptureConsents,DefaultLane,PinnedChromium,LoopbackWebTarget,ScreenCaptureOutputs,WindowsCaptureOutputs,VideoGenerationOutputs,NarrationOutputs,TimelineOutputs,RemotionOutputs,AssemblyOutputs,QcOutputs,AuditExports,ProductionArtifacts,WindowsSapi,MediaTools,WindowsCaptureHelper,WindowsDefaultRender local;
+    class Setup,RuntimeLock,Downloader,ModelManifest,Doctor,Launcher,Metrics,LowWorkflow,TurboWorkflow,Q4TurboWorkflow,OfficialQ4Workflow,OfficialQ4TurboWorkflow,StudioApiWorkflow,ApiWrapper,ApiCli,ProductionLedgers,StudioSetup,StudioLauncher,StudioFrontend,StudioBackend,HttpLifecycle,ShutdownGate,ProviderRecovery,PipelineContinuationCoordinator,LocalPipelineContract,LocalPipelineOrchestrator,DetailedTestContract,DetailedTestOrchestrator,AnnouncementContract,QuickCreatePresentation,AnnouncementTemplateUi,AnnouncementRequestGuard,ProductionIntakeContract,JobControlContract,StudioComfyContract,StudioComfyWorker,NarrationWorker,ExternalTtsContract,ElevenLabsWorker,ScreenCaptureContract,ScreenCaptureWorker,PlaywrightDoctor,WindowsCaptureCapability,WindowsCaptureContract,WindowsCaptureWorker,WindowsCaptureHelperSource,TimelineWorker,RemotionContract,SourceFidelityPolicy,RemotionWorker,RemotionComposition,RemotionDoctor,AssemblyWorker,QcWorker,SapiHelper,StudioCli,TestVideoOrchestrator tracked;
+    class Venv,Comfy,GgufNode,TurboNode,Models,OfficialWorkflow,Outputs,HardwareMetrics,StudioBuild,StudioUi,StudioDb,VideoClaims,ProviderTasks,PipelineClaims,DetailedTestClaims,AnnouncementEvents,StudioEvents,ExternalSubmissionState,GpuLane,PipelineLane,BrowserLane,CaptureLane,WindowsCaptureConsents,DefaultLane,PinnedChromium,LoopbackWebTarget,ScreenCaptureOutputs,WindowsCaptureOutputs,VideoGenerationOutputs,NarrationOutputs,TimelineOutputs,RemotionOutputs,AssemblyOutputs,QcOutputs,AuditExports,ProductionArtifacts,ProductionControlMetadata,WindowsSapi,MediaTools,WindowsCaptureHelper,WindowsDefaultRender local;
     class GitHub,PackageIndexes,HuggingFace,MiniMaxApi,OutputCdn,ElevenLabsApi external;
     class Env,StudioSecrets secret;
 ```
+
+`ProductionIntakeContract`はoutput-owned productionだけを`production_`＋32桁hexへ閉じ、同一ID／同一titleの再送だけを冪等に扱います。video importは既知の6拡張子、1 byte〜2 GiB、canonical encoded filename、exact Content-Lengthを受け、hidden production-local partialへstreamします。SHA-256とffprobeのvideo／container検証後だけ`ProductionArtifacts`へhard-link publishし、`ProductionControlMetadata`をatomic replaceします。同じdigestはname／互換extensionを越えて既存pathへ収束し、別extensionへ収束する場合も既存destination側のcontainer契約を再検証します。Indexerはcontrol file／partialをartifactにせず、titleとknown hashを読むだけです。service lockが同時mutationを直列化し、起動cleanupは閉じたpartial名以外を削除しません。UIは201 responseのexact production／artifact identityを再照合します。
+
+`JobControlContract`はexact Job IDと`schema_version=1`だけを受けます。process ID、provider task、force、timeoutは外から指定できず、SQLiteとJobManagerが登録済みchild/process lineageを解決します。responseの`cancel_requested`と`worker_retired`は別の事実で、terminal retryは副作用を持ちません。UIは202 responseのJob IDと両booleanを再照合してから表示します。`StudioCli`の`quick-create`はHTTPを迂回して同じservice contractをworkspace lock内で呼び、索引更新、Announcement CAS保存、Detailed実行、2秒terminal照合を共有deadlineで行います。出力はidentity、cache、相対artifact、hash、technical verdictだけへredactします。
 
 HTTP終了境界は`HttpLifecycle`と`ShutdownGate`に分けています。全responseを`Connection: close`にし、終了時は未解析socketだけを遮断して解析済みservice処理をdrainします。provider recovery、worker lane、SQLite interruption writerがすべて終了した場合だけworkspace lockを解放し、timeout／例外時は再試行またはprocess終了までlockを保持します。
 

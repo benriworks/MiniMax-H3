@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type SyntheticEvent } from 'react';
 import { Player } from '@remotion/player';
 import {
   api,
@@ -28,6 +28,9 @@ import {
   EXTERNAL_NARRATION_PROVIDER,
   DEFAULT_EXTERNAL_VOICE_SETTINGS,
   LOCAL_COMFYUI_WORKFLOW_PRESET,
+  MAX_VIDEO_IMPORT_FILES,
+  PRODUCTION_ID_PATTERN,
+  PRODUCTION_TITLE_MAX_LENGTH,
   isLocalComfyUiJobForSelection,
   isLocalComfyUiExecutionActive,
   isLocalComfyUiExecutionActiveAcross,
@@ -66,6 +69,7 @@ import {
   normalizeNarrationInput,
   normalizeExternalNarrationInput,
   getExternalNarrationGate,
+  validateVideoImportFiles,
 } from './api';
 import type { DetailedTestVideoSubmissionGuard, WindowsCaptureSubmissionGuard } from './api';
 import {
@@ -545,6 +549,446 @@ const ErrorNotice = ({ message, onRetry }: { message: string; onRetry?: () => vo
   </div>
 );
 
+const PENDING_PRODUCTION_CREATE_STORAGE_KEY = 'minimax-h3-studio:pending-production-create:v1';
+const PENDING_PRODUCTION_CREATE_SCHEMA_VERSION = 1;
+
+interface PendingProductionCreateIntent {
+  productionId: string;
+  title: string;
+}
+
+interface PendingProductionCreateRead {
+  intent?: PendingProductionCreateIntent;
+  error?: string;
+}
+
+const readPendingProductionCreateIntent = (): PendingProductionCreateRead => {
+  try {
+    const raw = window.localStorage.getItem(PENDING_PRODUCTION_CREATE_STORAGE_KEY);
+    if (!raw) return {};
+    const value: unknown = JSON.parse(raw);
+    if (value === null || typeof value !== 'object') {
+      return { error: '制作作成の保留情報を読み取れません。誤って別IDを発行しないよう作成を停止しました。' };
+    }
+    const record = value as Record<string, unknown>;
+    const keys = Object.keys(record).sort();
+    if (keys.length === 3
+      && keys[0] === 'production_id'
+      && keys[1] === 'schema_version'
+      && keys[2] === 'title'
+      && record.schema_version === PENDING_PRODUCTION_CREATE_SCHEMA_VERSION
+      && typeof record.production_id === 'string'
+      && PRODUCTION_ID_PATTERN.test(record.production_id)
+      && typeof record.title === 'string'
+      && record.title.trim().length > 0
+      && record.title === record.title.trim()
+      && record.title.length <= PRODUCTION_TITLE_MAX_LENGTH
+      && !/[\u0000-\u001f\u007f]/.test(record.title)
+    ) return { intent: { productionId: record.production_id, title: record.title } };
+    return { error: '制作作成の保留情報が不完全です。誤って別IDを発行しないよう作成を停止しました。' };
+  } catch {
+    return { error: '制作作成の保留情報を読み取れません。ブラウザの保存領域を確認してください。' };
+  }
+};
+
+const persistPendingProductionCreateIntent = (intent: PendingProductionCreateIntent): void => {
+  if (!PRODUCTION_ID_PATTERN.test(intent.productionId)
+    || !intent.title
+    || intent.title !== intent.title.trim()
+    || intent.title.length > PRODUCTION_TITLE_MAX_LENGTH
+    || /[\u0000-\u001f\u007f]/.test(intent.title)) {
+    throw new Error('制作作成の保留情報が不正です。');
+  }
+  try {
+    window.localStorage.setItem(PENDING_PRODUCTION_CREATE_STORAGE_KEY, JSON.stringify({
+      schema_version: PENDING_PRODUCTION_CREATE_SCHEMA_VERSION,
+      production_id: intent.productionId,
+      title: intent.title,
+    }));
+  } catch {
+    throw new Error('ブラウザの保留情報を保存できません。localStorageを有効にして再試行してください。');
+  }
+};
+
+const clearPendingProductionCreateIntent = (): boolean => {
+  try {
+    window.localStorage.removeItem(PENDING_PRODUCTION_CREATE_STORAGE_KEY);
+    return true;
+  } catch {
+    // A successful server response must not be shown as a failed creation when
+    // storage cleanup is unavailable. The next open will still use the same ID.
+    return false;
+  }
+};
+
+const newClientStableProductionId = (): string => {
+  const uuid = globalThis.crypto?.randomUUID?.();
+  if (!uuid) throw new Error('このブラウザでは安全な制作IDを生成できません。');
+  return `production_${uuid.replaceAll('-', '')}`;
+};
+
+type ImportFileState = 'pending' | 'uploading' | 'succeeded' | 'failed';
+
+interface ImportFileItem {
+  file: File;
+  state: ImportFileState;
+  error?: string;
+  deduplicated?: boolean;
+}
+
+const importFileStateLabel: Record<ImportFileState, string> = {
+  pending: '待機中',
+  uploading: 'アップロード中',
+  succeeded: '取込済み',
+  failed: '失敗',
+};
+
+function ImportFileList({ items }: { items: ImportFileItem[] }) {
+  if (items.length === 0) return null;
+  return (
+    <ol className="video-import-file-list" aria-label="動画ファイルの取込状況">
+      {items.map((item, index) => (
+        <li key={`${item.file.name}-${item.file.size}-${item.file.lastModified}-${index}`}>
+          <div className="video-import-file-heading">
+            <strong title={item.file.name}>{item.file.name}</strong>
+            <span>{formatBytes(item.file.size)}</span>
+          </div>
+          <span className={`video-import-file-state is-${item.state}`}>{importFileStateLabel[item.state]}</span>
+          {item.deduplicated && <small>既存artifactを再利用</small>}
+          {item.error && <small className="video-import-file-error">{item.error}</small>}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function VideoAssetImportPanel({
+  productionId,
+  currentVideoCount,
+  onReload,
+}: {
+  productionId: string;
+  currentVideoCount: number;
+  onReload: (signal?: AbortSignal) => Promise<boolean>;
+}) {
+  const [items, setItems] = useState<ImportFileItem[]>([]);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [message, setMessage] = useState<{ type: 'error' | 'success' | 'info'; text: string }>();
+  const [uploading, setUploading] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.currentTarget.files ?? []);
+    const validation = validateVideoImportFiles(files);
+    setValidationErrors(validation.errors);
+    setMessage(undefined);
+    if (!validation.valid) {
+      setItems([]);
+      event.currentTarget.value = '';
+      return;
+    }
+    setItems(files.map((file) => ({ file, state: 'pending' })));
+  }, []);
+
+  const clearSelection = useCallback(() => {
+    if (uploading) return;
+    setItems([]);
+    setValidationErrors([]);
+    setMessage(undefined);
+    if (inputRef.current) inputRef.current.value = '';
+  }, [uploading]);
+
+  const uploadFiles = useCallback(async () => {
+    if (uploading || items.length === 0 || validationErrors.length > 0) return;
+    setUploading(true);
+    setMessage({ type: 'info', text: '動画を1件ずつ取込中です。' });
+    let successCount = 0;
+    const failures: string[] = [];
+    for (const [index, item] of items.entries()) {
+      if (item.state === 'succeeded') {
+        successCount += 1;
+        continue;
+      }
+      setItems((current) => current.map((entry, itemIndex) => itemIndex === index
+        ? { ...entry, state: 'uploading', error: undefined }
+        : entry));
+      try {
+        const result = await api.importVideo(productionId, item.file);
+        successCount += 1;
+        setItems((current) => current.map((entry, itemIndex) => itemIndex === index
+          ? { ...entry, state: 'succeeded', deduplicated: result.deduplicated, error: undefined }
+          : entry));
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : '取込に失敗しました';
+        failures.push(`${item.file.name}: ${detail}`);
+        setItems((current) => current.map((entry, itemIndex) => itemIndex === index
+          ? { ...entry, state: 'failed', error: detail }
+          : entry));
+      }
+    }
+    const reloaded = await onReload().catch(() => false);
+    setUploading(false);
+    if (!reloaded) {
+      setMessage({ type: 'error', text: '取込済み・再読込失敗です。制作画面を手動で再読込してください。' });
+    } else if (failures.length > 0) {
+      setMessage({ type: 'error', text: `${successCount}件を取込済み。${failures.length}件は失敗しました。失敗したファイルを再試行できます。` });
+    } else {
+      setMessage({ type: 'success', text: `${successCount}件の動画を制作へ追加しました。` });
+    }
+  }, [items, onReload, productionId, uploading, validationErrors.length]);
+
+  return (
+    <section className="panel compact-panel video-import-panel" aria-labelledby={`video-import-title-${productionId}`}>
+      <div className="panel-header">
+        <div><span className="section-kicker">SOURCE VIDEOS</span><h3 id={`video-import-title-${productionId}`}>動画素材を追加</h3></div>
+        <span className="tag">現在 {currentVideoCount}本</span>
+      </div>
+      <p className="panel-lead">Quick Createで使う素材が少ないときに追加できます。サーバーへは選択した動画のraw bodyだけを順番に送ります。</p>
+      <label className="field">
+        <span>動画ファイル（最大{MAX_VIDEO_IMPORT_FILES}個）</span>
+        <input ref={inputRef} type="file" accept=".mp4,.m4v,.mov,.mkv,.webm,.avi" multiple disabled={uploading} onChange={handleFileChange} />
+        <small className="field-help">1ファイル0より大きく2 GiB以下。取込結果はartifactとして再読込します。</small>
+      </label>
+      {validationErrors.length > 0 && <div className="validation-list" role="alert">{validationErrors.map((error) => <div key={error}>・{error}</div>)}</div>}
+      <ImportFileList items={items} />
+      <div className="button-row">
+        <button className="button button-primary" type="button" disabled={uploading || items.length === 0 || validationErrors.length > 0} onClick={() => void uploadFiles()}>{uploading ? '順番に取込中…' : '動画を追加'}</button>
+        <button className="button button-ghost" type="button" disabled={uploading || items.length === 0} onClick={clearSelection}>選択をクリア</button>
+      </div>
+      {message && <div className={`inline-message is-${message.type}`} role={message.type === 'error' ? 'alert' : 'status'} aria-live="polite">{message.text}</div>}
+    </section>
+  );
+}
+
+function NewProductionDialog({
+  open,
+  onClose,
+  onProductionReady,
+  canCreateProduction,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onProductionReady: (productionId: string) => Promise<boolean>;
+  canCreateProduction: () => boolean;
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+  const [productionId, setProductionId] = useState('');
+  const [title, setTitle] = useState('');
+  const [items, setItems] = useState<ImportFileItem[]>([]);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [created, setCreated] = useState(false);
+  const [canDiscardIntent, setCanDiscardIntent] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState<{ type: 'error' | 'success' | 'info'; text: string }>();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!open) {
+      if (dialogRef.current?.open) dialogRef.current.close();
+      return;
+    }
+    previouslyFocusedRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const pendingResult = readPendingProductionCreateIntent();
+    try {
+      if (pendingResult.error) {
+        setProductionId('');
+        setTitle('');
+        setMessage({ type: 'error', text: pendingResult.error });
+        setCanDiscardIntent(true);
+      } else {
+        setProductionId(pendingResult.intent?.productionId ?? newClientStableProductionId());
+        setTitle(pendingResult.intent?.title ?? '');
+        setMessage(pendingResult.intent ? { type: 'info', text: '前回の作成応答が未確定です。同じ制作IDで再試行します。' } : undefined);
+        setCanDiscardIntent(Boolean(pendingResult.intent));
+      }
+    } catch (error) {
+      setProductionId('');
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : '制作IDを生成できません。' });
+      setCanDiscardIntent(false);
+    }
+    setItems([]);
+    setValidationErrors([]);
+    setCreated(false);
+    setSubmitting(false);
+    if (inputRef.current) inputRef.current.value = '';
+    if (dialogRef.current && !dialogRef.current.open) dialogRef.current.showModal();
+    window.setTimeout(() => titleRef.current?.focus(), 0);
+  }, [open]);
+
+  const closeDialog = useCallback(() => {
+    if (submitting) return;
+    if (dialogRef.current?.open) dialogRef.current.close();
+    onClose();
+    previouslyFocusedRef.current?.focus();
+  }, [onClose, submitting]);
+
+  const handleCancel = useCallback((event: SyntheticEvent<HTMLDialogElement>) => {
+    event.preventDefault();
+    closeDialog();
+  }, [closeDialog]);
+
+  const handleFileChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.currentTarget.files ?? []);
+    const validation = validateVideoImportFiles(files);
+    setValidationErrors(validation.errors);
+    setMessage(undefined);
+    if (!validation.valid) {
+      setItems([]);
+      event.currentTarget.value = '';
+      return;
+    }
+    setItems(files.map((file) => ({ file, state: 'pending' })));
+  }, []);
+
+  const discardPendingIntent = useCallback(() => {
+    if (submitting || !canDiscardIntent) return;
+    if (!window.confirm('保留情報を破棄すると、同じ制作を再試行できず別の制作IDになる可能性があります。破棄しますか？')) return;
+    if (!clearPendingProductionCreateIntent()) {
+      setMessage({ type: 'error', text: '保留情報を破棄できません。localStorageを確認してください。' });
+      return;
+    }
+    try {
+      setProductionId(newClientStableProductionId());
+      setTitle('');
+      setItems([]);
+      setValidationErrors([]);
+      setCanDiscardIntent(false);
+      setCreated(false);
+      setMessage({ type: 'info', text: '保留情報を破棄しました。新しい制作IDを発行しました。' });
+    } catch (error) {
+      setProductionId('');
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : '新しい制作IDを生成できません。' });
+    }
+  }, [canDiscardIntent, submitting]);
+
+  const handleSubmit = useCallback(async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (submitting || validationErrors.length > 0) return;
+    const currentId = productionId.trim();
+    const currentTitle = title.trim();
+    if (!currentId || !currentTitle) {
+      setMessage({ type: 'error', text: 'タイトルを入力してください。' });
+      return;
+    }
+    setSubmitting(true);
+    setMessage({ type: 'info', text: created ? '選択した動画を順番に取込中です。' : '制作を作成しています。' });
+    try {
+      if (!created) {
+        if (!canCreateProduction()) {
+          setMessage({ type: 'info', text: '未保存の変更があるため、制作作成をキャンセルしました。' });
+          return;
+        }
+        // Persist before the POST so a lost response can be retried with the
+        // same backend id; never silently mint a second production.
+        persistPendingProductionCreateIntent({ productionId: currentId, title: currentTitle });
+        let creationConfirmed = false;
+        try {
+          await api.createProduction(currentId, currentTitle);
+          creationConfirmed = true;
+        } catch (error) {
+          if (isStudioApiResponseLoss(error)) {
+            try {
+              const reconciled = await api.production(currentId);
+              if (reconciled.id === currentId && reconciled.title === currentTitle) creationConfirmed = true;
+            } catch {
+              // Keep the intent until the exact GET succeeds or the user
+              // explicitly chooses the duplicate-risk discard action.
+            }
+          }
+          if (!creationConfirmed) {
+            setCanDiscardIntent(true);
+            const prefix = isStudioApiResponseLoss(error)
+              ? '作成応答が不明で、同じIDの制作もまだ確認できません。'
+              : error instanceof Error ? error.message : '制作を作成できませんでした。';
+            setMessage({ type: 'error', text: `${prefix}同じIDで再試行するか、保留情報を明示的に破棄してください。` });
+            return;
+          }
+        }
+        clearPendingProductionCreateIntent();
+        setCanDiscardIntent(false);
+        setCreated(true);
+      }
+
+      const ready = await onProductionReady(currentId);
+      if (!ready) {
+        setMessage({ type: 'error', text: items.length > 0 ? '制作は作成済みですが、動画取込前の再読込に失敗しました。再試行してください。' : '制作は作成済み・再読込失敗です。再試行してください。' });
+        return;
+      }
+
+      if (items.length === 0) {
+        setMessage({ type: 'success', text: '制作を作成しました。' });
+        closeDialog();
+        return;
+      }
+
+      let successCount = 0;
+      const failures: string[] = [];
+      for (const [index, item] of items.entries()) {
+        if (item.state === 'succeeded') {
+          successCount += 1;
+          continue;
+        }
+        setItems((current) => current.map((entry, itemIndex) => itemIndex === index
+          ? { ...entry, state: 'uploading', error: undefined }
+          : entry));
+        try {
+          const result = await api.importVideo(currentId, item.file);
+          successCount += 1;
+          setItems((current) => current.map((entry, itemIndex) => itemIndex === index
+            ? { ...entry, state: 'succeeded', deduplicated: result.deduplicated, error: undefined }
+            : entry));
+        } catch (error) {
+          const detail = error instanceof Error ? error.message : '取込に失敗しました';
+          failures.push(`${item.file.name}: ${detail}`);
+          setItems((current) => current.map((entry, itemIndex) => itemIndex === index
+            ? { ...entry, state: 'failed', error: detail }
+            : entry));
+        }
+      }
+      const reloaded = await onProductionReady(currentId);
+      if (!reloaded) {
+        setMessage({ type: 'error', text: '取込済み・再読込失敗です。制作画面の再読込を実行してください。' });
+        return;
+      }
+      if (failures.length > 0) {
+        setMessage({ type: 'error', text: `${successCount}件を取込済み。${failures.length}件は失敗しました。失敗した動画だけ再試行できます。` });
+        return;
+      }
+      setMessage({ type: 'success', text: items.length > 0 ? `${successCount}件の動画を追加しました。` : '制作を作成しました。' });
+      closeDialog();
+    } catch (error) {
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : '制作処理に失敗しました。' });
+    } finally {
+      setSubmitting(false);
+    }
+  }, [canCreateProduction, closeDialog, created, items, onProductionReady, productionId, submitting, title, validationErrors.length]);
+
+  return (
+    <dialog ref={dialogRef} className="new-production-dialog" aria-labelledby="new-production-title" onCancel={handleCancel}>
+      <form className="new-production-form" onSubmit={(event) => void handleSubmit(event)}>
+        <div className="panel-header">
+          <div><span className="section-kicker">NEW PRODUCTION</span><h2 id="new-production-title">新しい制作</h2></div>
+          <button className="button button-ghost" type="button" onClick={closeDialog} disabled={submitting} aria-label="新しい制作ダイアログを閉じる">閉じる</button>
+        </div>
+        <p className="panel-lead">制作を作成して、必要なら動画素材を順番に取り込みます。作成IDは応答が不明な場合も保持されます。</p>
+        <label className="field" htmlFor="new-production-title-input"><span>タイトル</span><input id="new-production-title-input" ref={titleRef} maxLength={120} value={title} disabled={submitting || created || canDiscardIntent} onChange={(event) => setTitle(event.target.value)} placeholder="例：Claude Code解説ショート" required /></label>
+        <label className="field" htmlFor="new-production-id-input"><span>作成ID（再試行時も同じ）</span><input id="new-production-id-input" value={productionId} readOnly disabled={submitting || created} aria-describedby="new-production-id-help" /><small id="new-production-id-help" className="field-help">production_＋UUIDの固定ID。手動変更はできません。</small></label>
+        <label className="field" htmlFor="new-production-files-input"><span>動画素材（任意、最大{MAX_VIDEO_IMPORT_FILES}個）</span><input id="new-production-files-input" ref={inputRef} type="file" accept=".mp4,.m4v,.mov,.mkv,.webm,.avi" multiple disabled={submitting} onChange={handleFileChange} /><small className="field-help">対応形式: mp4 / m4v / mov / mkv / webm / avi。1ファイル0より大きく2 GiB以下。選択順に1件ずつ取込みます。</small></label>
+        {validationErrors.length > 0 && <div className="validation-list" role="alert">{validationErrors.map((error) => <div key={error}>・{error}</div>)}</div>}
+        <ImportFileList items={items} />
+        {message && <div className={`inline-message is-${message.type}`} role={message.type === 'error' ? 'alert' : 'status'} aria-live="polite">{message.text}</div>}
+        <div className="button-row new-production-actions">
+          <button className="button button-primary" type="submit" disabled={submitting || !productionId || !title.trim() || validationErrors.length > 0}>{submitting ? '処理中…' : created && items.some((item) => item.state === 'failed') ? '失敗した動画を再試行' : '制作を作成'}</button>
+          <button className="button button-secondary" type="button" onClick={closeDialog} disabled={submitting}>キャンセル</button>
+        </div>
+        {canDiscardIntent && <button className="button button-ghost new-production-discard" type="button" disabled={submitting} onClick={discardPendingIntent}>保留情報を破棄（別IDになる可能性あり）</button>}
+      </form>
+    </dialog>
+  );
+}
+
 function App() {
   const [health, setHealth] = useState<HealthStatus>({ healthy: false, message: '確認中' });
   const [productions, setProductions] = useState<ProductionSummary[]>([]);
@@ -559,12 +1003,15 @@ function App() {
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState('');
   const [unsavedAnnouncementProductionId, setUnsavedAnnouncementProductionId] = useState<string>();
+  const [newProductionOpen, setNewProductionOpen] = useState(false);
+  const [cancellingJobIds, setCancellingJobIds] = useState<Set<string>>(() => new Set());
+  const [jobActionMessage, setJobActionMessage] = useState<string>();
   const selectedIdRef = useRef<string | undefined>(selectedId);
   const detailRequestRef = useRef<{ id: string; generation: number; controller: AbortController } | undefined>(undefined);
   const detailRequestGenerationRef = useRef(0);
   selectedIdRef.current = selectedId;
 
-  const loadDashboard = useCallback(async () => {
+  const loadDashboard = useCallback(async (): Promise<boolean> => {
     setLoading(true);
     setError(undefined);
     const results = await Promise.allSettled([api.health(), api.productions(), api.jobs(), api.providers()]);
@@ -585,10 +1032,11 @@ function App() {
       setError(failures.map((failure) => failure.reason instanceof Error ? failure.reason.message : String(failure.reason)).join(' / '));
     }
     setLoading(false);
+    return failures.length === 0;
   }, []);
 
-  const loadDetail = useCallback(async (id: string, signal?: AbortSignal) => {
-    if (selectedIdRef.current !== id) return;
+  const loadDetail = useCallback(async (id: string, signal?: AbortSignal): Promise<boolean> => {
+    if (selectedIdRef.current !== id) return false;
     detailRequestRef.current?.controller.abort();
     const controller = new AbortController();
     const generation = detailRequestGenerationRef.current + 1;
@@ -605,15 +1053,17 @@ function App() {
         controller.signal.aborted
         || selectedIdRef.current !== id
         || detailRequestRef.current?.generation !== generation
-      ) return;
+      ) return false;
       setDetail(loaded);
+      return true;
     } catch (loadError) {
       if (signal?.aborted) throw loadError;
-      if (controller.signal.aborted || detailRequestRef.current?.generation !== generation) return;
+      if (controller.signal.aborted || detailRequestRef.current?.generation !== generation) return false;
       // Keep the last known detail mounted during a polling failure so an
       // active provider task does not reset the form or recovery controls.
       setDetail((current) => current?.id === id ? current : undefined);
       setDetailError(loadError instanceof Error ? loadError.message : '制作情報を取得できませんでした');
+      return false;
     } finally {
       signal?.removeEventListener('abort', relayAbort);
       if (detailRequestRef.current?.generation === generation) {
@@ -683,6 +1133,59 @@ function App() {
   const reloadSelectedDetail = useCallback(async (signal?: AbortSignal) => {
     if (selectedDetailId) await loadDetail(selectedDetailId, signal);
   }, [loadDetail, selectedDetailId]);
+  const reloadSelectedDetailWithStatus = useCallback(async (signal?: AbortSignal): Promise<boolean> => {
+    if (!selectedDetailId) return false;
+    return loadDetail(selectedDetailId, signal);
+  }, [loadDetail, selectedDetailId]);
+
+  const refreshProductionAfterMutation = useCallback(async (productionId: string): Promise<boolean> => {
+    selectedIdRef.current = productionId;
+    setSelectedId(productionId);
+    const dashboardLoaded = await loadDashboard();
+    // loadDashboard may have received a stale list while the create/import
+    // response is settling. Keep the requested id selected for the detail GET.
+    selectedIdRef.current = productionId;
+    setSelectedId(productionId);
+    const detailLoaded = await loadDetail(productionId);
+    return dashboardLoaded && detailLoaded;
+  }, [loadDashboard, loadDetail]);
+
+  const openNewProductionDialog = useCallback(() => {
+    setNewProductionOpen(true);
+  }, []);
+
+  const canCreateProduction = useCallback(() => {
+    if (unsavedAnnouncementProductionId !== selectedId) return true;
+    if (!window.confirm('告知動画の未保存変更を破棄して、新しい制作を作成しますか？')) return false;
+    setUnsavedAnnouncementProductionId(undefined);
+    return true;
+  }, [selectedId, unsavedAnnouncementProductionId]);
+
+  const cancelJob = useCallback(async (job: Job) => {
+    if (cancellingJobIds.has(job.id)) return;
+    if (!window.confirm(`Job ${job.id} の停止を要求しますか？実行中のworkerが終了するまで状態は確定しません。`)) return;
+    setCancellingJobIds((current) => new Set(current).add(job.id));
+    setJobActionMessage(`Job ${job.id} の停止要求を送信中です。`);
+    try {
+      const response = await api.cancelJob(job.id);
+      const serverStatus = response.job?.status ?? response.status;
+      setJobActionMessage(response.workerRetired === true
+        ? `Job ${job.id} は停止要求済み・worker終了を確認しました（${serverStatus ?? '状態を再確認中'}）。`
+        : serverStatus === 'cancelled'
+          ? `Job ${job.id} の中止状態をサーバーで確認しました。`
+        : `Job ${job.id} は停止要求済み・worker終了待ちです（${serverStatus ?? '状態を再確認中'}）。`);
+      await loadDashboard();
+      if (selectedIdRef.current) await loadDetail(selectedIdRef.current);
+    } catch (error) {
+      setJobActionMessage(`Job ${job.id} の停止要求に失敗しました：${error instanceof Error ? error.message : '不明なエラー'}`);
+    } finally {
+      setCancellingJobIds((current) => {
+        const next = new Set(current);
+        next.delete(job.id);
+        return next;
+      });
+    }
+  }, [cancellingJobIds, loadDashboard, loadDetail]);
   const updateSelectedAnnouncementDirty = useCallback((dirty: boolean) => {
     if (!selectedDetailId) return;
     setUnsavedAnnouncementProductionId((current) => (
@@ -719,6 +1222,10 @@ function App() {
             <span>{health.degraded ? '監査ログ 要確認' : health.healthy ? 'API 接続中' : 'API 未接続'}</span>
             {health.version && <small>v{health.version}</small>}
           </div>
+          <button className="button button-primary" type="button" onClick={openNewProductionDialog} aria-haspopup="dialog">
+            <span aria-hidden="true">＋</span>
+            新しい制作
+          </button>
           <button className="button button-secondary" onClick={() => void refreshIndex()} disabled={refreshing}>
             <span aria-hidden="true">↻</span>
             {refreshing ? '更新中…' : 'インデックス更新'}
@@ -726,7 +1233,7 @@ function App() {
         </div>
       </header>
 
-      {activeJobs.length > 0 && <JobsStrip jobs={activeJobs} productions={productions} />}
+      {(activeJobs.length > 0 || jobActionMessage) && <JobsStrip jobs={activeJobs} productions={productions} cancellingJobIds={cancellingJobIds} onCancelJob={cancelJob} actionMessage={jobActionMessage} />}
 
       <div className="studio-layout">
         <aside className="production-sidebar" aria-label="制作一覧">
@@ -803,22 +1310,37 @@ function App() {
               jobs={jobs.filter((job) => job.productionId === detail.id)}
               providers={providers}
               onReload={reloadSelectedDetail}
+              onReloadStatus={reloadSelectedDetailWithStatus}
               onAnnouncementDirtyChange={updateSelectedAnnouncementDirty}
             />
           )}
         </main>
       </div>
+      <NewProductionDialog open={newProductionOpen} onClose={() => setNewProductionOpen(false)} onProductionReady={refreshProductionAfterMutation} canCreateProduction={canCreateProduction} />
     </div>
   );
 }
 
-function JobsStrip({ jobs, productions }: { jobs: Job[]; productions: ProductionSummary[] }) {
+function JobsStrip({
+  jobs,
+  productions,
+  cancellingJobIds,
+  onCancelJob,
+  actionMessage,
+}: {
+  jobs: Job[];
+  productions: ProductionSummary[];
+  cancellingJobIds: Set<string>;
+  onCancelJob: (job: Job) => Promise<void>;
+  actionMessage?: string;
+}) {
   return (
     <section className="jobs-strip" aria-label="実行中のジョブ">
-      <span className="jobs-strip-label"><span className="pulse" aria-hidden="true" />実行中</span>
+      <span className="jobs-strip-label"><span className="pulse" aria-hidden="true" />{jobs.length > 0 ? '実行中' : 'ジョブ操作'}</span>
       <div className="jobs-list">
         {jobs.slice(0, 4).map((job) => {
           const production = productions.find((item) => item.id === job.productionId);
+          const cancelling = cancellingJobIds.has(job.id);
           return (
             <div className="job-item" key={job.id}>
               <span>{production?.title ?? job.productionId ?? job.type}</span>
@@ -829,15 +1351,19 @@ function JobsStrip({ jobs, productions }: { jobs: Job[]; productions: Production
                 </div>
               )}
               <small>{job.progress !== undefined ? `${Math.round(job.progress)}%` : STATUS_LABEL[job.status]}</small>
+              <button className="button button-danger job-cancel-button" type="button" disabled={cancelling} onClick={() => void onCancelJob(job)} aria-label={`Job ${job.id} の停止を要求`}>
+                {cancelling ? '停止要求中…' : '停止'}
+              </button>
             </div>
           );
         })}
       </div>
+      {actionMessage && <p className="jobs-action-message" role="status" aria-live="polite">{actionMessage}</p>}
     </section>
   );
 }
 
-function ProductionWorkspace({ detail, jobs, providers, onReload, onAnnouncementDirtyChange }: { detail: ProductionDetail; jobs: Job[]; providers: ProviderStatus[]; onReload: (signal?: AbortSignal) => Promise<void>; onAnnouncementDirtyChange: (dirty: boolean) => void }) {
+function ProductionWorkspace({ detail, jobs, providers, onReload, onReloadStatus, onAnnouncementDirtyChange }: { detail: ProductionDetail; jobs: Job[]; providers: ProviderStatus[]; onReload: (signal?: AbortSignal) => Promise<void>; onReloadStatus: (signal?: AbortSignal) => Promise<boolean>; onAnnouncementDirtyChange: (dirty: boolean) => void }) {
   const [tab, setTab] = useState<DetailTab>('announcement');
   const [announcementDirty, setAnnouncementDirty] = useState(false);
   const latestRun = [...detail.runs].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))[0];
@@ -919,7 +1445,7 @@ function ProductionWorkspace({ detail, jobs, providers, onReload, onAnnouncement
       <div className="tab-content" id="production-tabpanel" role="tabpanel" aria-labelledby={`production-tab-${tab}`}>
         {tab === 'overview' && <Overview detail={detail} latestRun={latestRun} onReload={onReload} />}
         {tab === 'pipeline' && <LocalPipelinePanel detail={detail} jobs={jobs} onReload={onReload} />}
-        {tab === 'announcement' && <AnnouncementVideoPanel key={detail.id} detail={detail} jobs={jobs} onReload={onReload} onDirtyChange={updateAnnouncementDirty} />}
+        {tab === 'announcement' && <AnnouncementVideoPanel key={detail.id} detail={detail} jobs={jobs} onReload={onReload} onReloadStatus={onReloadStatus} onDirtyChange={updateAnnouncementDirty} />}
         {tab === 'detailed-test' && <DetailedTestVideoPanel key={detail.id} detail={detail} jobs={jobs} onReload={onReload} />}
         {tab === 'video' && <VideoGenerationPanel detail={detail} jobs={jobs} onReload={onReload} />}
         {tab === 'capture' && <CaptureTab detail={detail} jobs={jobs} onReload={onReload} />}
@@ -2992,7 +3518,7 @@ type AnnouncementJobBinding = {
   job: Job;
 };
 
-function AnnouncementVideoPanel({ detail, jobs, onReload, onDirtyChange }: { detail: ProductionDetail; jobs: Job[]; onReload: (signal?: AbortSignal) => Promise<void>; onDirtyChange: (dirty: boolean) => void }) {
+function AnnouncementVideoPanel({ detail, jobs, onReload, onReloadStatus, onDirtyChange }: { detail: ProductionDetail; jobs: Job[]; onReload: (signal?: AbortSignal) => Promise<void>; onReloadStatus: (signal?: AbortSignal) => Promise<boolean>; onDirtyChange: (dirty: boolean) => void }) {
   const videoArtifacts = useMemo(() => detail.artifacts.filter(isAvailableVideoArtifact), [detail.artifacts]);
   const firstSaved = detail.announcementRecipes[0];
   const initialDraft = firstSaved ? announcementDraftFromRecord(firstSaved) : newAnnouncementDraft(videoArtifacts);
@@ -3614,6 +4140,7 @@ function AnnouncementVideoPanel({ detail, jobs, onReload, onDirtyChange }: { det
   return (
     <div className="announcement-grid">
       <div>
+        <VideoAssetImportPanel productionId={detail.id} currentVideoCount={videoArtifacts.length} onReload={onReloadStatus} />
         <section className={`panel announcement-panel editor-${activeEditorMode}`}>
           {activeEditorMode === 'quick' ? (
             <><div className="panel-header"><div><span className="section-kicker">QUICK CREATE</span><h3>かんたん作成</h3></div><span className="tag">{formatMilliseconds(normalized.outputDurationMs)} · 縦型 · 費用0円</span></div><p className="panel-lead">動画を3つ選び、伝える言葉を入れるだけ。保存、ローカル音声、字幕、編集、技術QCまでまとめて進めます。</p></>

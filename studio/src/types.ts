@@ -26,6 +26,13 @@ export interface ProductionSummary {
   raw: Record<string, unknown>;
 }
 
+/** Exact request body for creating a production from the Studio UI. */
+export interface ProductionCreatePayload {
+  schema_version: 1;
+  production_id: string;
+  title: string;
+}
+
 export interface RunStage {
   id: string;
   name: string;
@@ -567,6 +574,20 @@ export interface WindowsCaptureCancelResponse {
   job?: Job;
   cancelRequested: boolean;
   workerRetired: boolean;
+  raw: Record<string, unknown>;
+}
+
+export interface ArtifactImportResponse {
+  artifact?: Artifact;
+  deduplicated: boolean;
+  raw: Record<string, unknown>;
+}
+
+export interface JobCancellationResponse {
+  job?: Job;
+  status?: string;
+  cancelRequested?: boolean;
+  workerRetired?: boolean;
   raw: Record<string, unknown>;
 }
 

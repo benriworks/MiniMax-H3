@@ -2,13 +2,17 @@
 
 ## 目的
 
-MiniMaxH3 Studioは、制作案件、ログ、中間成果物、費用、承認履歴を1か所で確認するためのローカルWebアプリです。チャットは企画と監督の窓口、Studioは実行状態と証跡を保持する制御盤として分離します。`一括生成`タブからは新しいH3素材を含む固定local-only経路を、`詳細一括`タブからは登録済み素材を使うSAPI／Remotion／assembly／QC経路を、それぞれ一つのRunとして実行できます。既定の`かんたん作成`タブは後者をHOOK／MESSAGE／CTAの固定3シーンへ絞り、保存・一括実行を3段階の入力で案内します。同じ画面の`詳細設定`はtrim、素材音、映像補正、音声、字幕を調整でき、どちらも同じ告知recipeと実行記録を共有します。
+MiniMaxH3 Studioは、制作案件、ログ、中間成果物、費用、承認履歴を1か所で確認するためのローカルWebアプリです。チャットは企画と監督の窓口、Studioは実行状態と証跡を保持する制御盤として分離します。Studio内で新しい制作を作り、ローカル動画を安全に取り込んでから、`一括生成`タブでは新しいH3素材を含む固定local-only経路を、`詳細一括`タブでは登録済み素材を使うSAPI／Remotion／assembly／QC経路を、それぞれ一つのRunとして実行できます。既定の`かんたん作成`タブは後者をHOOK／MESSAGE／CTAの固定3シーンへ絞り、保存・一括実行を3段階の入力で案内します。同じ画面の`詳細設定`はtrim、素材音、映像補正、音声、字幕を調整でき、どちらも同じ告知recipeと実行記録を共有します。実行中Jobは汎用停止APIから明示的に停止要求でき、Codex／CLIは画面と同じ告知契約を1コマンドで実行できます。
 
 このMVPはPowerDirectorのような汎用ノンリニア編集ソフトではありません。既存の`productions/`と`outputs/productions/`を読み込み、制作記録の閲覧、再実行計画、承認、監査exportを扱う土台です。Windows SAPIによるローカルナレーションworker、ElevenLabs Multilingual v2の文字時刻付き外部TTS worker、固定workflowによるローカルComfyUI MiniMax H3動画worker、isolated Chromiumでloopback Webページを縦動画へ記録するPlaywright画面収録worker、明示同意付きでWindowsの物理プライマリ画面と既定再生system audioを記録するnative capture worker、登録済み動画をトリムして順序付きハードカットへ連結するFFmpeg timeline worker、fade／素材音量／固定テロップと同一compositionのPlayer previewを備えたRemotion詳細timeline worker、既存4 workerを束ねる詳細テスト動画orchestrator、そのcontractへcompileする告知動画recipe、音声・字幕合成worker、完成masterのローカルtechnical QC workerまでを実装済みです。任意window／device／microphone収録、任意track／effect／componentを扱う汎用編集、MiniMax外部APIのStudio workerは後続段階です。
 
 ## MVPでできること
 
 - 制作一覧と案件詳細をローカルブラウザで確認する。
+- `新しい制作`から、応答消失後も再利用する`production_`＋32桁hexの安定IDと120文字以内のタイトルでoutput-owned productionを作成する。ID／タイトルの保留intentはversioned `localStorage`へPOST前に保存し、exact GETで両方が一致した場合だけ応答消失から復旧する。
+- 新規制作時または既存制作の`動画素材を追加`から、対応動画を最大16件、1件ずつraw bodyで取り込む。各fileは0より大きく2 GiB以下、拡張子は`mp4`／`m4v`／`mov`／`mkv`／`webm`／`avi`へ閉じる。
+- 取込videoをproduction内hidden partialへstreamし、SHA-256とffprobeのvideo／container検証後だけcontent-addressed importとしてatomic publishする。同じbytesは元名や互換拡張子が違っても1 artifactへdedupeする。
+- 実行中Jobへ明示停止を要求し、最新Job、停止要求の有無、worker退役の有無を別々に確認する。クライアントはprocess、provider、force、timeoutを指定できない。
 - run、工程、イベント、費用、承認状態を分けて表示する。
 - 動画、音声、画像、字幕、JSON、JSONL、一般テキストログなどの中間成果物を確認する。安全な構造化redactionを保証できない設定・markup形式はpathとmetadataだけを表示する。
 - 動画、音声、画像のA/B比較と、対応するmedia同士の再生、停止、時刻合わせを行う。
@@ -60,6 +64,7 @@ MiniMaxH3 Studioは、制作案件、ログ、中間成果物、費用、承認�
 - stage attemptと実行jobの永続リンク、queued/running/succeeded/failed、所要時間、cache hit、provider、task ID、実費、timing source、成果物hashをUIと監査記録で追跡する。
 - 同一入力の成功cacheをhash検証後に再利用し、改変・欠落時は再生成する。
 - `test-video` CLIから、索引更新、0円Run作成、narration、1カットtimeline、assembly、technical QCを順番に実行し、完成MP4と監査識別子を1つのJSONで受け取る。
+- `quick-create` CLIから、versioned request、workspace lock、索引更新、告知recipe CAS保存、Detailed top実行、2秒間隔のterminal照合を1コマンドで行い、本文や絶対pathを含まない完成master／QC summaryを受け取る。
 
 MVPが行わないこと:
 
@@ -75,6 +80,32 @@ MVPが行わないこと:
 通常の課金対象requested stageを含むrunには正の見積額が必須です。0以下または未指定の見積はfail closedで拒否し、runを残しません。`local_sapi`はnarration、captions、timeline、assembly、qcだけを対象にする0円profileです。詳細一括は専用endpointからこのprofileのimmutable Runを作り、4 workerを束ねます。`elevenlabs_tts`はnarrationを必須とし、narration、captions、assembly、qcだけを対象にする課金profileです。`local_comfyui`はvideo_generationを必須とし、video_generation、timeline、assembly、qcを対象にする0円profileです。`local_playwright`はscreen_captureを必須とし、screen_captureとtimelineだけを実行可能にする0円profileです。`local_playwright`のassembly／qcは影響工程としてRun計画に残りますが、このprofileでは実行しません。`local_pipeline`は専用endpointからのみ作成する、6 requested stage／5 executed stageの固定local-only 0円profileです。ElevenLabs、MiniMax API、費用approvalは詳細一括と`local_pipeline`のどちらにも到達しません。
 
 告知recipeの保存と複製はversion eventを追記するだけで、media workerを開始しません。`かんたん作成`はfrontendのpresentation layerで、独自APIを持たず、既存の告知recipe保存→`execute`を共有します。保存済みexact revisionを実行した場合だけDetailed Test Videoの0円`local_sapi` Run／top Jobを作成または再利用し、詳細設定と同じRun／Job／artifact／QC／event／監査exportへ記録します。新しいendpoint、worker、lane、DB schemaは追加せず、ElevenLabs、MiniMax API、ComfyUI、費用approvalへも到達しません。
+
+## 制作作成、動画取込、Job停止
+
+新しい制作と素材追加のHTTP境界は次のとおりです。すべて通常のloopback Host、session cookie、same-origin検査を通ります。
+
+| Method / path | exact request | response / 役割 |
+|---|---|---|
+| `POST /api/productions` | JSON `schema_version`、`production_id`、`title` | `201`。同一ID＋同一タイトルは既存productionへ冪等収束し、異なるタイトルやtracked台帳との衝突は`409` |
+| `POST /api/productions/{production_id}/artifacts/import-video` | raw body、`Content-Length`、`Content-Type`、canonical percent-encoded `X-Studio-Filename-Encoded` | `201`。検証・publish・索引更新後のartifactと`deduplicated` |
+| `POST /api/jobs/{job_id}/cancel` | JSON `{"schema_version":1}` | `202`。最新Job、`cancel_requested`、`worker_retired` |
+
+frontendは上記のstatus codeとresponse identityを再検証します。制作作成は要求したID／title、動画取込はproduction／`origin=output`／video／制御された相対path／bytes／SHA-256、停止は要求したJob IDとbooleanの`cancel_requested`／`worker_retired`が完全に揃った場合だけ成功として扱います。HTTPが成功でも別identityまたは欠落fieldなら`invalid_*_response`で停止します。
+
+production制御ファイルは`outputs/productions/<id>/.studio-production.json`です。schema v1は`schema_version`、`production_id`、`title`、`imports`だけを持ち、`imports`は`imports/<digest-prefix>_<safe-name>`から大文字SHA-256へのmapです。Indexerはこのファイルをartifactとして列挙せず、titleとimport hashだけを読みます。公開artifactは常に`origin=output`で、通常のstable relative-path IDを使うため、Studio再起動やSQLite削除後の索引再構築でも同じartifact IDへ戻ります。
+
+video uploadはchunked transferを受けず、宣言済み`Content-Length`まで1 MiBずつ読みます。非公開partialは同じproduction配下へ作り、完了前に外部pathへ移しません。video streamと拡張子に対応するcontainerをffprobeで確認してから、同一volumeのhard linkでatomic publishし、制御metadataをatomic replaceします。失敗時はそのrequestが所有するpartialと、metadata確定前に新設したdestinationだけを清掃します。Studio起動時も、正規表現に一致するproduction内partialとmetadata partialだけを削除し、未知fileやsymlinkがあればfail closedにします。import mutationはservice内lockで直列化し、同時requestのmetadata lost updateを防ぎます。
+
+停止APIはJobManagerの既存cancel treeを使います。queued／runningまたはworker laneへadmit済みのJobだけへ停止要求を出し、terminal Jobは副作用なしで現在値を返します。`worker_retired=false`は停止要求が未受理という意味ではなく、response時点でworker終了待ちであることを示します。UIは停止後にJob一覧と選択productionを再取得します。
+
+2026-08-31の本slice最終検証では、Python全526件が合格（Windows上でnon-Windows専用1件をskip）、frontend 124/124件、本番build、`py_compile`、`git diff --check`が成功しました。実ffmpegで作った64×64・0.25秒・1,748 bytesのMP4も実ffprobe経路へ通し、SHA-256 `58993030263742D59A42FE1AA77A8FD159B331780A4FF6227A6407F4D585725E`で初回取込を確認しました。Chromeで新規制作dialogの初期focus、固定read-only ID、キャンセル後focus復帰、既存制作の動画追加panelも確認し、制作作成POSTや実Job停止は行っていません。2 GiB級の長時間uploadと実GPU稼働中Jobの汎用停止は実機負荷試験の残課題です。
+
+## Codex／CLI Quick Create
+
+`python -m tools.studio.cli quick-create <request.json>`は、画面の`かんたん作成`と同じ告知recipe／Detailed Test Video経路を操作するcontrol-plane commandです。request schema v1は`schema_version`、既存`production_id`、事前発行した`recipe_id`、`expected_revision`、exact `recipe`、任意の1〜3,600秒`timeout_seconds`だけを許可します。入力fileは256 KiB以下のUTF-8 JSONとし、duplicate key、非有限数、余分なfieldを拒否します。
+
+CLIはworkspace lockを保持したまま、索引更新、CAS保存、exact revision実行、top Job照合を同じmonotonic deadline内で行います。terminal照合は2秒より高頻度にできません。成功JSONはproduction／recipe version／Run／Job／revision ID、request key、4 childのID／cache hit、masterとQC文書の相対path／bytes／SHA-256、technical passだけを返します。ナレーション、見出し、provider診断、絶対pathは標準出力・標準エラーへ複製しません。exit codeは成功`0`、validation／worker／timeout`2`、technical QC non-pass`3`です。
 
 ## かんたん作成（Announcement Video v1）
 

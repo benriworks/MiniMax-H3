@@ -283,3 +283,27 @@ test('Windows native capture cancellation posts an exact empty object', async ()
     globalThis.fetch = originalFetch;
   }
 });
+
+test('new production wizard persists a validated stable id and reconciles a lost create response', () => {
+  assert.match(appSource, /production_＋UUIDの固定ID/);
+  assert.match(appSource, /PRODUCTION_ID_PATTERN/);
+  assert.match(appSource, /schema_version: PENDING_PRODUCTION_CREATE_SCHEMA_VERSION/);
+  assert.match(appSource, /persistPendingProductionCreateIntent\(\{ productionId: currentId, title: currentTitle \}\)/);
+  assert.match(appSource, /isStudioApiResponseLoss\(error\)[\s\S]{0,500}api\.production\(currentId\)/);
+  assert.match(appSource, /reconciled\.id === currentId && reconciled\.title === currentTitle/);
+  assert.match(appSource, /disabled=\{submitting \|\| created \|\| canDiscardIntent\}/);
+  assert.match(appSource, /保留情報を破棄（別IDになる可能性あり）/);
+  assert.match(appSource, /未保存変更を破棄して、新しい制作を作成しますか？/);
+});
+
+test('new production wizard keeps dirty announcement edits until the guarded POST', () => {
+  const openSource = appSource.slice(
+    appSource.indexOf('const openNewProductionDialog'),
+    appSource.indexOf('const canCreateProduction'),
+  );
+  assert.match(openSource, /setNewProductionOpen\(true\)/);
+  assert.doesNotMatch(openSource, /setUnsavedAnnouncementProductionId/);
+  assert.match(appSource, /if \(!canCreateProduction\(\)\)/);
+  assert.match(appSource, /setUnsavedAnnouncementProductionId\(undefined\)/);
+  assert.match(appSource, /<VideoAssetImportPanel productionId=\{detail\.id\}/);
+});

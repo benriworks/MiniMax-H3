@@ -10,7 +10,7 @@ import secrets
 import threading
 import uuid
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, BinaryIO, Callable
 
 from .assembly_execution import (
     LocalAssemblyError,
@@ -77,6 +77,18 @@ from .detailed_test_video import (
     validate_detailed_test_video_payload,
 )
 from .indexer import ProductionIndexer
+from .production_intake import (
+    ProductionIntakeError,
+    cleanup_stale_video_import_partials,
+    create_production_files,
+    stream_video_import,
+    validate_production_id,
+)
+from .job_control import (
+    JOB_CONTROL_SCHEMA_VERSION,
+    JobControlValidationError,
+    validate_job_cancel_payload,
+)
 from .jobs import AuditExporter, JobCancelled, JobExecutionContext, JobManager
 from .pipeline import (
     LOCAL_PIPELINE_JOB_KIND,
@@ -588,6 +600,7 @@ def build_rerun_plan(production_id: str, changes: list[Any]) -> dict[str, Any]:
 class StudioService:
     def __init__(self, workspace: Path, *, database_path: Path | None = None):
         self.workspace = workspace.resolve(strict=True)
+        cleanup_stale_video_import_partials(self.workspace)
         path = database_path or workspace_path(self.workspace, "outputs/studio/studio.sqlite3")
         path = workspace_path(self.workspace, path)
         self.database = StudioDatabase(path, workspace=self.workspace)
@@ -612,6 +625,7 @@ class StudioService:
         self._detailed_test_video_submit_lock = threading.Lock()
         self._local_video_submit_lock = threading.Lock()
         self._windows_capture_submit_lock = threading.Lock()
+        self._production_intake_lock = threading.Lock()
         self._pipeline_capability = object()
         self._announcement_narration_timing_capability = object()
         self._provider_recovery_lock = threading.Lock()
@@ -1078,6 +1092,121 @@ class StudioService:
     def list_productions(self) -> dict[str, Any]:
         productions = self.database.list_productions()
         return {"productions": productions, "count": len(productions)}
+
+    def create_production(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Create one output-owned production and immediately index it."""
+
+        with self._production_intake_lock:
+            try:
+                metadata, deduplicated, _created = create_production_files(
+                    self.workspace, body
+                )
+            except ProductionIntakeError as exc:
+                raise RequestValidationError(str(exc), code=exc.code) from exc
+            # The filesystem control document is the durable source of truth.
+            # If indexing fails after its own DB transaction commits, deleting
+            # the document would leave a phantom DB production.  Retain it so
+            # the same client-issued ID can be retried and re-indexed safely.
+            self.indexer.refresh_production(metadata["production_id"])
+            production = self.database.get_production(metadata["production_id"])
+            if production is None or production["title"] != metadata["title"]:
+                raise RuntimeError("created production was not indexed")
+            return {
+                "schema_version": 1,
+                "production": production,
+                "deduplicated": deduplicated,
+            }
+
+    def import_production_video(
+        self,
+        production_id: str,
+        *,
+        stream: BinaryIO,
+        filename_header: Any,
+        content_type: Any,
+        content_length: Any,
+    ) -> dict[str, Any]:
+        """Verify, publish, index, and audit one raw local video body."""
+
+        try:
+            normalized_id = validate_production_id(production_id)
+        except ProductionIntakeError as exc:
+            raise RequestValidationError(str(exc), code=exc.code) from exc
+        with self._production_intake_lock:
+            try:
+                imported = stream_video_import(
+                    self.workspace,
+                    normalized_id,
+                    stream=stream,
+                    filename_header=filename_header,
+                    content_type=content_type,
+                    content_length=content_length,
+                )
+            except ProductionIntakeError as exc:
+                if exc.code == "production_not_found":
+                    raise KeyError("production not found") from exc
+                raise RequestValidationError(str(exc), code=exc.code) from exc
+            self.indexer.refresh_production(normalized_id)
+            artifact = self.database.get_artifact(imported.artifact["id"])
+            if (
+                artifact is None
+                or not artifact["available"]
+                or artifact["production_id"] != normalized_id
+                or artifact["origin"] != "output"
+                or artifact["rel_path"] != imported.artifact["rel_path"]
+                or artifact["sha256"] != imported.artifact["sha256"]
+            ):
+                raise RuntimeError("imported video was not indexed consistently")
+            self.database.append_event(
+                "production",
+                normalized_id,
+                "production.media_imported",
+                {
+                    "artifact_id": artifact["id"],
+                    "sha256": artifact["sha256"],
+                    "bytes": artifact["bytes"],
+                    "deduplicated": imported.deduplicated,
+                },
+            )
+            return {
+                "schema_version": 1,
+                "artifact": artifact,
+                "deduplicated": imported.deduplicated,
+            }
+
+    def cancel_job(self, job_id: str, body: dict[str, Any]) -> dict[str, Any]:
+        """Cancel exactly one durable Job and report worker retirement truth.
+
+        The URL owns the only mutable identity.  The body cannot select a
+        process, provider task, timeout, or force mode; those relationships are
+        resolved from the admitted Job and its durable SQLite lineage.
+        """
+
+        validate_identifier(job_id, label="job id")
+        try:
+            validate_job_cancel_payload(body)
+        except JobControlValidationError as exc:
+            raise RequestValidationError(str(exc), code=exc.code) from exc
+        job = self.database.get_job(job_id)
+        if job is None:
+            raise KeyError("job not found")
+        was_active = bool(
+            job.get("status") in {"queued", "running"}
+            or self.jobs.is_admitted(job_id)
+        )
+        current = (
+            self.jobs.cancel_and_wait(job_id, timeout=0.25)
+            if was_active
+            else job
+        )
+        if current is None:
+            raise KeyError("job not found")
+        return {
+            "schema_version": JOB_CONTROL_SCHEMA_VERSION,
+            "job": current,
+            "cancel_requested": was_active,
+            "worker_retired": not self.jobs.is_admitted(job_id),
+        }
 
     def production_detail(
         self, production_id: str, *, artifact_limit: int = 5000, artifact_offset: int = 0
