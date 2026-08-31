@@ -96,6 +96,7 @@ import type { AnnouncementDuplicateIntent, AnnouncementSubmissionGuard } from '.
 import { TimelineComposition } from './remotion/TimelineComposition';
 import { buildRemotionTimelineCompositionProps } from './remotion/model';
 import { QuickCreateForm } from './QuickCreateForm';
+import { SimpleCreateWizard } from './SimpleCreateWizard';
 import type {
   Approval,
   AnnouncementRecipeRecord,
@@ -1005,6 +1006,7 @@ function App() {
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState('');
   const [unsavedAnnouncementProductionId, setUnsavedAnnouncementProductionId] = useState<string>();
+  const [simpleCreateOpen, setSimpleCreateOpen] = useState(false);
   const [newProductionOpen, setNewProductionOpen] = useState(false);
   const [cancellingJobIds, setCancellingJobIds] = useState<Set<string>>(() => new Set());
   const [jobActionMessage, setJobActionMessage] = useState<string>();
@@ -1156,6 +1158,15 @@ function App() {
     setNewProductionOpen(true);
   }, []);
 
+  const openSimpleCreateWizard = useCallback(() => {
+    setSimpleCreateOpen(true);
+  }, []);
+
+  const openAdvancedProductionDialog = useCallback(() => {
+    setSimpleCreateOpen(false);
+    setNewProductionOpen(true);
+  }, []);
+
   const canCreateProduction = useCallback(() => {
     if (!unsavedAnnouncementProductionId || unsavedAnnouncementProductionId !== selectedId) return true;
     if (!window.confirm('告知動画の未保存変更を破棄して、新しい制作を作成しますか？')) return false;
@@ -1233,8 +1244,12 @@ function App() {
             <span>{health.degraded ? '監査ログ 要確認' : health.healthy ? 'API 接続中' : 'API 未接続'}</span>
             {health.version && <small>v{health.version}</small>}
           </div>
-          <button className="button button-primary" type="button" onClick={openNewProductionDialog} aria-haspopup="dialog">
+          <button className="button button-primary" type="button" onClick={openSimpleCreateWizard} aria-haspopup="dialog">
             <span aria-hidden="true">＋</span>
+            かんたん制作
+          </button>
+          <button className="button button-secondary" type="button" onClick={openNewProductionDialog} aria-haspopup="dialog">
+            <span aria-hidden="true">◇</span>
             新しい制作
           </button>
           <button className="button button-secondary" onClick={() => void refreshIndex()} disabled={refreshing}>
@@ -1327,6 +1342,7 @@ function App() {
           )}
         </main>
       </div>
+      <SimpleCreateWizard open={simpleCreateOpen} onClose={() => setSimpleCreateOpen(false)} onAdvanced={openAdvancedProductionDialog} onProductionReady={refreshProductionAfterMutation} canCreateProduction={canCreateProduction} />
       <NewProductionDialog open={newProductionOpen} onClose={() => setNewProductionOpen(false)} onProductionReady={refreshProductionAfterMutation} canCreateProduction={canCreateProduction} />
     </div>
   );

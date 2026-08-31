@@ -3507,9 +3507,9 @@ export const api = {
     return items(value, ['items', 'productions', 'data']).map(normalizeProduction);
   },
 
-  async createProduction(productionId: string, title: string): Promise<ProductionSummary> {
+  async createProduction(productionId: string, title: string, signal?: AbortSignal): Promise<ProductionSummary> {
     const payload = buildProductionCreatePayload(productionId, title);
-    const value = await post<unknown>('/api/productions', payload, undefined, 201);
+    const value = await post<unknown>('/api/productions', payload, signal, 201);
     const root = asRecord(value);
     const candidate = pick(root, ['production', 'item', 'data']) ?? value;
     const production = normalizeProduction(candidate, 0);
@@ -3527,7 +3527,7 @@ export const api = {
     return production;
   },
 
-  async importVideo(productionId: string, file: File): Promise<ArtifactImportResponse> {
+  async importVideo(productionId: string, file: File, signal?: AbortSignal): Promise<ArtifactImportResponse> {
     const value = await request<unknown>(
       `/api/productions/${encodeURIComponent(productionId)}/artifacts/import-video`,
       {
@@ -3537,6 +3537,7 @@ export const api = {
           'Content-Type': file.type || 'application/octet-stream',
           'X-Studio-Filename-Encoded': encodeURIComponent(file.name),
         },
+        signal,
       },
       201,
     );
@@ -3928,12 +3929,12 @@ export const api = {
     return normalizeJob(value);
   },
 
-  async announcementRecipes(productionId: string): Promise<{
+  async announcementRecipes(productionId: string, signal?: AbortSignal): Promise<{
     recipes: AnnouncementRecipeRecord[];
     recipeVersions: AnnouncementRecipeRecord[];
     executions: AnnouncementExecutionRecord[];
   }> {
-    const value = await request<unknown>(`/api/productions/${encodeURIComponent(productionId)}/announcement-recipes`);
+    const value = await request<unknown>(`/api/productions/${encodeURIComponent(productionId)}/announcement-recipes`, { signal });
     const record = asRecord(value);
     return {
       recipes: items(pick(record, ['recipes']), ['items', 'recipes']).map(normalizeAnnouncementRecipeRecord),
