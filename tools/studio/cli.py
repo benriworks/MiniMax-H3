@@ -24,6 +24,11 @@ from .quick_create_project import (
 )
 from .secrets import PROVIDERS, SecretStorageUnavailable, SecretStore
 from .service import StudioService
+from .shot_orchestration import (
+    ShotProjectError,
+    load_shot_project_request,
+    run_shot_project,
+)
 from .test_video import TestVideoError, run_test_video
 
 
@@ -286,6 +291,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Create a production, import videos, and execute Quick Create",
     )
     quick_create_project.add_argument("request_file", type=Path)
+    shot_project = commands.add_parser(
+        "shot-project",
+        help="Generate three billable I2VA cuts and execute Quick Create",
+    )
+    shot_project.add_argument("request_file", type=Path)
     return parser
 
 
@@ -297,6 +307,8 @@ def main(argv: list[str] | None = None) -> int:
         return _run_quick_create_command(args)
     if args.command == "quick-create-project":
         return _run_quick_create_project_command(args)
+    if args.command == "shot-project":
+        return _run_shot_project_command(args)
 
     return _run_secret_command(args)
 
@@ -588,6 +600,80 @@ def _run_quick_create_project_command(args: argparse.Namespace) -> int:
             pending_error[0],
             context=pending_error[1],
         )
+    return exit_code
+
+
+def _run_shot_project_command(args: argparse.Namespace) -> int:
+    """Run the closed I2VA orchestration without reflecting prompts or paths."""
+
+    lock: WorkspaceInstanceLock | None = None
+    service: StudioService | None = None
+    exit_code = 2
+    pending_result: dict[str, Any] | None = None
+    pending_error: tuple[str, dict[str, Any]] | None = None
+    try:
+        workspace = args.workspace.resolve(strict=True)
+        request_file = args.request_file.absolute()
+        request = load_shot_project_request(request_file)
+        try:
+            lock = WorkspaceInstanceLock(workspace)
+        except StudioInstanceLockError:
+            pending_error = ("workspace_in_use", {})
+        else:
+            credential = SecretStore(workspace).resolve("minimax")
+            if credential is None:
+                raise ShotProjectError("minimax_credential_missing")
+            service = StudioService(workspace)
+            pending_result = run_shot_project(
+                service,
+                request,
+                workspace=workspace,
+                request_parent=request_file.parent,
+                api_key=credential,
+            )
+            exit_code = 0
+    except ShotProjectError as exc:
+        pending_error = (exc.code, {})
+        exit_code = 3 if exc.code == "technical_qc_failed" else 2
+    except (OSError, ValueError, TypeError, KeyError, SecretStorageUnavailable):
+        pending_error = ("shot_project_failed", {})
+        exit_code = 2
+    except Exception:
+        # The official provider may return prompt/path-bearing diagnostics.
+        # Keep the machine-facing stream limited to a fixed error code.
+        pending_error = ("shot_project_failed", {})
+        exit_code = 2
+    except KeyboardInterrupt:
+        pending_error = ("process_interrupted", {})
+        exit_code = 130
+    finally:
+        service_closed = service is None
+        if service is not None:
+            try:
+                service.close()
+            except Exception:
+                service_closed = False
+            else:
+                service_closed = True
+        if lock is not None:
+            if service_closed:
+                try:
+                    lock.close()
+                except Exception:
+                    _RETAINED_INSTANCE_LOCKS.append(lock)
+                    service_closed = False
+            else:
+                _RETAINED_INSTANCE_LOCKS.append(lock)
+        if not service_closed:
+            pending_result = None
+            pending_error = ("process_interrupted", {})
+            if exit_code != 130:
+                exit_code = 2
+
+    if exit_code == 0 and pending_result is not None:
+        _write_bounded_json(pending_result)
+    elif pending_error is not None:
+        _write_quick_create_error(pending_error[0], context=pending_error[1])
     return exit_code
 
 
