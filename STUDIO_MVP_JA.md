@@ -12,7 +12,7 @@ MiniMaxH3 Studioは、制作案件、ログ、中間成果物、費用、承認�
 - `新しい制作`から、応答消失後も再利用する`production_`＋32桁hexの安定IDと120文字以内のタイトルでoutput-owned productionを作成する。ID／タイトルの保留intentはversioned `localStorage`へPOST前に保存し、exact GETで両方が一致した場合だけ応答消失から復旧する。
 - 新規制作時または既存制作の`動画素材を追加`から、対応動画を最大16件、1件ずつraw bodyで取り込む。各fileは0より大きく2 GiB以下、拡張子は`mp4`／`m4v`／`mov`／`mkv`／`webm`／`avi`へ閉じる。
 - 取込videoをproduction内hidden partialへstreamし、SHA-256とffprobeのvideo／container検証後だけcontent-addressed importとしてatomic publishする。同じbytesは元名や互換拡張子が違っても1 artifactへdedupeする。
-- 実行中Jobへ明示停止を要求し、最新Job、停止要求の有無、worker退役の有無を別々に確認する。クライアントはprocess、provider、force、timeoutを指定できない。
+- 実行中Jobへ明示停止を要求し、最新Job、停止要求の有無、worker退役の有無を別々に確認する。worker退役待ちは同じexact Jobを2秒間隔・最大15回だけ再照合する。クライアントはprocess、provider、force、timeoutを指定できない。
 - run、工程、イベント、費用、承認状態を分けて表示する。
 - 動画、音声、画像、字幕、JSON、JSONL、一般テキストログなどの中間成果物を確認する。安全な構造化redactionを保証できない設定・markup形式はpathとmetadataだけを表示する。
 - 動画、音声、画像のA/B比較と、対応するmedia同士の再生、停止、時刻合わせを行う。
@@ -65,6 +65,7 @@ MiniMaxH3 Studioは、制作案件、ログ、中間成果物、費用、承認�
 - 同一入力の成功cacheをhash検証後に再利用し、改変・欠落時は再生成する。
 - `test-video` CLIから、索引更新、0円Run作成、narration、1カットtimeline、assembly、technical QCを順番に実行し、完成MP4と監査識別子を1つのJSONで受け取る。
 - `quick-create` CLIから、versioned request、workspace lock、索引更新、告知recipe CAS保存、Detailed top実行、2秒間隔のterminal照合を1コマンドで行い、本文や絶対pathを含まない完成master／QC summaryを受け取る。
+- `quick-create-project` CLIから、新規productionの冪等作成、request fileからの相対pathで指定したローカル動画1〜3件の逐次取込、`video_index`から取込済みartifactへのcompile、既存Quick Create実行を一つのdeadline内で行う。
 
 MVPが行わないこと:
 
@@ -93,19 +94,35 @@ MVPが行わないこと:
 
 frontendは上記のstatus codeとresponse identityを再検証します。制作作成は要求したID／title、動画取込はproduction／`origin=output`／video／制御された相対path／bytes／SHA-256、停止は要求したJob IDとbooleanの`cancel_requested`／`worker_retired`が完全に揃った場合だけ成功として扱います。HTTPが成功でも別identityまたは欠落fieldなら`invalid_*_response`で停止します。
 
+告知draftの破棄確認は、draftが選択中のproductionに紐付いている場合だけ行います。初回の新規作成では選択済みproductionも紐付き済みdraftもないため、`undefined === undefined`を同一draftと誤認して存在しない変更の破棄確認を出すことはありません。
+
 production制御ファイルは`outputs/productions/<id>/.studio-production.json`です。schema v1は`schema_version`、`production_id`、`title`、`imports`だけを持ち、`imports`は`imports/<digest-prefix>_<safe-name>`から大文字SHA-256へのmapです。Indexerはこのファイルをartifactとして列挙せず、titleとimport hashだけを読みます。公開artifactは常に`origin=output`で、通常のstable relative-path IDを使うため、Studio再起動やSQLite削除後の索引再構築でも同じartifact IDへ戻ります。
 
 video uploadはchunked transferを受けず、宣言済み`Content-Length`まで1 MiBずつ読みます。非公開partialは同じproduction配下へ作り、完了前に外部pathへ移しません。video streamと拡張子に対応するcontainerをffprobeで確認してから、同一volumeのhard linkでatomic publishし、制御metadataをatomic replaceします。失敗時はそのrequestが所有するpartialと、metadata確定前に新設したdestinationだけを清掃します。Studio起動時も、正規表現に一致するproduction内partialとmetadata partialだけを削除し、未知fileやsymlinkがあればfail closedにします。import mutationはservice内lockで直列化し、同時requestのmetadata lost updateを防ぎます。
 
-停止APIはJobManagerの既存cancel treeを使います。queued／runningまたはworker laneへadmit済みのJobだけへ停止要求を出し、terminal Jobは副作用なしで現在値を返します。`worker_retired=false`は停止要求が未受理という意味ではなく、response時点でworker終了待ちであることを示します。UIは停止後にJob一覧と選択productionを再取得します。
+停止APIはJobManagerのexact Job treeを使います。queued／runningまたはworker laneへadmit済みのJobだけへ停止要求を出し、terminal Jobは副作用なしで現在値を返します。operatorが1 Jobを停止するときは、そのJobがcancel contextへ登録したroot processとそのdescendant treeだけを終了します。サーバーprocess全体の未登録descendant sweepはJobManager全体のshutdownだけに限定し、後から別laneで開始したsibling Jobのprocessを巻き込みません。
 
-2026-08-31の本slice最終検証では、Python全526件が合格（Windows上でnon-Windows専用1件をskip）、frontend 124/124件、本番build、`py_compile`、`git diff --check`が成功しました。実ffmpegで作った64×64・0.25秒・1,748 bytesのMP4も実ffprobe経路へ通し、SHA-256 `58993030263742D59A42FE1AA77A8FD159B331780A4FF6227A6407F4D585725E`で初回取込を確認しました。Chromeで新規制作dialogの初期focus、固定read-only ID、キャンセル後focus復帰、既存制作の動画追加panelも確認し、制作作成POSTや実Job停止は行っていません。2 GiB級の長時間uploadと実GPU稼働中Jobの汎用停止は実機負荷試験の残課題です。
+`worker_retired=false`は停止要求が未受理という意味ではなく、response時点でworker終了待ちであることを示します。UIは同じexact endpointを2秒間隔・最大15回だけ再照合し、完了または上限後にJob一覧と選択productionを再取得します。同じRunの`local_pipeline`または`detailed_test_video`のtop Jobがactiveか停止照合中なら、全体停止は親だけを表示し、topのない孤立childだけをfallbackとして残します。
+
+2026-08-31の最新slice最終検証では、Python全541件が合格（Windows上でnon-Windows専用1件をskip）、frontend 129/129件、本番build、`py_compile`、`git diff --check`が成功しました。`quick-create-project`専用12件ではexact schema、相対path、共有deadline、response identity、source変更検知、部分成功後の冪等再実行、stdout／stderrのredactionを確認しました。さらに既存のH.264＋AAC素材3件を実serviceへ通し、production作成、逐次取込、SAPI、Remotion、assembly、QCを約150秒で完了しました。masterは14.500秒、1080×1920、24fps、H.264／yuv420p＋AAC 48kHz stereo、7,289,579 bytes、SHA-256 `8387C39E5B47395674E3552D88C92137324823934F36C739F7F72A7B732FF77C`でtechnical verdictは`pass`です。同じrequestの再実行は6.4秒で同一production、3 artifact、recipe version、Run、top Jobへ収束し、各deduplicated flagも`true`となりました。2 GiB級の長時間uploadと実GPU／provider稼働中Jobの汎用停止は実機負荷試験の残課題です。
 
 ## Codex／CLI Quick Create
 
 `python -m tools.studio.cli quick-create <request.json>`は、画面の`かんたん作成`と同じ告知recipe／Detailed Test Video経路を操作するcontrol-plane commandです。request schema v1は`schema_version`、既存`production_id`、事前発行した`recipe_id`、`expected_revision`、exact `recipe`、任意の1〜3,600秒`timeout_seconds`だけを許可します。入力fileは256 KiB以下のUTF-8 JSONとし、duplicate key、非有限数、余分なfieldを拒否します。
 
 CLIはworkspace lockを保持したまま、索引更新、CAS保存、exact revision実行、top Job照合を同じmonotonic deadline内で行います。terminal照合は2秒より高頻度にできません。成功JSONはproduction／recipe version／Run／Job／revision ID、request key、4 childのID／cache hit、masterとQC文書の相対path／bytes／SHA-256、technical passだけを返します。ナレーション、見出し、provider診断、絶対pathは標準出力・標準エラーへ複製しません。exit codeは成功`0`、validation／worker／timeout`2`、technical QC non-pass`3`です。
+
+`python -m tools.studio.cli quick-create-project <request.json>`は、この手前に新規production作成とローカル動画取込を追加したcontrol-plane commandです。exact schema v1は次のfieldだけを受けます。
+
+- `schema_version: 1`
+- `production: {id, title}`。IDは`production_`に32桁小文字hexを続ける。
+- `videos: [{path}]`の1〜3件。`path`はrequest JSONの論理的な親directoryを基準にするrelative regular fileとし、絶対path、drive指定、空component、`.`／`..`、NUL、過長、空file、2 GiB超を拒否する。request JSON自体がsymlinkでも、video pathはtargetではなく操作者が指定したlink側の親path基準とする。
+- `recipe_id`、`expected_revision`、exactなAnnouncement Video v1 `recipe`。ただし各3 sceneは`video_artifact_id`ではなく0-based integer `video_index`を持ち、選択した全video indexを1回以上参照する。
+- 任意の`timeout_seconds`（1〜3,600秒、既定600秒）。
+
+CLIはrequestを先に有界検証し、workspace lock内でproductionを冪等作成して索引を更新します。各sourceはopen中のfile descriptorから順次streamし、importと索引更新の後にfile identity／size／mtimeと消費bytesが変化していないことを再照合します。import responseはcontrolled `imports/`相対path、物理filename、SHA-256 prefix、stable artifact IDまで照合します。取込済みartifact IDをsceneへcompileした後だけ、既存`quick-create`のCAS保存、Detailed実行、terminal照合へ進みます。制作作成からterminal照合までを一つのmonotonic deadlineに閉じます。
+
+成功出力は`schema_version`、`production: {id, title, deduplicated}`、`videos: [{source_index, artifact_id, bytes, sha256, deduplicated}]`、既存のredacted `quick_create`結果です。source path／filename、recipe本文は出力とerrorに含めません。取込中や後段で失敗しても、成功済みproduction／importをrollbackや削除しません。同じID／title／source bytesで再実行し、productionの冪等作成と取込content dedupeによって中間状態から続行できます。これらの処理は新しいHTTP endpoint、worker、lane、DB schema、renderer、課金経路を追加せず、既存service contractを同一process内で順番に呼びます。
 
 ## かんたん作成（Announcement Video v1）
 

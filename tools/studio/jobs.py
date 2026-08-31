@@ -559,26 +559,37 @@ def _terminate_process_tree(pid: int, *, deadline: float | None = None) -> None:
 
 
 def _terminate_context_processes(
-    context: JobExecutionContext, *, deadline: float | None = None
+    context: JobExecutionContext,
+    *,
+    deadline: float | None = None,
+    include_unregistered_descendants: bool = False,
 ) -> None:
-    try:
-        baseline = context.baseline_processes()
-    except Exception:
-        baseline = set()
     try:
         pids = context.process_pids()
     except Exception:
         pids = set()
-    try:
-        descendants = _child_process_ids()
-    except Exception:
-        descendants = set()
-    for pid in sorted((pids | descendants) - baseline):
+    targets = set(pids)
+    if include_unregistered_descendants:
+        # The descendant fallback is safe only while the whole JobManager is
+        # shutting down. During an exact operator cancel, another execution
+        # lane may have started a child after this context's baseline; a
+        # process-wide sweep would then terminate work owned by that sibling
+        # Job. Registered roots already receive recursive tree termination.
+        try:
+            baseline = context.baseline_processes()
+        except Exception:
+            baseline = set()
+        try:
+            descendants = _child_process_ids()
+        except Exception:
+            descendants = set()
+        targets |= descendants - baseline
+    for pid in sorted(targets):
         try:
             _terminate_process_tree(pid, deadline=deadline)
         except Exception:
             # A broken process adapter or psutil implementation must not
-            # prevent later registered/descendant processes from being tried.
+            # prevent later registered/whole-manager descendants from being tried.
             continue
 
 
@@ -1656,7 +1667,11 @@ class JobManager:
             if wait_seconds <= 0:
                 # timeout=0 still gets one short, bounded kill attempt.
                 initial_deadline = time.monotonic() + _PROCESS_WAIT_TIMEOUT
-            _terminate_context_processes(context, deadline=initial_deadline)
+            _terminate_context_processes(
+                context,
+                deadline=initial_deadline,
+                include_unregistered_descendants=True,
+            )
 
         # Process termination always precedes a potentially blocked SQLite
         # writer.  The thread object was already published above; concurrent
@@ -1683,7 +1698,11 @@ class JobManager:
         threads = tuple(self._threads.values())
         while any(thread.is_alive() for thread in threads):
             for context in contexts:
-                _terminate_context_processes(context, deadline=deadline)
+                _terminate_context_processes(
+                    context,
+                    deadline=deadline,
+                    include_unregistered_descendants=True,
+                )
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 break
@@ -1696,7 +1715,11 @@ class JobManager:
         final_deadline = max(deadline, time.monotonic()) + _PROCESS_WAIT_TIMEOUT
         for context in contexts:
             for sweep in range(_FINAL_SWEEP_COUNT):
-                _terminate_context_processes(context, deadline=final_deadline)
+                _terminate_context_processes(
+                    context,
+                    deadline=final_deadline,
+                    include_unregistered_descendants=True,
+                )
                 if sweep + 1 < _FINAL_SWEEP_COUNT:
                     time.sleep(_FINAL_SWEEP_DELAY)
         # Do not let a database busy timeout extend shutdown indefinitely. The

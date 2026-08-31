@@ -30,7 +30,7 @@ flowchart LR
         StudioFrontend["studio/<br/>React / Vite source"]
         StudioBackend["tools/studio/<br/>local API / index / audit"]
         HttpLifecycle["server.py HTTP lifecycle<br/>Connection: close / parse-phase interruption<br/>parsed handler drain"]
-        ShutdownGate["service.py + jobs.py shutdown gate<br/>exact-ID sticky operator-cancel fence<br/>provider recovery / worker lanes / DB writer"]
+        ShutdownGate["service.py + jobs.py shutdown gate<br/>full-manager unregistered-descendant sweep<br/>provider recovery / worker lanes / DB writer"]
         ProviderRecovery["service.py startup recovery<br/>background scan / bounded observe"]
         PipelineContinuationCoordinator["service.py pipeline continuation<br/>exact repair + fair cancel retry<br/>manager-lock CAS fence / enqueue-only"]
         LocalPipelineContract["pipeline.py<br/>schema v4 / exact local payload / canonical key"]
@@ -42,7 +42,8 @@ flowchart LR
         AnnouncementTemplateUi["Studio かんたん作成 tab<br/>quick / detailed settings<br/>shared save / revision / clone / execute"]
         AnnouncementRequestGuard["announcementRecovery.ts + App request guard<br/>15s AbortSignal / selected generation<br/>deterministic clone ID / durable intent"]
         ProductionIntakeContract["production_intake.py<br/>exact create + bounded raw video import<br/>SHA-256 / ffprobe / atomic publish"]
-        JobControlContract["job_control.py + JobManager<br/>exact-ID cancel / child tree join<br/>requested vs worker-retired truth"]
+        JobControlContract["job_control.py + JobManager<br/>exact-ID registered process-tree cancel<br/>requested vs worker-retired truth"]
+        QuickCreateProjectContract["quick_create_project.py<br/>production + 1..3 relative videos<br/>indexed recipe / shared deadline / redaction"]
         StudioComfyContract["comfyui_execution.py<br/>fixed payload / provenance / cache contract"]
         StudioComfyWorker["comfyui.py<br/>pre-issued UUID / observe / resume / targeted cancel / cache"]
         NarrationWorker["tools/studio/narration.py<br/>validated SAPI worker / cache"]
@@ -64,7 +65,7 @@ flowchart LR
         AssemblyWorker["tools/studio/assembly.py<br/>validated FFmpeg worker / cache<br/>closed caption + audio mix presets"]
         QcWorker["tools/studio/qc.py<br/>technical QC v2 / cache<br/>loudness + peak + black hard checks<br/>long-static advisory"]
         SapiHelper["sapi_synthesize.ps1<br/>UTF-8 JSON IPC"]
-        StudioCli["tools.studio.cli<br/>secret + test-video + quick-create control"]
+        StudioCli["tools.studio.cli<br/>secret + test-video + quick-create<br/>quick-create-project control"]
         TestVideoOrchestrator["test_video.py<br/>ordered local orchestration<br/>bounded result"]
     end
 
@@ -213,12 +214,12 @@ flowchart LR
     StudioUi -->|"詳細設定 / muted Player preview"| AnnouncementTemplateUi
     AnnouncementTemplateUi -->|"save / duplicate / execute<br/>2s jobs / approx 6s production detail"| AnnouncementRequestGuard
     AnnouncementRequestGuard -->|"15s abort / selected production only<br/>stable save or clone identity<br/>fresh exact Job / then manual reconcile"| StudioBackend
-    StudioUi -->|"stable production ID + title intent<br/>sequential raw File upload"| ProductionIntakeContract
+    StudioUi -->|"stable production ID + title intent<br/>draft-bound discard guard<br/>sequential raw File upload"| ProductionIntakeContract
     StudioBackend -->|"session-protected create/import<br/>service-level intake lock"| ProductionIntakeContract
     ProductionIntakeContract -->|"production-local partial<br/>hash + ffprobe then hard-link publish"| ProductionArtifacts
     ProductionIntakeContract -->|"atomic exact metadata replace"| ProductionControlMetadata
     ProductionControlMetadata -->|"title + known import hashes<br/>control file excluded from artifacts"| StudioBackend
-    StudioUi -->|"POST /api/jobs/{id}/cancel<br/>schema_version only"| JobControlContract
+    StudioUi -->|"POST /api/jobs/{id}/cancel<br/>2s x 15 exact retirement rechecks<br/>top pipeline controls suppress children"| JobControlContract
     StudioBackend -->|"resolve exact durable lineage"| JobControlContract
     JobControlContract -->|"cancel requested + worker retirement<br/>terminal retry is a no-op"| StudioDb
     ProductionLedgers -->|"read / refresh index"| StudioBackend
@@ -368,6 +369,9 @@ flowchart LR
     StudioCli -->|"set / status / delete"| StudioSecrets
     StudioCli -->|"test-video / workspace lock"| TestVideoOrchestrator
     StudioCli -->|"quick-create / shared deadline<br/>CAS save + exact revision execute"| AnnouncementContract
+    StudioCli -->|"quick-create-project<br/>one workspace lock / path-private result"| QuickCreateProjectContract
+    QuickCreateProjectContract -->|"idempotent create + sequential import<br/>relative regular files / durable partial progress"| ProductionIntakeContract
+    QuickCreateProjectContract -->|"video_index -> verified artifact ID<br/>existing Quick Create execution"| AnnouncementContract
     TestVideoOrchestrator -->|"refresh + immutable local_sapi run<br/>narration -> timeline -> assembly -> QC"| StudioBackend
     StudioBackend -->|"terminal IDs / cache / hashes<br/>technical verdict"| TestVideoOrchestrator
     StudioSecrets -->|"configured status only"| StudioBackend
@@ -378,7 +382,7 @@ flowchart LR
     classDef external fill:#fff3df,stroke:#9a6300,color:#432b00;
     classDef secret fill:#ffe8ee,stroke:#9c284b,color:#481023;
 
-    class Setup,RuntimeLock,Downloader,ModelManifest,Doctor,Launcher,Metrics,LowWorkflow,TurboWorkflow,Q4TurboWorkflow,OfficialQ4Workflow,OfficialQ4TurboWorkflow,StudioApiWorkflow,ApiWrapper,ApiCli,ProductionLedgers,StudioSetup,StudioLauncher,StudioFrontend,StudioBackend,HttpLifecycle,ShutdownGate,ProviderRecovery,PipelineContinuationCoordinator,LocalPipelineContract,LocalPipelineOrchestrator,DetailedTestContract,DetailedTestOrchestrator,AnnouncementContract,QuickCreatePresentation,AnnouncementTemplateUi,AnnouncementRequestGuard,ProductionIntakeContract,JobControlContract,StudioComfyContract,StudioComfyWorker,NarrationWorker,ExternalTtsContract,ElevenLabsWorker,ScreenCaptureContract,ScreenCaptureWorker,PlaywrightDoctor,WindowsCaptureCapability,WindowsCaptureContract,WindowsCaptureWorker,WindowsCaptureHelperSource,TimelineWorker,RemotionContract,SourceFidelityPolicy,RemotionWorker,RemotionComposition,RemotionDoctor,AssemblyWorker,QcWorker,SapiHelper,StudioCli,TestVideoOrchestrator tracked;
+    class Setup,RuntimeLock,Downloader,ModelManifest,Doctor,Launcher,Metrics,LowWorkflow,TurboWorkflow,Q4TurboWorkflow,OfficialQ4Workflow,OfficialQ4TurboWorkflow,StudioApiWorkflow,ApiWrapper,ApiCli,ProductionLedgers,StudioSetup,StudioLauncher,StudioFrontend,StudioBackend,HttpLifecycle,ShutdownGate,ProviderRecovery,PipelineContinuationCoordinator,LocalPipelineContract,LocalPipelineOrchestrator,DetailedTestContract,DetailedTestOrchestrator,AnnouncementContract,QuickCreatePresentation,AnnouncementTemplateUi,AnnouncementRequestGuard,ProductionIntakeContract,JobControlContract,QuickCreateProjectContract,StudioComfyContract,StudioComfyWorker,NarrationWorker,ExternalTtsContract,ElevenLabsWorker,ScreenCaptureContract,ScreenCaptureWorker,PlaywrightDoctor,WindowsCaptureCapability,WindowsCaptureContract,WindowsCaptureWorker,WindowsCaptureHelperSource,TimelineWorker,RemotionContract,SourceFidelityPolicy,RemotionWorker,RemotionComposition,RemotionDoctor,AssemblyWorker,QcWorker,SapiHelper,StudioCli,TestVideoOrchestrator tracked;
     class Venv,Comfy,GgufNode,TurboNode,Models,OfficialWorkflow,Outputs,HardwareMetrics,StudioBuild,StudioUi,StudioDb,VideoClaims,ProviderTasks,PipelineClaims,DetailedTestClaims,AnnouncementEvents,StudioEvents,ExternalSubmissionState,GpuLane,PipelineLane,BrowserLane,CaptureLane,WindowsCaptureConsents,DefaultLane,PinnedChromium,LoopbackWebTarget,ScreenCaptureOutputs,WindowsCaptureOutputs,VideoGenerationOutputs,NarrationOutputs,TimelineOutputs,RemotionOutputs,AssemblyOutputs,QcOutputs,AuditExports,ProductionArtifacts,ProductionControlMetadata,WindowsSapi,MediaTools,WindowsCaptureHelper,WindowsDefaultRender local;
     class GitHub,PackageIndexes,HuggingFace,MiniMaxApi,OutputCdn,ElevenLabsApi external;
     class Env,StudioSecrets secret;
@@ -386,7 +390,9 @@ flowchart LR
 
 `ProductionIntakeContract`はoutput-owned productionだけを`production_`＋32桁hexへ閉じ、同一ID／同一titleの再送だけを冪等に扱います。video importは既知の6拡張子、1 byte〜2 GiB、canonical encoded filename、exact Content-Lengthを受け、hidden production-local partialへstreamします。SHA-256とffprobeのvideo／container検証後だけ`ProductionArtifacts`へhard-link publishし、`ProductionControlMetadata`をatomic replaceします。同じdigestはname／互換extensionを越えて既存pathへ収束し、別extensionへ収束する場合も既存destination側のcontainer契約を再検証します。Indexerはcontrol file／partialをartifactにせず、titleとknown hashを読むだけです。service lockが同時mutationを直列化し、起動cleanupは閉じたpartial名以外を削除しません。UIは201 responseのexact production／artifact identityを再照合します。
 
-`JobControlContract`はexact Job IDと`schema_version=1`だけを受けます。process ID、provider task、force、timeoutは外から指定できず、SQLiteとJobManagerが登録済みchild/process lineageを解決します。responseの`cancel_requested`と`worker_retired`は別の事実で、terminal retryは副作用を持ちません。UIは202 responseのJob IDと両booleanを再照合してから表示します。`StudioCli`の`quick-create`はHTTPを迂回して同じservice contractをworkspace lock内で呼び、索引更新、Announcement CAS保存、Detailed実行、2秒terminal照合を共有deadlineで行います。出力はidentity、cache、相対artifact、hash、technical verdictだけへredactします。
+`JobControlContract`はexact Job IDと`schema_version=1`だけを受けます。process ID、provider task、force、timeoutは外から指定できず、SQLiteとJobManagerが登録済みchild/process lineageを解決します。operatorのexact Job cancelはそのcontextへ登録したroot processとそのdescendant treeだけを終了します。process全体の未登録descendant sweepは`ShutdownGate`によるJobManager全体shutdownのみで使い、別laneで後から開始したsibling Jobを巻き込みません。responseの`cancel_requested`と`worker_retired`は別の事実で、terminal retryは副作用を持ちません。UIは202 responseのJob IDと両booleanを再照合し、worker未退役なら同じendpointを2秒間隔・最大15回だけ再照合します。同じRunのtop-level `local_pipeline`／`detailed_test_video` Jobがactiveまたは停止照合中なら、全体停止はその親だけを表示し、topのない孤立childはfallbackとして残します。
+
+`StudioCli`の`quick-create`はHTTPを迂回して同じservice contractをworkspace lock内で呼び、索引更新、Announcement CAS保存、Detailed実行、2秒terminal照合を共有deadlineで行います。`QuickCreateProjectContract`はその手前に、安定production ID／titleの冪等作成、requestの論理的な親directory基準のrelative regular video 1〜3件の順次stream import、0-based `video_index`から検証済みartifact IDへのcompileを加えます。制作作成からterminal照合までは同じmonotonic deadlineで、出力はproduction／videoのidentity、bytes、hash、dedupeと既存Quick Create resultだけへredactし、source path／filenameとrecipe本文を含みません。途中失敗で確定済みproduction／importをrollbackせず、同じID／bytesの再実行を冪等create／content dedupeへ収束させます。
 
 HTTP終了境界は`HttpLifecycle`と`ShutdownGate`に分けています。全responseを`Connection: close`にし、終了時は未解析socketだけを遮断して解析済みservice処理をdrainします。provider recovery、worker lane、SQLite interruption writerがすべて終了した場合だけworkspace lockを解放し、timeout／例外時は再試行またはprocess終了までlockを保持します。
 

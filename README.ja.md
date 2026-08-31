@@ -17,11 +17,11 @@
 
 ### 新しい制作、動画素材の取込、Job停止
 
-上部の`新しい制作`から、タイトルと任意の動画素材を指定して制作を開始できます。ブラウザは`production_`に32桁の小文字hexを続けたIDを最初の送信前に固定し、作成応答が不明でもversioned `localStorage`に同じIDとタイトルを保持します。再照合ではIDとタイトルの両方が一致する制作だけを採用し、保留情報を明示破棄しない限り別IDを自動発行しません。告知動画に未保存の変更がある場合は、破棄確認を通るまで制作作成へ進みません。
+上部の`新しい制作`から、タイトルと任意の動画素材を指定して制作を開始できます。ブラウザは`production_`に32桁の小文字hexを続けたIDを最初の送信前に固定し、作成応答が不明でもversioned `localStorage`に同じIDとタイトルを保持します。再照合ではIDとタイトルの両方が一致する制作だけを採用し、保留情報を明示破棄しない限り別IDを自動発行しません。告知動画に未保存の変更がある場合は、そのdraftが現在のproductionに紐付いているときだけ破棄確認を求めます。まだproductionを1件も選択していない初回作成で、存在しないdraftの破棄確認は表示しません。
 
 動画は`mp4`、`m4v`、`mov`、`mkv`、`webm`、`avi`を一度に最大16件、1件あたり0より大きく2 GiB以下で選べます。UIは1件ずつ送信し、失敗した項目だけを再試行できます。backendはraw request bodyをproduction内の非公開partialへstreamし、SHA-256とffprobeのvideo stream／container検査を通した後だけ`outputs/productions/<id>/imports/`へatomic publishします。同じbytesはファイル名や対応拡張子が違っても既存artifactへ収束します。`.studio-production.json`はタイトルと取込済み相対path／SHA-256だけを保持する制御ファイルで、artifactとして公開しません。Studio再起動時は閉じた命名規則の残留partialだけを清掃し、Indexerはこの制御情報からtitleと既知hashを復元します。
 
-実行中Jobには`停止`操作が表示されます。`POST /api/jobs/{job_id}/cancel`は`{"schema_version":1}`だけを受け、process、provider、force、timeoutをクライアントに選ばせません。responseは最新Job、`cancel_requested`、`worker_retired`を分けて返すため、停止要求の受付とworker終了確認を同一視しません。terminal Jobへの再送は新しい処理を起こさない冪等な照合です。
+実行中Jobには`停止`操作が表示されます。`POST /api/jobs/{job_id}/cancel`は`{"schema_version":1}`だけを受け、process、provider、force、timeoutをクライアントに選ばせません。responseは最新Job、`cancel_requested`、`worker_retired`を分けて返すため、停止要求の受付とworker終了確認を同一視しません。`worker_retired=false`なら、UIは同じexact Jobの停止endpointを2秒間隔・最大15回だけ再照合し、その間は二重操作を防ぎます。terminal Jobへの再送は新しい処理を起こさない冪等な照合です。同じRunの`local_pipeline`または`detailed_test_video`のtop-level Jobが稼働中／停止照合中なら、全体停止はその親だけを表示し、親のない孤立childだけは引き続き個別停止できます。
 
 ブラウザ側も成功statusだけでは確定せず、制作作成は`201`＋exact production ID／title、動画取込は`201`＋exact production／output artifact／SHA-256、Job停止は`202`＋exact Job ID／停止状態を照合します。別identityや不完全な成功responseは表示へ採用せずfail closedにします。
 
@@ -70,6 +70,16 @@ recipeは保存のたびにimmutableなversionをproduction eventへ追加し、
 ```
 
 requestは`schema_version`、既存`production_id`、事前発行した`recipe_id`、`expected_revision`、画面と同じexact `recipe`、任意の`timeout_seconds`（1〜3,600秒、既定600秒）だけを受けます。CLIはworkspace lockを取得し、同じtimeout budget内で索引更新、CAS保存、告知実行、2秒間隔のtop Job照合を行います。成功時はRun／Job／recipe revision、4 child、完成master、QC文書の相対path／bytes／SHA-256だけをbounded JSONで返し、recipe本文や絶対pathは返しません。終了codeは成功`0`、request／Job／timeout失敗`2`、technical QC non-pass`3`です。これは新しいrendererや課金経路ではなく、Studio UIと同じWindows SAPI→Remotion→assembly→QCを呼ぶcontrol-plane入口です。
+
+まだproductionや取込済みartifactがない場合は、次の一括commandを使えます。
+
+```powershell
+.\.venv\Scripts\python.exe -m tools.studio.cli quick-create-project .\quick-create-project.json
+```
+
+`quick-create-project` schema v1は`production: {id, title}`、`videos: [{path}]`の1〜3件、`recipe_id`、`expected_revision`、exactな告知`recipe`、任意の`timeout_seconds`だけを受けます。`path`はrequest JSONがあるdirectory基準の相対pathで、絶対path、drive指定、`.`／`..`を拒否します。recipeの3 sceneは`video_artifact_id`の代わりに0始まりの`video_index`を持ち、選択した全video indexを1回以上参照します。CLIはproduction作成、各videoの逐次stream import、artifact IDへのcompile、既存Quick Createを一つのmonotonic deadline内で実行します。
+
+成功出力はproductionのID／title／deduplicate結果、各videoの`source_index`／artifact ID／bytes／SHA-256／deduplicate結果、既存Quick Createのredacted結果だけを返します。source path、source filename、recipe本文は標準出力・標準エラーに含めません。後段が失敗しても、既に作成したproductionや取込済みartifactは監査可能な中間成果として削除しません。同じID／title／video bytesで再実行すると、既存の冪等作成とcontent dedupeへ収束します。
 
 ### `詳細一括`（既存素材からのテスト動画）
 

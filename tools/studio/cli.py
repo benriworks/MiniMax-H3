@@ -18,6 +18,10 @@ from .quick_create import (
     load_quick_create_request,
     run_quick_create,
 )
+from .quick_create_project import (
+    load_quick_create_project_request,
+    run_quick_create_project,
+)
 from .secrets import PROVIDERS, SecretStorageUnavailable, SecretStore
 from .service import StudioService
 from .test_video import TestVideoError, run_test_video
@@ -277,6 +281,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Save and execute one versioned Quick Create JSON request",
     )
     quick_create.add_argument("request_file", type=Path)
+    quick_create_project = commands.add_parser(
+        "quick-create-project",
+        help="Create a production, import videos, and execute Quick Create",
+    )
+    quick_create_project.add_argument("request_file", type=Path)
     return parser
 
 
@@ -286,6 +295,8 @@ def main(argv: list[str] | None = None) -> int:
         return _run_test_video_command(args)
     if args.command == "quick-create":
         return _run_quick_create_command(args)
+    if args.command == "quick-create-project":
+        return _run_quick_create_project_command(args)
 
     return _run_secret_command(args)
 
@@ -463,6 +474,84 @@ def _run_quick_create_command(args: argparse.Namespace) -> int:
     except Exception:
         # Service and worker exceptions can contain local paths, recipe text,
         # or provider diagnostics.  Never reflect them into the CLI stream.
+        pending_error = ("quick_create_failed", {})
+        exit_code = 2
+    except KeyboardInterrupt:
+        pending_error = ("process_interrupted", {})
+        exit_code = 130
+    finally:
+        service_closed = service is None
+        if service is not None:
+            try:
+                service.close()
+            except Exception:
+                service_closed = False
+            else:
+                service_closed = True
+        if lock is not None:
+            if service_closed:
+                try:
+                    lock.close()
+                except Exception:
+                    _RETAINED_INSTANCE_LOCKS.append(lock)
+                    service_closed = False
+            else:
+                _RETAINED_INSTANCE_LOCKS.append(lock)
+        if not service_closed:
+            pending_result = None
+            pending_error = ("process_interrupted", {})
+            if exit_code != 130:
+                exit_code = 2
+
+    if exit_code == 0 and pending_result is not None:
+        _write_bounded_json(pending_result)
+    elif pending_error is not None:
+        _write_quick_create_error(
+            pending_error[0],
+            context=pending_error[1],
+        )
+    return exit_code
+
+
+def _run_quick_create_project_command(args: argparse.Namespace) -> int:
+    lock: WorkspaceInstanceLock | None = None
+    service: StudioService | None = None
+    exit_code = 2
+    pending_result: dict[str, Any] | None = None
+    pending_error: tuple[str, dict[str, Any]] | None = None
+    try:
+        workspace = args.workspace.resolve(strict=True)
+        # Keep the lexical document location: when the request itself is a
+        # symlink, relative video paths are based on the link's parent, which
+        # is the directory the operator selected, not the target's parent.
+        request_file = args.request_file.absolute()
+        request = load_quick_create_project_request(request_file)
+        deadline = time.monotonic() + request["timeout_seconds"]
+        try:
+            lock = WorkspaceInstanceLock(workspace)
+        except StudioInstanceLockError:
+            pending_error = ("workspace_in_use", {})
+        else:
+            service = StudioService(workspace)
+            pending_result = run_quick_create_project(
+                service,
+                request,
+                request_parent=request_file.parent,
+                deadline=deadline,
+            )
+            exit_code = 0
+    except QuickCreateQcNonPass as exc:
+        pending_error = (exc.code, exc.context)
+        exit_code = 3
+    except QuickCreateError as exc:
+        pending_error = (exc.code, exc.context)
+        exit_code = 2
+    except (OSError, ValueError, TypeError, KeyError):
+        pending_error = ("quick_create_failed", {})
+        exit_code = 2
+    except Exception:
+        # Intake and provider exceptions may carry the selected local source
+        # name, recipe text, or an absolute path.  Emit only a fixed code.
         pending_error = ("quick_create_failed", {})
         exit_code = 2
     except KeyboardInterrupt:

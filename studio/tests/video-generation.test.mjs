@@ -456,6 +456,111 @@ test('job cancellation posts only the schema version and exposes worker wait sta
   }
 });
 
+test('job cancellation reconciliation waits at low frequency until the worker retires', async () => {
+  const jobId = `job_${'d'.repeat(32)}`;
+  const response = (workerRetired) => ({
+    job: { id: jobId, status: 'interrupted' },
+    status: 'interrupted',
+    cancelRequested: !workerRetired,
+    workerRetired,
+    raw: {},
+  });
+  const waits = [];
+  let rechecks = 0;
+  const reconciled = await api.reconcileJobWorkerRetirement(
+    response(false),
+    async () => {
+      rechecks += 1;
+      return response(rechecks >= 2);
+    },
+    async (milliseconds) => { waits.push(milliseconds); },
+  );
+
+  assert.equal(reconciled.workerRetired, true);
+  assert.equal(rechecks, 2);
+  assert.deepEqual(waits, [2_000, 2_000]);
+
+  let immediateRechecks = 0;
+  const immediate = await api.reconcileJobWorkerRetirement(
+    response(true),
+    async () => {
+      immediateRechecks += 1;
+      return response(true);
+    },
+    async () => undefined,
+  );
+  assert.equal(immediate.workerRetired, true);
+  assert.equal(immediateRechecks, 0);
+});
+
+test('job cancellation reconciliation is bounded when a worker does not retire', async () => {
+  const jobId = `job_${'c'.repeat(32)}`;
+  const pending = {
+    job: { id: jobId, status: 'interrupted' },
+    status: 'interrupted',
+    cancelRequested: true,
+    workerRetired: false,
+    raw: {},
+  };
+  let rechecks = 0;
+  const reconciled = await api.reconcileJobWorkerRetirement(
+    pending,
+    async () => {
+      rechecks += 1;
+      return pending;
+    },
+    async () => undefined,
+  );
+
+  assert.equal(reconciled.workerRetired, false);
+  assert.equal(rechecks, 15);
+  assert.equal(api.JOB_CANCEL_RETIREMENT_MAX_RECHECKS, 15);
+  assert.equal(api.JOB_CANCEL_RETIREMENT_POLL_MS, 2_000);
+});
+
+test('global Job controls collapse active pipeline children to their top Job', () => {
+  const top = {
+    id: `job_${'1'.repeat(32)}`,
+    type: 'local_pipeline',
+    status: 'running',
+    runId: 'run_pipeline',
+    raw: {},
+  };
+  const child = {
+    id: `job_${'2'.repeat(32)}`,
+    type: 'local_video_generation',
+    status: 'running',
+    runId: 'run_pipeline',
+    raw: {},
+  };
+  const orphan = {
+    id: `job_${'3'.repeat(32)}`,
+    type: 'local_narration',
+    status: 'running',
+    runId: 'run_orphan',
+    raw: {},
+  };
+  assert.deepEqual(
+    api.selectGlobalJobControlTargets([child, orphan, top]).map((job) => job.id),
+    [orphan.id, top.id],
+  );
+
+  const duplicateTop = { ...top, id: `job_${'4'.repeat(32)}` };
+  assert.deepEqual(
+    api.selectGlobalJobControlTargets([child, top, duplicateTop]).map((job) => job.id),
+    [top.id, duplicateTop.id],
+  );
+
+  const interruptedTop = { ...top, status: 'interrupted' };
+  assert.deepEqual(
+    api.selectGlobalJobControlTargets(
+      [child, interruptedTop],
+      new Set([interruptedTop.id]),
+    ).map((job) => job.id),
+    [interruptedTop.id],
+  );
+});
+
 test('new mutation APIs reject mismatched success identities', async () => {
   const originalFetch = globalThis.fetch;
   const productionId = `production_${'f'.repeat(32)}`;

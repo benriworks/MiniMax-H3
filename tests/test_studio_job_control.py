@@ -92,6 +92,42 @@ class JobControlServiceTests(unittest.TestCase):
         self.assertTrue(response["worker_retired"])
         self.assertEqual(response["job"]["status"], "succeeded")
 
+    def test_non_cooperative_worker_can_be_reconciled_to_retired(self) -> None:
+        entered = threading.Event()
+        release = threading.Event()
+
+        def ignore_cancel_temporarily(
+            _job_id: str, _cancel_event: object
+        ) -> dict[str, object]:
+            entered.set()
+            release.wait(5)
+            return {"ok": True}
+
+        queued = self.service.jobs.submit(
+            "test_job_control", {}, ignore_cancel_temporarily
+        )
+        self.assertTrue(entered.wait(5))
+        try:
+            first = self.service.cancel_job(
+                queued["id"], {"schema_version": 1}
+            )
+            self.assertTrue(first["cancel_requested"])
+            self.assertFalse(first["worker_retired"])
+
+            release.set()
+            completed = self.service.jobs.wait(queued["id"], timeout=5)
+            assert completed is not None
+            self.assertEqual(completed["status"], "interrupted")
+
+            reconciled = self.service.cancel_job(
+                queued["id"], {"schema_version": 1}
+            )
+            self.assertFalse(reconciled["cancel_requested"])
+            self.assertTrue(reconciled["worker_retired"])
+            self.assertEqual(reconciled["job"]["status"], "interrupted")
+        finally:
+            release.set()
+
     def test_unknown_job_and_open_ended_body_are_rejected(self) -> None:
         with self.assertRaises(KeyError):
             self.service.cancel_job(
@@ -159,6 +195,58 @@ class JobControlHttpTests(unittest.TestCase):
         self.assertEqual(response.status, 202)
         self.assertEqual(json.loads(payload), expected)
         cancel.assert_called_once_with(job_id, {"schema_version": 1})
+
+    def test_http_cancel_reconciles_the_same_job_after_worker_retirement(self) -> None:
+        entered = threading.Event()
+        release = threading.Event()
+
+        def ignore_cancel_temporarily(
+            _job_id: str, _cancel_event: object
+        ) -> dict[str, object]:
+            entered.set()
+            release.wait(5)
+            return {"ok": True}
+
+        queued = self.server.service.jobs.submit(
+            "test_job_control", {}, ignore_cancel_temporarily
+        )
+        self.assertTrue(entered.wait(5))
+        body = json.dumps({"schema_version": 1}).encode("utf-8")
+
+        def request_cancel() -> tuple[int, dict[str, object]]:
+            self.connection.request(
+                "POST",
+                f"/api/jobs/{queued['id']}/cancel",
+                body=body,
+                headers={
+                    "Content-Type": "application/json",
+                    "Content-Length": str(len(body)),
+                    "X-Studio-Token": self.token,
+                },
+            )
+            response = self.connection.getresponse()
+            payload = json.loads(response.read())
+            return response.status, payload
+
+        try:
+            status, first = request_cancel()
+            self.assertEqual(status, 202)
+            self.assertEqual(first["job"]["id"], queued["id"])
+            self.assertTrue(first["cancel_requested"])
+            self.assertFalse(first["worker_retired"])
+
+            release.set()
+            completed = self.server.service.jobs.wait(queued["id"], timeout=5)
+            assert completed is not None
+            self.assertEqual(completed["status"], "interrupted")
+
+            status, reconciled = request_cancel()
+            self.assertEqual(status, 202)
+            self.assertEqual(reconciled["job"]["id"], queued["id"])
+            self.assertFalse(reconciled["cancel_requested"])
+            self.assertTrue(reconciled["worker_retired"])
+        finally:
+            release.set()
 
 
 if __name__ == "__main__":

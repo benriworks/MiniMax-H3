@@ -307,3 +307,17 @@ test('new production wizard keeps dirty announcement edits until the guarded POS
   assert.match(appSource, /setUnsavedAnnouncementProductionId\(undefined\)/);
   assert.match(appSource, /<VideoAssetImportPanel productionId=\{detail\.id\}/);
 });
+
+test('first production creation does not ask to discard a nonexistent draft', () => {
+  assert.match(
+    appSource,
+    /if \(!unsavedAnnouncementProductionId \|\| unsavedAnnouncementProductionId !== selectedId\) return true/,
+  );
+});
+
+test('generic cancellation keeps the exact Job visible while reconciling worker retirement', () => {
+  assert.match(appSource, /reconcileJobWorkerRetirement\(/);
+  assert.match(appSource, /2秒間隔で再確認します/);
+  assert.match(appSource, /selectGlobalJobControlTargets\(jobs, cancellingJobIds\)/);
+  assert.match(appSource, /約30秒の再確認でworker終了を確認できませんでした/);
+});

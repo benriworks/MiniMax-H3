@@ -122,6 +122,68 @@ class JobManagerShutdownTests(unittest.TestCase):
         self.assertEqual(self.manager.wait(default_job["id"], timeout=2)["status"], "succeeded")
         self.assertEqual(self.manager.wait(gpu_job["id"], timeout=2)["status"], "succeeded")
 
+    def test_operator_cancel_does_not_kill_a_later_sibling_lane_process(self) -> None:
+        default_started = threading.Event()
+        gpu_started = threading.Event()
+
+        def subprocess_job(
+            started: threading.Event,
+            sleep_seconds: float,
+            _job_id: str,
+            cancel_event: JobExecutionContext,
+        ) -> dict[str, object]:
+            process = subprocess.Popen(
+                [
+                    sys.executable,
+                    "-c",
+                    f"import time; time.sleep({sleep_seconds!r})",
+                ],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            cancel_event.register_process(process)
+            started.set()
+            try:
+                while process.poll() is None:
+                    if cancel_event.wait(0.02):
+                        cancel_event.raise_if_cancelled()
+                if process.returncode != 0:
+                    raise RuntimeError("a sibling lane terminated this process")
+                return {"returncode": process.returncode}
+            finally:
+                cancel_event.unregister_process(process)
+                if process.poll() is None:
+                    process.kill()
+                process.wait(timeout=3)
+
+        default_job = self.manager.submit(
+            "local_assembly",
+            {},
+            lambda job_id, cancel_event: subprocess_job(
+                default_started, 60.0, job_id, cancel_event
+            ),
+        )
+        self.assertTrue(default_started.wait(2))
+        gpu_job = self.manager.submit(
+            "local_video_generation",
+            {},
+            lambda job_id, cancel_event: subprocess_job(
+                gpu_started, 2.5, job_id, cancel_event
+            ),
+            lane="gpu",
+        )
+        self.assertTrue(gpu_started.wait(2))
+
+        cancelled = self.manager.cancel_and_wait(default_job["id"], timeout=3)
+        self.assertIsNotNone(cancelled)
+        assert cancelled is not None
+        self.assertEqual(cancelled["status"], "interrupted")
+        sibling = self.manager.wait(gpu_job["id"], timeout=3)
+        self.assertIsNotNone(sibling)
+        assert sibling is not None
+        self.assertEqual(sibling["status"], "succeeded")
+
     def test_pipeline_lane_can_wait_without_blocking_child_lanes(self) -> None:
         pipeline_started = threading.Event()
         default_started = threading.Event()
@@ -677,6 +739,7 @@ class JobManagerShutdownTests(unittest.TestCase):
         db_started = threading.Event()
         release_db = threading.Event()
         order: list[str] = []
+        global_sweeps: list[bool] = []
 
         def callback(_job_id: str, cancel_event: threading.Event) -> dict[str, object]:
             started.set()
@@ -687,7 +750,13 @@ class JobManagerShutdownTests(unittest.TestCase):
             db_started.set()
             release_db.wait(2)
 
-        def sweep(_context: JobExecutionContext, *, deadline: float | None = None) -> None:
+        def sweep(
+            _context: JobExecutionContext,
+            *,
+            deadline: float | None = None,
+            include_unregistered_descendants: bool = False,
+        ) -> None:
+            global_sweeps.append(include_unregistered_descendants)
             if not db_started.is_set():
                 order.append("kill_before_db")
 
@@ -700,6 +769,7 @@ class JobManagerShutdownTests(unittest.TestCase):
             self.assertTrue(db_started.wait(1))
             self.assertTrue(order)
             self.assertEqual(order[0], "kill_before_db")
+            self.assertIn(True, global_sweeps)
             release_db.set()
             shutdown.join(timeout=2)
             self.assertFalse(shutdown.is_alive())

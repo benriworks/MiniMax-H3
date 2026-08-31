@@ -28,6 +28,7 @@ import {
   EXTERNAL_NARRATION_PROVIDER,
   DEFAULT_EXTERNAL_VOICE_SETTINGS,
   LOCAL_COMFYUI_WORKFLOW_PRESET,
+  reconcileJobWorkerRetirement,
   MAX_VIDEO_IMPORT_FILES,
   PRODUCTION_ID_PATTERN,
   PRODUCTION_TITLE_MAX_LENGTH,
@@ -40,6 +41,7 @@ import {
   newestProviderTasks,
   isLocalPipelineJobForSelection,
   isLocalPipelineTopJob,
+  selectGlobalJobControlTargets,
   isLocalPipelineExecutionActive,
   isLocalPipelineExecutionActiveAcross,
   isDetailedTestVideoExecutionActive,
@@ -1155,7 +1157,7 @@ function App() {
   }, []);
 
   const canCreateProduction = useCallback(() => {
-    if (unsavedAnnouncementProductionId !== selectedId) return true;
+    if (!unsavedAnnouncementProductionId || unsavedAnnouncementProductionId !== selectedId) return true;
     if (!window.confirm('告知動画の未保存変更を破棄して、新しい制作を作成しますか？')) return false;
     setUnsavedAnnouncementProductionId(undefined);
     return true;
@@ -1166,18 +1168,27 @@ function App() {
     if (!window.confirm(`Job ${job.id} の停止を要求しますか？実行中のworkerが終了するまで状態は確定しません。`)) return;
     setCancellingJobIds((current) => new Set(current).add(job.id));
     setJobActionMessage(`Job ${job.id} の停止要求を送信中です。`);
+    let cancellationAccepted = false;
     try {
-      const response = await api.cancelJob(job.id);
+      const initial = await api.cancelJob(job.id);
+      cancellationAccepted = true;
+      if (initial.workerRetired !== true) {
+        setJobActionMessage(`Job ${job.id} は停止要求済み・worker終了待ちです。2秒間隔で再確認します。`);
+      }
+      const response = await reconcileJobWorkerRetirement(
+        initial,
+        () => api.cancelJob(job.id),
+      );
       const serverStatus = response.job?.status ?? response.status;
       setJobActionMessage(response.workerRetired === true
         ? `Job ${job.id} は停止要求済み・worker終了を確認しました（${serverStatus ?? '状態を再確認中'}）。`
-        : serverStatus === 'cancelled'
-          ? `Job ${job.id} の中止状態をサーバーで確認しました。`
-        : `Job ${job.id} は停止要求済み・worker終了待ちです（${serverStatus ?? '状態を再確認中'}）。`);
+        : `Job ${job.id} は停止要求済みですが、約30秒の再確認でworker終了を確認できませんでした（${serverStatus ?? '状態を再確認中'}）。`);
       await loadDashboard();
       if (selectedIdRef.current) await loadDetail(selectedIdRef.current);
     } catch (error) {
-      setJobActionMessage(`Job ${job.id} の停止要求に失敗しました：${error instanceof Error ? error.message : '不明なエラー'}`);
+      setJobActionMessage(cancellationAccepted
+        ? `Job ${job.id} の停止要求は受理されましたが、worker終了の再確認に失敗しました：${error instanceof Error ? error.message : '不明なエラー'}`
+        : `Job ${job.id} の停止要求に失敗しました：${error instanceof Error ? error.message : '不明なエラー'}`);
     } finally {
       setCancellingJobIds((current) => {
         const next = new Set(current);
@@ -1203,7 +1214,7 @@ function App() {
     setSelectedId(productionId);
   };
 
-  const activeJobs = jobs.filter((job) => job.status === 'running' || job.status === 'pending');
+  const activeJobs = selectGlobalJobControlTargets(jobs, cancellingJobIds);
   const configuredProviders = providers.filter((provider) => provider.configured).length;
 
   return (

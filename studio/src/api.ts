@@ -2797,6 +2797,40 @@ export const isLocalPipelineTopJob = (value: unknown): boolean => {
     .some((key) => normalizeStudioStageName(source[key]) === 'local_pipeline'));
 };
 
+const EMPTY_JOB_ID_SET: ReadonlySet<string> = new Set<string>();
+
+/**
+ * Keep the global stop surface at orchestration boundaries.
+ *
+ * A pipeline child is implementation detail: cancelling it alone can leave
+ * the top-level claim running until that orchestrator observes the failure.
+ * When an active/cancelling top Job for the same Run is visible, show only
+ * that top Job. Orphaned active children remain visible so operators are not
+ * denied a stop control when no parent can be reconciled.
+ */
+export const selectGlobalJobControlTargets = (
+  values: readonly Job[],
+  cancellingJobIds: ReadonlySet<string> = EMPTY_JOB_ID_SET,
+): Job[] => {
+  const candidates = values.filter((job) => (
+    job.status === 'running'
+    || job.status === 'pending'
+    || cancellingJobIds.has(job.id)
+  ));
+  const topRuns = new Set<string>();
+  const topJobIds = new Set<string>();
+  candidates.forEach((job) => {
+    if (!job.runId) return;
+    if (isLocalPipelineTopJob(job) || isDetailedTestVideoJobForSelection(job, {})) {
+      topRuns.add(job.runId);
+      topJobIds.add(job.id);
+    }
+  });
+  return candidates.filter((job) => (
+    !job.runId || !topRuns.has(job.runId) || topJobIds.has(job.id)
+  ));
+};
+
 const normalizeProviderTaskStatus = (value: unknown): ProviderTaskStatus => {
   const normalized = text(value, '').toLowerCase().replaceAll('-', '_').replaceAll(' ', '_');
   return PROVIDER_TASK_STATUSES.has(normalized as ProviderTaskStatus)
@@ -3386,6 +3420,40 @@ export const buildProductionCreatePayload = (productionId: unknown, title: unkno
 
 /** The cancellation endpoint intentionally accepts no client-selected state. */
 export const buildJobCancelPayload = (): { schema_version: 1 } => ({ schema_version: 1 });
+
+export const JOB_CANCEL_RETIREMENT_POLL_MS = 2_000 as const;
+export const JOB_CANCEL_RETIREMENT_MAX_RECHECKS = 15 as const;
+
+type JobCancellationRecheck = () => Promise<JobCancellationResponse>;
+type JobCancellationWait = (milliseconds: number) => Promise<void>;
+
+const waitForMilliseconds: JobCancellationWait = (milliseconds) => new Promise((resolve) => {
+  globalThis.setTimeout(resolve, milliseconds);
+});
+
+/**
+ * Reconcile an accepted cancellation until the exact worker slot retires.
+ *
+ * A Job can already be durably interrupted while a non-cooperative callback
+ * is still leaving its worker lane. Keep the low-frequency follow-up bounded;
+ * each recheck uses the same idempotent exact-ID cancellation endpoint.
+ */
+export const reconcileJobWorkerRetirement = async (
+  initial: JobCancellationResponse,
+  recheck: JobCancellationRecheck,
+  wait: JobCancellationWait = waitForMilliseconds,
+): Promise<JobCancellationResponse> => {
+  let current = initial;
+  for (
+    let attempt = 0;
+    current.workerRetired !== true && attempt < JOB_CANCEL_RETIREMENT_MAX_RECHECKS;
+    attempt += 1
+  ) {
+    await wait(JOB_CANCEL_RETIREMENT_POLL_MS);
+    current = await recheck();
+  }
+  return current;
+};
 
 export interface VideoImportValidation {
   valid: boolean;
