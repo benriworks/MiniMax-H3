@@ -38,10 +38,11 @@ def i2va_prompt(action: str) -> str:
 
 def recipe() -> dict[str, object]:
     scenes = []
-    for role, index, headline in zip(
+    for role, index, headline, end_ms in zip(
         ("hook", "message", "cta"),
         (0, 1, 2),
         ("新しい一歩", "映像で伝える", "今すぐ確認"),
+        (5_167, 5_167, 5_166),
         strict=True,
     ):
         scenes.append(
@@ -49,7 +50,7 @@ def recipe() -> dict[str, object]:
                 "role": role,
                 "video_index": index,
                 "start_ms": 0,
-                "end_ms": 4_000,
+                "end_ms": end_ms,
                 "volume_percent": 0,
                 "headline": headline,
                 "narration": f"{role} の案内です。",
@@ -84,7 +85,7 @@ def request_value(**updates: object) -> dict[str, object]:
                 "video_prompt": i2va_prompt(
                     ("turns toward the camera", "raises one hand", "smiles gently")[index - 1]
                 ),
-                "duration_seconds": 5,
+                "duration_seconds": 6,
                 "resolution": "768P",
             }
             for index in range(1, 4)
@@ -241,7 +242,7 @@ class ShotProjectExecutionTests(unittest.TestCase):
         self.assertNotIn("secret-key", plan_path.read_text(encoding="utf-8"))
         for payload in self.client.submissions:
             self.assertEqual(payload["model"], "MiniMax-H3")
-            self.assertEqual(payload["duration"], 5)
+            self.assertEqual(payload["duration"], 6)
             self.assertEqual(payload["resolution"], "768P")
             self.assertEqual(payload["ratio"], "adaptive")
             self.assertEqual(payload["content"][1]["role"], "first_frame")

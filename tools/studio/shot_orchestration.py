@@ -23,6 +23,7 @@ from typing import Any
 
 from tools import h3_api
 
+from .announcement_video import ANNOUNCEMENT_VIDEO_TRANSITION_MS
 from .production_intake import validate_production_create_payload
 from .quick_create_project import (
     QUICK_CREATE_PROJECT_MAX_VIDEOS,
@@ -34,7 +35,8 @@ from .security import canonical_json, workspace_path
 
 SHOT_PROJECT_SCHEMA_VERSION = 1
 SHOT_PROJECT_COUNT = 3
-SHOT_PROJECT_DURATION_SECONDS = 5
+SHOT_PROJECT_DURATION_SECONDS = 6
+SHOT_PROJECT_OUTPUT_DURATION_MS = 15_000
 SHOT_PROJECT_RESOLUTION = "768P"
 SHOT_PROJECT_RATIO = "adaptive"
 SHOT_PROJECT_POLL_INTERVAL_SECONDS = 10.0
@@ -316,6 +318,15 @@ def validate_shot_project_request(value: Any) -> dict[str, Any]:
         raise _invalid("invalid_shot_project_recipe") from None
     if len(normalized_quick["videos"]) != QUICK_CREATE_PROJECT_MAX_VIDEOS:
         raise _invalid("invalid_shot_project_recipe")
+    normalized_scenes = normalized_quick["recipe"]["scenes"]
+    if [item["video_index"] for item in normalized_scenes] != [0, 1, 2]:
+        raise _invalid("invalid_shot_project_recipe")
+    output_duration_ms = (
+        sum(item["end_ms"] - item["start_ms"] for item in normalized_scenes)
+        - ANNOUNCEMENT_VIDEO_TRANSITION_MS * (len(normalized_scenes) - 1)
+    )
+    if output_duration_ms != SHOT_PROJECT_OUTPUT_DURATION_MS:
+        raise _invalid("invalid_shot_project_duration")
     return {
         "schema_version": SHOT_PROJECT_SCHEMA_VERSION,
         "project_id": project_id,
@@ -850,6 +861,7 @@ __all__ = [
     "SHOT_PROJECT_COUNT",
     "SHOT_PROJECT_DURATION_SECONDS",
     "SHOT_PROJECT_MAX_REQUEST_BYTES",
+    "SHOT_PROJECT_OUTPUT_DURATION_MS",
     "SHOT_PROJECT_PLAN_FILENAME",
     "SHOT_PROJECT_RESOLUTION",
     "SHOT_PROJECT_SCHEMA_VERSION",
