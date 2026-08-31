@@ -321,6 +321,17 @@ def validate_shot_project_request(value: Any) -> dict[str, Any]:
     normalized_scenes = normalized_quick["recipe"]["scenes"]
     if [item["video_index"] for item in normalized_scenes] != [0, 1, 2]:
         raise _invalid("invalid_shot_project_recipe")
+    source_duration_ms = SHOT_PROJECT_DURATION_SECONDS * 1000
+    if any(
+        item["start_ms"] < 0
+        or item["start_ms"] >= item["end_ms"]
+        or item["end_ms"] > source_duration_ms
+        for item in normalized_scenes
+    ):
+        # Quick Create can also consume arbitrary imported media, but every
+        # source in this closed project is generated at exactly six seconds.
+        # Reject an out-of-range trim before any billable provider submission.
+        raise _invalid("invalid_shot_project_source_range")
     output_duration_ms = (
         sum(item["end_ms"] - item["start_ms"] for item in normalized_scenes)
         - ANNOUNCEMENT_VIDEO_TRANSITION_MS * (len(normalized_scenes) - 1)

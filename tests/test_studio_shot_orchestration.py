@@ -161,6 +161,16 @@ class ShotProjectValidationTests(unittest.TestCase):
             with self.subTest(keys=tuple(value)), self.assertRaises(ShotProjectValidationError):
                 validate_shot_project_request(value)
 
+    def test_scene_trim_must_stay_inside_each_generated_six_second_clip(self) -> None:
+        value = request_value()
+        value["recipe"]["scenes"][0]["start_ms"] = 1_000
+        value["recipe"]["scenes"][0]["end_ms"] = 6_167
+        with self.assertRaisesRegex(
+            ShotProjectValidationError,
+            "invalid_shot_project_source_range",
+        ):
+            validate_shot_project_request(value)
+
     def test_loader_rejects_duplicate_keys_without_reflecting_path(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "private-shot-plan.json"
