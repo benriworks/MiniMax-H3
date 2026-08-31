@@ -1253,7 +1253,14 @@ class StudioService:
                 "duplicate target must differ from its source",
                 code="production_library_duplicate_conflict",
             )
-        digest = production_library_request_digest("duplicate", payload)
+        # The source production is carried by the route, not the JSON body.
+        # Bind it into the durable operation identity so replaying the same
+        # operation ID against another source cannot return the first source's
+        # deduplicated result.
+        digest = production_library_request_digest(
+            "duplicate",
+            {"source_production_id": production_id, "request": payload},
+        )
         with self._production_intake_lock:
             try:
                 prior = self.database.get_production_library_operation(

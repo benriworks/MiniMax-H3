@@ -255,6 +255,31 @@ class ProductionLibraryServiceTests(unittest.TestCase):
             1,
         )
 
+    def test_duplicate_operation_is_bound_to_the_route_source(self) -> None:
+        self.service.create_production(_create(SECOND_PRODUCTION_ID, "Other source"))
+        body = _duplicate(
+            OPERATION_THREE,
+            THIRD_PRODUCTION_ID,
+            "Route-bound copy",
+            include_imports=False,
+        )
+        first = self.service.duplicate_production(PRODUCTION_ID, body)
+        self.assertEqual(first["source_production_id"], PRODUCTION_ID)
+
+        with self.assertRaises(RequestValidationError) as raised:
+            self.service.duplicate_production(SECOND_PRODUCTION_ID, body)
+        self.assertEqual(
+            raised.exception.code,
+            "production_library_operation_conflict",
+        )
+        target = self.service.production_detail(THIRD_PRODUCTION_ID)
+        assert target is not None
+        self.assertEqual(target["production"]["title"], "Route-bound copy")
+        self.assertEqual(
+            len(self._events(THIRD_PRODUCTION_ID, "production.library.duplicated")),
+            1,
+        )
+
     def test_tracked_production_is_explicitly_read_only(self) -> None:
         tracked_id = "TRACKED_LIBRARY_TEST"
         tracked = self.workspace / "productions" / tracked_id
