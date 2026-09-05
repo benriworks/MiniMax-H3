@@ -1,5 +1,14 @@
 # Architecture
 
+## 案件専用のローカル制作経路（2026-09-05）
+
+`productions/SHORT_20260905_codex_15s/` は、Codex紹介動画を再現するための制作スクリプトと台帳であり、Studioの新しい一般向けテンプレートではない。
+
+- `CodexShort.tsx` / `render.mjs`: 既存のStudio依存ライブラリを利用して、外部画像・APIなしで3本の1080×1920モーショングラフィックス素材を描画する。
+- `assemble.py`: 既存SAPI workerの絶対開始時刻、Remotion timeline、FFmpeg assembly、技術QCを案件専用に呼び出す。標準告知recipeの見出し位置に制限されず、読み上げをカットへ整列できる。
+- この経路は標準Detailed / Announcementの成功Jobや承認履歴を偽造しない。Studioには正規の動画取込と生成成果物登録を行い、独立worker実行ID・台本・時刻・hash・QC・手動投稿テキストを成果物として残す。標準納品ZIPの成功Jobを必要とするUI経路とは区別する。
+- 大見出しは素材動画に焼き込み済みで、clean masterでも残る。後から付けた読み上げ字幕だけをcaptioned masterで追加する。MP4や音声・ログはignoredの`outputs/`、再生成ソース・制作判断はtrackedの`productions/`に置く。
+
 ## 目的と境界
 
 このチェックアウトは、上流MiniMax H3のソース/モデル資料に、次の3経路を加えています。

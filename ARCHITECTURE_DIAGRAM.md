@@ -1,5 +1,24 @@
 # Architecture diagram
 
+## 案件専用モーショングラフィックスの経路（2026-09-05）
+
+```mermaid
+flowchart LR
+    Spec["tracked制作台本・公式出典"] --> Design["案件専用Remotion composition<br/>外部画像・APIなし"]
+    Design --> Cuts["1080×1920の3素材<br/>大見出し焼き込み"]
+    Spec --> Voice["既存SAPI worker<br/>6文の絶対開始時刻"]
+    Cuts --> Timeline["既存Remotion timeline<br/>250ms fade × 2・overlayなし"]
+    Timeline --> Assembly["既存FFmpeg assembly"]
+    Voice --> Assembly
+    Assembly --> Masters["15秒MP4<br/>読み上げ字幕あり／なし"]
+    Masters --> QC["既存technical QC<br/>probe・全decode・音声・画面検査"]
+    QC --> Files["ignored outputs<br/>動画・中間素材・hash・検査記録"]
+    Files --> Studio["正規の素材取込・成果物登録<br/>標準成功Jobは作らない"]
+    Masters --> Manual["投稿用txtと合わせて手動投稿"]
+```
+
+これは`SHORT_20260905_codex_15s`用の再現スクリプト。通常の「かんたん制作」や標準納品ZIPの実行履歴と混同しない。
+
 この図は、tracked workspace、untracked local runtime、Studio、外部配布元、MiniMax API、ElevenLabs API、YouTube Data APIの信頼境界と主要データフローを示します。責務と制約の詳細は[ARCHITECTURE.md](ARCHITECTURE.md)を参照してください。
 
 ## 現在の優先導線（2026-09-05）
