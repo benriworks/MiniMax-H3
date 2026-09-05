@@ -1,4 +1,15 @@
-import type { AnnouncementSceneRole, Artifact } from './types';
+import { useRef, useState } from 'react';
+import type { AnnouncementSceneRole, Artifact, LocalRemotionTimelineVisualPreset } from './types';
+import {
+  canSharpenLowResolutionPortrait,
+  contentCopyAdvice,
+  contentCopyMetrics,
+  contentMediaAdvice,
+  contentMediaFacts,
+  contentPreviewPlaybackAction,
+  contentPreviewRange,
+} from './contentQuality';
+import './contentQuality.css';
 
 export type QuickCreateSceneDraft = {
   role: AnnouncementSceneRole;
@@ -7,6 +18,7 @@ export type QuickCreateSceneDraft = {
   endMs: string;
   headline: string;
   narration: string;
+  visualPreset?: LocalRemotionTimelineVisualPreset;
 };
 
 type QuickCreateFormProps = {
@@ -20,6 +32,7 @@ type QuickCreateFormProps = {
   onSceneArtifactChange: (sceneIndex: number, artifactId: string) => void;
   onSceneHeadlineChange: (sceneIndex: number, value: string) => void;
   onSceneNarrationChange: (sceneIndex: number, value: string) => void;
+  onSceneVisualPresetChange?: (sceneIndex: number, value: LocalRemotionTimelineVisualPreset) => void;
 };
 
 const QUICK_SCENE_META: Record<AnnouncementSceneRole, {
@@ -63,6 +76,78 @@ const formatQuickMilliseconds = (milliseconds: number): string => {
   return `${Number.isInteger(seconds) ? seconds.toFixed(0) : seconds.toFixed(1)}秒`;
 };
 
+function QuickScenePreview({ scene, artifact }: { scene: QuickCreateSceneDraft; artifact: Artifact }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [unavailable, setUnavailable] = useState(false);
+  const range = contentPreviewRange(scene.startMs, scene.endMs, contentMediaFacts(artifact).durationSeconds);
+  const helpId = `quick-create-preview-${scene.role}-help`;
+
+  const resetToStart = (video: HTMLVideoElement) => {
+    const boundedRange = contentPreviewRange(scene.startMs, scene.endMs, video.duration);
+    if (!boundedRange.valid) return;
+    try {
+      video.currentTime = boundedRange.startSeconds;
+    } catch {
+      // Some codecs cannot seek until enough data is buffered. Native controls remain usable.
+    }
+  };
+
+  const keepInsideRange = (video: HTMLVideoElement) => {
+    const boundedRange = contentPreviewRange(scene.startMs, scene.endMs, video.duration);
+    const action = contentPreviewPlaybackAction(video.currentTime, boundedRange);
+    if (action.pause) video.pause();
+    if (action.seekSeconds !== undefined) {
+      try { video.currentTime = action.seekSeconds; } catch { /* Native decoder may still be loading. */ }
+    }
+  };
+
+  if (!artifact.url || unavailable) {
+    return <p className="quick-create-preview-unavailable" role="status">この素材をブラウザーで再生できません。素材の選択や文章の編集は続けられます。別の素材を選ぶか、成果物一覧から動画を確認してください。</p>;
+  }
+
+  return (
+    <figure className="quick-create-source-preview">
+      <div className="quick-create-source-frame">
+        <video
+          ref={videoRef}
+          src={artifact.url}
+          controls
+          preload="metadata"
+          playsInline
+          muted
+          aria-label={`${QUICK_SCENE_META[scene.role].title}の素材動画`}
+          aria-describedby={helpId}
+          onLoadedMetadata={(event) => resetToStart(event.currentTarget)}
+          onPlay={(event) => {
+            if (!range.valid) { event.currentTarget.pause(); return; }
+            if (event.currentTarget.currentTime < range.startSeconds || event.currentTarget.currentTime >= range.endSeconds) {
+              resetToStart(event.currentTarget);
+            }
+          }}
+          onTimeUpdate={(event) => keepInsideRange(event.currentTarget)}
+          onSeeking={(event) => keepInsideRange(event.currentTarget)}
+          onSeeked={(event) => keepInsideRange(event.currentTarget)}
+          onError={() => setUnavailable(true)}
+        />
+        {scene.headline.trim() && <p className={`quick-create-source-headline role-${scene.role}`} aria-hidden="true">{scene.headline}</p>}
+      </div>
+      <div className="quick-create-source-actions">
+        <button type="button" disabled={!range.valid} onClick={() => {
+          const video = videoRef.current;
+          if (!video) return;
+          resetToStart(video);
+          void video.play().catch(() => { /* The native play control remains available if playback is refused. */ });
+        }}>使う範囲を再生</button>
+        <span>{range.valid ? `${range.startSeconds.toFixed(2)}〜${range.endSeconds.toFixed(2)}秒` : '使用範囲を確認してください'}</span>
+      </div>
+      <figcaption id={helpId}>
+        <strong>素材と見出しの確認用です</strong>
+        完成プレビューではありません。読み上げ・字幕・場面のつなぎ・鮮明化は反映せず、見出しの位置と大きさも目安です。素材音は初期状態でミュートです。
+      </figcaption>
+    </figure>
+  );
+}
+
 export function QuickCreateForm({
   recipeName,
   scenes,
@@ -74,6 +159,7 @@ export function QuickCreateForm({
   onSceneArtifactChange,
   onSceneHeadlineChange,
   onSceneNarrationChange,
+  onSceneVisualPresetChange,
 }: QuickCreateFormProps) {
   const selectedArtifactIds = scenes.map((scene) => scene.videoArtifactId).filter(Boolean);
   const distinctArtifactCount = new Set(selectedArtifactIds).size;
@@ -112,6 +198,10 @@ export function QuickCreateForm({
             {scenes.map((scene, index) => {
               const meta = QUICK_SCENE_META[scene.role];
               const artifact = videoArtifacts.find((item) => item.id === scene.videoArtifactId);
+              const mediaFacts = contentMediaFacts(artifact);
+              const mediaAdvice = artifact ? contentMediaAdvice(mediaFacts) : [];
+              const canSharpen = canSharpenLowResolutionPortrait(mediaFacts);
+              const sharpeningSelected = scene.visualPreset === 'h3_low_res_sharp_v1';
               const fieldId = `quick-create-video-${scene.role}`;
               const helpId = `${fieldId}-help`;
               const sceneToken = scene.role.toUpperCase();
@@ -136,8 +226,30 @@ export function QuickCreateForm({
                     ))}
                   </select>
                   <small className={videoErrors.length > 0 ? 'quick-create-field-error' : 'quick-create-artifact-meta'} id={helpId}>
-                    {videoErrors[0] ?? (artifact ? `${formatQuickDuration(artifact.durationSeconds)} · ${formatQuickBytes(artifact.sizeBytes)} · ${Math.max(0, Number(scene.endMs) - Number(scene.startMs)) / 1_000}秒を使用` : '素材を選んでください')}
+                    {videoErrors[0] ?? (artifact ? `${formatQuickDuration(mediaFacts.durationSeconds)} · ${formatQuickBytes(artifact.sizeBytes)} · ${formatQuickMilliseconds(Math.max(0, Number(scene.endMs) - Number(scene.startMs)) || 0)}を使用` : '素材を選んでください')}
                   </small>
+                  {artifact && <>
+                    <div className="quick-create-media-facts" aria-label="素材の情報">
+                      <span>{mediaFacts.width && mediaFacts.height ? `${mediaFacts.width}×${mediaFacts.height}` : '画素数不明'}</span>
+                      {mediaFacts.fps !== undefined && <span>{Number(mediaFacts.fps.toFixed(2))}fps</span>}
+                      <span>{mediaFacts.hasAudio === undefined ? '素材音の有無は未確認' : mediaFacts.hasAudio ? '素材音あり' : '素材音なし'}</span>
+                      {mediaFacts.videoCodec && <span>{mediaFacts.videoCodec}</span>}
+                    </div>
+                    <QuickScenePreview key={`${artifact.id}:${artifact.url}:${scene.startMs}:${scene.endMs}`} scene={scene} artifact={artifact} />
+                    {mediaAdvice.length > 0 && <ul className="quick-create-advice" aria-label={`${meta.title}の素材確認のポイント`}>{mediaAdvice.map((item) => <li key={item.id}>{item.message}</li>)}</ul>}
+                    {onSceneVisualPresetChange && <>
+                      <label className="quick-create-sharp-option">
+                        <input type="checkbox" checked={sharpeningSelected} disabled={disabled || (!canSharpen && !sharpeningSelected)} aria-describedby={`quick-create-sharp-${scene.role}-help`} onChange={(event) => {
+                          if (!event.target.checked || canSharpen) onSceneVisualPresetChange(index, event.target.checked ? 'h3_low_res_sharp_v1' : 'preserve_v1');
+                        }} />
+                        <span>低解像度の縦素材を少し鮮明にする</span>
+                      </label>
+                      <small className="quick-create-sharp-help" id={`quick-create-sharp-${scene.role}-help`}>
+                        {canSharpen ? '弱い固定補正を完成動画へ適用します。細部を復元する機能ではなく、処理時間は増えます。効果は完成後に確認してください。' : '確認できた画素数が対象条件に合う低解像度の縦素材で選べます。横素材や画素数不明の素材では選べません。'}
+                        {sharpeningSelected && !canSharpen && ' 現在の素材では補正を外してください。'}
+                      </small>
+                    </>}
+                  </>}
                 </fieldset>
               );
             })}
@@ -158,6 +270,9 @@ export function QuickCreateForm({
               const sceneToken = scene.role.toUpperCase();
               const headlineErrors = validationErrors.filter((error) => error.includes(sceneToken) && (error.includes('大見出し') || error.includes('半角英数字')));
               const narrationErrors = validationErrors.filter((error) => error.includes(sceneToken) && error.includes('ナレーション'));
+              const durationSeconds = Math.max(0, Number(scene.endMs) - Number(scene.startMs)) / 1_000;
+              const metrics = contentCopyMetrics(scene.headline, scene.narration, durationSeconds);
+              const copyAdvice = contentCopyAdvice(scene.headline, scene.narration, durationSeconds);
               return (
                 <fieldset className={`quick-create-copy role-${scene.role}`} key={scene.role} disabled={disabled}>
                   <legend><span>{meta.number}</span>{meta.title}</legend>
@@ -170,11 +285,12 @@ export function QuickCreateForm({
                       value={scene.headline}
                       disabled={disabled}
                       aria-invalid={headlineErrors.length > 0}
-                      aria-describedby={headlineErrors.length > 0 ? `${headlineId}-error` : undefined}
+                      aria-describedby={[`${headlineId}-metrics`, ...(headlineErrors.length > 0 ? [`${headlineId}-error`] : [])].join(' ')}
                       onChange={(event) => onSceneHeadlineChange(index, event.target.value)}
                     />
                   </label>
                   {headlineErrors.length > 0 && <small className="quick-create-field-error" id={`${headlineId}-error`}>{headlineErrors[0]}</small>}
+                  <small className="quick-create-copy-metrics" id={`${headlineId}-metrics`}>{metrics.headlineCharacters}文字 · {metrics.headlineLines}行 / 2行 · 最長行は全角約{metrics.longestHeadlineUnits}文字相当 / 10文字</small>
                   <div className="quick-create-narration">
                     <label className="field" htmlFor={narrationId}>
                       <span>読み上げる文章</span>
@@ -185,12 +301,20 @@ export function QuickCreateForm({
                         value={scene.narration}
                         disabled={disabled}
                         aria-invalid={narrationErrors.length > 0}
-                        aria-describedby={narrationErrors.length > 0 ? `${narrationId}-error` : undefined}
+                        aria-describedby={[`${narrationId}-metrics`, ...(narrationErrors.length > 0 ? [`${narrationId}-error`] : [])].join(' ')}
                         onChange={(event) => onSceneNarrationChange(index, event.target.value)}
                       />
                     </label>
                     {narrationErrors.length > 0 && <small className="quick-create-field-error" id={`${narrationId}-error`}>{narrationErrors[0]}</small>}
+                    <small className="quick-create-copy-metrics" id={`${narrationId}-metrics`}>
+                      <strong>使用 {metrics.usableSeconds.toFixed(1)}秒 · 読み上げ {metrics.spokenCharacterCount}文字</strong><br />
+                      {metrics.spokenCharacterCount > 0
+                        ? metrics.hasAmbiguousReading ? '英数字を含むため、秒数の目安は表示しません。' : `日本語の文字量からの目安：約${metrics.speechMinSeconds.toFixed(1)}〜${metrics.speechMaxSeconds.toFixed(1)}秒。`
+                        : '短い1文を入力してください。'}
+                      声・速さ・間・英数字の読み方で変わります。実際の長さは音声生成後に確認します。
+                    </small>
                   </div>
+                  {copyAdvice.length > 0 && <ul className="quick-create-advice" aria-label={`${meta.title}の文章のヒント`}>{copyAdvice.map((item) => <li key={item.id}>{item.message}</li>)}</ul>}
                 </fieldset>
               );
             })}
@@ -211,6 +335,10 @@ export function QuickCreateForm({
             <div><dt>処理</dt><dd>ローカルのみ・API費用0円</dd></div>
             <div><dt>確認</dt><dd>技術QCと成果物を記録</dd></div>
           </dl>
+          <div className="quick-create-content-review">
+            <strong>完成後は、まず音を出して1回通して確認</strong>
+            <p>顔や文字の切れ、字幕を読み切れる速さ、読み上げの発音、場面が切り替わるタイミングを確認します。上の助言は編集の目安です。品質検査の合格は、内容の伝わりやすさや口の動きとの一致まで保証するものではありません。</p>
+          </div>
         </li>
       </ol>
     </div>

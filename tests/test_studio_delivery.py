@@ -8,13 +8,17 @@ import subprocess
 import tempfile
 import unittest
 import zipfile
+from datetime import datetime, timezone
 from pathlib import Path
+from unittest import mock
 
+from tools.studio.database import StudioDatabase
 from tools.studio.delivery import (
     DeliveryPackageError,
     DeliveryPackageValidationError,
     create_delivery_package,
     resolve_delivery_lineage,
+    validate_delivery_audit_snapshot,
     validate_delivery_package_payload,
 )
 from tools.studio.server import _DELIVERY_PACKAGE_RE
@@ -93,6 +97,7 @@ class _Database:
         if production_id != PRODUCTION_ID:
             return None
         return {
+            "snapshot_at": datetime.now(timezone.utc).isoformat(),
             "production": copy.deepcopy(self.production),
             "artifacts": copy.deepcopy(list(self.artifacts.values())),
             "artifact_page": {
@@ -584,6 +589,72 @@ class DeliveryPackageTests(unittest.TestCase):
                 f"/api/productions/{PRODUCTION_ID}/delivery-packages/upload"
             )
         )
+
+
+class DeliveryAuditIdentityDatabaseTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temporary = tempfile.TemporaryDirectory()
+        self.workspace = Path(self.temporary.name).resolve()
+        self.database = StudioDatabase(self.workspace / "studio.sqlite3", workspace=self.workspace)
+        self.database.index_production({"id": PRODUCTION_ID, "title": "Original title"}, [])
+        _revision, run = self.database.create_revision_and_run(
+            PRODUCTION_ID, [], {"requested_stages": ["assembly", "qc"]}, 0, "USD",
+        )
+        path = self.workspace / "outputs" / "studio" / "master-clean.mp4"
+        path.parent.mkdir(parents=True)
+        path.write_bytes(b"original-master")
+        stat = path.stat()
+        self.artifact = {
+            "id": "art_" + "1" * 32,
+            "rel_path": path.relative_to(self.workspace).as_posix(), "name": path.name,
+            "kind": "video", "media_type": "video/mp4", "bytes": stat.st_size,
+            "mtime_ns": stat.st_mtime_ns, "sha256": _sha256(path), "is_heavy": False,
+        }
+        self.database.register_studio_artifact(PRODUCTION_ID, self.artifact)
+        self.lineage = {"production_id": PRODUCTION_ID, "run_id": run["id"],
+                        "artifacts": {"clean_master": self.artifact}}
+
+    def tearDown(self) -> None:
+        self.temporary.cleanup()
+
+    def snapshot_digest(self) -> tuple[dict[str, object], str]:
+        return validate_delivery_audit_snapshot(
+            self.database.production_audit_snapshot(PRODUCTION_ID), self.lineage,
+        )
+
+    def test_real_database_snapshot_time_does_not_change_input_identity(self) -> None:
+        with mock.patch("tools.studio.database.utc_now", side_effect=[
+            "2026-09-05T00:00:00.000Z", "2026-09-05T00:00:03.000Z",
+        ]):
+            before, before_digest = self.snapshot_digest()
+            after, after_digest = self.snapshot_digest()
+        self.assertNotEqual(before["snapshot_at"], after["snapshot_at"])
+        self.assertEqual(before_digest, after_digest)
+        self.assertIn("snapshot_at", before)  # The exported audit keeps its receipt time.
+
+    def test_changed_production_title_changes_identity(self) -> None:
+        _snapshot, before_digest = self.snapshot_digest()
+        self.database.index_production({"id": PRODUCTION_ID, "title": "Revised title"}, [])
+        _changed, after_digest = self.snapshot_digest()
+        self.assertNotEqual(before_digest, after_digest)
+
+    def test_external_audit_event_changes_identity(self) -> None:
+        _snapshot, before_digest = self.snapshot_digest()
+        self.database.append_event("production", PRODUCTION_ID, "review.updated", {"note": "New review"})
+        _changed, after_digest = self.snapshot_digest()
+        self.assertNotEqual(before_digest, after_digest)
+
+    def test_replaced_selected_master_changes_identity(self) -> None:
+        _snapshot, before_digest = self.snapshot_digest()
+        path = self.workspace / str(self.artifact["rel_path"])
+        path.write_bytes(b"replaced-master")
+        stat = path.stat()
+        self.database.register_studio_artifact(PRODUCTION_ID, {
+            **self.artifact, "bytes": stat.st_size, "mtime_ns": stat.st_mtime_ns,
+            "sha256": _sha256(path),
+        })
+        _changed, after_digest = self.snapshot_digest()
+        self.assertNotEqual(before_digest, after_digest)
 
 
 if __name__ == "__main__":

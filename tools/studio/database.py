@@ -15,6 +15,7 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
 from typing import Any, Callable, Iterator, Sequence
 
+from .media_metadata import media_fingerprint, normalize_video_metadata
 from .security import (
     canonical_json,
     sanitize_for_storage,
@@ -25,7 +26,7 @@ from .security import (
 )
 
 
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 MAX_EVENT_LINE_BYTES = 2 * 1024 * 1024
 MAX_ANNOUNCEMENT_RECIPE_BYTES = 256 * 1024
 _RUN_EXECUTION_PROFILES = {
@@ -646,7 +647,8 @@ class StudioDatabase:
                     sha256 TEXT,
                     is_heavy INTEGER NOT NULL CHECK(is_heavy IN (0, 1)),
                     available INTEGER NOT NULL CHECK(available IN (0, 1)),
-                    indexed_at TEXT NOT NULL
+                    indexed_at TEXT NOT NULL,
+                    media_metadata_json TEXT
                 );
                 CREATE INDEX IF NOT EXISTS artifacts_production_idx
                     ON artifacts(production_id, available, kind, rel_path);
@@ -1239,6 +1241,11 @@ class StudioDatabase:
                     END
                     """
                 )
+                artifact_columns = {
+                    row["name"] for row in connection.execute("PRAGMA table_info(artifacts)")
+                }
+                if "media_metadata_json" not in artifact_columns:
+                    connection.execute("ALTER TABLE artifacts ADD COLUMN media_metadata_json TEXT")
                 connection.execute(
                     "INSERT INTO schema_meta(key, value) VALUES('schema_version', ?) "
                     "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
@@ -2616,7 +2623,7 @@ class StudioDatabase:
             )
             for artifact in artifacts:
                 existing = connection.execute(
-                    "SELECT bytes, mtime_ns, sha256, available FROM artifacts WHERE id=?",
+                    "SELECT * FROM artifacts WHERE id=?",
                     (artifact["id"],),
                 ).fetchone()
                 changed = not existing or any(
@@ -2627,12 +2634,13 @@ class StudioDatabase:
                     )
                 )
                 changed_artifacts += int(changed)
+                media_metadata = self._metadata_for_artifact(artifact, existing)
                 connection.execute(
                     """
                     INSERT INTO artifacts(
                         id, production_id, rel_path, origin, name, kind, media_type,
-                        bytes, mtime_ns, sha256, is_heavy, available, indexed_at
-                    ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+                        bytes, mtime_ns, sha256, is_heavy, available, indexed_at, media_metadata_json
+                    ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
                     ON CONFLICT(id) DO UPDATE SET
                         production_id=excluded.production_id,
                         rel_path=excluded.rel_path,
@@ -2645,7 +2653,8 @@ class StudioDatabase:
                         sha256=excluded.sha256,
                         is_heavy=excluded.is_heavy,
                         available=1,
-                        indexed_at=excluded.indexed_at
+                        indexed_at=excluded.indexed_at,
+                        media_metadata_json=excluded.media_metadata_json
                     """,
                     (
                         artifact["id"],
@@ -2660,6 +2669,7 @@ class StudioDatabase:
                         artifact.get("sha256"),
                         int(bool(artifact["is_heavy"])),
                         timestamp,
+                        _json(media_metadata),
                     ),
                 )
                 version_exists = connection.execute(
@@ -2718,18 +2728,23 @@ class StudioDatabase:
     ) -> dict[str, Any]:
         """Register one validated Studio artifact on the caller transaction."""
 
+        existing = connection.execute(
+            "SELECT * FROM artifacts WHERE id=?", (artifact["id"],)
+        ).fetchone()
+        media_metadata = self._metadata_for_artifact(artifact, existing)
         connection.execute(
             """
             INSERT INTO artifacts(
                 id, production_id, rel_path, origin, name, kind, media_type,
-                bytes, mtime_ns, sha256, is_heavy, available, indexed_at
-            ) VALUES(?, ?, ?, 'studio', ?, ?, ?, ?, ?, ?, ?, 1, ?)
+                bytes, mtime_ns, sha256, is_heavy, available, indexed_at, media_metadata_json
+            ) VALUES(?, ?, ?, 'studio', ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 bytes=excluded.bytes,
                 mtime_ns=excluded.mtime_ns,
                 sha256=excluded.sha256,
                 available=1,
-                indexed_at=excluded.indexed_at
+                indexed_at=excluded.indexed_at,
+                media_metadata_json=excluded.media_metadata_json
             """,
             (
                 artifact["id"],
@@ -2743,6 +2758,7 @@ class StudioDatabase:
                 artifact.get("sha256"),
                 int(bool(artifact["is_heavy"])),
                 timestamp,
+                _json(media_metadata),
             ),
         )
         connection.execute(
@@ -2800,12 +2816,16 @@ class StudioDatabase:
                         "is_heavy",
                         "available",
                         "indexed_at",
+                        "metadata",
                     )
                 },
             },
             created_at=timestamp,
         )
-        return result
+        # Job/stage results persist the registered-artifact binding contract.
+        # Advisory media facts are returned by library/get_artifact views and
+        # retained in the audit mirror, but must not extend that closed contract.
+        return {key: value for key, value in result.items() if key != "metadata"}
 
     def register_studio_artifact(
         self, production_id: str, artifact: dict[str, Any]
@@ -2840,8 +2860,47 @@ class StudioDatabase:
         }
 
     @staticmethod
-    def _artifact_dict(row: sqlite3.Row) -> dict[str, Any]:
+    def _metadata_for_artifact(
+        artifact: dict[str, Any], existing: sqlite3.Row | None = None,
+    ) -> dict[str, Any]:
+        if artifact.get("kind") != "video":
+            return {}
+        identity = media_fingerprint(artifact)
+        if identity is None:
+            return normalize_video_metadata(None)
+        if "metadata" in artifact:
+            return normalize_video_metadata(artifact["metadata"])
+        if existing is not None and identity == media_fingerprint(dict(existing)):
+            return normalize_video_metadata(_loads(existing["media_metadata_json"], {}))
+        return normalize_video_metadata(None)
+
+    def _artifact_dict(
+        self, row: sqlite3.Row, *, include_media_metadata: bool = True,
+    ) -> dict[str, Any]:
         file_url = f"/api/artifacts/{row['id']}/file"
+        metadata = (
+            normalize_video_metadata(_loads(row["media_metadata_json"], {}))
+            if include_media_metadata and row["kind"] == "video" else {}
+        )
+        if any(value is not None for value in metadata.values()):
+            # Cheap freshness check for known facts only. Reading a library
+            # never probes/hashes media, and stale facts do not survive a move,
+            # replacement, missing file, or detected timestamp/size change.
+            try:
+                path = workspace_path(self.workspace, row["rel_path"], must_exist=True)
+                stat = path.stat()
+                current_identity = {
+                    "sha256": row["sha256"], "bytes": stat.st_size, "mtime_ns": stat.st_mtime_ns,
+                }
+                if (
+                    not row["available"] or not path.is_file()
+                    or _has_symlink_component(self.workspace, row["rel_path"])
+                    or media_fingerprint(dict(row)) is None
+                    or media_fingerprint(current_identity) != media_fingerprint(dict(row))
+                ):
+                    metadata = normalize_video_metadata(None)
+            except (OSError, RuntimeError, ValueError):
+                metadata = normalize_video_metadata(None)
         return {
             "id": row["id"],
             "production_id": row["production_id"],
@@ -2859,6 +2918,7 @@ class StudioDatabase:
             "file_url": file_url,
             "preview_url": file_url,
             "download_url": file_url,
+            **({"metadata": metadata} if include_media_metadata else {}),
         }
 
     def list_productions(
@@ -3346,9 +3406,19 @@ class StudioDatabase:
         }
 
     def get_artifact(self, artifact_id: str) -> dict[str, Any] | None:
+        """Return the stable registered-artifact contract used by execution bindings."""
+        return self._get_artifact(artifact_id, include_media_metadata=False)
+
+    def get_artifact_view(self, artifact_id: str) -> dict[str, Any] | None:
+        """Return a library/API view with advisory, freshness-checked media facts."""
+        return self._get_artifact(artifact_id, include_media_metadata=True)
+
+    def _get_artifact(
+        self, artifact_id: str, *, include_media_metadata: bool,
+    ) -> dict[str, Any] | None:
         with self.session() as connection:
             row = connection.execute("SELECT * FROM artifacts WHERE id=?", (artifact_id,)).fetchone()
-        return self._artifact_dict(row) if row else None
+        return self._artifact_dict(row, include_media_metadata=include_media_metadata) if row else None
 
     @staticmethod
     def _revision_dict(row: sqlite3.Row) -> dict[str, Any]:
@@ -6185,9 +6255,14 @@ class StudioDatabase:
                 return 0
             return 0
         timestamp = observed_at if isinstance(observed_at, str) and 1 <= len(observed_at) <= 64 else utc_now()
+        restored_metadata = {}
+        if kind == "video":
+            restored_metadata = normalize_video_metadata(None)
+            if media_fingerprint(value) == (actual_digest, byte_count, stat.st_mtime_ns):
+                restored_metadata = normalize_video_metadata(value.get("metadata"))
         cursor = connection.execute(
-            "INSERT OR IGNORE INTO artifacts(id, production_id, rel_path, origin, name, kind, media_type, bytes, mtime_ns, sha256, is_heavy, available, indexed_at) "
-            "VALUES(?, ?, ?, 'studio', ?, ?, ?, ?, ?, ?, ?, 1, ?)",
+            "INSERT OR IGNORE INTO artifacts(id, production_id, rel_path, origin, name, kind, media_type, bytes, mtime_ns, sha256, is_heavy, available, indexed_at, media_metadata_json) "
+            "VALUES(?, ?, ?, 'studio', ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)",
             (
                 artifact_id,
                 production_id,
@@ -6200,6 +6275,7 @@ class StudioDatabase:
                 actual_digest,
                 int(byte_count > 10 * 1024 * 1024),
                 timestamp,
+                _json(restored_metadata),
             ),
         )
         inserted = int(cursor.rowcount == 1)

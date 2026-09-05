@@ -2,6 +2,32 @@
 
 この図は、tracked workspace、untracked local runtime、Studio、外部配布元、MiniMax API、ElevenLabs API、YouTube Data APIの信頼境界と主要データフローを示します。責務と制約の詳細は[ARCHITECTURE.md](ARCHITECTURE.md)を参照してください。
 
+## 現在の優先導線（2026-09-05）
+
+当面は手動投稿を出口とする。下段の全体図にあるYouTube APIは既存control-planeの構成であり、今回のStudio操作からは送信しない。
+
+```mermaid
+flowchart LR
+    Import["動画取込<br/>既存ffprobe・SHA-256検証"] --> Facts["6項目の素材情報<br/>production JSON＋SQLite v10"]
+    Words["用途・主文"] --> Script["実行前の3場面台本<br/>compilerと同じ見出し・セリフ"]
+    Facts --> Edit["1. 作る<br/>素材範囲再生・文字量の助言<br/>対象素材だけ固定鮮明化"]
+    Script --> Edit
+    Edit --> Existing["既存recipe・Run・Job<br/>SAPI → Remotion → 合成 → 技術QC"]
+    Existing --> Review["2. 確認・修正<br/>完成動画・表現・音声を人が確認"]
+    Review -->|設定変更・再作成| Edit
+    Review --> Delivery["3. 動画・投稿用テキスト"]
+    Delivery --> MP4["読み上げ字幕あり／なしMP4<br/>大見出しは両方に残る"]
+    Delivery --> Text["現在入力のタイトル・説明・タグ<br/>UTF-8 txt・コピー"]
+    Delivery --> Zip["既存13ファイル納品ZIP<br/>送信時snapshotとの差分を表示"]
+    MP4 --> Manual["利用者が手動で投稿"]
+    Text --> Manual
+    Edit -.-> Advanced["詳細ツール<br/>収録・音声・編集・ログ・監査"]
+```
+
+素材情報のGETは再probeしない。古い／変更された素材の情報は不明とし、renderer側の再検証は省略しない。文章量の助言と素材previewは完成画質・音声の合格判定ではない。
+
+## 全体構成
+
 RemotionのPNG frame scratchは、開始前にsharpカットを各2GiB、preserveカットを実source bytesとして予約し、source staging後に実staged bytesと残容量を再検査します。残りの必要量はRGBA frame bytes×1.25＋raw出力2GiB＋正規化出力2GiB＋安全余白1GiBです。`TEMP`／`TMP`／`TMPDIR`をatomic stage内へ閉じてNode側でもattestし、成功・失敗・cancelの全経路でstageを削除します。両検査値と実staged bytesをreport／manifestへ記録します。
 
 ```mermaid

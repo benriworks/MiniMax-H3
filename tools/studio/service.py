@@ -1444,7 +1444,7 @@ class StudioService:
                     raise KeyError("production not found") from exc
                 raise RequestValidationError(str(exc), code=exc.code) from exc
             self.indexer.refresh_production(normalized_id)
-            artifact = self.database.get_artifact(imported.artifact["id"])
+            artifact = self.database.get_artifact_view(imported.artifact["id"])
             if (
                 artifact is None
                 or not artifact["available"]
@@ -1759,7 +1759,7 @@ class StudioService:
 
     def artifact(self, artifact_id: str) -> dict[str, Any] | None:
         validate_identifier(artifact_id, label="artifact id")
-        return self.database.get_artifact(artifact_id)
+        return self.database.get_artifact_view(artifact_id)
 
     def list_jobs(self, *, limit: int = 100) -> dict[str, Any]:
         jobs = self.database.list_jobs(limit=max(1, min(int(limit), 500)))

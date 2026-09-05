@@ -798,7 +798,7 @@ class DatabaseMigrationTests(unittest.TestCase):
                     INSERT INTO schema_meta(key, value) VALUES('schema_version', '1');
                     CREATE TRIGGER reject_current_schema
                     BEFORE UPDATE OF value ON schema_meta
-                    WHEN NEW.key='schema_version' AND NEW.value='9'
+                    WHEN NEW.key='schema_version' AND NEW.value='10'
                     BEGIN
                         SELECT RAISE(ABORT, 'test migration rollback');
                     END;

@@ -8,6 +8,7 @@ import {
   createSimpleCreateIntent,
   getSimpleCreateTemplate,
   parseSimpleCreateIntent,
+  simpleCreateStoryboard,
   validateSimpleCreateFields,
   type SimpleCreateIntent,
   type SimpleCreateTemplateId,
@@ -122,6 +123,7 @@ export function SimpleCreateWizard({
   }, [open]);
 
   const template = useMemo(() => getSimpleCreateTemplate(templateId), [templateId]);
+  const storyboard = useMemo(() => simpleCreateStoryboard(templateId, messageText), [templateId, messageText]);
   const formErrors = useMemo(
     () => validateSimpleCreateFields(title, templateId, messageText),
     [messageText, templateId, title],
@@ -266,7 +268,7 @@ export function SimpleCreateWizard({
           <div><span className="section-kicker">SIMPLE CREATE V2</span><h2 id="simple-create-title">かんたん制作</h2></div>
           <button className="button button-ghost" type="button" onClick={closeDialog} disabled={submitting}>閉じる</button>
         </div>
-        <p className="panel-lead">5つの判断で、Production作成から字幕・音声・技術QCのJob登録まで一括で進めます。費用のかかるAPIは使いません。</p>
+        <p className="panel-lead">素材と言葉を選んで、約15秒の字幕・音声つき動画を作ります。費用のかかるAPIは使いません。完成後に仕上がりを確認して、必要な場面を直せます。</p>
 
         <ol className="simple-create-decisions">
           <li>
@@ -284,11 +286,20 @@ export function SimpleCreateWizard({
           </li>
           <li>
             <span>4</span>
-            <label className="field" htmlFor="simple-create-message"><strong>いちばん伝えたい文言</strong><textarea id="simple-create-message" rows={2} maxLength={80} value={messageText} disabled={fieldsLocked} onChange={(event) => setMessageText(event.target.value)} placeholder={template.messagePlaceholder} /><small className="field-help">2行以内・1行全角20文字相当まで。読み上げ文も自動で作ります。</small></label>
+            <label className="field" htmlFor="simple-create-message"><strong>いちばん伝えたい文言</strong><textarea id="simple-create-message" rows={2} maxLength={80} value={messageText} disabled={fieldsLocked} onChange={(event) => setMessageText(event.target.value)} placeholder={template.messagePlaceholder} /><small className="field-help">2行以内・1行全角10文字相当（半角20文字）まで。読み上げ文も自動で作ります。</small></label>
           </li>
           <li className="simple-create-confirm">
             <span>5</span>
-            <div><strong>確認して一括作成</strong><dl><div><dt>構成</dt><dd>{template.label} v{template.version}・3場面・約15秒</dd></div><div><dt>処理</dt><dd>ローカル音声・大字幕・技術QC</dd></div><div><dt>再試行</dt><dd>固定ID・素材dedupe・同一revision照合</dd></div></dl></div>
+            <div><strong>確認して一括作成</strong><dl><div><dt>構成</dt><dd>{template.label}・3場面・約15秒</dd></div><div><dt>仕上げ</dt><dd>ローカル音声・大きな字幕・技術検査</dd></div><div><dt>素材音</dt><dd>使用しません。読み上げ音声のみです。</dd></div></dl>
+              <div className="simple-create-storyboard" aria-label="作成前の台本確認">
+                {storyboard.map((scene, index) => <article key={scene.role}>
+                  <h4>{index + 1}. {['つかみ', '要点', '案内'][index]}</h4>
+                  <small>大見出し</small><p>{scene.headline || '文言を入力すると表示されます'}</p>
+                  <small>読み上げるセリフ</small><p>{scene.narration || '文言から自動作成します'}</p>
+                </article>)}
+              </div>
+              <p className="field-help">実際に使用する台本です。読み上げ速度や口の動きとの一致は保証しません。完成動画で音声と字幕を確認してください。</p>
+            </div>
           </li>
         </ol>
 

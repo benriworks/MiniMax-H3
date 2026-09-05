@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type SyntheticEvent } from 'react';
 import { Player } from '@remotion/player';
+import './workspaceWorkflow.css';
 import {
   api,
   ANNOUNCEMENT_VIDEO_SCHEMA_VERSION,
@@ -1409,6 +1410,7 @@ function JobsStrip({
 
 function ProductionWorkspace({ detail, jobs, providers, onReload, onReloadStatus, onAnnouncementDirtyChange, onLibraryMutation }: { detail: ProductionDetail; jobs: Job[]; providers: ProviderStatus[]; onReload: (signal?: AbortSignal) => Promise<void>; onReloadStatus: (signal?: AbortSignal) => Promise<boolean>; onAnnouncementDirtyChange: (dirty: boolean) => void; onLibraryMutation: () => Promise<void> }) {
   const [tab, setTab] = useState<DetailTab>('announcement');
+  const [showAdvancedTools, setShowAdvancedTools] = useState(false);
   const [announcementDirty, setAnnouncementDirty] = useState(false);
   const latestRun = [...detail.runs].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))[0];
   const completedArtifacts = detail.artifacts.length;
@@ -1421,7 +1423,10 @@ function ProductionWorkspace({ detail, jobs, providers, onReload, onReloadStatus
   const activeJob = jobs.find((job) => job.status === 'running' || job.status === 'pending');
 
   const tabs: { id: DetailTab; label: string; count?: number }[] = [
-    { id: 'announcement', label: 'かんたん作成', count: detail.announcementRecipes.length || undefined },
+    { id: 'announcement', label: '1. 作る', count: detail.announcementRecipes.length || undefined },
+    { id: 'review', label: '2. 確認・修正', count: detail.reviews.length || undefined },
+    { id: 'delivery', label: '3. 動画・投稿用テキスト' },
+    { id: 'artifacts', label: '素材・成果物', count: detail.artifacts.length },
     { id: 'overview', label: '概要' },
     { id: 'pipeline', label: '一括生成' },
     { id: 'detailed-test', label: '詳細一括' },
@@ -1431,9 +1436,6 @@ function ProductionWorkspace({ detail, jobs, providers, onReload, onReloadStatus
     { id: 'timeline', label: 'カット編集' },
     { id: 'assembly', label: '編集・合成' },
     { id: 'qc', label: '品質検査' },
-    { id: 'review', label: 'レビュー', count: detail.reviews.length || undefined },
-    { id: 'delivery', label: '納品・公開' },
-    { id: 'artifacts', label: '成果物', count: detail.artifacts.length },
     { id: 'compare', label: 'A/B比較' },
     { id: 'logs', label: 'ログ', count: detail.events.length },
     { id: 'audit', label: '監査・費用' },
@@ -1481,13 +1483,25 @@ function ProductionWorkspace({ detail, jobs, providers, onReload, onReloadStatus
       </section>
       <ProductionLibraryPanel production={detail} disabled={announcementDirty} onMutation={onLibraryMutation} />
 
+      <div className="workspace-workflow-hint">
+        <p>まずは3ステップ。動画を作り、仕上がりを確認して、投稿用ファイルを取り出します。YouTubeへの投稿は手動です。</p>
+        <button className="button button-secondary" type="button" aria-expanded={showAdvancedTools} aria-controls="production-advanced-tools" onClick={() => setShowAdvancedTools((value) => !value)}>{showAdvancedTools ? '詳細ツールを閉じる' : '詳細ツールを開く'}</button>
+      </div>
       <nav className="tabs" aria-label="制作情報" role="tablist">
-        {tabs.map((item) => (
+        {tabs.slice(0, 4).map((item) => (
           <button key={item.id} id={`production-tab-${item.id}`} role="tab" aria-selected={tab === item.id} aria-controls="production-tabpanel" className={tab === item.id ? 'is-active' : ''} onClick={() => changeTab(item.id)}>
             {item.label}{item.count !== undefined && <span>{item.count}</span>}
           </button>
         ))}
+        <div id="production-advanced-tools" className="workspace-advanced-tools" role="presentation" hidden={!showAdvancedTools}>
+          {tabs.slice(4).map((item) => (
+            <button key={item.id} id={`production-tab-${item.id}`} role="tab" aria-selected={tab === item.id} aria-controls="production-tabpanel" className={tab === item.id ? 'is-active' : ''} onClick={() => changeTab(item.id)}>
+              {item.label}{item.count !== undefined && <span>{item.count}</span>}
+            </button>
+          ))}
+        </div>
       </nav>
+      {!showAdvancedTools && tabs.slice(4).some((item) => item.id === tab) && <p className="workspace-selected-tool">現在の画面：{tabs.find((item) => item.id === tab)?.label}。切り替え先は「詳細ツールを開く」から選べます。</p>}
 
       <div className="tab-content" id="production-tabpanel" role="tabpanel" aria-labelledby={`production-tab-${tab}`}>
         {tab === 'overview' && <Overview detail={detail} latestRun={latestRun} onReload={onReload} />}
@@ -3514,7 +3528,7 @@ const announcementDraftUsesQuickDefaults = (draft: AnnouncementRecipeDraft, arti
       && scene.endMs === announcementEndMs(artifacts.find((artifact) => artifact.id === scene.videoArtifactId), index)
       && scene.volumePercent.trim() !== ''
       && Number(scene.volumePercent) === 0
-      && scene.visualPreset === DEFAULT_REMOTION_TIMELINE_VISUAL_PRESET
+      && (scene.visualPreset === DEFAULT_REMOTION_TIMELINE_VISUAL_PRESET || scene.visualPreset === 'h3_low_res_sharp_v1')
     ));
 };
 
@@ -3979,6 +3993,7 @@ function AnnouncementVideoPanel({ detail, jobs, onReload, onReloadStatus, onDirt
         videoArtifactId: artifactId,
         startMs: '0',
         endMs: announcementEndMs(artifact, index),
+        visualPreset: scene.videoArtifactId === artifactId ? scene.visualPreset : DEFAULT_REMOTION_TIMELINE_VISUAL_PRESET,
       } : scene),
     }));
   };
@@ -4208,7 +4223,7 @@ function AnnouncementVideoPanel({ detail, jobs, onReload, onReloadStatus, onDirt
               <span><strong>詳細設定</strong><small>時間・音・補正も調整</small></span>
             </label>
           </fieldset>
-          {!quickModeAvailable && <div className="quick-create-advanced-note" role="note"><strong>この内容には詳細設定が含まれています</strong><p>trim、素材音、映像補正、音声、字幕のいずれかが、かんたん作成の安全な既定値と異なります。設定を隠したまま上書きしないよう、詳細設定で表示しています。「新規」でかんたん設定へ戻せます。</p></div>}
+          {!quickModeAvailable && <div className="quick-create-advanced-note" role="note"><strong>この内容には詳細設定が含まれています</strong><p>切り出し範囲、素材音、音声、字幕などが、かんたん作成の対応設定と異なります。設定を隠したまま上書きしないよう、詳細設定で表示しています。「新規」でかんたん設定へ戻せます。</p></div>}
 
           {duplicateIntentStore.status !== 'ready' && <div className="inline-message is-error" role="alert"><p>{duplicateIntentStore.status === 'corrupt' ? 'ブラウザの複製保留情報が壊れています。誤って新しいIDを発行しないようrecipe操作を停止しました。' : 'ブラウザのlocalStorageを利用できないため、安全な複製IDを保持できません。ブラウザ設定を確認してください。'}</p>{duplicateIntentStore.status === 'corrupt' && <button className="button button-ghost" type="button" disabled={operationLocked} onClick={discardCorruptDuplicateStore}>壊れた保留情報を破棄</button>}</div>}
           {pendingDuplicateIntent && <div className="inline-message is-error" role="alert"><p>複製ID <code>{pendingDuplicateIntent.newRecipeId}</code> の応答が未確定です。画面移動や再読込後も同じIDを使い、二重作成を防ぎます。</p><div className="button-row"><button className="button button-secondary" type="button" disabled={operationLocked || dirty} onClick={() => void duplicate()}>同じ複製IDで再照合</button><button className="button button-ghost" type="button" disabled={operationLocked} onClick={discardPendingDuplicate}>保留中の複製を破棄</button></div></div>}
@@ -4240,6 +4255,7 @@ function AnnouncementVideoPanel({ detail, jobs, onReload, onReloadStatus, onDirt
               onSceneArtifactChange={selectSceneArtifact}
               onSceneHeadlineChange={(index, value) => updateScene(index, 'headline', value)}
               onSceneNarrationChange={(index, value) => updateScene(index, 'narration', value)}
+              onSceneVisualPresetChange={(index, value) => updateScene(index, 'visualPreset', value)}
             />
           ) : (
             <>
