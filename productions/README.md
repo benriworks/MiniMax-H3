@@ -1,6 +1,6 @@
 # Production records
 
-このディレクトリは、MiniMax H3で制作した個別案件の追跡可能な台帳を置く場所です。再利用可能な制作判断はルートの[PRODUCTION_PLAYBOOK_JA.md](../PRODUCTION_PLAYBOOK_JA.md)へ集約し、案件固有のprompt、hash、採否、権利境界は各productionに残します。
+このディレクトリは、MiniMax H3およびStudioのローカル編集・モーショングラフィックスで制作した個別案件の追跡可能な台帳を置く場所です。再利用可能な制作判断はルートの[PRODUCTION_PLAYBOOK_JA.md](../PRODUCTION_PLAYBOOK_JA.md)へ集約し、案件固有のprompt、hash、採否、権利境界は各productionに残します。
 
 ## ディレクトリ契約
 
@@ -26,6 +26,7 @@ planned、queued、runningは生成成功の証拠ではありません。status
 
 | ID | 内容 | 状態 | 記録 |
 | --- | --- | --- | --- |
+| `SHORT_20260905_codex_15s` | Codexをテーマとしたnative 1080×1920の15秒モーショングラフィックス。日本語SAPI音声と読み上げ字幕 | 案件専用の既存worker実行。検証結果・公開前確認は個別台帳を参照 | [制作記録](SHORT_20260905_codex_15s/PRODUCTION_RECORD_JA.md) |
 | `CM_20260815_genai_mastery_15s` | プレゼンターを使った15秒生成AI CM。camera Truck Right失敗候補も保持 | canonical master independently reviewed。公開権利は別gate | [制作記録](CM_20260815_genai_mastery_15s/PRODUCTION_RECORD_JA.md) |
 | `PV_20260815_original_jp_dance_unit_15s` | 完全合成3人組のdance / vocal / synth 15秒PV | master independently reviewed。CUT03後半はcreative needs improvement。公開権利は別gate | [制作記録](PV_20260815_original_jp_dance_unit_15s/PRODUCTION_RECORD_JA.md) |
 | `SHORT_20260823_claude_md_15s` | `CLAUDE.md`を説明する縦型15秒YouTube Short | overlay版と完全クリーン版の1080x1920 masterを作成・検査済み。technical / creative / phonetic semantic PASS。人による試聴と公開権利は別gate | [制作記録](SHORT_20260823_claude_md_15s/PRODUCTION_RECORD_JA.md) |

@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "production": "SHORT_20260905_codex_15s",
+  "studio_production_id": "production_f2bd026db5c153669db88bc491004a5f",
+  "status": "technical_and_independent_visual_pass",
+  "human_listening_verified": false,
+  "published": false,
+  "sources": [
+    {
+      "path": "outputs/productions/SHORT_20260905_codex_15s/sources/cut_01_prompt.mp4",
+      "bytes": 401419,
+      "sha256": "76A7B8FE4AA769B573D1778944F031318D1B5E41C5F79B5432A4D96720BDE8A0",
+      "frames": 126
+    },
+    {
+      "path": "outputs/productions/SHORT_20260905_codex_15s/sources/cut_02_build.mp4",
+      "bytes": 426102,
+      "sha256": "533CBCEF074A2C9535992DF6857A73D8643CF9DD24D2FCB7DB7456350B7041DD",
+      "frames": 126
+    },
+    {
+      "path": "outputs/productions/SHORT_20260905_codex_15s/sources/cut_03_review.mp4",
+      "bytes": 390620,
+      "sha256": "70E43F81F141ECF308DC48007CF268BD5FF6CF3154DE60EF8C4CB2C6BCB65338",
+      "frames": 120
+    }
+  ],
+  "masters": [
+    {
+      "path": "outputs/productions/SHORT_20260905_codex_15s/Codex_15s_captioned.mp4",
+      "bytes": 1229812,
+      "sha256": "1507AB4945BC823C07C9CB8AD1583B9743A6498BC220AFA8A792BA18376C5D3A",
+      "frames": 360,
+      "duration_seconds": 15,
+      "width": 1080,
+      "height": 1920,
+      "fps": 24
+    },
+    {
+      "path": "outputs/productions/SHORT_20260905_codex_15s/Codex_15s_clean.mp4",
+      "bytes": 1183374,
+      "sha256": "879F8BF4670ABB4D70843667498EED73255394CE1577939D86A8DA6E3ACC5E05",
+      "frames": 360,
+      "duration_seconds": 15,
+      "width": 1080,
+      "height": 1920,
+      "fps": 24
+    }
+  ]
+}
