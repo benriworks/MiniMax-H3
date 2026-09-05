@@ -266,6 +266,12 @@ class WindowsCaptureAcceptanceServiceTests(unittest.TestCase):
                 completed = fixture.service.jobs.wait(queued["id"], timeout=10)
             assert completed is not None
             self.assertEqual(completed["status"], "succeeded")
+            # Media facts enrich the library API, not the immutable capture
+            # binding used by acceptance reports and completed Job results.
+            for artifact in completed["result"]["artifacts"]:
+                self.assertNotIn("metadata", artifact)
+                library_artifact = fixture.service.artifact(artifact["id"])
+                self.assertIn("metadata", library_artifact)
             report = _passing_report(completed["result"])
 
             created = fixture.service.record_windows_capture_acceptance(

@@ -140,7 +140,7 @@ test('save, duplicate, and execute use exact encoded production/recipe routes an
 
 test('Studio exposes Quick Create as the default announcement surface and keeps Detailed separate', () => {
   assert.match(appSource, /useState<DetailTab>\('announcement'\)/);
-  assert.match(appSource, /id: 'announcement', label: 'かんたん作成'/);
+  assert.match(appSource, /id: 'announcement', label: '1\. 作る'/);
   assert.match(announcementSource, /HOOK → MESSAGE → CTA/);
   assert.match(announcementSource, /保存して告知動画を作る/);
   assert.match(announcementSource, /複製して編集/);

@@ -38,7 +38,7 @@ export const SIMPLE_CREATE_TEMPLATES: readonly SimpleCreateTemplate[] = [
     hookNarration: '新しいお知らせです。',
     ctaHeadline: '詳しくは\nプロフィールへ',
     ctaNarration: '詳しくはプロフィールをご覧ください。',
-    messagePlaceholder: '例：生成AI入門講座を公開しました',
+    messagePlaceholder: '例：生成AI入門講座を\n公開しました',
   },
   {
     id: 'event_v1',
@@ -49,7 +49,7 @@ export const SIMPLE_CREATE_TEMPLATES: readonly SimpleCreateTemplate[] = [
     hookNarration: 'イベント開催のお知らせです。',
     ctaHeadline: '参加方法は\n詳細ページへ',
     ctaNarration: '参加方法は詳細ページをご確認ください。',
-    messagePlaceholder: '例：9月15日 オンラインで開催',
+    messagePlaceholder: '例：9月15日\nオンライン開催',
   },
   {
     id: 'recruitment_v1',
@@ -60,7 +60,7 @@ export const SIMPLE_CREATE_TEMPLATES: readonly SimpleCreateTemplate[] = [
     hookNarration: '新しい仲間を募集します。',
     ctaHeadline: 'ご応募は\nプロフィールへ',
     ctaNarration: 'ご応募はプロフィールからお願いします。',
-    messagePlaceholder: '例：広報メンバーを募集中',
+    messagePlaceholder: '例：広報メンバー募集中',
   },
 ] as const;
 
@@ -76,7 +76,7 @@ export const getSimpleCreateTemplate = (templateId: SimpleCreateTemplateId): Sim
 };
 
 const displayUnits = (value: string): number => [...value].reduce(
-  (total, character) => total + (/^[\x00-\x7f]$/.test(character) ? 0.5 : 1),
+  (total, character) => total + (/^[\x20-\x7e\uff61-\uff9f]$/.test(character) ? 0.5 : 1),
   0,
 );
 
@@ -99,9 +99,10 @@ export const validateSimpleCreateFields = (
   if (normalizedMessage.length > 80) errors.push('文言は80文字以内にしてください。');
   const lines = normalizedMessage.split(/\r?\n/);
   if (lines.length > 2) errors.push('文言は2行以内にしてください。');
-  if (lines.some((line) => displayUnits(line) > 20)) {
-    errors.push('文言は1行あたり全角20文字相当以内にしてください。');
+  if (lines.some((line) => displayUnits(line) > 10)) {
+    errors.push('文言は1行あたり全角10文字相当（半角20文字）以内にしてください。');
   }
+  if (normalizedMessage && lines.some((line) => !line.trim())) errors.push('文言に空行を入れないでください。');
   return errors;
 };
 
@@ -178,6 +179,14 @@ const narrationForMessage = (message: string): string => {
   return /[。！？!?]$/.test(normalized) ? normalized : `${normalized}。`;
 };
 
+/** Display and compilation share the exact words; this is not an audio timing prediction. */
+export const simpleCreateStoryboard = (templateId: SimpleCreateTemplateId, message: string) => {
+  const template = getSimpleCreateTemplate(templateId);
+  const headlines = [template.hookHeadline, message.trim(), template.ctaHeadline];
+  const narrations = [template.hookNarration, message.trim() ? narrationForMessage(message) : '', template.ctaNarration];
+  return ROLE_ORDER.map((role, index) => ({ role, headline: headlines[index], narration: narrations[index] }));
+};
+
 /** Compile the five-decision form to the existing, versioned Announcement v1 contract. */
 export const buildSimpleCreateRecipe = (
   intent: SimpleCreateIntent,
@@ -190,25 +199,23 @@ export const buildSimpleCreateRecipe = (
   if (artifacts.some((artifact) => artifact.kind !== 'video' || !/^art_[0-9a-f]{32}$/.test(artifact.id))) {
     throw new TypeError('動画artifactのidentityが不正です。');
   }
-  const template = getSimpleCreateTemplate(normalized.templateId);
   const indexes = artifacts.length === 1 ? [0, 0, 0] : artifacts.length === 2 ? [0, 1, 1] : [0, 1, 2];
-  const headlines = [template.hookHeadline, normalized.message, template.ctaHeadline];
-  const narrations = [template.hookNarration, narrationForMessage(normalized.message), template.ctaNarration];
+  const storyboard = simpleCreateStoryboard(normalized.templateId, normalized.message);
   return {
     schemaVersion: 1,
     name: normalized.title,
     templatePreset: 'shorts_ja_15s_v1',
-    scenes: ROLE_ORDER.map((role, index) => {
+    scenes: storyboard.map((scene, index) => {
       const artifact = artifacts[indexes[index]];
       return {
-        role,
+        role: scene.role,
         videoArtifactId: artifact.id,
         startMs: 0,
         endMs: sceneEndMs(artifact, index),
         volumePercent: 0,
         visualPreset: 'preserve_v1',
-        headline: headlines[index],
-        narration: narrations[index],
+        headline: scene.headline,
+        narration: scene.narration,
       };
     }),
     rate: 0,

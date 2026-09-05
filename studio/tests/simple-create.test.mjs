@@ -32,6 +32,16 @@ const artifact = (value, durationSeconds = 5.5) => ({
   raw: {},
 });
 
+test('storyboard shows exactly the compiled headlines and narration for every template', () => {
+  for (const template of helper.SIMPLE_CREATE_TEMPLATES) {
+    const current = { ...intent, templateId: template.id };
+    const expected = helper.buildSimpleCreateRecipe(current, [artifact('a')]).scenes.map(({ role, headline, narration }) => ({ role, headline, narration }));
+    assert.deepEqual(helper.simpleCreateStoryboard(current.templateId, current.message), expected);
+  }
+  assert.equal(helper.simpleCreateStoryboard('event_v1', '  ')[1].narration, '');
+  assert.equal(helper.simpleCreateStoryboard('event_v1', '  参加しませんか？  ')[1].narration, '参加しませんか？');
+});
+
 test('simple create exposes exactly three fixed version-1 templates', () => {
   assert.deepEqual(helper.SIMPLE_CREATE_TEMPLATES.map((item) => [item.id, item.version]), [
     ['announcement_v1', 1],
@@ -46,6 +56,16 @@ test('simple create intent parser is closed and never accepts file paths', () =>
   assert.deepEqual(helper.parseSimpleCreateIntent(intent), intent);
   assert.throws(() => helper.parseSimpleCreateIntent({ ...intent, sourcePath: 'C:/secret/source.mp4' }), /保留情報/);
   assert.throws(() => helper.parseSimpleCreateIntent({ ...intent, productionId: 'production_bad' }), /保留情報/);
+});
+
+test('simple create validates the actual 20 half-width headline limit before any import or job', () => {
+  for (const message of ['あ'.repeat(10), 'A'.repeat(20), 'ｶ'.repeat(20), 'あ'.repeat(10) + '\n' + 'い'.repeat(10)]) {
+    assert.deepEqual(helper.validateSimpleCreateFields('test', 'announcement_v1', message), []);
+  }
+  for (const message of ['あ'.repeat(11), 'A'.repeat(21), 'ｶ'.repeat(21)]) {
+    assert.match(helper.validateSimpleCreateFields('test', 'announcement_v1', message)[0], /全角10/);
+    assert.throws(() => helper.createSimpleCreateIntent({ title: 'test', templateId: 'announcement_v1', message }, () => { throw new Error('ID must not be issued'); }), /全角10/);
+  }
 });
 
 test('simple create compiles 1-3 artifacts to the existing exact Announcement v1 recipe', () => {

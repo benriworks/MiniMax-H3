@@ -16,6 +16,23 @@
 
 ## 構成要素と責務
 
+### 2026-09-05: コンテンツ品質・操作性を優先した整備
+
+YouTubeへの自動送信は当面の完成条件から外し、手動投稿用の動画とテキストを出口にする。操作手順は [STUDIO_CONTENT_QUALITY_GUIDE_JA.md](STUDIO_CONTENT_QUALITY_GUIDE_JA.md) に記載する。
+
+- `ProductionWorkspace` は「1. 作る」「2. 確認・修正」「3. 動画・投稿用テキスト」「素材・成果物」を常時表示し、他の12ツールは開閉式にする。既存の未保存変更確認・詳細編集・監査機能を維持する。
+- `SimpleCreateWizard` は `simpleCreateStoryboard` と recipe compilerで同じ台本を共有し、作成前に3場面の見出し／セリフを表示する。見出しはbackendと同じ各行半角換算20（全角10）、2行以内として先に検証する。初回の取込・Job登録後に文字幅不一致で止まる問題を修正した。
+- `contentQuality.ts` / `QuickCreateForm` は素材の実測情報、使用範囲の動画再生、見出しの仮表示、文字量と発話量の**助言**を担当する。これは品質スコアや発話時刻の実測ではない。英数字入りは推測秒数を出さず発音確認へ案内する。素材再生は自動開始せず、初期ミュート、指定範囲末尾で停止。字幕・音声・鮮明化は完成masterで確認する。
+- 低解像度の縦素材には既存 `h3_low_res_sharp_v1` を簡単画面から選べる。実寸不明または対象外は新規選択不可。素材変更時は補正なしへ戻し、backendも実ファイルを再検証する。超解像モデルを追加したものではない。
+- `media_metadata.py` は既存取込時ffprobe結果から `duration_seconds / width / height / fps / has_audio / video_codec` の6項目だけを抽出する。不明はnull。`.studio-production.json` schema 1の任意 `media_metadata`（上限512 KiB）にSHA-256・bytes・mtimeを結び付け、SQLite schema 10の `artifacts.media_metadata_json` へ索引する。再取込・再索引・再起動・複製を跨いで保持し、既知情報のGET時はstatによる変更検出を追加する。GETでprobeやhash走査はしないため、同一size/mtimeへの置換の完全検知は後段のhash検証に委ねる。旧生成素材への自動probe、および生成workerの既存probeを登録へ渡す接続は未実装で、旧素材の画素数は不明になり得る。
+- `manualPublication.ts` / `DeliveryPanel` は既存Delivery sourceの検証を通ったclean/captioned動画の再生・保存と、現在のフォームのタイトル／説明文／任意タグをUTF-8 BOM付きtxtにまとめる。コピー不可時は選択可能なtextareaへ戻す。txtには日時、制作／Run／Job、動画ID／hash／サイズと判明している尺・画素数を含める。ZIPは既存13-entry契約を維持し、タグはtxtのみ。ZIP作成依頼時の入力snapshotと現在入力を比較し、画面再訪などでsnapshotがなければ一致未確認と表示する。フォームは自動保存しない。
+
+「字幕なし」は読み上げ字幕なしで、大見出しは残る。高品質音声APIの一括制作への接続、字幕の独立編集、リップシンク、レビュー計画からの1カット自動再生成は、この整備で完了した機能ではない。
+
+内部の `get_artifact()` と登録戻り値は従来の閉じた実行bindingを維持し、`get_artifact_view()` と制作詳細一覧にだけ素材metadataを付加する。Voice UpgradeやWindows Captureのexactな照合契約へ表示用フィールドを混入させない。Delivery梱包前後の監査identityは、内容が同じでも変わる取得時刻 `snapshot_at` だけを比較から除外し、ZIP内には時刻を残す。制作タイトル・監査イベント・master変更は引き続き検出する。Studioの納品処理表示はpanel独自pollだけでなく、共通Job更新から到着した成功・失敗も反映する。
+
+今回の検証は [STUDIO_QUALITY_UX_VERIFICATION_JA.md](STUDIO_QUALITY_UX_VERIFICATION_JA.md) に記録。Python 666件（1 skip）、frontend 169件、build、実ブラウザーからの15秒ローカル一括作成・技術QC・投稿txt・13-entry納品ZIPを確認した。映像・音声の表現品質を保証する試験ではない。
+
 | 構成要素 | 責務 | 状態 |
 |---|---|---|
 | `setup-local.ps1` | Python 3.12 venv、固定Git commit、固定Python依存を導入。dirty repoを保護 | tracked |
@@ -149,7 +166,7 @@ API contractは[MiniMax V2 Create](https://platform.minimax.io/docs/api-referenc
 
 ### M1〜M4の制作支援境界
 
-- M1 `SimpleCreateWizard`は、制作名、3つのversion固定テンプレート、動画1〜3本、主文、最終確認という約5判断を、既存のproduction create／raw import／announcement save／executeへ収束させます。production／recipe IDは最初のPOST前にversioned `localStorage`へ保存し、応答消失後も同じIDでread-before-write再開します。path、token、動画本体は保存しません。M4の固定6秒素材はexact 15秒recipeに十分です。一般のM1取込素材はdurationを台帳へまだ永続化しないため、5.167秒未満では後段trimがfail closedになる既知境界があります。
+- M1 `SimpleCreateWizard`は、制作名、3つのversion固定テンプレート、動画1〜3本、主文、最終確認という約5判断を、既存のproduction create／raw import／announcement save／executeへ収束させます。production／recipe IDは最初のPOST前にversioned `localStorage`へ保存し、応答消失後も同じIDでread-before-write再開します。path、token、動画本体は保存しません。2026-09-05以降の取込は実測durationを永続化し、recipe末尾を素材尺へ制限します。10〜20秒というrecipe全体の制約は維持し、短すぎる素材で不足を埋めたり、長尺を勝手に引き伸ばしたりしません。旧素材など実尺不明の場合は後段検証も必要です。
 - M2 `production_library.py`はoutput-owned productionだけにrename、archive/unarchive、取込素材付きduplicateを提供します。archiveは既定一覧から隠すだけでartifactを削除しません。client-issued operation ID、route sourceを含むrequest digest、期待状態をschema v9のimmutable operation ledgerへ束縛し、event mirrorから復元します。tracked productionと制御metadataのないoutput-only productionはread-onlyです。
 - M3 `reviews.py`はartifact／revision／Run／cut／timecodeをexact identityとしてcreative／rights／public_releaseのコメント、判定、解決をappend-only eventへ保存します。technical QC passとhuman release gateは別です。cut修正planは他cutのexact artifact再利用方針を持ちますが、M4 rerun endpointには未接続で、常に`planned_not_executed`、`not_started`、`not_connected`、`job_id=null`を返します。
 - M4 `shot_orchestration.py`はCodexの画像生成スキル等で先に作った3始点画像とH3 prompt skill形式の3 I2VA promptを受け、公式MiniMax H3 V2 APIへ6秒／768Pを3件だけ送信します。`confirmed_billable_task_limit=3`をexactに要求し、各送信前の`prepared`、task ID、出力bytes／SHA-256を`outputs/studio/shot_projects/<project_id>/`へatomic保存します。応答消失後は自動有料再送を行いません。3 MP4を再hashし、各trimを0〜6,000msへ閉じ、5,167／5,167／5,166msから2境界250ms fadeを差し引いた15,000msをQuick Createへ渡します。API keyはDPAPI `SecretStore`から解決し、plan/state/resultへ保存しません。local ComfyUI presetはT2VA-onlyであり、このI2VA経路をローカル実行とは扱いません。

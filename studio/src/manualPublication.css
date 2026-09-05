@@ -1,0 +1,15 @@
+.manual-publication-actions { margin-top: 1rem; }
+.manual-publication-note { line-height: 1.7; margin: .75rem 0; }
+.manual-publication-videos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin: 1rem 0; }
+.manual-publication-video { min-width: 0; border: 1px solid var(--border, #394153); border-radius: .75rem; padding: 1rem; }
+.manual-publication-video h4 { margin: 0 0 .75rem; }
+.manual-publication-video video { display: block; width: 100%; max-height: 22rem; background: #10131b; margin-bottom: .75rem; border-radius: .4rem; }
+.manual-publication-video .button { width: 100%; text-align: center; }
+.manual-publication-records { margin: 1rem 0; }
+.manual-publication-records summary { cursor: pointer; padding: .5rem 0; }
+.manual-publication-records dl { display: grid; grid-template-columns: minmax(5rem, auto) minmax(0, 1fr); gap: .5rem .75rem; font-size: .85rem; }
+.manual-publication-records dt, .manual-publication-records dd { margin: 0; }
+.manual-publication-records dd, .manual-publication-records code { overflow-wrap: anywhere; }
+.manual-publication-text { margin-top: 1rem; }
+.manual-publication-text textarea { width: 100%; box-sizing: border-box; min-height: 18rem; line-height: 1.6; resize: vertical; }
+@media (max-width: 680px) { .manual-publication-videos { grid-template-columns: minmax(0, 1fr); } }

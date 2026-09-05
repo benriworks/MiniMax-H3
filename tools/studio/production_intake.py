@@ -12,6 +12,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any, BinaryIO, Callable
 from urllib.parse import quote_from_bytes, unquote_to_bytes
 
+from .media_metadata import media_fingerprint, normalize_video_metadata, video_metadata_from_probe
 from .security import (
     SecurityError,
     canonical_json,
@@ -24,7 +25,7 @@ from .security import (
 PRODUCTION_SCHEMA_VERSION = 1
 PRODUCTION_ID_RE = re.compile(r"^production_[0-9a-f]{32}$")
 PRODUCTION_METADATA_FILENAME = ".studio-production.json"
-PRODUCTION_METADATA_MAX_BYTES = 64 * 1024
+PRODUCTION_METADATA_MAX_BYTES = 512 * 1024
 PRODUCTION_TITLE_MAX_CHARS = 120
 
 VIDEO_IMPORT_FILENAME_HEADER = "X-Studio-Filename-Encoded"
@@ -223,7 +224,10 @@ def _valid_import_relative(value: str) -> bool:
 
 def validate_production_metadata(value: Any, *, production_id: str) -> dict[str, Any]:
     required = {"schema_version", "production_id", "title", "imports"}
-    if not isinstance(value, dict) or set(value) != required:
+    if (
+        not isinstance(value, dict) or not required.issubset(value)
+        or set(value) - required - {"media_metadata"}
+    ):
         raise _error("production metadata is not a supported document", "invalid_production_metadata")
     if isinstance(value["schema_version"], bool) or value["schema_version"] != 1:
         raise _error("production metadata schema_version is not supported", "unsupported_production_schema")
@@ -245,12 +249,28 @@ def validate_production_metadata(value: Any, *, production_id: str) -> dict[str,
             raise _error("production import hashes are invalid", "invalid_production_metadata")
         normalized_imports[relative] = digest
         seen_hashes.add(digest)
-    return {
+    result = {
         "schema_version": PRODUCTION_SCHEMA_VERSION,
         "production_id": production_id,
         "title": validate_production_title(value["title"]),
         "imports": dict(sorted(normalized_imports.items())),
     }
+    # Version 1 documents without media facts remain valid. Optional malformed
+    # facts are unknown; they never make a valid imported video inaccessible.
+    if "media_metadata" in value:
+        facts = value["media_metadata"]
+        normalized_facts = {}
+        if isinstance(facts, dict) and len(facts) <= 1024:
+            for relative, record in facts.items():
+                identity = media_fingerprint(record)
+                if identity is None or normalized_imports.get(relative) != identity[0]:
+                    continue
+                normalized_facts[relative] = {
+                    "sha256": identity[0], "bytes": identity[1], "mtime_ns": identity[2],
+                    "metadata": normalize_video_metadata(record.get("metadata")),
+                }
+        result["media_metadata"] = dict(sorted(normalized_facts.items()))
+    return result
 
 
 def read_production_metadata(workspace: Path, production_id: str) -> dict[str, Any] | None:
@@ -538,7 +558,7 @@ def _verify_video(
     path: Path,
     *,
     expected_extension: str,
-) -> None:
+) -> dict[str, Any]:
     try:
         probe = json_probe(ffprobe, path, cwd=path.parent)
     except Exception as exc:
@@ -555,6 +575,7 @@ def _verify_video(
     containers = {token.strip().casefold() for token in format_name.split(",") if token.strip()}
     if not containers.intersection(_VIDEO_CONTAINERS[expected_extension]):
         raise _error("the video container does not match its extension", "invalid_video_media")
+    return video_metadata_from_probe(probe)
 
 
 def _hash_file(path: Path) -> str:
@@ -585,7 +606,10 @@ def _import_path(workspace: Path, production_id: str, relative: str, *, create_p
     return path
 
 
-def _artifact(workspace: Path, production_id: str, destination: Path, digest: str) -> dict[str, Any]:
+def _artifact(
+    workspace: Path, production_id: str, destination: Path, digest: str,
+    media_metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     try:
         stat = destination.stat()
         relative = relative_workspace_path(workspace, destination)
@@ -603,6 +627,22 @@ def _artifact(workspace: Path, production_id: str, destination: Path, digest: st
         "mtime_ns": stat.st_mtime_ns,
         "sha256": digest,
         "is_heavy": True,
+        "metadata": normalize_video_metadata(media_metadata),
+    }
+
+
+def _metadata_with_import(
+    metadata: dict[str, Any], relative: str, artifact: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        **metadata,
+        "imports": {**metadata["imports"], relative: artifact["sha256"]},
+        "media_metadata": {
+            **metadata.get("media_metadata", {}),
+            relative: {
+                key: artifact[key] for key in ("sha256", "bytes", "mtime_ns", "metadata")
+            },
+        },
     }
 
 
@@ -682,7 +722,7 @@ def stream_video_import(
                 "source video no longer matches its production metadata",
                 "video_source_digest_mismatch",
             )
-        _verify_video(ffprobe, json_probe, partial, expected_extension=extension)
+        media_metadata = _verify_video(ffprobe, json_probe, partial, expected_extension=extension)
 
         existing_relative = next(
             (relative for relative, known in metadata["imports"].items() if known == digest),
@@ -708,10 +748,15 @@ def stream_video_import(
             destination_created = _publish_partial(
                 partial, destination, length=length, digest=digest
             )
+            artifact = _artifact(workspace, production_id, destination, digest, media_metadata)
+            updated = _metadata_with_import(metadata, existing_relative, artifact)
+            if updated != metadata:
+                _replace_metadata(workspace, production_id, updated)
+            metadata_replaced = True
             _discard_partial(workspace, production_id, partial)
             partial = None
             return VideoImportResult(
-                artifact=_artifact(workspace, production_id, destination, digest),
+                artifact=artifact,
                 deduplicated=True,
                 destination_created=destination_created,
             )
@@ -722,16 +767,14 @@ def stream_video_import(
         destination_created = _publish_partial(
             partial, destination, length=length, digest=digest
         )
-        updated = {
-            **metadata,
-            "imports": {**metadata["imports"], relative: digest},
-        }
+        artifact = _artifact(workspace, production_id, destination, digest, media_metadata)
+        updated = _metadata_with_import(metadata, relative, artifact)
         _replace_metadata(workspace, production_id, updated)
         metadata_replaced = True
         _discard_partial(workspace, production_id, partial)
         partial = None
         return VideoImportResult(
-            artifact=_artifact(workspace, production_id, destination, digest),
+            artifact=artifact,
             deduplicated=not destination_created,
             destination_created=destination_created,
         )

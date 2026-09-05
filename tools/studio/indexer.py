@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from .database import StudioDatabase
+from .media_metadata import bound_video_metadata
 from .production_intake import (
     PRODUCTION_METADATA_FILENAME,
     PRODUCTION_ID_RE,
@@ -301,6 +302,12 @@ class ProductionIndexer:
                     if artifact is None:
                         totals["skipped_files"] += 1
                     else:
+                        if control is not None and origin == "output" and artifact["kind"] == "video":
+                            output_relative = path.relative_to(directory).as_posix()
+                            if output_relative in control["imports"]:
+                                artifact["metadata"] = bound_video_metadata(
+                                    control.get("media_metadata", {}).get(output_relative), artifact,
+                                )
                         artifacts.append(artifact)
             metadata = {
                 "id": production_id,

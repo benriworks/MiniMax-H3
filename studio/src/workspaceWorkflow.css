@@ -1,0 +1,12 @@
+.workspace-workflow-hint { display: flex; align-items: center; gap: 1rem; justify-content: space-between; margin: 1rem 0 .5rem; }
+.workspace-workflow-hint p, .workspace-selected-tool { color: var(--text-muted, #9cabb9); font-size: .86rem; line-height: 1.65; }
+.workspace-workflow-hint button { flex-shrink: 0; }
+.workspace-advanced-tools { display: contents; }
+.workspace-advanced-tools[hidden] { display: none; }
+.simple-create-storyboard { display: grid; gap: .65rem; margin-top: .85rem; }
+.simple-create-storyboard article { padding: .85rem; border: 1px solid var(--border, #344152); border-radius: .65rem; background: var(--surface, #172131); }
+.simple-create-storyboard h4 { margin: 0 0 .65rem; font-size: .9rem; }
+.simple-create-storyboard p { margin: .35rem 0; white-space: pre-wrap; line-height: 1.65; }
+.simple-create-storyboard small { display: block; color: var(--text-muted, #9cabb9); }
+.simple-create-file-list { grid-column: 2; min-width: 0; }
+@media (max-width: 720px) { .workspace-workflow-hint { align-items: stretch; flex-direction: column; } }

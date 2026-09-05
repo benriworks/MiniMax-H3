@@ -690,6 +690,10 @@ def _artifact_path(
 
 def _audit_identity(snapshot: Mapping[str, Any]) -> dict[str, Any]:
     value = deepcopy(dict(snapshot))
+    # The receipt records when it was read, not a change to production inputs.
+    # Keep that time in the exported snapshot, but exclude it from the before /
+    # after packaging identity so two reads of unchanged data compare equal.
+    value.pop("snapshot_at", None)
     artifacts = value.get("artifacts")
     if isinstance(artifacts, list):
         value["artifacts"] = [

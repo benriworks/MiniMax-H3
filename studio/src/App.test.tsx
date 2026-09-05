@@ -619,12 +619,12 @@ test('delivery result parser exposes only a verified local zero-cost ZIP', () =>
 });
 
 test('delivery tab monitors the exact Job and shows gates without making them a creation blocker', () => {
-  assert.match(appSource, /id: 'delivery', label: '納品・公開'/);
+  assert.match(appSource, /id: 'delivery', label: '3\. 動画・投稿用テキスト'/);
   assert.match(appSource, /<DeliveryPanel key=\{detail\.id\}/);
   assert.match(deliveryPanelSource, /resolveDeliveryPackageSource\(detail, jobs\)/);
   assert.match(deliveryPanelSource, /api\.createDeliveryPackage\(detail\.id, body\)/);
   assert.match(deliveryPanelSource, /api\.job\(jobId\)/);
-  assert.match(deliveryPanelSource, /未承認でも確認用Deliveryの作成自体は止めません/);
+  assert.match(deliveryPanelSource, /確認用の動画や納品ZIPは、未承認でも取り出せます/);
   assert.match(deliveryPanelSource, /ZIPをダウンロード/);
   assert.match(apiSource, /delivery-packages/);
 });
