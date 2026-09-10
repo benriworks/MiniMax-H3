@@ -10,6 +10,7 @@
     "test:claude-capture-ui": "node --test tests/claude-capture-ui.test.mjs",
     "test:still-library-live": "npm run build && node --test tests/still-library-live.test.mjs",
     "test:claude-still-ui": "node --test tests/claude-still-ui.test.mjs",
+    "test:still-plans-live": "npm run build && node --test tests/still-plans-live.test.mjs",
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {

@@ -1,5 +1,25 @@
 # Architecture
 
+## 記事素材パック・確認内容に固定した一括書き出し（2026-09-10）
+
+`StillPlans.preview`は手順版と各場面に割り当てた画像のメモ版を照合し、公開物に含める見出し・説明・素材メモ・hashだけのsnapshotを作る。画像が未割り当て／未完成／メモ版変更の場合はblockerを返す。sourceのURL・セレクター・token・元ファイルパス・過去のメモをsnapshotへ転記しない。ユーザー入力と画像内の情報は自動匿名化されない。
+
+`StillPackPreview`は全場面をサムネイルと説明付きで表示し、明示的な確認後だけ書き出せる。`POST /api/still-plans/<id>/export`はexpected revision・review digest・confirm privacy reviewだけを受け取り、現在のsnapshotが確認済みのものと一致しないと409で拒否。全画像を既存StillLibraryで完全decode／SHA-256照合してから、`images/01.png`等の固定名・`ARTICLE.md`・`manifest.json`・`README.md`を返す。1〜12場面・PNG合計128MiB以内。途中のZIPは配信しない。アーカイブ内のパスはユーザー文言から生成しない。
+
+記事説明はHTMLエスケープ済みpre blockと固定リンクで構成し、任意のHTML／外部画像リンクを生成しない。ZIPの時刻は固定し、同じsnapshotから同一バイト列を再生成できる。manifestには手順ID／版／review digest・場面ID・画像ID／版／hash／寸法を含め、持ち出したファイルを追跡できる。これは記事本文の自動執筆・公開・撮影の自動実行ではない。export専用のDB tableや有料APIは追加しない。
+
+手順一覧・詳細・previewはGETにも明示的なStudio session確認を適用する。POSTは従来のtoken／origin検証に従う。実UI＋実HTTP＋SQLite＋登録PNGで、未割り当て拒否・画像割り当て・保存応答喪失からのGET復旧・ZIPダウンロード・確認後のメモ変更拒否を検証。通常の制作DB・ユーザーのデスクトップは使用しない。
+
+## 撮影手順ライブラリ（2026-09-10）
+
+`StillPlans`を`StillLibrary.plans`として追加。schema 12の`still_plan_versions`はplan ID・版・一意なoperation ID・要求digest・JSON payloadの追記専用テーブル。DDLを既存migration transactionに含め、schema更新失敗時は一緒にrollbackする。保存はexpected revisionを照合し、同一操作の再送は重複版を作らない。更新／削除をDB triggerで拒否する。
+
+1〜12場面の見出し・説明・撮影条件と、任意の完成画像ID／メモ版を保存。native sourceはkindのみ保存でき、token・HWND・コマンド・許可の永続化は禁止。Web撮影条件は既存validatorを通す。画像割り当ては同じDB write transactionで成功状態と版を照合する。手順の複製は新ID・新step IDとし、画像割り当てを外す。
+
+`StillPlanPanel`は手動保存・並べ替え・複製・選択画像の割り当て・既存撮影フォームへの条件読み込みを担当。読み込み時に許可とnative selectorをリセットし、撮影は自動開始しない。未保存変更は閉じる／切替／ブラウザ離脱で警告する。通信応答が不明ならopaqueなplan IDのみをlocalStorageに残してGETで確認し、自動再POSTしない。保存手順一覧は最新200件。公開APIは既存Studio認証配下の`/api/still-plans`と`/api/still-plans/<id>`。
+
+実UI＋実HTTP／SQLiteの隔離試験で保存・並べ替え・準備時に撮影されないこと・reload・複製・390px表示を確認。既存撮影と同様、通常Studio DBは試験対象にしない。
+
 ## Windows Terminal静止画アダプター（2026-09-10）
 
 `terminal_capture.py`の`TerminalStillController`を静止画ライブラリの`source.kind=terminal`として接続。Claude Code CLIの画面素材用だが、CLIの起動・コマンド送信・実行状態の判定はしない。実際の対象は利用者が選択したWindows Terminalウィンドウ全体。Microsoft Store安定版のpackage family／full name／AUMID／パッケージ内実行ファイル位置／ウィンドウclassを確認し、Preview・unpackaged・従来console hostは対象外とする。

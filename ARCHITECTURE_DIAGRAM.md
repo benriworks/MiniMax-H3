@@ -1,5 +1,42 @@
 # Architecture diagram
 
+## 確認済み記事素材パック（2026-09-10）
+
+```mermaid
+flowchart TD
+    Plan[保存した手順版 / 順序付き場面] --> Preview[preview API / 公開用snapshot]
+    Images[割り当て画像IDとメモ版] --> Preview
+    Preview --> Ready{全場面が完成・版一致・128MiB以内}
+    Ready -->|No| Block[理由を表示 / 書き出し不可]
+    Ready -->|Yes| Review[全画像・見出し・説明・素材メモを確認]
+    Review --> Consent[明示許可 + revision + review digest]
+    Consent --> Export[認証済みexport API]
+    Export --> Check{現在のsnapshotと一致}
+    Check -->|No| Block
+    Check -->|Yes| Verify[PNG原本の完全decodeとSHA照合]
+    Verify --> ZIP[順序付きPNG + ARTICLE.md + manifest + README]
+    ZIP --> Human[利用者が記事へ利用 / 手動公開]
+```
+
+元URL・セレクター・token・過去メモは配布snapshotに含めない。画像そのものと手入力の説明の機密確認は人が行う。native撮影の追加操作は発生しない。
+
+## 保存可能な撮影手順（2026-09-10）
+
+```mermaid
+flowchart LR
+    PlanUI[場面を追加・並べ替え・複製] --> API[認証済み手順API]
+    API --> CAS[操作ID再送照合 + expected revision]
+    CAS --> DB[(schema12 / 追記専用still_plan_versions)]
+    PlanUI --> Prepare[保存済み場面の撮影準備]
+    Prepare --> Reset[既存撮影フォーム / tokenと許可をリセット]
+    Reset --> Manual[利用者が対象確認・撮影許可]
+    Manual --> Library[既存静止画ライブラリ]
+    Library --> Assign[画像ID・メモ版を場面へ割り当て]
+    Assign --> API
+```
+
+手順は実行スクリプトではない。保存・準備・複製だけでは画像取得や外部API課金は発生しない。
+
 ## CLI素材用Terminalアダプター（2026-09-10）
 
 ```mermaid

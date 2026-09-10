@@ -22,3 +22,24 @@
 .still-error { background: #42242b; color: #ffb8b8; border-left: 3px solid #e99292; padding: 12px; }.still-notices { margin: 0 30px; }.still-notices p { font-size: 13px; }.still-warning { margin: 16px 30px; padding: 12px; background: #463b27; color: #ffe3a7; font-size: 13px; }.still-warning button { margin: 8px; }
 .still-parent { font-size: 12px; color: #b9e2d7; }.still-parent button { margin-left: 6px; }.still-footer { padding: 18px 30px; border-top: 1px solid #354650; color: #9db5c0; font-size: 12px; }.still-library nav { display: flex; gap: 15px; margin: 20px 0; }
 @media (max-width: 800px) { .still-layout { grid-template-columns: minmax(0, 1fr); padding: 20px; }.still-header { padding: 20px; }.still-library { width: calc(100vw - 20px); max-width: calc(100vw - 20px); }.still-grid { grid-template-columns: repeat(2,minmax(0, 1fr)); }.still-card img { height: 130px; } }
+.still-plan-toggle { margin: 16px 30px; }
+.still-plans { margin: 16px 30px 26px; padding: 24px; background: #172b34; border: 1px solid #4c7078; border-radius: 12px; }
+.still-plans fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.still-plans label { display: grid; gap: 7px; margin: 12px 0; font-size: 13px; }
+.still-plans input, .still-plans textarea, .still-plans select { width: 100%; min-width: 0; box-sizing: border-box; }
+.still-plan-steps { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,310px),1fr)); gap: 20px; padding: 0; list-style: none; }
+.still-plan-steps li { min-width: 0; padding: 16px; background: #101e27; border-radius: 8px; border: 1px solid #354d57; }
+.still-plans .still-actions { margin: 12px 0; }.still-plans button { white-space: normal; }
+.still-plans button:not(.button) { border: 1px solid #506773; border-radius: 7px; padding: 8px 11px; background: #203742; color: #e4f0f2; cursor: pointer; font: inherit; font-size: 12px; }
+.still-plans button:not(.button):hover:not(:disabled) { background: #2b4c57; border-color: #8cd8cd; }
+.still-plans button:disabled { opacity: .5; cursor: default; }
+.still-plans button:focus-visible { outline: 2px solid #8cd8cd; outline-offset: 3px; }
+.still-plans label.still-check { display: flex; align-items: flex-start; gap: 10px; }
+.still-plans input[type=checkbox] { width: auto; flex: none; margin-top: 3px; }
+.still-plan-selection { border-left: 3px solid #82cbbd; padding: 10px 14px; background: #122630; font-size: 13px; overflow-wrap: anywhere; }
+.still-pack { border-top: 1px solid #47616d; margin-top: 22px; padding-top: 20px; }
+.still-pack-grid { padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,250px),1fr)); gap: 14px; }
+.still-pack-grid li { padding: 16px; background: #101e27; border: 1px solid #47616d; border-radius: 8px; overflow-wrap: anywhere; min-width: 0; }
+.still-pack-grid img { display: block; width: 100%; height: 150px; object-fit: contain; background: #081117; margin: 12px 0; }
+.still-pack-grid p { white-space: pre-wrap; }.still-pack-grid a { color: #9edcd5; }
+@media (max-width: 800px) { .still-plans { margin: 12px; padding: 14px; } }
