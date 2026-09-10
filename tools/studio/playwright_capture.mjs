@@ -22,9 +22,14 @@ const sha256 = (value) => crypto.createHash('sha256').update(String(value)).dige
 const readRequest = async (fileName) => {
   const value = JSON.parse(await fs.readFile(fileName, 'utf8'));
   const expected = ['actions', 'duration_ms', 'output_dir', 'settle_ms', 'url'];
-  if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).sort().join(',') !== expected.join(',')) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
     fail('invalid capture request');
   }
+  if (Object.hasOwn(value, 'viewport_preset')) {
+    if (value.viewport_preset !== 'desktop_16_9') fail('invalid capture viewport preset');
+    expected.push('viewport_preset');
+  }
+  if (Object.keys(value).sort().join(',') !== expected.sort().join(',')) fail('invalid capture request');
   if (typeof value.url !== 'string' || typeof value.output_dir !== 'string') fail('invalid capture request');
   if (!Number.isInteger(value.duration_ms) || !Number.isInteger(value.settle_ms) || !Array.isArray(value.actions)) fail('invalid capture request');
   return value;
@@ -57,6 +62,9 @@ const main = async () => {
   const requestPath = path.resolve(process.argv[2]);
   const resultPath = path.resolve(process.argv[3]);
   const request = await readRequest(requestPath);
+  const viewport = request.viewport_preset === 'desktop_16_9'
+    ? { width: 1920, height: 1080 }
+    : { width: 1080, height: 1920 };
   const outputDirectory = path.resolve(request.output_dir);
   const target = new URL(request.url);
   await fs.mkdir(outputDirectory, { recursive: false });
@@ -98,11 +106,11 @@ const main = async () => {
       locale: 'ja-JP',
       recordVideo: {
         dir: outputDirectory,
-        size: { width: 1080, height: 1920 },
+        size: viewport,
       },
       reducedMotion: 'no-preference',
       serviceWorkers: 'block',
-      viewport: { width: 1080, height: 1920 },
+      viewport,
     });
     await context.route('**/*', async (route) => {
       if (loopbackTarget(route.request().url(), target.port)) {
@@ -171,6 +179,7 @@ const main = async () => {
       diagnostic_hashes: [...new Set(messageHashes)].slice(0, MAX_RESULT_MESSAGES),
       diagnostic_count: messageHashes.length,
       raw_video_bytes: stat.size,
+      ...(request.viewport_preset ? { viewport_preset: request.viewport_preset, viewport } : {}),
     });
   } finally {
     await close();

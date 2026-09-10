@@ -25,6 +25,7 @@ from typing import Any, Callable, Mapping
 
 from .execution import (
     LocalNarrationValidationError,
+    NARRATION_IMPLEMENTATION_VERSION,
     narration_cache_key,
     narration_timing_identity,
     validate_internal_narration_segment_starts,
@@ -33,7 +34,8 @@ from .security import canonical_json, validate_identifier, workspace_path
 
 
 NARRATION_SCHEMA_VERSION = 1
-IMPLEMENTATION_VERSION = "local-sapi-v1"
+IMPLEMENTATION_VERSION = NARRATION_IMPLEMENTATION_VERSION
+SAPI_HOST_SELECTION_POLICY = "powershell7_preferred_then_windows_powershell_v1"
 MAX_SEGMENTS = 100
 MAX_SEGMENT_CHARS = 4_000
 MAX_TOTAL_CHARS = 100_000
@@ -367,6 +369,8 @@ def _validate_manifest(
         return None
     if manifest.get("implementation_version") != IMPLEMENTATION_VERSION:
         return None
+    if manifest.get("host_selection_policy") != SAPI_HOST_SELECTION_POLICY:
+        return None
     if manifest.get("production_id") != production_id or manifest.get("run_id") != run_id:
         return None
     if manifest.get("cache_key") != cache_key or manifest.get("payload_digest") != settings.payload_digest:
@@ -653,6 +657,7 @@ def _build_manifest(
     manifest_without_digest: dict[str, Any] = {
         "schema_version": NARRATION_SCHEMA_VERSION,
         "implementation_version": IMPLEMENTATION_VERSION,
+        "host_selection_policy": SAPI_HOST_SELECTION_POLICY,
         "production_id": production_id,
         "run_id": run_id,
         "cache_key": cache_key,
@@ -684,8 +689,22 @@ def _build_manifest(
 
 
 def _find_powershell() -> str | None:
+    """Prefer installed PowerShell 7, whose System.Speech exposes modern voices.
+
+    Do not install a runtime or accept a caller-supplied executable. Missing or
+    linked candidates are skipped; a selected host failing at runtime remains
+    an explicit failure, not a silent change of voice/host during synthesis.
+    """
+    candidates: list[Path] = []
     if os.name == "nt":
-        candidates: list[Path] = []
+        program_files = os.environ.get("ProgramFiles")
+        if program_files:
+            candidates.append(Path(program_files) / "PowerShell" / "7" / "pwsh.exe")
+    for executable in ("pwsh.exe", "pwsh"):
+        found = shutil.which(executable)
+        if found:
+            candidates.append(Path(found))
+    if os.name == "nt":
         system_root = os.environ.get("SystemRoot")
         if system_root:
             candidates.append(
@@ -695,16 +714,15 @@ def _find_powershell() -> str | None:
                 / "v1.0"
                 / "powershell.exe"
             )
-        program_files = os.environ.get("ProgramFiles")
-        if program_files:
-            candidates.append(Path(program_files) / "PowerShell" / "7" / "pwsh.exe")
-        for candidate in candidates:
+    found = shutil.which("powershell.exe")
+    if found:
+        candidates.append(Path(found))
+    for candidate in candidates:
+        try:
             if candidate.is_file() and not candidate.is_symlink():
                 return str(candidate.resolve(strict=True))
-    for executable in ("powershell.exe", "pwsh.exe", "pwsh"):
-        found = shutil.which(executable)
-        if found:
-            return found
+        except (OSError, RuntimeError):
+            continue
     return None
 
 
@@ -858,7 +876,8 @@ def preflight_local_sapi(*, cancel_event: Any = None) -> dict[str, Any]:
                         # Registry cleanup must not replace the capability
                         # result or the bounded public failure above.
                         pass
-    return {"provider": "windows_sapi", "available": True}
+    return {"provider": "windows_sapi", "available": True,
+            "host_selection_policy": SAPI_HOST_SELECTION_POLICY}
 
 
 def _synthesize_sapi(

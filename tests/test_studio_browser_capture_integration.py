@@ -155,6 +155,7 @@ class BrowserCaptureWorkerIntegrationTests(unittest.TestCase):
         run_id: str,
         *,
         validate_failure: object = _NO_FAILURE,
+        viewport_preset: str | None = None,
     ) -> dict[str, Any]:
         progress_updates: list[tuple[int, str]] = []
         forbidden_requests: list[str] = []
@@ -172,16 +173,17 @@ class BrowserCaptureWorkerIntegrationTests(unittest.TestCase):
 """.encode("utf-8")
         target = _http_server(page, target_requests)
         target_port = target.server_address[1]
-        payload = validate_browser_capture_payload(
-            {
-                "url": f"http://127.0.0.1:{target_port}/?token=must-not-persist",
-                "duration_ms": 1_200,
-                "settle_ms": 100,
-                "actions": [
-                    {"type": "click", "at_ms": 500, "selector": "#capture-button"}
-                ],
-            }
-        )
+        request = {
+            "url": f"http://127.0.0.1:{target_port}/?token=must-not-persist",
+            "duration_ms": 1_200,
+            "settle_ms": 100,
+            "actions": [
+                {"type": "click", "at_ms": 500, "selector": "#capture-button"}
+            ],
+        }
+        if viewport_preset is not None:
+            request["viewport_preset"] = viewport_preset
+        payload = validate_browser_capture_payload(request)
         capture_key = browser_capture_key(payload, "c" * 32)
         capture_directory = (
             REPO_ROOT
@@ -311,6 +313,43 @@ class BrowserCaptureWorkerIntegrationTests(unittest.TestCase):
                 ffprobe=self.ffprobe,
             )
         self.assertEqual(raised.exception.error_code, "cache_integrity_failed")
+
+    def test_desktop_worker_records_matching_viewport_media_and_screenshots(self) -> None:
+        run_id = f"test-browser-capture-desktop-{uuid.uuid4().hex}"
+        captured = self._capture(run_id, viewport_preset="desktop_16_9")
+        directory = captured["capture_directory"]
+        manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
+        report = json.loads((directory / "capture-report.json").read_text(encoding="utf-8"))
+        expected = {"width": 1920, "height": 1080}
+        self.assertEqual(captured["result"]["viewport_preset"], "desktop_16_9")
+        self.assertEqual(captured["result"]["video_dimensions"], expected)
+        self.assertEqual(manifest["capture"]["canvas"], expected)
+        self.assertEqual(manifest["capture"]["viewport_preset"], "desktop_16_9")
+        self.assertEqual(report["recording"]["viewport"], expected)
+        self.assertEqual(report["recording"]["viewport_preset"], "desktop_16_9")
+        self.assertEqual(manifest["output_policy"]["width"], 1920)
+        self.assertEqual(manifest["output_policy"]["height"], 1080)
+        self.assertEqual(manifest["output_policy"]["policy_version"], "h264-yuv420p-1920x1080-24fps-video-only-v1")
+        self.assertEqual(manifest["network_policy"], "same-explicit-loopback-origin-only")
+        self.assertEqual(captured["forbidden_requests"], [])
+        for name in ("first-frame.png", "last-frame.png"):
+            header = (directory / name).read_bytes()[:24]
+            self.assertEqual(int.from_bytes(header[16:20], "big"), 1920)
+            self.assertEqual(int.from_bytes(header[20:24], "big"), 1080)
+            browser_capture._validate_png(directory / name, viewport_preset="desktop_16_9")
+        for name in ("playwright_raw", "screen_capture"):
+            video = manifest["media"][name]["streams"][0]
+            self.assertEqual({"width": video["width"], "height": video["height"]}, expected)
+        validated = browser_capture.validate_local_screen_capture_outputs(
+            REPO_ROOT, production_id="TEST_BROWSER_CAPTURE_INTEGRATION", run_id=run_id,
+            capture_key=captured["capture_key"], payload=captured["payload"],
+            node=self.node, ffmpeg=self.ffmpeg, ffprobe=self.ffprobe,
+        )
+        self.assertEqual(validated["video_dimensions"], expected)
+        with self.assertRaises(BrowserCaptureError):
+            browser_capture._validate_mp4_probe(manifest["media"]["screen_capture"], expected_duration_ms=1200)
+        with self.assertRaises(BrowserCaptureError):
+            browser_capture._validate_raw_probe(manifest["media"]["playwright_raw"])
 
     def test_post_publish_validation_failure_removes_published_capture(self) -> None:
         run_id = f"test-browser-capture-cleanup-{uuid.uuid4().hex}"

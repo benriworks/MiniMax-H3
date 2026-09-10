@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
+import { runInNewContext } from 'node:vm';
 
 const studioRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const testDist = join(studioRoot, '.test-dist');
@@ -178,6 +179,111 @@ test('frame compilation uses integer half-up and mirrors independent trim and ov
     () => model.assertRemotionTimelineCompositionProps({ ...props, durationInFrames: 25 }),
     /duration/,
   );
+});
+
+test('explicit layout survives source compilation while legacy props stay sparse', () => {
+  const legacy = model.buildRemotionTimelineCompositionProps({ clips: [clip()] }, () => 'clip-00.mp4');
+  assert.equal(Object.hasOwn(legacy.clips[0], 'layoutPreset'), false);
+  for (const layoutPreset of ['full_bleed_v1', 'screen_explainer_v1']) {
+    const props = model.buildRemotionTimelineCompositionProps({ clips: [clip({ layoutPreset })] }, () => 'clip-00.mp4');
+    assert.equal(props.clips[0].layoutPreset, layoutPreset);
+    assert.equal(model.assertRemotionTimelineCompositionProps(props), props);
+  }
+  assert.throws(() => model.assertRemotionTimelineCompositionProps({ ...legacy, clips: [{ ...legacy.clips[0], layoutPreset: 'arbitrary' }] }), /layout|レイアウト/);
+});
+
+test('screen themes survive wire and composition round-trips without changing legacy payloads', () => {
+  const legacy = { clips: [clip({ layoutPreset: 'screen_explainer_v1', volumePercent: 0 })] };
+  assert.equal(Object.hasOwn(api.buildLocalRemotionTimelinePayload(legacy).clips[0], 'screen_theme'), false);
+  for (const screenTheme of ['neutral_v1', 'claude_desktop_v1', 'claude_code_v1', 'technical_v1', 'claude_editorial_v1']) {
+    const input = { clips: [{ ...legacy.clips[0], screenTheme }] };
+    const wire = api.buildLocalRemotionTimelinePayload(input);
+    assert.equal(wire.clips[0].screen_theme, screenTheme);
+    const props = model.buildRemotionTimelineCompositionProps(wire, () => 'clip-01.mp4');
+    assert.equal(props.clips[0].screenTheme, screenTheme);
+    assert.equal(model.assertRemotionTimelineCompositionProps(props), props);
+    assert.throws(() => model.assertRemotionTimelineCompositionProps({ ...props, clips: [{ ...props.clips[0], screenTheme: 'unknown' }] }), /テーマ/);
+    assert.throws(() => model.assertRemotionTimelineCompositionProps({ ...props, clips: [{ ...props.clips[0], layoutPreset: 'full_bleed_v1' }] }), /テーマ/);
+  }
+  for (const screenTheme of ['unknown', null, 1, {}]) {
+    assert.throws(() => api.buildLocalRemotionTimelinePayload({ clips: [{ ...legacy.clips[0], screenTheme }] }), /テーマ/);
+  }
+  assert.throws(() => api.buildLocalRemotionTimelinePayload({ clips: [clip({ screenTheme: 'neutral_v1' })] }), /テーマ/);
+});
+
+test('screen layout keeps a complete 16:9 viewport between headline and subtitle regions', () => {
+  const layout = model.SCREEN_EXPLAINER_LAYOUT;
+  assert.equal(layout.sourceWidth / layout.sourceHeight, 16 / 9);
+  assert.ok(layout.sourceLeft >= 0 && layout.sourceLeft + layout.sourceWidth <= model.REMOTION_TIMELINE_WIDTH);
+  assert.ok(layout.headlineTop + layout.headlineHeight < layout.sourceTop);
+  assert.ok(layout.sourceTop + layout.sourceHeight < layout.captionSafeTop);
+  assert.ok(layout.captionSafeTop < model.REMOTION_TIMELINE_HEIGHT - 300);
+});
+
+test('fixed focus stays optional and passes through payload and composition unchanged', () => {
+  const legacy = model.buildRemotionTimelineCompositionProps({ clips: [clip()] }, () => 'clip-00.mp4');
+  assert.equal(Object.hasOwn(legacy.clips[0], 'focusRegion'), false);
+  const focusRegion = { x: 0.25, y: 0.25, width: 0.5, height: 0.5 };
+  const request = { clips: [clip({ layoutPreset: 'screen_explainer_v1', focusRegion })] };
+  assert.deepEqual(api.buildRemotionTimelinePayload(request).clips[0].focus_region, focusRegion);
+  const props = model.buildRemotionTimelineCompositionProps(request, () => 'clip-00.mp4');
+  assert.deepEqual(props.clips[0].focusRegion, focusRegion);
+  assert.equal(props.durationInFrames, legacy.durationInFrames);
+  assert.equal(model.assertRemotionTimelineCompositionProps(props), props);
+  for (const invalid of [null, {}, { ...focusRegion, unexpected: 1 }, { ...focusRegion, x: true }, { ...focusRegion, width: 0.19 }, { ...focusRegion, height: Infinity }, { ...focusRegion, x: NaN }, { ...focusRegion, y: 0.6 }, { ...focusRegion, x: 0.00001 }, { ...focusRegion, width: 0.250001 }]) {
+    assert.throws(() => model.assertRemotionTimelineCompositionProps({ ...props, clips: [{ ...props.clips[0], focusRegion: invalid }] }));
+  }
+  assert.throws(() => model.assertRemotionTimelineCompositionProps({ ...legacy, clips: [{ ...legacy.clips[0], focusRegion }] }));
+});
+
+test('fixed focus geometry contains the chosen rectangle using actual landscape, portrait, and square source dimensions', () => {
+  const region = { x: 0.25, y: 0.25, width: 0.5, height: 0.5 };
+  assert.deepEqual(model.screenFocusGeometry(region, 1920, 1080), {
+    left: 0, top: 0, width: 960, height: 540,
+    videoLeft: -480, videoTop: -270, videoWidth: 1920, videoHeight: 1080,
+  });
+  for (const [width, height] of [[1080, 1920], [1000, 1000], [1920, 1080]]) {
+    for (const focus of [region, { x: 0.8, y: 0.8, width: 0.2, height: 0.2 }, { x: 0, y: 0.2, width: 1, height: 0.2 }]) {
+      const geometry = model.screenFocusGeometry(focus, width, height);
+      assert.ok(Math.abs(geometry.width / geometry.height - width * focus.width / (height * focus.height)) < 1e-12);
+      assert.ok(geometry.left >= 0 && geometry.top >= 0);
+      assert.ok(geometry.left + geometry.width <= 960 && geometry.top + geometry.height <= 540);
+      assert.ok(Math.abs(geometry.videoWidth / geometry.videoHeight - width / height) < 1e-12);
+      assert.ok(Math.abs(geometry.videoLeft + focus.x * geometry.videoWidth) < 1e-10);
+      assert.ok(Math.abs(geometry.videoTop + focus.y * geometry.videoHeight) < 1e-10);
+    }
+  }
+  for (const dimensions of [[0, 1080], [1920, 0], [undefined, 1080], [1920, NaN], [Infinity, 1080], [-1920, 1080], [1920.5, 1080]]) {
+    assert.throws(() => model.screenFocusGeometry(region, ...dimensions), /metadata/);
+  }
+});
+
+test('raw renderer focus gate retains exact clip indices, timing and schema protections', async () => {
+  const renderer = await readFile(join(studioRoot, '..', 'tools', 'studio', 'remotion_render.mjs'), 'utf8');
+  const start = renderer.indexOf('const SCHEMA_VERSION');
+  const end = renderer.indexOf('if (process.argv.length');
+  assert.ok(start >= 0 && end > start);
+  const validate = runInNewContext(`${renderer.slice(start, end)}\nvalidateInputProps;`);
+  const focusRegion = { x: 0.25, y: 0.25, width: 0.5, height: 0.5 };
+  const base = model.buildRemotionTimelineCompositionProps({ clips: [clip({ layoutPreset: 'screen_explainer_v1', focusRegion })] }, () => 'clip-00.mp4');
+  assert.doesNotThrow(() => validate(base));
+  const legacy = model.buildRemotionTimelineCompositionProps({ clips: [clip()] }, () => 'clip-00.mp4');
+  assert.doesNotThrow(() => validate(legacy));
+  for (const patch of [
+    { focusRegion: null }, { focusRegion: undefined }, { focusRegion: { ...focusRegion, x: true } },
+    { focusRegion: { ...focusRegion, width: 0.1 } }, { focusRegion: { ...focusRegion, y: 0.8 } },
+    { focusRegion: { ...focusRegion, x: NaN } }, { focusRegion: { ...focusRegion, width: Infinity } },
+    { focusRegion: { ...focusRegion, x: '0.25' } }, { focusRegion: { ...focusRegion, tracking: true } },
+    { focusRegion: { ...focusRegion, x: 0.00001 } }, { focusRegion: { ...focusRegion, width: 0.20001 } },
+    { layoutPreset: 'full_bleed_v1' }, { src: 'clip-01.mp4' }, { trimAfterFrame: 100 },
+    { durationInFrames: 100 }, { volumePercent: 101 },
+  ]) assert.throws(() => validate({ ...base, clips: [{ ...base.clips[0], ...patch }] }));
+  assert.throws(() => validate({ ...base, durationInFrames: base.durationInFrames + 1 }));
+});
+
+test('screen layout rejects source enhancement that would crop before contain rendering', () => {
+  assert.throws(() => model.buildRemotionTimelineCompositionProps({ clips: [clip({ layoutPreset: 'screen_explainer_v1', visualPreset: 'h3_low_res_sharp_v1' })] }, () => 'clip-00.mp4'), /preserve|鮮明化|切り/);
+  assert.throws(() => model.buildRemotionTimelineCompositionProps({ clips: [clip({ layoutPreset: 'screen_explainer_v1', overlay: overlay({ position: 'center' }) })] }, () => 'clip-00.mp4'), /top|上/);
 });
 
 test('Remotion job matcher excludes legacy timeline jobs and scopes run and attempt', () => {

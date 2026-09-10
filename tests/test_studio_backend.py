@@ -798,7 +798,7 @@ class DatabaseMigrationTests(unittest.TestCase):
                     INSERT INTO schema_meta(key, value) VALUES('schema_version', '1');
                     CREATE TRIGGER reject_current_schema
                     BEFORE UPDATE OF value ON schema_meta
-                    WHEN NEW.key='schema_version' AND NEW.value='10'
+                    WHEN NEW.key='schema_version' AND NEW.value='11'
                     BEGIN
                         SELECT RAISE(ABORT, 'test migration rollback');
                     END;
@@ -836,11 +836,15 @@ class DatabaseMigrationTests(unittest.TestCase):
                     "SELECT name FROM sqlite_master WHERE type='table' "
                     "AND name='windows_capture_consent_intents'"
                 ).fetchone()
+                still_images = connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='still_images'"
+                ).fetchone()
             self.assertEqual(version, "1")
             self.assertNotIn("execution_profile", run_columns)
             self.assertIsNone(provider_tasks)
             self.assertIsNone(detailed_claims)
             self.assertIsNone(capture_consents)
+            self.assertIsNone(still_images)
 
     def test_v5_pipeline_claim_row_migrates_to_unavailable_ledger(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

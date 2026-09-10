@@ -2,6 +2,8 @@ import type {
   LocalRemotionTimelineOverlay,
   LocalRemotionTimelineRequest,
   LocalRemotionTimelineTransition,
+  ScreenFocusRegion,
+  ScreenThemeId,
 } from '../types';
 import {
   REMOTION_TIMELINE_FPS,
@@ -11,6 +13,7 @@ import {
   REMOTION_TIMELINE_WIDTH,
   millisecondsToFramesHalfUp,
   normalizeRemotionTimelineInput,
+  isValidScreenFocusRegion,
 } from '../api';
 
 export {
@@ -51,6 +54,9 @@ export interface RemotionTimelineCompositionClip {
   trimAfterFrame: number;
   durationInFrames: number;
   volumePercent: number;
+  layoutPreset?: 'full_bleed_v1' | 'screen_explainer_v1';
+  screenTheme?: ScreenThemeId;
+  focusRegion?: ScreenFocusRegion;
   transitionToNext: RemotionTimelineCompositionTransition | null;
   overlay: RemotionTimelineCompositionOverlay | null;
 }
@@ -64,6 +70,47 @@ export interface RemotionTimelineCompositionProps {
   durationInFrames: number;
   clips: RemotionTimelineCompositionClip[];
 }
+
+/** Fixed geometry keeps the complete screen separate from headlines and subtitles. */
+export const SCREEN_EXPLAINER_LAYOUT = {
+  sourceLeft: 60,
+  sourceTop: 620,
+  sourceWidth: 960,
+  sourceHeight: 540,
+  headlineLeft: 80,
+  headlineTop: 300,
+  headlineWidth: 880,
+  headlineHeight: 220,
+  captionSafeTop: 1450,
+} as const;
+
+export const assertScreenFocusRegion = (value: unknown): ScreenFocusRegion => {
+  if (!isValidScreenFocusRegion(value)) throw new TypeError('Screen focus region must be bounded, at least 0.2 wide and high, and use at most four decimal places');
+  return value;
+};
+
+/** Place a selected source rectangle inside the fixed viewport without stretching it. */
+export const screenFocusGeometry = (focus: ScreenFocusRegion, sourceWidth: number, sourceHeight: number) => {
+  const region = assertScreenFocusRegion(focus);
+  if (!Number.isSafeInteger(sourceWidth) || !Number.isSafeInteger(sourceHeight) || sourceWidth <= 0 || sourceHeight <= 0) {
+    throw new TypeError('Screen focus requires valid source video metadata');
+  }
+  const selectedWidth = sourceWidth * region.width;
+  const selectedHeight = sourceHeight * region.height;
+  const scale = Math.min(SCREEN_EXPLAINER_LAYOUT.sourceWidth / selectedWidth, SCREEN_EXPLAINER_LAYOUT.sourceHeight / selectedHeight);
+  const width = selectedWidth * scale;
+  const height = selectedHeight * scale;
+  return {
+    left: (SCREEN_EXPLAINER_LAYOUT.sourceWidth - width) / 2,
+    top: (SCREEN_EXPLAINER_LAYOUT.sourceHeight - height) / 2,
+    width,
+    height,
+    videoLeft: -sourceWidth * region.x * scale,
+    videoTop: -sourceHeight * region.y * scale,
+    videoWidth: sourceWidth * scale,
+    videoHeight: sourceHeight * scale,
+  };
+};
 
 const overlayFrames = (overlay: LocalRemotionTimelineOverlay, clipDurationInFrames: number) => {
   const startFrame = millisecondsToFramesHalfUp(overlay.startMs);
@@ -95,6 +142,9 @@ export const buildRemotionTimelineCompositionProps = (
       trimAfterFrame: millisecondsToFramesHalfUp(clip.endMs),
       durationInFrames,
       volumePercent: clip.volumePercent,
+      ...(clip.layoutPreset === undefined ? {} : { layoutPreset: clip.layoutPreset }),
+      ...(clip.screenTheme === undefined ? {} : { screenTheme: clip.screenTheme }),
+      ...(clip.focusRegion === undefined ? {} : { focusRegion: assertScreenFocusRegion(clip.focusRegion) }),
       transitionToNext: clip.transitionToNext === null ? null : {
         ...clip.transitionToNext,
         durationInFrames: millisecondsToFramesHalfUp(clip.transitionToNext.durationMs),
@@ -135,6 +185,9 @@ export const assertRemotionTimelineCompositionProps = (
       startMs: clip.startMs,
       endMs: clip.endMs,
       volumePercent: clip.volumePercent,
+      ...(clip.layoutPreset === undefined ? {} : { layoutPreset: clip.layoutPreset }),
+      ...(clip.screenTheme === undefined ? {} : { screenTheme: clip.screenTheme }),
+      ...(clip.focusRegion === undefined ? {} : { focusRegion: assertScreenFocusRegion(clip.focusRegion) }),
       transitionToNext: clip.transitionToNext === null ? null : {
         type: clip.transitionToNext.type,
         durationMs: clip.transitionToNext.durationMs,
@@ -152,6 +205,15 @@ export const assertRemotionTimelineCompositionProps = (
   if (normalized.errors.length > 0) throw new TypeError(normalized.errors[0]);
 
   value.clips.forEach((clip, index) => {
+    if (clip.focusRegion !== undefined) {
+      assertScreenFocusRegion(clip.focusRegion);
+      if (clip.layoutPreset !== 'screen_explainer_v1') throw new TypeError(`Remotion clip ${index + 1} focus region requires screen layout`);
+    }
+    if (clip.layoutPreset !== undefined
+      && clip.layoutPreset !== 'full_bleed_v1'
+      && clip.layoutPreset !== 'screen_explainer_v1') {
+      throw new TypeError(`Remotion clip ${index + 1} layout preset is invalid`);
+    }
     if (typeof clip.src !== 'string'
       || (!STAGED_SOURCE_RE.test(clip.src) && !REGISTERED_PREVIEW_SOURCE_RE.test(clip.src))) {
       throw new TypeError(`Remotion clip ${index + 1} source is invalid`);

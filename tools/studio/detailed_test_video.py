@@ -348,6 +348,9 @@ def detailed_test_video_audit_payload(
                 "end_ms": clip["end_ms"],
                 "volume_percent": clip["volume_percent"],
                 "visual_preset": clip["visual_preset"],
+                **({"layout_preset": clip["layout_preset"]} if "layout_preset" in clip else {}),
+                **({"screen_theme": clip["screen_theme"]} if "screen_theme" in clip else {}),
+                **({"focus_region": clip["focus_region"]} if "focus_region" in clip else {}),
                 "transition_to_next": clip["transition_to_next"],
                 "overlay": None
                 if overlay is None

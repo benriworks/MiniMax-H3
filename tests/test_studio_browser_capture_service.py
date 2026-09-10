@@ -109,7 +109,7 @@ class BrowserCaptureServiceTests(unittest.TestCase):
                     "sha256": hashlib.sha256(actual).hexdigest().upper(),
                 }
             )
-        return {
+        result = {
             "artifacts": artifacts,
             "duration_ms": payload["duration_ms"],
             "capture_key": capture_key,
@@ -120,6 +120,33 @@ class BrowserCaptureServiceTests(unittest.TestCase):
             "timing_source": "ffprobe",
             "target_origin": payload["target"]["origin"],
         }
+        if payload.get("viewport_preset") == "desktop_16_9":
+            result["viewport_preset"] = "desktop_16_9"
+            result["video_dimensions"] = {"width": 1920, "height": 1080}
+        return result
+
+    def test_desktop_capture_metadata_reaches_job_attempt_and_registered_artifacts(self) -> None:
+        run_id = self._run()
+        request = {"url": "http://127.0.0.1:8765/", "duration_ms": 1000,
+                   "settle_ms": 0, "actions": [], "viewport_preset": "desktop_16_9"}
+        with (
+            mock.patch("tools.studio.browser_capture.generate_local_screen_capture", side_effect=self._fake_worker),
+            mock.patch("tools.studio.browser_capture.validate_local_screen_capture_outputs", side_effect=self._fake_worker),
+        ):
+            queued = self.service.execute_local_screen_capture(run_id, request)
+            completed = self.service.jobs.wait(queued["id"], timeout=10)
+        assert completed is not None
+        self.assertEqual(completed["status"], "succeeded", completed)
+        self.assertEqual(completed["payload"]["viewport_preset"], "desktop_16_9")
+        self.assertEqual(completed["payload"]["canvas"], {"width": 1920, "height": 1080})
+        self.assertEqual(completed["result"]["viewport_preset"], "desktop_16_9")
+        self.assertEqual(completed["result"]["video_dimensions"], {"width": 1920, "height": 1080})
+        attempt = self.service.database.get_stage_attempt(queued["stage_attempt_id"])
+        assert attempt is not None
+        self.assertEqual(attempt["result"]["video_dimensions"], {"width": 1920, "height": 1080})
+        self.assertEqual(len(completed["result"]["artifacts"]), 7)
+        for artifact in completed["result"]["artifacts"]:
+            self.assertIsNotNone(self.service.database.get_artifact(artifact["id"]))
 
     def test_capture_job_exposes_bounded_running_progress_and_terminal_completion(self) -> None:
         job = self.service.database.create_job(

@@ -1,5 +1,323 @@
 # Architecture diagram
 
+## CLI素材用Terminalアダプター（2026-09-10）
+
+```mermaid
+flowchart TD
+    UI[静止画ライブラリ / 撮影元を選択] --> C[Claude inspect / 既存Controller]
+    UI --> T[Terminal inspect / 独立Controller]
+    T --> Identity[Windows Terminal安定版 MSIX identity]
+    Identity --> Choice[匿名候補 / 表示内容は利用者が確認]
+    Choice --> Token[session別・60秒・一回限りtoken]
+    Token --> Admit[共有admission lock + capture lane]
+    C --> Admit
+    Admit --> Engine[既存WGC・対象変化guard・原寸PNG]
+    Engine --> Verify[完全decode・寸法上限・SHA-256]
+    Verify --> Job{Job成功}
+    Job -->|成功| Library[既存画像DB・メモ履歴・parent_id]
+    Job -->|失敗| Hidden[画像の配信不可]
+    Library --> ZIP[画像と説明をZIPで持ち出し]
+```
+
+TerminalとClaudeのtokenは相互利用不可。Terminal画面にClaude Code CLIがあるかは自動検証しない。コマンド実行・タブ切替・スクロール・動画撮影・音声取得には接続しない。タブ名・分割ペインを含む画像全体の機密確認は利用者が行う。
+
+## Claude直接PNG・選択と収録の分離（2026-09-10）
+
+```mermaid
+flowchart TD
+    UI[静止画ライブラリ / ClaudeStillSelector] --> Inspect[既存Claude inspect / 画像取得なし]
+    Inspect --> Choice[匿名候補 / 60秒のvolatile token]
+    Choice --> Confirm[利用者の対象選択・明示許可]
+    Confirm --> Admit[共有native admission lock / Jobの重複照合]
+    Admit --> Claim[ClaudeStillClaim / session binding / 一度だけ消費]
+    Admit --> DB[(SQLite / tokenでなくdigestのみ)]
+    Claim --> Guard[既存MSIX identity + WinEvent guard]
+    Guard --> WGC[WGC HWND固定 / PNG 1フレーム / 20秒timeout]
+    WGC --> PNG[still_media / 完全decode・サイズ上限・SHA-256]
+    PNG --> Success{Job succeeded}
+    Success -->|Yes| Library[原寸PNG / メモ版履歴 / ZIP]
+    Success -->|No| Hidden[ライブラリAPIでは配信不可]
+    Guard -->|対象変化・失敗| Stop[プロセス停止 / 新規失敗PNG除去]
+    Library --> Retake[新ID + parent_id / 改めて対象確認]
+    Retake --> Inspect
+```
+
+専用still claimは既存の15〜30秒動画claimと交換不可。画面移動・入力・スクロール・音声取得・動画エンコード・全画面fallbackへは接続しない。原寸PNGの寸法はWin32 client座標の値ではなく、WGCが返したピクセル寸法を正として記録する。
+
+## 静止画ライブラリ・Production不要の素材収集（2026-09-10）
+
+```mermaid
+flowchart TD
+    User[対象と機密情報を確認] --> UI[Studio 静止画ライブラリ]
+    UI -->|受付ID・条件| API[session / Origin 検証]
+    API --> Library[StillLibrary / 冪等照合]
+    Library --> Job[JobManager capture lane]
+    Job --> Web[新規Chromium context / loopback Web]
+    Job --> Import[登録済みPNG / IDとhashの検証]
+    Web --> PNG[PNG完全decode・寸法・bytes・SHA-256]
+    Import --> PNG
+    PNG --> Disk[outputs/studio/stills/id]
+    PNG --> DB[(SQLite schema 11 / still_images)]
+    Job --> Gate{Job succeeded AND mediaあり}
+    DB --> Gate
+    Gate -->|Yes| Preview[プレビュー / hash再照合]
+    Gate -->|No| Failed[待機・失敗・中断として表示 / 配信不可]
+    Preview --> Edit[名前・メモ / revision CAS / operation ID]
+    Edit --> History[(still_image_edits / 版履歴)]
+    Preview --> Retake[新IDで撮り直し / parent_id]
+    Retake --> Library
+    Preview --> Consent[現在の画像・メモを目視確認]
+    Consent --> Export[PNG + Markdown + 最小manifest ZIP]
+    Disk --> Preview
+```
+
+動画Run・生成モデル・有料API・ログイン済みアプリの操作・公開先へは接続しない。Jobの途中成果物は成功画像へ昇格しない。元画像と過去メモを残し、書き出しZIPには現在版のメモだけを含める。
+
+## 30秒テーマ適用・案件用6発話経路（2026-09-09）
+
+```mermaid
+flowchart LR
+    Story[story.json / 3章・6発話・投稿文] --> Panel[10秒の独自編集素材2本]
+    Image[既存イラスト / 固定hash] --> Panel
+    Capture[既存実画面 / 固定hash・等速] --> Timeline[共通TimelineComposition / 編集スタイル・30秒]
+    Panel --> Timeline
+    Story --> Voice[共通ローカルSAPI / 6発話の実WAV・SRT]
+    Voice --> Slots[章越えと発話重複を拒否]
+    Slots --> Assembly[共通assembly worker / 字幕あり・なし]
+    Timeline --> Assembly
+    Assembly --> Verify[形式・全decode・入力hash検証]
+    Verify --> Files[投稿テキスト・中間成果物・確認ZIP]
+    Files --> Human[音声と作品品質の人による確認]
+```
+
+この経路は案件用スクリプトで、Studio DBの保存recipe／Run／QC Jobは作らない。workerのrun形式パスはファイル作業名前空間にすぎない。通常UIの1章1発話契約は変更せず、音声ノイズ改善・有料API・公開処理は含めない。
+
+## 構成チェックと選択式の章演出（2026-09-08）
+
+```mermaid
+flowchart LR
+    Draft[下書き / 素材・矩形・見出し・尺] --> Advisory[純粋関数の構成チェック]
+    Advisory --> Review[役割と時間・重複と切抜きの注意 / 助言のみ]
+    Draft --> Theme[新規選択 / claude_editorial_v1]
+    Theme --> Contract[API・recipe・Detailed・Node / 閉じたID検証]
+    Contract --> Renderer[共通Remotion / 章ごとの配色と12frame見出し演出]
+    Frame[各sceneのframe番号 / 乱数・時刻に非依存] --> Renderer
+    Renderer --> Normal[従来assembly・字幕・技術QC]
+    Old[旧4テーマ / 旧配色と演出を保持] --> Renderer
+    Review -.-> Human[素材内容と完成版を人が確認]
+    Normal --> Human
+```
+
+構成チェックから自動編集・追加収録・課金・生成開始へのedgeはない。IDと矩形の重複は映像内容が同じ証拠ではなく、問題なし表示も品質合格ではない。
+
+## 独自イラストと実画面の混在制作（2026-09-06）
+
+```mermaid
+flowchart LR
+    Generate[内蔵画像生成 / ロゴなしの独自画] --> Asset[workspace PNG / prompt・hash]
+    Asset --> Panels[案件用Remotion / イラストと確認図解の無音素材]
+    Font[Noto Sans JP / 読み込み待ち] --> Panels
+    Panels --> Manifest[画像・renderer・依存・MP4をhash封印]
+    Manifest --> Import[通常Studio素材取り込み]
+    Capture[既存Claude Desktop収録 / 封印証跡再照合] --> Mixed[別recipe / 各7秒の3場面]
+    Import --> Mixed
+    Mixed --> Standard[通常Quick Create・Detailed・Remotion]
+    Voice[既存Sayaka / 同じ台本・開始時刻] --> Cache[音声cache / exact lineage検証]
+    Cache --> Assembly[assembly / 字幕あり・なし]
+    Standard --> Assembly
+    Assembly --> QC[技術QC / 聴感と公開品質は別判定]
+    QC --> Delivery[通常Delivery ZIP・投稿情報・監査ID]
+```
+
+案件用の準備処理から汎用provider追加、ロゴ配信、新規会話送信、再収録、課金TTSへのedgeはない。イラストと編集図解には画面上の種別表記を置き、実UIや思考過程の再現とは扱わない。
+
+## 外観テーマを共通制作経路へ渡す（2026-09-06）
+
+```mermaid
+flowchart LR
+    Picker[製品別・技術別の選択UI] --> Draft[下書き / 素材と台本・声を保持]
+    Draft --> RecipeTheme[版付きrecipe / optional screen_theme]
+    RecipeTheme --> ClosedTheme[4固定ID・画面解説限定の検証]
+    ClosedTheme --> ClipTheme[Detailed clip / cache・監査へ伝播]
+    ClipTheme --> SharedRenderer[共通Remotion構図 / screenTheme]
+    ThemeTokens[固定配色・製品識別文・非公式表記] --> SharedRenderer
+    FontFiles[同梱Noto Sans JP + OFL / 固定hash] --> FontStage[許可TTFのみlocal staging / 前後照合]
+    FontFiles --> StaticFont[Studio static / 明示font/ttf・404維持]
+    StaticFont --> FontReady
+    FontStage --> FontReady[FontFace完了待ち / 失敗時は停止]
+    FontReady --> SharedRenderer
+    SharedRenderer --> NormalDelivery[通常assembly・QC・Delivery]
+    UnchangedVoice[従来の音声cache / 設定は維持] --> NormalDelivery
+```
+
+テーマ定義とフォント類もレンダラーのソース識別に含める。製品ロゴ・任意URL・外部フォント取得へのedgeはない。Claude Codeテーマは選択可能だが、現在のDesktop通常チャット素材をCode操作の証拠にはしない。これは外観4種の切替であり、場面構成を自動生成する4種の動画エンジンではない。
+
+## 全体構図と原音固定の聴き比べ（2026-09-06追補）
+
+```mermaid
+flowchart LR
+    Source[既存の実Claude録画] --> Recipe[recipe v4 / 冒頭はfocusなし]
+    Recipe --> Standard[通常制作・標準Delivery / UI全体を確認]
+    Old[封印v3 result・read-only DB] --> PCM[元Sayaka PCM / 所有artifactとhashを検証]
+    Old --> AAC[旧動画AAC / 診断対照だけ]
+    PCM --> Metrics[遅延・gain整列 / clip・dropoutの限定検査]
+    AAC --> Metrics
+    PCM --> A[A 原音 / 固定gain]
+    PCM --> D[D 120Hz lowcut・高域軽減 / 仮説]
+    A --> Match[同じLUFS・48k mono・21秒]
+    D --> Match
+    Standard --> Copy[同じ映像streamをcopy]
+    Match --> Copy
+    Copy --> Review[独立比較MP4・WAV・manifest / 原本不変]
+    Review --> Listen[利用者の聴き比べ / 標準preset採用は未決定]
+    PCM --> Spectrum[hash固定 / 発話別Welch・時間周波数・包絡解析]
+    Match --> Spectrum
+    Spectrum --> Figures[同一尺度PNG・CSV・監査JSON / 新規合成なし]
+    Figures --> Decision[声の倍音をノイズ認定しない / Dのクリーンさは未達]
+```
+
+数値検査は聴感合格ではない。原音とAACの波形はほぼ一致しており、AAC工程の新ノイズを確定していない。強いgateや声帯周期notch、課金TTS、別音声fallbackは使わない。WinRTの同声診断はSayaka未登録のため生成0回、SAPI明示format試験は1文を24k／48kで各1回だけ。詳細は[音声比較記録](productions/SHORT_20260906_claude_desktop_real_capture/AUDIO_REVIEW_JA.md)。
+
+### Local SAPIの連続再利用
+
+```mermaid
+flowchart LR
+    C[3回目の制作] --> B[2回目のcache結果]
+    B --> A[初回の物理所有attempt]
+    A --> Files[原音・字幕・timings・manifest]
+    Guard[各linkの同一性・循環上限・実hash検証] -.-> B
+    Guard -.-> A
+    Files --> Reuse[同じ4artifactを再利用 / 再合成なし]
+    Guard -->|欠落・不一致| Miss[cache miss / 他制作や別パスを流用しない]
+```
+
+2回目のRun内に原音があると仮定せず、参照の最終所有Runを検査する。原本をコピーして来歴を隠さない。3runの成立は隔離回帰テストで確認したもので、過去のv4 `cache_hit: false`を変更しない。
+
+## 承認済みデモから通常制作へ（2026-09-06）
+
+```mermaid
+flowchart LR
+    Approved[利用者が架空データ1件の送信を了承] --> CUA[Computer UseでClaudeへ送信]
+    CUA --> Ready[回答を確認・個人履歴を非表示]
+    Ready --> Capture[produce.py capture / workspace lock]
+    Capture --> Source[通常source Job / 元MP4と6成果物]
+    Source --> Sealed[受付・Job・hashを保存]
+    Sealed --> Request[request.json / 3区間・固定拡大・台本]
+    Request --> Render[通常Quick Create / Detailed Job]
+    Render --> Speech[SAPI / 成功を実合成で確認]
+    Host[既存PowerShell 7優先 / 未導入なら従来ホスト] --> Speech
+    Speech --> Cache[音声cache v2 / 旧成果物は保持]
+    Cache --> Assembly[Remotion・FFmpeg・技術QC]
+    Assembly --> Delivery[既存Delivery / 字幕あり・なし・投稿情報]
+    Delivery --> Review[可読性・発音・聴感は別途受入]
+```
+
+録画ドライバーはClaudeへの送信・追加依頼・公開を行わない。編集で待ち時間を省くため、完成尺をClaudeの生成速度とは扱わない。失敗した音声Runは残し、入力素材の再収録や追加送信で隠さない。制作の現在地は[制作記録](productions/SHORT_20260906_claude_desktop_real_capture/PRODUCTION_RECORD_JA.md)を参照。
+
+この経路で21秒の実Claude試作v3が標準納品まで成功した。v2から場面2のtrimのみ変更し、音声4成果物は同一ID／hashでcache再利用。両MP4の全decodeと13項目のZIP来歴を確認済み。図の最後の可読性・聴感・公開品質の受入は未完了である。以下の初回スモークに関する説明は当時の履歴として残す。
+
+## Claude Desktop: 1回の素材収録と3場面への再利用（2026-09-06追補）
+
+```mermaid
+flowchart TD
+    Prepare[利用者がClaudeの公開可能な画面を準備] --> Inspect[非収録inspect / 公式MSIX候補だけ]
+    Inspect --> Token[匿名番号と寸法 / session束縛token / 60秒・単回]
+    Token --> Consent[明示開始 / 15〜30秒 / 無音]
+    Consent --> Checkpoint[送信前に受付IDを保存]
+    Checkpoint --> Submit[productionのsource Job / capture lane排他]
+    Checkpoint -. 応答不明時はGET照合・自動再送なし .-> Reconcile[同じ受付ID・設定なら同じJob]
+    Reconcile -. 既存Jobの完了・成果物を照合 .-> Source
+    Submit --> Capture[既存FFmpeg gfxcapture / 単一window / Job Object]
+    Guard[PID・開始時刻・package・class・寸法の束縛とWinEvent] --> Capture
+    Capture -->|変更・移動・最小化・取消・異常| Fail[停止 / 部分素材を登録しない / 所有ファイル限定cleanup]
+    Runtime[分離runtime cwd / GPU補助ファイルは成果物外] --> Capture
+    Fail -->|清掃失敗| PrivacyBlock[失敗を記録 / Claude・Windowsの新規収録を停止]
+    PrivacyBlock -->|起動時の清掃成功を監査記録| Resolved[停止解除 / 失敗Jobは成功に変えない]
+    Capture -->|構造・無音・尺・全decode・hash確認| Atomic[6ファイル検証 / Job成功とartifactをDB同時確定]
+    Atomic --> Source[共通MP4 1本と収録記録 / Runは作らない]
+    Source --> Segments[目的・操作・結果 / 同じartifactの連続3区間]
+    Segments --> Focus[場面ごとの任意固定注目範囲 / preview確認]
+    Focus --> Recipe[版付きscreen_explainer_ja_v1]
+    Recipe --> Standard[通常Detailed Job / SAPI・Remotion・FFmpeg・技術QC]
+    Standard --> Delivery[標準納品 / MP4・投稿txt・監査記録]
+    Source -. 台本と拡大範囲だけ修正・再収録なし .-> Recipe
+    Smoke[実機技術スモーク済み / 無音15秒・360frames] -. 教材完成の受入とは別 .-> Capture
+    Review[実教材の可読性・発音・公開品質を別途確認] -. 技術QCだけでは合格しない .-> Delivery
+```
+
+inspectはpixel・音声を取得せず、タイトル・会話・パス・HWNDは公開しない。private identityとtokenはメモリだけに保持し、永続記録には受付IDとdigestを使う。対応はOSが確認する公式MSIX版に限定し、非MSIX版や任意アプリ、全画面へのfallbackはない。対象の自動操作や会話送信も行わない。
+
+新規収録Jobは素材取得専用で、架空の成功Run・narration・assemblyを作らない。無音素材からAV同期gate合格を作ることもない。要求尺は24fpsで切り上げ、実測は要求以上・1frame未満の超過だけ許可する。起動時cleanupはそのDBに属する未完了requestの既知ファイルに限定する。
+
+固定注目範囲は元MP4に対する0〜1の矩形を960×540枠へ拡大する。未指定なら全画面contain。自動追尾・OCR・動的zoom・自動秘匿ではない。実装・非収録inspect・実収録の技術スモークと、3場面の教材完成・公開品質の受入を分離する。後者は未完了。
+
+初回のClaude白画面は主担当の操作で表示復帰したが、原因は未特定。個人の会話・アカウント名を表示しない画面で、標準source Jobが無音15秒・1920×1080・24fpsの収録と6成果物登録に成功した。一方、準備中のCUA手動操作で「新規アーティファクト」をクリックするとClaude側が依頼文1件を送信して生成を開始したため、想定外の処理として停止した。停止ボタン消失を確認し、生成成果物は得ていない。この副作用はStudio収録機能の自動送信ではないが、「今回のClaudeへの送信は一切なし」とは記録しない。有料API利用・外部投稿は行っていない。
+
+## 画面解説: 素材準備から標準納品（2026-09-06）
+
+```mermaid
+flowchart TD
+    Plan[目的・操作・結果の3場面と台本] --> Sources{場面の素材}
+    Sources --> Existing[登録済み動画を再利用]
+    Sources --> Import[手元の収録動画を取込]
+    Sources --> Local[指定loopback URLを収録]
+    Sources --> Claude[Claude Desktop専用source Job / 上図参照]
+    Local --> Capture[既存Playwright Job / desktop_16_9]
+    Capture --> Verify[寸法・尺・hash・manifestを検証]
+    Claude --> Verify
+    Verify --> Assets[正規artifactと取得履歴]
+    Existing --> Assets
+    Import --> Assets
+    Assets --> Review[素材preview・台本の確認]
+    Review --> Recipe[screen_explainer_ja_v1 / CAS版管理]
+    Recipe --> Job[通常Detailed Job]
+    Job --> Voice[SAPI試作 / シーン開始時刻]
+    Voice --> Layout[Remotion / containまたは固定注目範囲・見出し・ハードカット]
+    Layout --> Assembly[FFmpeg / 字幕と音声]
+    Assembly --> QC[技術QC / 聴感・可読性は別確認]
+    QC --> Delivery[標準納品 / MP4・投稿txt・制作記録]
+    Review -->|台本のみ修正・素材再利用| Recipe
+    Paid[ElevenLabs既存アダプタ] -. 試聴と一括接続は未受入 .-> Voice
+    Auth[外部URL・任意アプリ・既存browser session] -. 自動取得は未接続 .-> Sources
+```
+
+## 音声ノイズ低減の比較経路（2026-09-05）
+
+```mermaid
+flowchart LR
+    WAV["元の非圧縮WAV<br/>hash照合・変更しない"] --> Control["原音対照"]
+    WAV --> DSP["軽め / 強めのFFT・EQ<br/>固定遅延を補正"]
+    Control --> Match["一定gainで音量を揃える<br/>試聴用WAV・比較抜粋"]
+    DSP --> Match
+    MP4["元の字幕付きMP4"] --> Copy["映像をbitstream copy"]
+    Match --> AAC["AACへ1回encode"]
+    Copy --> Variants["別名MP4 3版"]
+    AAC --> Variants
+    Variants --> Check["15秒・全decode・映像同一<br/>音量・peak・原本不変"]
+    Check --> Listen["利用者が聴き比べ<br/>音質合格・採用は未確定"]
+```
+
+案件専用のローカル比較であり、標準Studioの既定値や成功Run／Jobを変更しない。帯域energyの減少だけをノイズ除去成功と見なさず、原版は保存したままにする。
+
+## 生成画像＋決定的アニメーションの案件経路（2026-09-05）
+
+```mermaid
+flowchart LR
+    Prompt["tracked画像プロンプト"] --> ImageGen["内蔵imagegen<br/>リモート生成・1枚"]
+    ImageGen --> PNG["ignored PNG<br/>bytes・SHA-256・来歴"]
+    Script["台本・公式条件・出典"] --> Draw["案件専用Remotion<br/>パン・ズーム・説明用UI"]
+    PNG --> Draw
+    Draw --> Clips["3素材・AI生成と操作イメージを明示"]
+    Script --> Raw["実Windows SAPI・raw WAV"]
+    Raw --> Trim["句末静音のみ調整<br/>120ms余韻・raw/trim hash"]
+    Clips --> Local["既存timeline・assembly・QC"]
+    Trim --> Local
+    Local --> Output["15秒MP4・字幕あり/なし<br/>中間成果物・投稿用txt"]
+    Output --> Index["Studio正規取込・成果物登録<br/>通常成功Run/Jobは作らない"]
+```
+
+対象は `SHORT_20260905_claude_desktop_15s`。内蔵画像生成は外部境界を越えるが、その後の描画・音声・合成はローカルで行う。MiniMax動画推論、外部TTS、YouTube投稿への接続はない。Studioの汎用画像生成機能を追加した図ではない。
+
 ## 案件専用モーショングラフィックスの経路（2026-09-05）
 
 ```mermaid

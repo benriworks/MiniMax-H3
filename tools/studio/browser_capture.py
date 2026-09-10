@@ -24,17 +24,16 @@ from .assembly import (
 )
 from .browser_capture_execution import (
     BROWSER_CAPTURE_SCHEMA_VERSION,
-    CANVAS_HEIGHT,
-    CANVAS_WIDTH,
     FRAME_RATE,
     IMPLEMENTATION_VERSION,
-    OUTPUT_POLICY_VERSION,
     PROVIDER,
     TIMING_SOURCE,
     BrowserCaptureError,
     BrowserCaptureToolError,
     BrowserCaptureValidationError,
     browser_capture_audit_payload,
+    browser_capture_output_policy_version,
+    browser_capture_viewport,
 )
 from .jobs import JobCancelled
 from .security import canonical_json, relative_workspace_path, validate_identifier, workspace_path
@@ -320,7 +319,11 @@ def _fraction(value: Any) -> float | None:
     return result if math.isfinite(result) and result > 0 else None
 
 
-def _validate_mp4_probe(probe: Mapping[str, Any], *, expected_duration_ms: int) -> int:
+def _validate_mp4_probe(
+    probe: Mapping[str, Any], *, expected_duration_ms: int,
+    viewport_preset: str | None = None,
+) -> int:
+    viewport = browser_capture_viewport(viewport_preset)
     format_data = probe.get("format")
     format_name = format_data.get("format_name") if isinstance(format_data, dict) else None
     if not isinstance(format_name, str) or "mp4" not in {
@@ -337,8 +340,8 @@ def _validate_mp4_probe(probe: Mapping[str, Any], *, expected_duration_ms: int) 
     if (
         video.get("codec_name") != "h264"
         or video.get("pix_fmt") != "yuv420p"
-        or video.get("width") != CANVAS_WIDTH
-        or video.get("height") != CANVAS_HEIGHT
+        or video.get("width") != viewport["width"]
+        or video.get("height") != viewport["height"]
     ):
         raise BrowserCaptureError("screen capture video format is unsupported", code="invalid_output_media")
     rates = (_fraction(video.get("r_frame_rate")), _fraction(video.get("avg_frame_rate")))
@@ -353,7 +356,8 @@ def _validate_mp4_probe(probe: Mapping[str, Any], *, expected_duration_ms: int) 
     return duration_ms
 
 
-def _validate_raw_probe(probe: Mapping[str, Any]) -> None:
+def _validate_raw_probe(probe: Mapping[str, Any], *, viewport_preset: str | None = None) -> None:
+    viewport = browser_capture_viewport(viewport_preset)
     try:
         streams = _streams(probe)
     except AssemblyError as exc:
@@ -363,18 +367,28 @@ def _validate_raw_probe(probe: Mapping[str, Any]) -> None:
     video = streams[0]
     if (
         video.get("codec_name") not in {"vp8", "vp9", "av1"}
-        or video.get("width") != CANVAS_WIDTH
-        or video.get("height") != CANVAS_HEIGHT
+        or video.get("width") != viewport["width"]
+        or video.get("height") != viewport["height"]
     ):
         raise BrowserCaptureError("raw Playwright media format is unsupported", code="invalid_output_media")
 
 
-def _validate_png(path: Path) -> None:
+def _validate_png(path: Path, *, viewport_preset: str | None = None) -> None:
     if path.is_symlink() or not path.is_file():
         raise BrowserCaptureError("capture frame is unavailable", code="invalid_worker_result")
     size = path.stat().st_size
     if size < 8 or size > MAX_IMAGE_BYTES or path.read_bytes()[:8] != b"\x89PNG\r\n\x1a\n":
         raise BrowserCaptureError("capture frame is invalid", code="invalid_worker_result")
+    if viewport_preset is not None:
+        viewport = browser_capture_viewport(viewport_preset)
+        with path.open("rb") as handle:
+            header = handle.read(24)
+        if (
+            len(header) != 24 or header[12:16] != b"IHDR"
+            or int.from_bytes(header[16:20], "big") != viewport["width"]
+            or int.from_bytes(header[20:24], "big") != viewport["height"]
+        ):
+            raise BrowserCaptureError("capture frame dimensions are invalid", code="invalid_worker_result")
 
 
 def _artifact_record(workspace: Path, directory: Path, spec: Mapping[str, str]) -> dict[str, Any]:
@@ -397,13 +411,12 @@ def _artifact_record(workspace: Path, directory: Path, spec: Mapping[str, str]) 
     }
 
 
-def _output_policy() -> dict[str, Any]:
+def _output_policy(viewport_preset: str | None = None) -> dict[str, Any]:
     """Return the exact media policy that is enforced by ffmpeg/ffprobe."""
 
     return {
-        "policy_version": OUTPUT_POLICY_VERSION,
-        "width": CANVAS_WIDTH,
-        "height": CANVAS_HEIGHT,
+        "policy_version": browser_capture_output_policy_version(viewport_preset),
+        **browser_capture_viewport(viewport_preset),
         "frame_rate": FRAME_RATE,
         "video_codec": "h264",
         "pixel_format": "yuv420p",
@@ -450,7 +463,7 @@ def _build_manifest(
         "duration_ms": duration_ms,
         "capture": dict(audit),
         "tool_identity": {key: dict(value) for key, value in tool_identity.items()},
-        "output_policy": _output_policy(),
+        "output_policy": _output_policy(audit.get("viewport_preset")),
         "network_policy": "same-explicit-loopback-origin-only",
         "media": {"playwright_raw": dict(raw_probe), "screen_capture": dict(output_probe)},
         "files": files,
@@ -502,7 +515,7 @@ def _validate_capture(
         or manifest.get("tool_identity") != {
             key: dict(value) for key, value in tool_identity.items()
         }
-        or manifest.get("output_policy") != _output_policy()
+        or manifest.get("output_policy") != _output_policy(audit.get("viewport_preset"))
         or manifest.get("network_policy") != "same-explicit-loopback-origin-only"
     ):
         return None
@@ -538,8 +551,8 @@ def _validate_capture(
             return None
         if (directory / "playwright-raw.webm").stat().st_size > MAX_RAW_VIDEO_BYTES:
             return None
-        _validate_png(directory / "first-frame.png")
-        _validate_png(directory / "last-frame.png")
+        _validate_png(directory / "first-frame.png", viewport_preset=audit.get("viewport_preset"))
+        _validate_png(directory / "last-frame.png", viewport_preset=audit.get("viewport_preset"))
         report = _read_json(directory / "capture-report.json")
         probe_document = _read_json(directory / "ffprobe.json")
         if report is None or probe_document is None:
@@ -556,9 +569,10 @@ def _validate_capture(
             cwd=directory,
             cancel_event=cancel_event,
         )
-        _validate_raw_probe(raw_probe)
+        _validate_raw_probe(raw_probe, viewport_preset=audit.get("viewport_preset"))
         duration_ms = _validate_mp4_probe(
-            output_probe, expected_duration_ms=int(audit["duration_ms"])
+            output_probe, expected_duration_ms=int(audit["duration_ms"]),
+            viewport_preset=audit.get("viewport_preset"),
         )
     except JobCancelled:
         raise
@@ -577,6 +591,14 @@ def _validate_capture(
         or manifest.get("duration_ms") != duration_ms
         or report.get("capture") != dict(audit)
         or report.get("raw_url_recorded") is not False
+        or (
+            audit.get("viewport_preset") is not None
+            and (
+                not isinstance(report.get("recording"), dict)
+                or report["recording"].get("viewport_preset") != audit["viewport_preset"]
+                or report["recording"].get("viewport") != browser_capture_viewport(audit["viewport_preset"])
+            )
+        )
     ):
         return None
     try:
@@ -592,7 +614,8 @@ def _result(
     manifest: Mapping[str, Any],
     artifacts: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    return {
+    viewport_preset = manifest["capture"].get("viewport_preset")
+    result = {
         "artifacts": artifacts,
         "duration_ms": manifest["duration_ms"],
         "capture_key": manifest["capture_key"],
@@ -602,10 +625,13 @@ def _result(
         "actual_cost": 0,
         "timing_source": TIMING_SOURCE,
         "target_origin": manifest["capture"]["target"]["origin"],
-        "video_dimensions": {"width": CANVAS_WIDTH, "height": CANVAS_HEIGHT},
+        "video_dimensions": browser_capture_viewport(viewport_preset),
         "frame_rate": FRAME_RATE,
         "output_directory": directory.relative_to(workspace.resolve(strict=True)).as_posix(),
     }
+    if viewport_preset is not None:
+        result["viewport_preset"] = viewport_preset
+    return result
 
 
 def discard_local_screen_capture_outputs(
@@ -686,6 +712,8 @@ def _generate_or_validate(
     workspace = workspace.resolve(strict=True)
     _report_progress(progress_callback, 2, "preflight")
     audit = browser_capture_audit_payload(payload, capture_key=capture_key)
+    viewport_preset = payload.get("viewport_preset")
+    viewport = browser_capture_viewport(viewport_preset)
     (
         node_executable,
         ffmpeg_executable,
@@ -745,6 +773,8 @@ def _generate_or_validate(
             "actions": payload["actions"],
             "output_dir": str(browser_output),
         }
+        if viewport_preset is not None:
+            request_document["viewport_preset"] = viewport_preset
         request_path.write_text(canonical_json(request_document) + "\n", encoding="utf-8")
         timeout = (
             NODE_BASE_TIMEOUT_SECONDS
@@ -780,6 +810,13 @@ def _generate_or_validate(
             or node_result.get("browser_version")
             != tool_identity["chromium"]["version"]
             or not isinstance(node_result.get("diagnostic_hashes"), list)
+            or (
+                viewport_preset is not None
+                and (
+                    node_result.get("viewport_preset") != viewport_preset
+                    or node_result.get("viewport") != viewport
+                )
+            )
         ):
             raise BrowserCaptureToolError(
                 "The local Playwright worker returned invalid metadata.",
@@ -809,8 +846,8 @@ def _generate_or_validate(
             or raw_source.stat().st_size > MAX_RAW_VIDEO_BYTES
         ):
             raise BrowserCaptureToolError("Playwright raw video is invalid", code="invalid_output_media")
-        _validate_png(first_source)
-        _validate_png(last_source)
+        _validate_png(first_source, viewport_preset=viewport_preset)
+        _validate_png(last_source, viewport_preset=viewport_preset)
         os.replace(raw_source, publish_directory / "playwright-raw.webm")
         os.replace(first_source, publish_directory / "first-frame.png")
         os.replace(last_source, publish_directory / "last-frame.png")
@@ -844,7 +881,7 @@ def _generate_or_validate(
                     "-sn",
                     "-dn",
                     "-vf",
-                    f"scale={CANVAS_WIDTH}:{CANVAS_HEIGHT}:force_original_aspect_ratio=decrease,pad={CANVAS_WIDTH}:{CANVAS_HEIGHT}:(ow-iw)/2:(oh-ih)/2:black,fps={FRAME_RATE}",
+                    f"scale={viewport['width']}:{viewport['height']}:force_original_aspect_ratio=decrease,pad={viewport['width']}:{viewport['height']}:(ow-iw)/2:(oh-ih)/2:black,fps={FRAME_RATE}",
                     "-c:v",
                     "libx264",
                     "-preset",
@@ -914,9 +951,10 @@ def _generate_or_validate(
             cwd=publish_directory,
             cancel_event=cancel_event,
         )
-        _validate_raw_probe(raw_probe)
+        _validate_raw_probe(raw_probe, viewport_preset=viewport_preset)
         duration_ms = _validate_mp4_probe(
-            output_probe, expected_duration_ms=int(payload["duration_ms"])
+            output_probe, expected_duration_ms=int(payload["duration_ms"]),
+            viewport_preset=viewport_preset,
         )
         report = {
             "schema_version": BROWSER_CAPTURE_SCHEMA_VERSION,
@@ -932,6 +970,9 @@ def _generate_or_validate(
                 "diagnostic_hashes": node_result["diagnostic_hashes"],
             },
         }
+        if viewport_preset is not None:
+            report["recording"]["viewport_preset"] = viewport_preset
+            report["recording"]["viewport"] = viewport
         _write_json(publish_directory / "capture-report.json", report)
         _write_json(
             publish_directory / "ffprobe.json",

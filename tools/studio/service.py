@@ -21,6 +21,8 @@ from .assembly_execution import (
     safe_assembly_error,
     validate_local_assembly_payload,
 )
+from .claude_capture_service import ClaudeCaptureService, cleanup_interrupted_claude_captures
+from .claude_capture import ClaudeCaptureError
 from .database import (
     SCHEMA_VERSION,
     AtomicStageCompletion,
@@ -684,9 +686,11 @@ class StudioService:
         # worker lane or recovery thread exists. A fail-closed startup error
         # therefore cannot leave background infrastructure behind.
         self._cleanup_interrupted_windows_capture_outputs()
+        cleanup_interrupted_claude_captures(self.workspace, self.database)
         self.indexer = ProductionIndexer(self.workspace, self.database)
         self.secret_store = SecretStore(self.workspace)
         self.jobs = JobManager(self.database)
+        from .still_library import StillLibrary
         self.audit_exporter = AuditExporter(self.workspace, self.database)
         # Public upload state and resumable-session ciphertext live outside
         # SQLite.  Construction performs no OAuth or network operation;
@@ -696,6 +700,8 @@ class StudioService:
         self._detailed_test_video_submit_lock = threading.Lock()
         self._local_video_submit_lock = threading.Lock()
         self._windows_capture_submit_lock = threading.Lock()
+        self._claude_capture = ClaudeCaptureService(self.workspace, self.database, self.jobs, self._windows_capture_submit_lock)
+        self.stills = StillLibrary(self.workspace, self.database, self.jobs, claude_controller=self._claude_capture.controller, submit_lock=self._windows_capture_submit_lock)
         self._production_intake_lock = threading.Lock()
         self._pipeline_capability = object()
         self._announcement_narration_timing_capability = object()
@@ -912,6 +918,28 @@ class StudioService:
                 "scan_interval_seconds": _PIPELINE_CONTINUATION_SCAN_SECONDS,
             },
         }
+
+    def inspect_claude_capture(self, body: dict[str, Any], *, session_binding_digest: str) -> dict[str, Any]:
+        try:
+            return self._claude_capture.inspect(body, session_binding=session_binding_digest)
+        except ClaudeCaptureError as exc:
+            raise RequestValidationError(exc.public_message, code=exc.error_code) from exc
+        except ValueError as exc:
+            raise RequestValidationError("Claude capture inspection is invalid.", code="invalid_claude_capture_request") from exc
+
+    def execute_claude_capture(self, production_id: str, body: dict[str, Any], *, session_binding_digest: str) -> dict[str, Any]:
+        try:
+            return self._claude_capture.execute(production_id, body, session_binding=session_binding_digest)
+        except ClaudeCaptureError as exc:
+            raise RequestValidationError(exc.public_message, code=exc.error_code) from exc
+        except ValueError as exc:
+            raise RequestValidationError("Claudeの対象・確認・期限を確認してください。同じ録画を自動再送しないでください。", code="invalid_claude_capture_request") from exc
+
+    def claude_capture_job(self, production_id: str, request_id: str) -> dict[str, Any] | None:
+        try:
+            return self._claude_capture.lookup(production_id, request_id)
+        except ValueError as exc:
+            raise RequestValidationError("Claude capture checkpoint is invalid.", code="invalid_claude_capture_request") from exc
 
     def inspect_windows_capture_capability(
         self, body: dict[str, Any]
@@ -5392,9 +5420,91 @@ class StudioService:
         previous = self.database.find_successful_stage_attempt(
             production_id, "narration", cache_key
         )
-        if not previous or not isinstance(previous.get("result"), dict):
+        if not isinstance(previous, dict) or not isinstance(previous.get("result"), dict):
             return None
         prior_result = previous["result"]
+
+        # A reused result retains the original artifacts, not files in its own
+        # run directory. Follow only a verified, same-identity cache chain to
+        # its physical owner; otherwise every third run needlessly synthesizes.
+        def artifact_signature(result: dict[str, Any]) -> tuple[tuple[Any, ...], ...] | None:
+            raw = result.get("artifacts")
+            if not isinstance(raw, list) or len(raw) != len(_LOCAL_NARRATION_ARTIFACTS):
+                return None
+            entries: list[tuple[Any, ...]] = []
+            names: set[str] = set()
+            ids: set[str] = set()
+            for item in raw:
+                if (
+                    not isinstance(item, dict)
+                    or not all(isinstance(item.get(key), str) for key in ("name", "id", "rel_path", "sha256"))
+                    or item["name"] not in _LOCAL_NARRATION_ARTIFACTS
+                    or item["name"] in names
+                    or item["id"] in ids
+                    or isinstance(item.get("bytes"), bool)
+                    or not isinstance(item.get("bytes"), int)
+                    or item["bytes"] < 0
+                ):
+                    return None
+                names.add(item["name"])
+                ids.add(item["id"])
+                entries.append(tuple(item[key] for key in ("name", "id", "rel_path", "bytes", "sha256")))
+            return tuple(sorted(entries))
+
+        expected_signature = artifact_signature(prior_result)
+        if expected_signature is None:
+            return None
+        source_attempt = previous
+        visited_attempt_ids: set[str] = set()
+        expected_attempt_id = previous.get("id")
+        expected_metadata: dict[str, Any] | None = None
+        while True:
+            if (
+                not isinstance(source_attempt, dict)
+                or source_attempt.get("id") != expected_attempt_id
+                or source_attempt.get("production_id") != production_id
+                or source_attempt.get("stage") != "narration"
+                or source_attempt.get("status") != "succeeded"
+                or source_attempt.get("cache_key") != cache_key
+                or not isinstance(source_attempt.get("result"), dict)
+            ):
+                return None
+            try:
+                validate_identifier(source_attempt.get("id"), label="stage attempt id")
+                validate_identifier(source_attempt.get("run_id"), label="run id")
+            except (SecurityError, TypeError, ValueError):
+                return None
+            if source_attempt["id"] in visited_attempt_ids or len(visited_attempt_ids) >= 128:
+                return None
+            visited_attempt_ids.add(source_attempt["id"])
+            source_result = source_attempt["result"]
+            if artifact_signature(source_result) != expected_signature:
+                return None
+            try:
+                metadata = public_result(
+                    source_result,
+                    expected_cache_key=cache_key,
+                    artifacts=[],
+                    cache_hit=source_result.get("cache_hit"),
+                )
+            except LocalNarrationError:
+                return None
+            metadata["cache_hit"] = True
+            if expected_metadata is not None and metadata != expected_metadata:
+                return None
+            expected_metadata = metadata
+            if "cache_source_attempt_id" not in source_result:
+                break
+            source_id = source_result["cache_source_attempt_id"]
+            if source_result.get("cache_hit") is not True:
+                return None
+            try:
+                validate_identifier(source_id, label="cache source attempt id")
+            except (SecurityError, TypeError, ValueError):
+                return None
+            expected_attempt_id = source_id
+            source_attempt = self.database.get_stage_attempt(source_id)
+
         prior_artifacts = prior_result.get("artifacts")
         if (
             not isinstance(prior_artifacts, list)
@@ -5404,7 +5514,7 @@ class StudioService:
         verified: list[dict[str, Any]] = []
         seen_names: set[str] = set()
         source_root = (
-            f"outputs/studio/runs/{previous['run_id']}/narration/{cache_key}/"
+            f"outputs/studio/runs/{source_attempt['run_id']}/narration/{cache_key}/"
         )
         for item in prior_artifacts:
             if not isinstance(item, dict) or not isinstance(item.get("id"), str):
@@ -5423,12 +5533,16 @@ class StudioService:
                 != _LOCAL_NARRATION_ARTIFACTS[artifact["name"]][1]
                 or artifact.get("rel_path")
                 != f"{source_root}{artifact['name']}"
+                or item.get("name") != artifact.get("name")
+                or item.get("rel_path") != artifact.get("rel_path")
                 or item.get("bytes") != artifact.get("bytes")
                 or item.get("sha256") != artifact.get("sha256")
             ):
                 return None
             seen_names.add(artifact["name"])
             try:
+                if _has_symlink_component(self.workspace, artifact["rel_path"]):
+                    return None
                 path = workspace_path(self.workspace, artifact["rel_path"], must_exist=True)
             except (SecurityError, OSError):
                 return None
@@ -6473,6 +6587,12 @@ class StudioService:
                 "transition_to_next": public["transition_to_next"],
                 "overlay": public["overlay"],
             }
+            if "layout_preset" in public:
+                editing["layout_preset"] = public["layout_preset"]
+            if "screen_theme" in public:
+                editing["screen_theme"] = public["screen_theme"]
+            if "focus_region" in public:
+                editing["focus_region"] = public["focus_region"]
             clips.append({**physical, **editing})
             cache_clips.append({**cache, **editing})
         # Compile once at the trust boundary.  The worker repeats this check;
@@ -6885,6 +7005,7 @@ class StudioService:
                 expected_capture_key=capture_key,
                 expected_duration_ms=payload["duration_ms"],
                 expected_origin=payload["target"]["origin"],
+                expected_viewport_preset=payload.get("viewport_preset"),
                 artifacts=[],
             )
             physical = _call_local_worker(
@@ -6901,6 +7022,7 @@ class StudioService:
                 expected_capture_key=capture_key,
                 expected_duration_ms=payload["duration_ms"],
                 expected_origin=payload["target"]["origin"],
+                expected_viewport_preset=payload.get("viewport_preset"),
                 artifacts=[],
             )
             report_progress(98, "registration")
@@ -7344,6 +7466,11 @@ class StudioService:
             if existing is not None:
                 return existing
 
+            if self.database.has_unresolved_claude_capture_cleanup():
+                raise RequestValidationError(
+                    "Claude収録の一時ファイルを清掃できていません。新しい収録は停止しています。",
+                    code="claude_capture_cleanup_failed",
+                )
             active = self.database.find_active_windows_capture_job()
             active_lane_ids = set(self.jobs.active_job_ids_for_lane("capture"))
             if active is not None or active_lane_ids:

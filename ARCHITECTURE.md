@@ -1,5 +1,157 @@
 # Architecture
 
+## Windows Terminal静止画アダプター（2026-09-10）
+
+`terminal_capture.py`の`TerminalStillController`を静止画ライブラリの`source.kind=terminal`として接続。Claude Code CLIの画面素材用だが、CLIの起動・コマンド送信・実行状態の判定はしない。実際の対象は利用者が選択したWindows Terminalウィンドウ全体。Microsoft Store安定版のpackage family／full name／AUMID／パッケージ内実行ファイル位置／ウィンドウclassを確認し、Preview・unpackaged・従来console hostは対象外とする。
+
+`_Win32`の実行ファイル・class・package照合だけを差し替え可能にした。Claude側の既定ポリシーは変更しない。Terminalは別Controllerのtoken／claim registryを持ち、Claudeのtokenを流用できない。WGC原寸1フレーム・WinEvent guard・PNG検証・共有capture lane・admission lock・画像DB・メモ版履歴・ZIPを再利用する。Terminal adapterの動画claimと動画captureは拒否する。新しいDB schemaや画像エンジンは追加しない。
+
+`POST /api/stills/terminal/inspect`は既存HTTP認証の内側で空bodyのみ受付。画像・ウィンドウタイトル・コマンドラインを読まず匿名候補を返す。`ClaudeStillSelector`をkind別に再利用し、切替時に再mountして遅れて届く別撮影元の応答を無効化。端末のtokenも最大60秒・明示選択・1回限り。撮影報告には`cli_content_verified=false`、`command_execution_performed=false`を記録する。タブ切替や画面内容の変化はウィンドウ同一性guardでは判定できないため、撮影中は操作しないことを案内する。
+
+検証はPythonのnative境界試験、API正規化試験、両撮影元のmock UI試験に加え、隔離Studioの実HTTP／SQLite／Jobと合成PNGの結合で行う。実機でWindows Terminal候補の列挙は確認済み。実際のCLI画面のPNG取得は未検証であり、合成画像を実画面撮影成功とは扱わない。通常のStudio DB・ユーザーのTerminal内容は変更しない。
+
+## Claude直接静止画撮影（2026-09-10）
+
+静止画ライブラリの撮影元に`claude`を追加。`ClaudeStillSelector.tsx`は既存のsession付きClaude inspect APIを呼び、匿名候補を利用者が明示選択する。inspectだけでは画像を取得しない。選択は最大60秒・1回限りで、閉じる／期限切れ／送信後にはUIから破棄する。撮り直しも再inspect・再選択が必要。
+
+`StillLibrary`と既存`ClaudeCaptureService`は同じController・native capture admission lockを共有する。sourceのraw tokenはvolatileな`ClaudeStillClaim`へ変換し、SQLite／Job payload／manifest／localStorageに保存しない。durable sourceには選択digestとsession binding digestだけを含め、一覧には`{kind: claude}`だけを返す。受付IDの照合と元画像の`parent_id`は従来通り。capture laneの実行中・終了処理中Jobがあれば受付を拒否する。
+
+`ClaudeCaptureController.capture_still`は動画claimと型・レジストリを分離する。既存15〜30秒動画契約は変更せず、専用FFmpegコマンドの`gfxcapture=hwnd=...`から`-frames:v 1 -c:v png`で取得する。scale／pad／crop／音声／動画中間ファイル／全画面fallbackはない。元のMSIX identity確認・WinEvent guard・プロセス封じ込めを再利用し、最大20秒でtimeout。PNG生成後の完全decodeまでguardを維持し、対象が動く／閉じる／最小化・サイズ変更された場合は新しく作った失敗PNGだけを除去し、画像を配信しない。
+
+共通`still_media.py`はDB非依存のPNG decode・上限・SHA-256・リンク拒否を担い、native workerとライブラリ配信の双方が利用する。完成画像は既存のJob成功境界を通って名前・メモ・履歴・ZIPへ接続する。取得後にJobが中断／DB保存に失敗した場合の非公開途中ファイルの保持方針は従来と同じ。自動公開・秘密情報の自動匿名化は行わない。
+
+実機でStudio UI→対象確認→許可→撮影→PNG表示が成功。OSのclient座標2560×1392に対し、実PNGは3840×2088、693400 bytes、エンジン実行から画像検証まで約0.57秒（1回の観測値）。Code画面全体を目視確認したが公開用素材としての機密情報確認は別工程。通常Studio DBは触らず、隔離試験workspaceのみを使用した。CLI／Codex／VM対応は未実装。
+
+## 制作から独立した静止画ライブラリ（2026-09-10）
+
+Studioヘッダーの「静止画ライブラリ」から、ProductionやRunを作らずに記事用PNGを収集する。UIは`StillLibraryPanel.tsx`、通信契約は`stillLibraryApi.ts`、HTTP境界は既存`server.py`、業務処理は`still_library.py`。DB schema 11で既存データを保持し、`still_images`と`still_image_edits`を追加する。既存の動画制作・Claude収録・音声処理は変更しない。
+
+- 最初の版は、ローカルWeb（`http://127.0.0.1:1024..65535/`、認証情報・クエリ・fragmentなし）の表示領域／ページ全体／CSS要素撮影と、登録済みPNGからのコピーに対応する。PCは1440×900、モバイル幅は390×844、device scaleは1。モバイル端末自体のエミュレーションではない。
+- `playwright_still.mjs`は新しいheadless Chromium contextを使う。ログイン済みプロファイル・Cookie・拡張を持ち込まない。同一origin以外のHTTPリクエストとWebSocketを遮断し、popupを閉じる。ページ・リソース読み込みの失敗や外部HTTPリソース依存は失敗扱い。これはブラウザのリクエスト制御であり、OS／ネットワーク全体の隔離保証ではない。
+- JobManagerのcapture laneでプロセスツリーの封じ込め・45秒timeout・キャンセルを再利用。静止画Jobは一度に1件まで受付。完了判定は`jobs.status=succeeded`かつ検証済みmediaの存在。PNG生成後の中断でも、画像の配信・編集・exportを許可しない。成功／失敗のジョブ記録は残り、失敗時の途中ファイルはライブラリAPIから配信しない。
+- PNGは最大24 MiB／1600万画素／一辺12000px。Pillowで完全デコードし、元のbytesとSHA-256を保存。取り込み元は既存artifact IDに限定し、直接パス指定・workspace外・symlink/junction・機密ファイル配置を拒否する。プレビュー／export時もhashを再確認する。
+- 写真は`outputs/studio/stills/<still_id>/image.png`、撮影条件・manifest・成功したWeb撮影のcapture-reportを同じディレクトリへ保存。タイトル／メモはSQLiteに版として記録。撮り直しは新ID＋`parent_id`で関連付け、元画像を上書きしない。
+- 受付ID＋要求digestで重複送信を照合。編集は`expected_revision`のCAS＋operation IDで再送対応。クライアントは送信前にopaque IDだけをlocalStorageへ保存し、応答喪失・再読み込み後はGET照会する。処理中かつライブラリを開いている間のみ3秒間隔で照会し、画面を閉じれば専用監視を停止する。
+- 新APIのGETはStudio session必須。POSTは既存のsession／Origin検証を使用。exportは明示的な機密情報確認と版照合後、PNG＋README.md＋最小manifestのZIPを返す。URL・元パス・過去メモは配布ZIPへ含めず、現行メモはHTML-escapeした`pre`で記載する。画像内の個人情報・秘密は自動判定しないため利用者の確認が必要。
+
+Claudeウィンドウの直接1枚撮影は上記の追加経路で対応。CLI／Codex capture、任意ファイルアップロード、複数画像一括export、注釈・crop加工、VMは未実装。既存Claude収録の登録済みPNGも取り込める。使い方と検証範囲は[STUDIO_STILL_LIBRARY_JA.md](STUDIO_STILL_LIBRARY_JA.md)を参照。
+
+## 編集スタイルの30秒・6発話制作（2026-09-09）
+
+`productions/SHORT_20260909_editorial_30s/`は新テーマを本尺に適用する案件用ドライバー。`story.json`に3章の見出し・6つの短い発話・開始時刻・投稿テキストを保存する。2本の10秒編集図解と既存実画面を共通`TimelineComposition`で30秒に組み、共通`generate_local_narration`へ6発話の明示スケジュールを渡す。実WAV長で章越え・発話重複を拒否し、共通`assemble_local_video`で字幕あり／なしのMP4を生成する。音声provider・rate・処理policyは変えない。
+
+これはStudio DB上のrecipe／Run／Jobを作らないファイルベースの制作経路。workerのrun形式ディレクトリをDB保存RunやQC Jobと呼ばない。簡単作成UIの1章1発話制限は未変更。入力・ソースhash、発話時刻、両MP4全decode、確認ZIPのCRCと全entry hashを検証し、[制作記録](productions/SHORT_20260909_editorial_30s/README.md)に通常制作との境界を明示する。新規収録・課金API・画像生成・公開判定へのedgeはない。
+
+実出力で字幕あり／なし30.000秒・720frame・1080×1920／24fps・AAC 48kHzを確認。6発話の章内収容、完成フレームの字幕非重複、確認ZIP10項目の読み戻しが成功した。専用6件と関連30件のテスト成功。音声品質は従来どおり保留し、サブエージェントは使っていない。
+
+## 構成チェックと編集スタイル（2026-09-08）
+
+`screenExplainerWorkflow.reviewScreenStructure`は保存済み下書きから、隣接場面の同じ素材ID＋注目矩形、同じ見出し、極端な横長矩形を検出する純粋関数。`ScreenExplainerPanel`の台本／生成確認段階へ3場面の役割と時間、改善助言を表示する。映像認識や音声解析ではなく、合格点・公開許可を返さない。警告で自動的に素材・台本・確認済み状態を書き換えず、既存validationとは独立する。保存／生成／収録の新しいAPIは追加しない。
+
+選択式`claude_editorial_v1`を既存の閉じたtheme契約へ追加。通常書体のClaude Desktop識別文を使い、導入は暖色、ポイントは白、まとめは墨色へ切り替える。`screenSceneTheme`と`editorialChapter`を共通Remotionで解決し、12frameの見出し移動・不透明度変化は各sceneのframeだけから算出する。ロゴや疑似UIを使わず、映像枠・非公式表記・後段字幕の領域は固定のまま。旧4テーマの配色と演出は変更しない。API→版付きrecipe→Detailed→Node→描画の同じIDを検証し、音声の契約やタイミングを変更しない。
+
+検証はフロント227件、関連Python42件、実React＋mock APIのUI3件、通常buildで成功。390pxで構成メモの縦並びと横はみ出しなし、テーマ変更時のsource ID／trim保持を確認。新規実収録・課金API・音声生成・公開受入はこの検証に含めない。共通compositionの実素材による6秒無音レビューは`productions/SHORT_20260908_editorial_review/`で独立に再現する。
+
+## ロゴなしのイラスト素材を通常制作へ接続（2026-09-06）
+
+`productions/SHORT_20260906_claude_illustrated/`は案件用の素材準備と再現ドライバーを置く。内蔵画像生成で作った独自イラストをworkspaceへ保存し、生成プロンプト・hashを記録する。専用Remotionはフレーム由来の動きと同梱Noto Sans JPで2本の無音7秒素材を作り、画像・ソース依存・出力bytes／hashをmanifestへ封印する。画像生成をStudioの汎用providerとして追加したものではない。
+
+専用`produce.py`がmanifestと既存の封印済みClaude収録証跡を照合し、通常`import_production_video`で素材を登録する。別recipeの3場面へイラスト／実画面／編集図解を並べ、既存`claude_desktop_v1`から通常Quick Create・Detailed・assembly・QC・Deliveryへ進む。元の実画面専用ドライバーの同一source制限は緩めない。台本・声・7秒境界を維持して既存ナレーションcacheの再利用を狙う。追加収録・外部チャット・課金TTS・ロゴ取得へのedgeはなく、音声品質gateも変更しない。[制作記録](productions/SHORT_20260906_claude_illustrated/PRODUCTION_RECORD_JA.md)に出力と受入範囲を分離する。
+
+実Run `run_a2df0ca5610949a397b125e5dd723da8`で21秒の字幕あり／なしMP4・通常技術QC・13項目のDeliveryまで成功。音声4artifact再利用と前版とのAAC payload一致を独立検証した。panelはPNG frame／BT.709で明示変換し、完成動画でも橙色の最大RGB誤差2を確認。15件の隔離テストと完成4フレームの目視は通過したが、音声・公開品質は未受入のままとする。
+
+## 製品別・技術別の外観テーマと日本語見出し（2026-09-06）
+
+画面解説recipeに省略可能な`screen_theme`を追加する。`neutral_v1`／`claude_desktop_v1`／`claude_code_v1`／`technical_v1`の閉じたIDだけを受け、画面解説以外へは渡さない。Studioの下書き・選択UIから版付きrecipe、Detailed clip、Remotion props、cache／manifest／監査まで同じIDを伝播する。未指定の旧payloadは正規化時に既定項目を追加せず互換性を保つ。テーマ選択で素材や台本は破棄せず、保存済みvoice／rate／pronunciationsも復元する。
+
+`screenThemes.ts`が配色・識別文・非公式表記を定義し、`ScreenTypography.tsx`が同梱Noto Sans JPをFontFaceで読み込み、700ウェイトの見出し描画前に完了を待つ。動的ロゴURLや外部フォント通信、任意CSSは許可しない。TTFとOFL・両モジュールはrendererのfirst-party hash集合へ入り、固定TTFだけを一時publicへコピーし前後に実体照合する。Studioのstatic配信もTTFはWindowsのMIME推定に頼らず`font/ttf`を返す。読み込み失敗を代替フォントの完成として扱わない。音声処理や素材収録への新しいedgeはない。
+
+Claudeのロゴ承認は未確認のため未実装。配色と通常書体の製品識別文を使う独立解説デザインで、DesktopチャットをCodeの実演と誤表示しない。[テーマ仕様・利用条件・検証範囲](STUDIO_TEMPLATE_BRANDING_JA.md)を参照。
+
+## 実画面の文脈と試作用音声の比較（2026-09-06追補）
+
+実Claude教材v4は冒頭の`focus_region`を省略し、既存screen layoutの全画面containを使用する。文字だけの切出しではアプリを識別しにくいため、最初にメニュー・会話・入力欄の文脈を見せる。後続の固定拡大と台本は維持する。新しいUI描画や収録は行わず、版付き通常制作・標準Deliveryへ接続する。
+
+`audio_diagnostics.py`は封印済みv3とread-only DBからSAPI原音を解決し、hash照合後にPCM／AACの遅延・gain整列比較、クリップ等の計測、同ラウドネスWAVを作る。24k／48kの同声1文試験とWinRTの一覧診断は製品設定から分離する。周期ピークをノイズと決めつけず、既定sample rate・声・合成フィルターは変更しない。
+
+`assemble_audio_review.py`は同じv4映像payloadと同音量のA／D音声を組み合わせるだけの比較用ドライバー。原音と候補をPCMから同じAAC設定で一度encodeし、全decode・尺・映像hash・encode後ラウドネスを確認する。比較コピーは通常納品や採用済み音声presetではなく、独立したmanifest付き`outputs/studio/verification/.../audio-video-review/`へ保存する。v3の作品品質は利用者評価で不合格、Dも「こもりはないがクリーンではない」との評価。[診断と判断](productions/SHORT_20260906_claude_desktop_real_capture/AUDIO_REVIEW_JA.md)を参照。
+
+`spectrum_review.py`はこの診断manifestと原音／A／Dのhashを固定入力にする読み取り中心の案件用解析。NumPy／SciPyで発話を連結せず個別Welch PSDと時間周波数分布を計測し、Pillowの同一尺度PNG、数値CSV、入出力hash付きJSONを独立verificationへ出力する。挿入無音はPSDから除外し、文中のzeroも録音ノイズ床と見なさない。新規合成、フィルター適用、通常納品登録や品質gate更新のedgeを持たない。固定周波数の目立つノイズは今回の測定で特定できず、声の倍音・音節周期のピークを自動除去対象にしない。
+
+### Local SAPIの連鎖cache参照
+
+`StudioService._cached_local_narration_result`は、直近の成功attemptが再利用結果なら`cache_source_attempt_id`を辿って物理所有Runを解決する。各linkで同production・stage・成功状態・cache key・result metadata・4artifactのID／name／path／bytes／hashを照合し、最後に所有Runの厳密root、DB登録、symlink成分、実ファイルhashを検査する。循環・欠落・他制作・不一致・128link超はcache hitにせず安全側へ戻す。これにより「再利用した版からさらに再利用する」場合の不要な再合成を防ぐ。原本をcacheを使ったRunへコピーせず、監査参照を維持する。外部TTSは今回の修正対象外。
+
+隔離した3runの回帰で修正前worker2回、修正後1回・同4artifactの再利用を確認した。実v4で起きた再合成履歴を成功cacheへ書換えてはいない。
+
+## 実Claude教材の制作ドライバー（2026-09-06）
+
+`productions/SHORT_20260906_claude_desktop_real_capture/produce.py`は、既存Studioの通常サービスを呼ぶ制作再現用ドライバーであり、別の編集・収録エンジンではない。`capture`と`render request.json`を分け、workspace lock取得後に既定DBを開く。収録受付を先に永続化し、成功したsource Jobの6成果物と実hashを封印してから、同じproductionの版付きrecipeをQuick Create／Detailedへ渡す。無音素材なので`narration_only_v1`と素材音量0を使う。納品は成功したDetailed topと工程別のexact artifactから既存Deliveryを作る。確認用JSON・進捗ログ・投稿情報txtを残し、未知の収録受付を自動再送しない。
+
+Claudeへの送信はこのドライバーの外で、利用者が了承した架空データ1件だけをCodexのComputer Useで実施した。収録は回答取得後のウィンドウで、入力・送信の所要時間を測るものではない。API課金、外部投稿、声の購入、レジストリ変更は行わない。SAPI音声の列挙成功と合成成功、技術QCと公開品質を分離する。実行結果は[制作記録](productions/SHORT_20260906_claude_desktop_real_capture/PRODUCTION_RECORD_JA.md)で追跡する。
+
+実績は30秒sourceから21秒・3区間を使うrecipe v3。通常4工程・QC・13項目のDeliveryまで成功し、区間だけ変更したv3はv2の4音声artifactを同一ID／hashで再利用した。字幕あり／なしの両MP4を全decode確認。実ウィンドウ846×572を出力1080p素材へ変換しているため、ネイティブ高解像度とは扱わない。聴感・スマートフォン可読性・公開品質は未受入。以下の初回スモークの「教材未完了」は、その検証時点の記録である。
+
+### SAPIホストの互換性
+
+実制作で、同じ端末でもWindows PowerShell 5系からはSayakaを選択できず、既存PowerShell 7.6.5からは同じ`System.Speech`と合成スクリプトでWAVを生成できることを確認した。通常経路のホスト探索を「既存PowerShell 7の標準位置 → PATH上のpwsh → 既存Windows PowerShell → PATH上のpowershell.exe」へ変更する。候補は存在する非symlink実ファイルに限り、インストールや任意のリクエスト指定パスは受け付けない。選んだホストで失敗したとき、別音声・別ホストへ黙って切り替えない。
+
+音声cacheとmanifestの共有世代を`local-sapi-v2-pwsh-preferred`へ進め、preflight／manifestへ`host_selection_policy`を記録する。旧世代のWAVや動画を上書きしない。初回は新cacheになり、同じ新設定での映像だけの修正では再利用できる。これは音声購入や新TTSプロバイダーの追加ではなく、既存ローカル合成ホストの選択修正である。音質の聴感合格は別に判定する。
+
+## Claude Desktop単一ウィンドウ素材と固定注目範囲（2026-09-06追補）
+
+画面解説の対象をClaude Desktopに絞り、**1回の無音収録を目的・操作・結果の3場面で共有する経路**を追加した。素材の取得後は既存の版付き`screen_explainer_ja_v1` → Detailed Job → SAPI → Remotion → FFmpeg → 技術QC → 標準納品を使う。ソフト操作、プロンプト送信、会話の選択、ログインは自動化しない。見せる画面を事前に用意し、私的情報を含まないことを確認してから利用者が明示的に収録を開始する。
+
+### 境界とデータの流れ
+
+- `claude_capture.py`は既存FFmpegの`gfxcapture`（Windows Graphics Capture）と既存のプロセス封じ込めを再利用する。別のC#収録エンジンやデスクトップ全体へのfallbackは追加しない。対応対象はOSのpackage情報で確認できる公式MSIX版の`Claude_pzs8sxrjxfjjc` / `Claude_pzs8sxrjxfjjc!Claude`のみ。package配下の実行ファイル、PID・開始時刻、ウィンドウclass・寸法を束縛し、名前が`claude.exe`というだけでは許可しない。非MSIX版、任意アプリ、別のpackage identityは未対応である。
+- inspectはWin32の候補列挙とエンジン利用可否の確認だけを行い、画面のpixelや音を取得しない。可視・非最小化のtop-level候補を最大16件、匿名番号・寸法・利用可否とopaque selection tokenで返す。タイトル、会話、実行パス、HWNDは公開しない。tokenはStudio sessionに束縛した有効期限60秒・単回利用のメモリ内capabilityで、再選択や期限切れ後は使えない。
+- `POST /api/capabilities/claude-capture/inspect`の後、`POST /api/productions/{id}/claude-captures`へ`request_id`、`selection_token`、`duration_ms`、`confirm_capture: true`を渡す。任意HWND、パス、command、URL、音声指定は受け付けない。尺は15,000〜30,000ms。既存capture laneと共通の排他制御を使い、他の収録が動作中なら受付を拒否する。
+- `claude_capture_service.py`は制作に属する`claude_window_capture` **source Jobだけ**を作る。収録のための架空Run、narration成功、assembly成功は作らない。成功判定は素材の構造・全decode・hashの確認であり、`capture_only: true`、`content_quality_verified: false`、`public_release_ready: false`を維持する。音声は`none`、音声streamは0で、無音WAVの捏造やAV同期gateの合格は行わない。後段の読み上げ音声はこの素材収録とは別工程である。
+- 要求尺を下回らないよう24fpsのframe数を切り上げ、1920×1080・H.264・無音へcontain/padする。実測尺は要求以上かつ1frame未満の超過だけ許可する。元ウィンドウの寸法は別記録であり、小さいウィンドウを1920pxへ変換しても文字の情報量は増えない。
+- 収録開始前・収録中・完了前に同じ対象を検査する。最小化、閉じる、非表示、対象identityや寸法の変化、移動・サイズ変更eventを検出したら停止する。短時間で元へ戻しても成功扱いにしない。取消・異常・DB登録失敗時は部分素材を登録せず、対象requestの既知ファイルだけを削除する。unknown file、symlink/junction等があれば安全側で停止する。
+- UIは送信前に受付IDを保存し、応答不明時は`GET /api/productions/{id}/claude-captures/{request_id}`で同じJobを照合する。同じ受付ID・設定・sessionの再要求は同じJobを返し、不一致は拒否する。受付未確認を新規収録として自動再送しない。生tokenやprivate window identityはdraft・DB・ログへ保存しない。
+- 保存先は`outputs/studio/claude-captures/{productionId}/{requestId}/`。MP4、先頭・末尾PNG、capture-report、ffprobe、manifestの6ファイルを検証してから、Job成功とartifact登録をDBの同じtransactionで確定する。生成中は同じ親の`.{requestId}.{captureId}.partial`を使う。起動時の掃除はそのDBが持つ未完了requestだけに限定し、別DBや他の制作の成果物を掃除しない。
+- `screenExplainerWorkflow.ts`は共通MP4のartifact IDを3場面へ渡し、各尺の累積位置から連続区間を使う。台本・見出し・注目範囲だけの修正は同じ素材を再利用する。収録成功だけを完成動画として表示せず、素材確認後に通常の生成Jobへ進む。
+
+### 読める範囲の指定と未受入部分
+
+収録・probe・decode・PNG抽出の作業ディレクトリは `outputs/studio/runtime/claude-window-capture` に分離する。実機で確認したGPUドライバー由来の空の `NVIDIA Corporation/umdlogs` が成果物partialに混ざり、取消時の厳密cleanupを妨げる問題を防ぐ。動画・PNG・JSONは従来の絶対パスに出力し、未知の成果物ファイルを削除してよいことにはしない。ドライバー補助ディレクトリは素材として登録せず、限定cleanup対象にも含めない。
+
+取消と清掃失敗が競合した場合も、Claude source Jobだけは `failed / claude_capture_cleanup_failed` を保持する。未解決の間はClaudeと既存Windows収録の両方を拒否し、起動時の清掃成功は別の監査イベントで記録する。失敗Jobを成功には変えない。DBコミット後に応答処理だけ失敗した場合は、成功を再照合して登録済み素材を保持する。
+
+各場面の任意`focus_region`は元MP4全体に対する正規化矩形（`x, y, width, height`、0〜1、幅・高さ0.2以上、画面内）を表す。`screen_explainer_v1`だけで使用し、Remotionが選んだ矩形全体を既存960×540の画面枠へ固定拡大する。見出し・字幕の位置は保つ。指定がなければ従来の全画面containを維持し、既存clipに新fieldを挿入しない。矩形はrecipe・cache・manifestへ伝播するため、拡大範囲の変更も追跡できる。自動追尾、動的zoom、OCR、機密情報の自動ぼかしではない。素材previewで黒帯を含む実際の映像座標と、説明に必要な周辺情報を確認する。
+
+**実装・技術スモークと実用受入は別**。初回はCUA上のClaude表示が白画面だったが、主担当の操作で表示が復帰した。白画面の原因は未特定。履歴を非表示にし、個人の会話・アカウント名がない画面で、標準source Jobによる15秒の実収録に成功した（1920×1080・24fps・360frames・無音・全decode・6成果物登録、Job経過約17.6秒）。先頭／末尾画像では未送信のテスト文が入力欄に入る変化を主担当が目視確認し、その文は後で消去した。Jobとhash等の証跡は[実機検証記録](STUDIO_SCREEN_EXPLAINER_VERIFICATION_20260906.md#実claude収録の技術スモーク)に分離する。
+
+この素材は公開用教材ではない。Claudeの教材を3区間と固定拡大で標準制作経路の最後まで通す受入、SAPIの聴感改善、公開品質は未完了。なお準備中のCUA手動操作で「新規アーティファクト」をクリックした際、案内表示ではなくClaude側で自動依頼文1件の送信と生成開始が起きた。想定外だったため停止操作を行い、停止ボタンの消失を確認、生成成果物は得ていない。**Studio録画機能が会話を自動送信しないことと、今回の操作全体で送信がなかったことは別**であり、後者は主張しない。有料API、音声購入、外部投稿は行っていない。
+
+## 画面解説テンプレートと素材準備（2026-09-06）
+
+優先対象は編集ソフトの置き換えではなく、実画面を使う技術解説の素材準備と再利用。`ScreenExplainerPanel` / `screenExplainerWorkflow.ts` が目的・操作・結果の3場面を扱い、既存素材選択、動画取込、loopback Web画面の収録を既存APIに接続する。案件専用の映像レンダラーを追加せず、取得済みartifactを版付きrecipeへ渡す。実Claude教材のPythonドライバーは上記の通常サービス呼出と記録を再現するためのもの。
+
+- 新recipe preset `screen_explainer_ja_v1` は15〜30秒・3場面・ハードカット。旧`shorts_ja_15s_v1`の10〜20秒・250ms fadeを維持。
+- 任意clip `layout_preset: screen_explainer_v1` は縦1080×1920内に横画面をcontain表示し、上に見出し、下に字幕空間を確保。事前cropするH3鮮明化との併用は拒否。画面を切らないことは小さなUI文字の可読性を保証しない。
+- 任意capture `viewport_preset: desktop_16_9` は1920×1080を選び、要求・Playwright・FFmpeg・probe・manifest・公開結果の寸法を照合。省略時は従来の縦収録。任意寸法・外部origin・cookie/profile・任意JavaScriptは不許可。
+- 素材の取得済みIDを保持して再収録を省く。収録の応答不明時は既存Jobを照合し、nonceを持つ取得を勝手に再送しない。保存は既存CAS版管理、最終生成は通常Detailed Job→SAPI→Remotion→FFmpeg→QC→Deliveryを通る。
+- ブラウザdraftは同一端末での準備再開用。素材・保存recipe・生成Jobは既存サーバー履歴に保持。ブラウザを閉じたまま素材収集操作を自動継続する機能ではない。
+- ローカルWebアプリは隔離ブラウザで取得する。Claude Desktopは上記の専用・無音・単一ウィンドウ経路で実収録から3場面・固定拡大・標準納品まで技術E2Eを確認した。公開品質の受入は未完了。外部URL・任意Windowsアプリ・既存ブラウザsessionの流用は未接続で、手元の動画を取り込む。音声はSAPI試作。Sayakaの実合成と再利用は確認したが聴感は未受入。ElevenLabsの試聴・採用・一括接続は必要時の次候補で、無断課金や黙ったSAPI代替は行わない。
+
+手順と実用受入は[STUDIO_SCREEN_EXPLAINER_JA.md](STUDIO_SCREEN_EXPLAINER_JA.md)を参照。
+
+## 案件専用の非破壊音声処理試験（2026-09-05）
+
+`productions/SHORT_20260905_claude_desktop_15s/denoise.py`は、利用者が報告したHaruka発話中のノイズに対する比較用スクリプト。元WAV／MP4をhashで束縛し、未圧縮音声からFFTノイズ低減・EQの軽め／強めと未処理対照を作り、固定遅延を補正して一定gainで同じラウドネスへ揃える。元MP4の映像はcopyし、WAVからAACへ1回だけencodeする。timestamp別outputsにレシピ、原音、候補、比較音声、probe、hashを残す。映像payloadと原本の不変性を確認し、音質の主観的合格は利用者の聴き比べまで保留する。標準Studio worker、Run／Job、費用承認、原版マスターを更新する機能ではない。
+
+## 生成画像を挿入する案件専用経路（2026-09-05）
+
+`productions/SHORT_20260905_claude_desktop_15s/` は、下記Codex版のローカル合成経路に、内蔵 `imagegen` で先に作ったPNGを加える制作例。Studioの一般向け画像生成APIや新しい課金workerを追加したものではない。
+
+- `prompts/DESKTOP_HERO_IMAGEGEN.md` と素材台帳が生成指示・来歴を保持する。リモート内蔵ツールで生成した画像をignoredの案件assetsへコピーし、Remotion source reportでbytes／SHA-256を記録する。
+- `ClaudeDesktopShort.tsx` / `render.mjs` が実画像を読み、カメラ移動と説明用UIを決定的に合成する。生成画像の欠落はエラーとし、生成された写真と実アプリ画面を映像中のラベルで区別する。MiniMax動画推論は使わない。
+- 案件専用`assemble.py`は実SAPIのraw音声と句末静音を実測し、120msの余韻を残す末尾調整を独自の前処理identityとして記録して既存scheduled narrationへ渡す。音声のraw／処理後hashとタイミングを残し、通常の無加工SAPI cacheと混同しない。
+- 外部画像生成とローカル描画／音声／合成／QCを来歴上で分離する。ローカル合成の`network_used:false`は内蔵画像生成までオフラインだったという意味ではない。正規のStudio素材取込・成果物登録を使い、通常pipelineの成功Run／Jobは作らない。
+
 ## 案件専用のローカル制作経路（2026-09-05）
 
 `productions/SHORT_20260905_codex_15s/` は、Codex紹介動画を再現するための制作スクリプトと台帳であり、Studioの新しい一般向けテンプレートではない。

@@ -79,6 +79,26 @@ class RemotionTimelineServiceTests(unittest.TestCase):
         self.service.close()
         self.fixture.close()
 
+    def test_theme_is_preserved_in_physical_cache_and_compiled_clip(self) -> None:
+        from tools.studio.remotion_timeline_execution import validate_remotion_timeline_payload
+        artifact_id = "art_" + "1" * 32
+        payload = validate_remotion_timeline_payload({"schema_version": 1, "clips": [{
+            "video_artifact_id": artifact_id, "start_ms": 0, "end_ms": 1000,
+            "volume_percent": 0, "transition_to_next": None, "overlay": None,
+            "layout_preset": "screen_explainer_v1", "screen_theme": "claude_code_v1",
+        }]})
+        physical = {
+            "video_artifact_id": artifact_id, "start_ms": 0, "end_ms": 1000,
+            "source_path": "registered/test.mp4", "source_bytes": 100, "source_sha256": "A" * 64,
+        }
+        with mock.patch.object(self.service, "_validated_timeline_inputs", return_value={
+            "clips": [physical], "cache_clips": [physical], "aggregate_bytes": 100,
+        }):
+            resolved = self.service._validated_remotion_timeline_inputs({}, payload)
+        for field in ("clips", "cache_clips"):
+            self.assertEqual(resolved[field][0]["screen_theme"], "claude_code_v1")
+        self.assertEqual(resolved["compiled"]["clips"][0]["screen_theme"], "claude_code_v1")
+
     def module(self) -> types.ModuleType:
         module = types.ModuleType("tools.studio.remotion_timeline")
         module.resolve_remotion_tool_identity = lambda *_args, **_kwargs: {

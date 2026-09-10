@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type SyntheticEvent } from 'react';
+import StillLibraryPanel from './StillLibraryPanel';
 import { Player } from '@remotion/player';
 import './workspaceWorkflow.css';
 import {
@@ -98,6 +99,7 @@ import { TimelineComposition } from './remotion/TimelineComposition';
 import { buildRemotionTimelineCompositionProps } from './remotion/model';
 import { QuickCreateForm } from './QuickCreateForm';
 import { SimpleCreateWizard } from './SimpleCreateWizard';
+import { ScreenExplainerPanel } from './ScreenExplainerPanel';
 import { ProductionLibraryPanel } from './ProductionLibraryPanel';
 import { ReviewPanel } from './ReviewPanel';
 import { DeliveryPanel } from './DeliveryPanel';
@@ -1012,6 +1014,8 @@ function App() {
   const [showArchived, setShowArchived] = useState(false);
   const [unsavedAnnouncementProductionId, setUnsavedAnnouncementProductionId] = useState<string>();
   const [simpleCreateOpen, setSimpleCreateOpen] = useState(false);
+  const [screenExplainerOpen, setScreenExplainerOpen] = useState(false);
+  const [stillLibraryOpen, setStillLibraryOpen] = useState(false);
   const [newProductionOpen, setNewProductionOpen] = useState(false);
   const [cancellingJobIds, setCancellingJobIds] = useState<Set<string>>(() => new Set());
   const [jobActionMessage, setJobActionMessage] = useState<string>();
@@ -1265,6 +1269,12 @@ function App() {
             <span aria-hidden="true">◇</span>
             新しい制作
           </button>
+          <button className="button button-secondary" type="button" onClick={() => setScreenExplainerOpen(true)} aria-haspopup="dialog">
+            画面解説を作る
+          </button>
+          <button className="button button-secondary" type="button" onClick={() => setStillLibraryOpen(true)} aria-haspopup="dialog">
+            静止画ライブラリ
+          </button>
           <button className="button button-secondary" onClick={() => void refreshIndex()} disabled={refreshing}>
             <span aria-hidden="true">↻</span>
             {refreshing ? '更新中…' : 'インデックス更新'}
@@ -1361,7 +1371,9 @@ function App() {
         </main>
       </div>
       <SimpleCreateWizard open={simpleCreateOpen} onClose={() => setSimpleCreateOpen(false)} onAdvanced={openAdvancedProductionDialog} onProductionReady={refreshProductionAfterMutation} canCreateProduction={canCreateProduction} />
+      <ScreenExplainerPanel open={screenExplainerOpen} onClose={() => setScreenExplainerOpen(false)} onProductionReady={(id) => { setScreenExplainerOpen(false); void refreshProductionAfterMutation(id); }} production={detail ?? undefined} />
       <NewProductionDialog open={newProductionOpen} onClose={() => setNewProductionOpen(false)} onProductionReady={refreshProductionAfterMutation} canCreateProduction={canCreateProduction} />
+      {stillLibraryOpen && <StillLibraryPanel onClose={() => setStillLibraryOpen(false)} />}
     </div>
   );
 }
@@ -3449,12 +3461,13 @@ type AnnouncementSceneDraft = {
   visualPreset: LocalRemotionTimelineVisualPreset;
   headline: string;
   narration: string;
+  focusRegion?: AnnouncementVideoRecipe['scenes'][number]['focusRegion'];
 };
 
 type AnnouncementRecipeDraft = {
   schemaVersion: 1;
   name: string;
-  templatePreset: 'shorts_ja_15s_v1';
+  templatePreset: AnnouncementVideoRecipe['templatePreset'];
   scenes: AnnouncementSceneDraft[];
   voice: string;
   rate: string;
@@ -3535,7 +3548,7 @@ const announcementDraftUsesQuickDefaults = (draft: AnnouncementRecipeDraft, arti
 const announcementDraftFromRecord = (record: AnnouncementRecipeRecord): AnnouncementRecipeDraft => ({
   schemaVersion: ANNOUNCEMENT_VIDEO_SCHEMA_VERSION,
   name: record.recipe.name,
-  templatePreset: ANNOUNCEMENT_VIDEO_TEMPLATE_PRESET,
+  templatePreset: record.recipe.templatePreset,
   scenes: record.recipe.scenes.map((scene) => ({
     ...scene,
     visualPreset: scene.visualPreset ?? DEFAULT_REMOTION_TIMELINE_VISUAL_PRESET,
@@ -4208,6 +4221,8 @@ function AnnouncementVideoPanel({ detail, jobs, onReload, onReloadStatus, onDirt
         <section className={`panel announcement-panel editor-${activeEditorMode}`}>
           {activeEditorMode === 'quick' ? (
             <><div className="panel-header"><div><span className="section-kicker">QUICK CREATE</span><h3>かんたん作成</h3></div><span className="tag">{formatMilliseconds(normalized.outputDurationMs)} · 縦型 · 費用0円</span></div><p className="panel-lead">動画を3つ選び、伝える言葉を入れるだけ。保存、ローカル音声、字幕、編集、技術QCまでまとめて進めます。</p></>
+          ) : draft.templatePreset === 'screen_explainer_ja_v1' ? (
+            <><div className="panel-header"><div><span className="section-kicker">SCREEN EXPLAINER V1</span><h3>画面解説・詳細設定</h3></div><span className="tag">画面全体を表示 · 試作音声</span></div><p className="panel-lead">目的 → 操作 → 結果、15〜30秒、ハードカット。見出しは上部、横画面は切り抜かず表示します。素材の収集と再利用は上部の「画面解説を作る」から行えます。</p></>
           ) : (
             <><div className="panel-header"><div><span className="section-kicker">ANNOUNCEMENT VIDEO V1</span><h3>15秒告知動画・詳細設定</h3></div><span className="tag">既存素材 · 費用0円</span></div><p className="panel-lead">HOOK → MESSAGE → CTAの3シーンを調整し、大見出し、ナレーション、字幕、fade、音声mix、技術QCまで一括生成します。</p><div className="local-pipeline-policy" role="note"><strong>使える範囲を閉じた実用テンプレート</strong><p>10〜20秒（推奨15秒）、縦1080×1920、固定250ms fadeです。大見出しは安全域内の上・中央だけを使い、字幕との下端衝突を避けます。ナレーション必須、BGM・ロゴ画像はv1対象外です。</p></div></>
           )}
@@ -4265,16 +4280,21 @@ function AnnouncementVideoPanel({ detail, jobs, onReload, onReloadStatus, onDirt
               </div>
               <label className="field"><span>recipe名</span><input maxLength={120} value={draft.name} disabled={formLocked} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} /></label>
               <div className="announcement-scene-list">{draft.scenes.map((scene, index) => {
-                const meta = ANNOUNCEMENT_ROLE_META[scene.role];
+                const screenExplainer = draft.templatePreset === 'screen_explainer_ja_v1';
+                const meta = screenExplainer ? [
+                  { index: '01', label: '目的', guide: '何ができるかを画面で示す' },
+                  { index: '02', label: '操作', guide: '見せたい操作をひとつに絞る' },
+                  { index: '03', label: '結果', guide: '操作後の変化を確認する' },
+                ][index] : ANNOUNCEMENT_ROLE_META[scene.role];
                 const artifact = videoArtifacts.find((item) => item.id === scene.videoArtifactId);
                 return <article className={`announcement-scene role-${scene.role}`} key={scene.role}>
-                  <div className="announcement-scene-heading"><span>{meta.index}</span><div><strong>{meta.label}</strong><small>{meta.guide}</small></div><em>{index < 2 ? 'fade 250ms' : 'END'}</em></div>
+                  <div className="announcement-scene-heading"><span>{meta.index}</span><div><strong>{meta.label}</strong><small>{meta.guide}</small></div><em>{index < 2 ? screenExplainer ? 'ハードカット' : 'fade 250ms' : 'END'}</em></div>
                   <label className="field"><span>動画artifact</span><select value={scene.videoArtifactId} disabled={formLocked || videoArtifacts.length === 0} onChange={(event) => selectSceneArtifact(index, event.target.value)}><option value="">動画artifactを選択</option>{scene.videoArtifactId && !videoArtifacts.some((item) => item.id === scene.videoArtifactId) && <option value={scene.videoArtifactId}>[利用不可] {scene.videoArtifactId}</option>}{videoArtifacts.map((item) => <option key={item.id} value={item.id}>{item.name} · {formatBytes(item.sizeBytes)}</option>)}</select></label>
                   <div className="announcement-time-grid"><label className="field"><span>開始（ms）</span><input type="number" min="0" max="60000" step="1" value={scene.startMs} disabled={formLocked} onChange={(event) => updateScene(index, 'startMs', event.target.value)} /></label><label className="field"><span>終了（ms）</span><input type="number" min="0" max="60000" step="1" value={scene.endMs} disabled={formLocked} onChange={(event) => updateScene(index, 'endMs', event.target.value)} /></label><label className="field"><span>素材音量（%）</span><input type="number" min="0" max="100" step="1" value={scene.volumePercent} disabled={formLocked} onChange={(event) => updateScene(index, 'volumePercent', event.target.value)} /></label></div>
                   <label className="field"><span>映像補正preset</span><select value={scene.visualPreset} disabled={formLocked} onChange={(event) => updateScene(index, 'visualPreset', event.target.value as LocalRemotionTimelineVisualPreset)}><option value="preserve_v1">補正なし（preserve_v1）</option><option value="h3_low_res_sharp_v1">H3低解像度を鮮明化</option></select><small className="field-help">固定強度です。完成artifactで効果を確認します。</small></label>
                   <label className="field"><span>大見出し（2行まで）</span><textarea rows={2} maxLength={80} value={scene.headline} disabled={formLocked} onChange={(event) => updateScene(index, 'headline', event.target.value)} /></label>
                   <label className="field"><span>ナレーション（1文）</span><textarea rows={2} maxLength={200} value={scene.narration} disabled={formLocked} onChange={(event) => updateScene(index, 'narration', event.target.value)} /></label>
-                  <div className="timeline-artifact-meta"><span>source尺 {formatDuration(artifact?.durationSeconds)}</span><span>大見出し {scene.role === 'message' ? '上' : '中央'}</span></div>
+                  <div className="timeline-artifact-meta"><span>source尺 {formatDuration(artifact?.durationSeconds)}</span><span>大見出し {screenExplainer || scene.role === 'message' ? '上' : '中央'}</span></div>
                 </article>;
               })}</div>
               <details className="announcement-advanced"><summary>音声・字幕の詳細設定</summary><div className="announcement-advanced-body">

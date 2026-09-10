@@ -9,6 +9,9 @@ import type {
   ArtifactImportResponse,
   ArtifactKind,
   CostEntry,
+  ClaudeCaptureInspection,
+  ClaudeCaptureRequest,
+  ScreenFocusRegion,
   DetailedTestVideoRequest,
   DeliveryArtifactIds,
   DeliveryArtifactRole,
@@ -615,6 +618,49 @@ export const REMOTION_TIMELINE_LIMITS = {
 
 const REMOTION_ARTIFACT_ID_RE = /^art_[0-9a-f]{32}$/;
 
+export const isValidScreenFocusRegion = (value: unknown): value is ScreenFocusRegion => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const candidate = value as Record<string, unknown>;
+  const keys = ['x', 'y', 'width', 'height'];
+  if (Object.keys(candidate).length !== 4 || !keys.every((key) => typeof candidate[key] === 'number' && Number.isFinite(candidate[key]) && Math.round((candidate[key] as number) * 10000) / 10000 === candidate[key])) return false;
+  const region = candidate as unknown as ScreenFocusRegion;
+  return region.x >= 0 && region.y >= 0 && region.width >= 0.2 && region.height >= 0.2
+    && region.width <= 1 && region.height <= 1 && region.x + region.width <= 1 && region.y + region.height <= 1;
+};
+
+export const normalizeClaudeCaptureInspection = (value: unknown, kind: 'claude' | 'terminal' = 'claude'): ClaudeCaptureInspection => {
+  const raw = asRecord(value);
+  if (kind === 'terminal' && (raw.provider !== 'local_windows_terminal_still' || raw.cli_content_verified !== false)) throw new TypeError('ターミナル撮影の確認結果が不正です。');
+  const labelPattern = kind === 'terminal' ? /^Windows Terminal [1-9][0-9]?$/ : /^Claude [1-9][0-9]?$/;
+  if (raw.schema_version !== 1 || typeof raw.available !== 'boolean' || !Array.isArray(raw.selections)
+    || raw.selections.length > 16 || raw.actual_capture_performed === true) throw new TypeError('Claude収録の確認結果が不正です。');
+  const targets = raw.selections.map((item) => {
+    const target = asRecord(item);
+    if (typeof target.selection_token !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(target.selection_token)
+      || typeof target.label !== 'string' || !labelPattern.test(target.label)
+      || !Number.isInteger(target.width) || !Number.isInteger(target.height)
+      || Number(target.width) < 100 || Number(target.height) < 100
+      || Number(target.width) > 16384 || Number(target.height) > 16384
+      || !Number.isInteger(target.expires_in_seconds) || Number(target.expires_in_seconds) < 1 || Number(target.expires_in_seconds) > 300) throw new TypeError('Claudeの対象ウィンドウを検証できません。');
+    return { selectionToken: target.selection_token, label: target.label, width: Number(target.width), height: Number(target.height) };
+  });
+  if (raw.available !== (targets.length > 0)) throw new TypeError('Claude収録の利用可否と対象一覧が一致しません。');
+  return {
+    available: raw.available,
+    reason: typeof raw.reason === 'string' && /^[a-z0-9_]{1,80}$/.test(raw.reason) ? raw.reason : undefined,
+    targets,
+    expiresInSeconds: targets.length ? Math.min(...raw.selections.map((item) => Number(asRecord(item).expires_in_seconds))) : 0,
+  };
+};
+
+export const buildClaudeCapturePayload = (value: ClaudeCaptureRequest) => {
+  if (!/^claude_capture_[0-9a-f]{32}$/.test(value.requestId)
+    || !/^[A-Za-z0-9_-]{43}$/.test(value.selectionToken)
+    || !Number.isInteger(value.durationMs) || value.durationMs < 15000 || value.durationMs > 30000
+    || value.confirmCapture !== true) throw new TypeError('Claudeの対象・15〜30秒の尺・明示確認が必要です。');
+  return { request_id: value.requestId, selection_token: value.selectionToken, duration_ms: value.durationMs, confirm_capture: true as const };
+};
+
 export interface RemotionTimelinePayload {
   schema_version: typeof REMOTION_TIMELINE_SCHEMA_VERSION;
   clips: Array<{
@@ -623,6 +669,9 @@ export interface RemotionTimelinePayload {
     end_ms: number;
     volume_percent: number;
     visual_preset: LocalRemotionTimelineVisualPreset;
+    layout_preset?: 'full_bleed_v1' | 'screen_explainer_v1';
+    screen_theme?: AnnouncementVideoRecipe['screenTheme'];
+    focus_region?: ScreenFocusRegion;
     transition_to_next: null | { type: 'fade'; duration_ms: number };
     overlay: null | {
       text: string;
@@ -649,6 +698,9 @@ const remotionInteger = (value: unknown): number => {
 
 const isRemotionTimelineVisualPreset = (value: unknown): value is LocalRemotionTimelineVisualPreset =>
   value === 'preserve_v1' || value === 'h3_low_res_sharp_v1';
+
+const isScreenTheme = (value: unknown): value is NonNullable<AnnouncementVideoRecipe['screenTheme']> =>
+  value === 'neutral_v1' || value === 'claude_desktop_v1' || value === 'claude_code_v1' || value === 'technical_v1' || value === 'claude_editorial_v1';
 
 const normalizeRemotionTransition = (value: unknown): LocalRemotionTimelineTransition | null => {
   if (value === null || value === undefined) return null;
@@ -679,6 +731,9 @@ const remotionPayloadForRequest = (request: LocalRemotionTimelineRequest): Remot
     end_ms: clip.endMs,
     volume_percent: clip.volumePercent,
     visual_preset: clip.visualPreset ?? DEFAULT_REMOTION_TIMELINE_VISUAL_PRESET,
+    ...(clip.layoutPreset !== undefined ? { layout_preset: clip.layoutPreset } : {}),
+    ...(clip.screenTheme !== undefined ? { screen_theme: clip.screenTheme } : {}),
+    ...(clip.focusRegion !== undefined ? { focus_region: clip.focusRegion } : {}),
     transition_to_next: clip.transitionToNext === null ? null : {
       type: clip.transitionToNext.type,
       duration_ms: clip.transitionToNext.durationMs,
@@ -738,6 +793,15 @@ export const normalizeRemotionTimelineInput = (value: unknown): NormalizedRemoti
       visualPreset: isRemotionTimelineVisualPreset(pick(record, ['visualPreset', 'visual_preset']))
         ? pick(record, ['visualPreset', 'visual_preset']) as LocalRemotionTimelineVisualPreset
         : DEFAULT_REMOTION_TIMELINE_VISUAL_PRESET,
+      ...(pick(record, ['layoutPreset', 'layout_preset']) !== undefined ? {
+        layoutPreset: pick(record, ['layoutPreset', 'layout_preset']) as 'full_bleed_v1' | 'screen_explainer_v1',
+      } : {}),
+      ...(pickIncludingNull(record, ['screenTheme', 'screen_theme']) !== undefined ? {
+        screenTheme: pickIncludingNull(record, ['screenTheme', 'screen_theme']) as AnnouncementVideoRecipe['screenTheme'],
+      } : {}),
+      ...(pickIncludingNull(record, ['focusRegion', 'focus_region']) !== undefined ? {
+        focusRegion: pickIncludingNull(record, ['focusRegion', 'focus_region']) as ScreenFocusRegion,
+      } : {}),
       transitionToNext: normalizeRemotionTransition(pick(record, ['transitionToNext', 'transition_to_next'])),
       overlay: normalizeRemotionOverlay(pick(record, ['overlay'])),
     };
@@ -769,6 +833,22 @@ export const normalizeRemotionTimelineInput = (value: unknown): NormalizedRemoti
       errors.push(`${label}の終了時刻は${REMOTION_TIMELINE_LIMITS.maxOutputDurationMs / 1_000}秒以内にしてください。`);
     }
     const visualPresetValue = pick(asRecord(values[index]), ['visualPreset', 'visual_preset']);
+    if (clip.screenTheme !== undefined && (clip.layoutPreset !== 'screen_explainer_v1' || !isScreenTheme(clip.screenTheme))) {
+      errors.push(`${label}のテーマは画面解説用の登録済みテーマを指定してください。`);
+    }
+    if (clip.focusRegion !== undefined && (clip.layoutPreset !== 'screen_explainer_v1' || !isValidScreenFocusRegion(clip.focusRegion))) {
+      errors.push(`${label}の拡大範囲は画面解説用の画面内座標（幅・高さ20%以上）で指定してください。`);
+    }
+    if (clip.layoutPreset !== undefined && !['full_bleed_v1', 'screen_explainer_v1'].includes(clip.layoutPreset)) {
+      errors.push(`${label}の画面レイアウトが不正です。`);
+    }
+    if (clip.layoutPreset === 'screen_explainer_v1') {
+      if (clip.visualPreset !== 'preserve_v1') errors.push(`${label}の画面解説では映像補正をpreserve_v1にしてください。`);
+      if (clip.overlay !== null) {
+        if (clip.overlay.position !== 'top') errors.push(`${label}の画面解説の見出しは上部に配置してください。`);
+        errors.push(...announcementHeadlineErrors(clip.overlay.text, label));
+      }
+    }
     if (visualPresetValue !== undefined && !isRemotionTimelineVisualPreset(visualPresetValue)) {
       errors.push(`${label}の映像補正presetはpreserve_v1またはh3_low_res_sharp_v1を指定してください。`);
     }
@@ -894,6 +974,7 @@ export type LocalScreenCapturePayloadAction =
   | { type: 'press'; at_ms: number; selector: string; key: string };
 
 export interface LocalScreenCapturePayload {
+  viewport_preset?: 'desktop_16_9';
   url: string;
   duration_ms: number;
   settle_ms: number;
@@ -943,6 +1024,8 @@ export const normalizeLocalScreenCaptureInput = (value: unknown): NormalizedLoca
   const rawActions = pick(record, ['actions']);
   const actionsValue = Array.isArray(rawActions) ? rawActions : [];
   const errors: string[] = [];
+  const viewportPreset = pick(record, ['viewportPreset', 'viewport_preset']);
+  if (viewportPreset !== undefined && viewportPreset !== 'desktop_16_9') errors.push('画面サイズはdesktop_16_9のみ指定できます。');
   if (target.error) errors.push(target.error);
   if (!Number.isInteger(durationMs) || durationMs < LOCAL_SCREEN_CAPTURE_LIMITS.minDurationMs || durationMs > LOCAL_SCREEN_CAPTURE_LIMITS.maxDurationMs) {
     errors.push('録画時間は1,000〜30,000msの整数で指定してください。');
@@ -1006,12 +1089,13 @@ export const normalizeLocalScreenCaptureInput = (value: unknown): NormalizedLoca
   });
 
   return {
-    request: { url: target.url, durationMs, settleMs, actions },
+    request: { url: target.url, durationMs, settleMs, actions, ...(viewportPreset === 'desktop_16_9' ? { viewportPreset } : {}) },
     payload: {
       url: target.url,
       duration_ms: durationMs,
       settle_ms: settleMs,
       actions: payloadActions,
+      ...(viewportPreset === 'desktop_16_9' ? { viewport_preset: viewportPreset } : {}),
     },
     errors,
   };
@@ -1647,7 +1731,8 @@ const ANNOUNCEMENT_ARTIFACT_ID = /^art_[0-9a-f]{32}$/;
 export interface AnnouncementVideoRecipePayload {
   schema_version: typeof ANNOUNCEMENT_VIDEO_SCHEMA_VERSION;
   name: string;
-  template_preset: typeof ANNOUNCEMENT_VIDEO_TEMPLATE_PRESET;
+  template_preset: AnnouncementVideoRecipe['templatePreset'];
+  screen_theme?: AnnouncementVideoRecipe['screenTheme'];
   scenes: Array<{
     role: AnnouncementSceneRole;
     video_artifact_id: string;
@@ -1657,6 +1742,7 @@ export interface AnnouncementVideoRecipePayload {
     visual_preset: LocalRemotionTimelineVisualPreset;
     headline: string;
     narration: string;
+    focus_region?: ScreenFocusRegion;
   }>;
   voice: string | null;
   rate: number;
@@ -1708,8 +1794,15 @@ const announcementRoleLabel = (role: AnnouncementSceneRole): string => ({
 /** Normalize and compile the product template without exposing renderer knobs. */
 export const normalizeAnnouncementVideoInput = (value: unknown): NormalizedAnnouncementVideoInput => {
   const source = asRecord(value);
+  const templateValue = pick(source, ['templatePreset', 'template_preset']);
+  const screenExplainer = templateValue === 'screen_explainer_ja_v1';
+  const templatePreset = screenExplainer ? 'screen_explainer_ja_v1' : ANNOUNCEMENT_VIDEO_TEMPLATE_PRESET;
   const rawScenes = list(pick(source, ['scenes']));
   const errors: string[] = [];
+  const screenTheme = pickIncludingNull(source, ['screenTheme', 'screen_theme']);
+  if (screenTheme !== undefined && (!screenExplainer || !isScreenTheme(screenTheme))) {
+    errors.push('テーマは画面解説テンプレートだけで、登録済みテーマを指定してください。');
+  }
   const scenes: AnnouncementVideoScene[] = ANNOUNCEMENT_VIDEO_ROLES.map((expectedRole, index) => {
     const raw = asRecord(rawScenes[index]);
     const roleValue = text(pick(raw, ['role']), '');
@@ -1725,6 +1818,10 @@ export const normalizeAnnouncementVideoInput = (value: unknown): NormalizedAnnou
       : DEFAULT_REMOTION_TIMELINE_VISUAL_PRESET;
     const headline = text(pick(raw, ['headline']), '').replaceAll('\r\n', '\n').replaceAll('\r', '\n').trim();
     const narration = text(pick(raw, ['narration']), '').trim();
+    const focusRegion = pickIncludingNull(raw, ['focusRegion', 'focus_region']);
+    if (focusRegion !== undefined && (!screenExplainer || !isValidScreenFocusRegion(focusRegion))) {
+      errors.push(`${label}の拡大範囲が不正です。画面解説だけで、画面内・幅と高さ20%以上を指定してください。`);
+    }
     if (!ANNOUNCEMENT_ARTIFACT_ID.test(artifactId)) errors.push(`${label}の動画artifactを選択してください。`);
     if (startMs === undefined || !Number.isInteger(startMs) || startMs < 0 || startMs > 60_000) errors.push(`${label}の開始は0〜60000msの整数で指定してください。`);
     if (endMs === undefined || !Number.isInteger(endMs) || endMs < 0 || endMs > 60_000) errors.push(`${label}の終了は0〜60000msの整数で指定してください。`);
@@ -1746,14 +1843,14 @@ export const normalizeAnnouncementVideoInput = (value: unknown): NormalizedAnnou
       visualPreset,
       headline,
       narration,
+      ...(focusRegion !== undefined ? { focusRegion: focusRegion as ScreenFocusRegion } : {}),
     };
   });
   if (rawScenes.length !== 3) errors.push('告知動画はHOOK・MESSAGE・CTAの3シーン固定です。');
 
   const schemaValue = pickIncludingNull(source, ['schemaVersion', 'schema_version']);
   if (schemaValue !== ANNOUNCEMENT_VIDEO_SCHEMA_VERSION) errors.push('schema_versionは1を指定してください。');
-  const templateValue = pick(source, ['templatePreset', 'template_preset']);
-  if (templateValue !== ANNOUNCEMENT_VIDEO_TEMPLATE_PRESET) errors.push('template_presetはshorts_ja_15s_v1を指定してください。');
+  if (templateValue !== ANNOUNCEMENT_VIDEO_TEMPLATE_PRESET && !screenExplainer) errors.push('template_presetが不正です。');
   const name = text(pick(source, ['name']), '').trim();
   if (!name || name.length > 120 || /[\r\n]/.test(name)) errors.push('recipe名は改行なしの1〜120文字で入力してください。');
   const rateValue = pickIncludingNull(source, ['rate']);
@@ -1798,12 +1895,15 @@ export const normalizeAnnouncementVideoInput = (value: unknown): NormalizedAnnou
     endMs: scene.endMs,
     volumePercent: scene.volumePercent,
     visualPreset: scene.visualPreset ?? DEFAULT_REMOTION_TIMELINE_VISUAL_PRESET,
-    transitionToNext: index === 2 ? null : { type: 'fade', durationMs: ANNOUNCEMENT_VIDEO_TRANSITION_MS },
+    ...(screenExplainer ? { layoutPreset: 'screen_explainer_v1' as const } : {}),
+    ...(screenTheme !== undefined ? { screenTheme: screenTheme as AnnouncementVideoRecipe['screenTheme'] } : {}),
+    ...(scene.focusRegion !== undefined ? { focusRegion: scene.focusRegion } : {}),
+    transitionToNext: screenExplainer || index === 2 ? null : { type: 'fade', durationMs: ANNOUNCEMENT_VIDEO_TRANSITION_MS },
     overlay: {
       text: scene.headline,
       startMs: 125,
       endMs: Math.max(126, scene.endMs - scene.startMs - 125),
-      position: scene.role === 'message' ? 'top' : 'center',
+      position: screenExplainer || scene.role === 'message' ? 'top' : 'center',
       stylePreset: 'shorts_ja_large_v1',
     },
   }));
@@ -1820,12 +1920,15 @@ export const normalizeAnnouncementVideoInput = (value: unknown): NormalizedAnnou
     variant,
   });
   errors.push(...detailed.errors);
-  if (detailed.outputDurationMs < 10_000 || detailed.outputDurationMs > 20_000) errors.push('完成尺は10〜20秒にしてください（推奨15秒）。');
+  if (screenExplainer) {
+    if (detailed.outputDurationMs < 15_000 || detailed.outputDurationMs > 30_000) errors.push('画面解説の完成尺は15〜30秒にしてください。');
+  } else if (detailed.outputDurationMs < 10_000 || detailed.outputDurationMs > 20_000) errors.push('完成尺は10〜20秒にしてください（推奨15秒）。');
 
   const recipe: AnnouncementVideoRecipe = {
     schemaVersion: ANNOUNCEMENT_VIDEO_SCHEMA_VERSION,
     name,
-    templatePreset: ANNOUNCEMENT_VIDEO_TEMPLATE_PRESET,
+    templatePreset,
+    ...(screenTheme !== undefined ? { screenTheme: screenTheme as AnnouncementVideoRecipe['screenTheme'] } : {}),
     scenes,
     ...(voice ? { voice } : {}),
     rate: rate ?? 0,
@@ -1838,7 +1941,8 @@ export const normalizeAnnouncementVideoInput = (value: unknown): NormalizedAnnou
   const payload: AnnouncementVideoRecipePayload = {
     schema_version: ANNOUNCEMENT_VIDEO_SCHEMA_VERSION,
     name,
-    template_preset: ANNOUNCEMENT_VIDEO_TEMPLATE_PRESET,
+    template_preset: templatePreset,
+    ...(screenTheme !== undefined ? { screen_theme: screenTheme as AnnouncementVideoRecipe['screenTheme'] } : {}),
     scenes: scenes.map((scene) => ({
       role: scene.role,
       video_artifact_id: scene.videoArtifactId,
@@ -1848,6 +1952,7 @@ export const normalizeAnnouncementVideoInput = (value: unknown): NormalizedAnnou
       visual_preset: scene.visualPreset ?? DEFAULT_REMOTION_TIMELINE_VISUAL_PRESET,
       headline: scene.headline,
       narration: scene.narration,
+      ...(scene.focusRegion !== undefined ? { focus_region: scene.focusRegion } : {}),
     })),
     voice: voice ?? null,
     rate: rate ?? 0,
@@ -4163,6 +4268,28 @@ export const validateVideoImportFiles = (
 };
 
 export const api = {
+  async inspectTerminalStill(): Promise<ClaudeCaptureInspection> {
+    return normalizeClaudeCaptureInspection(await post<unknown>('/api/stills/terminal/inspect', {}), 'terminal');
+  },
+  async inspectClaudeCapture(): Promise<ClaudeCaptureInspection> {
+    return normalizeClaudeCaptureInspection(await post<unknown>('/api/capabilities/claude-capture/inspect', {}));
+  },
+  async executeClaudeCapture(productionId: string, body: ClaudeCaptureRequest): Promise<Job> {
+    const job = normalizeJob(await post<unknown>(`/api/productions/${encodeURIComponent(productionId)}/claude-captures`, buildClaudeCapturePayload(body)));
+    if (job.type !== 'claude_window_capture' || job.productionId !== productionId || asRecord(job.raw.payload).capture_request_id !== body.requestId) throw new TypeError('Claude収録Jobの対応を確認できません。再送せず状態を確認してください。');
+    return job;
+  },
+  async claudeCaptureJob(productionId: string, requestId: string): Promise<Job | undefined> {
+    if (!/^claude_capture_[0-9a-f]{32}$/.test(requestId)) throw new TypeError('Claude収録の照合IDが不正です。');
+    try {
+      const job = normalizeJob(await request<unknown>(`/api/productions/${encodeURIComponent(productionId)}/claude-captures/${encodeURIComponent(requestId)}`));
+      if (job.type !== 'claude_window_capture' || job.productionId !== productionId || asRecord(job.raw.payload).capture_request_id !== requestId) throw new TypeError('Claude収録Jobの照合に失敗しました。');
+      return job;
+    } catch (error) {
+      if (error instanceof StudioApiError && error.status === 404) return undefined;
+      throw error;
+    }
+  },
   async health(): Promise<HealthStatus> {
     try {
       const value = await request<unknown>('/api/health');

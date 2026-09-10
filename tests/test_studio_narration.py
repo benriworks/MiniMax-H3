@@ -23,6 +23,7 @@ from tools.studio import narration as narration_module
 from tools.studio.jobs import JobCancelled, JobExecutionContext
 from tools.studio.execution import (
     LocalNarrationValidationError,
+    NARRATION_IMPLEMENTATION_VERSION,
     audit_payload,
     narration_cache_key,
     validate_local_narration_payload,
@@ -84,6 +85,59 @@ class NarrationTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.temporary.cleanup()
 
+    def _find_host(self, existing: set[str], *, found: dict[str, str] | None = None,
+                   linked: set[str] | None = None) -> str | None:
+        modern_root = self.workspace / "program-files"
+        system_root = self.workspace / "windows"
+        with (
+            mock.patch.object(narration_module.os, "name", "nt"),
+            mock.patch.dict(narration_module.os.environ,
+                            {"ProgramFiles": str(modern_root), "SystemRoot": str(system_root)}),
+            mock.patch.object(narration_module.shutil, "which", side_effect=lambda name: (found or {}).get(name)),
+            mock.patch.object(Path, "is_file", lambda path: str(path) in existing),
+            mock.patch.object(Path, "is_symlink", lambda path: str(path) in (linked or set())),
+            mock.patch.object(Path, "resolve", lambda path, **_kw: path),
+        ):
+            return narration_module._find_powershell()
+
+    def test_powershell7_program_files_precedes_path_and_legacy(self) -> None:
+        modern = str(self.workspace / "program-files/PowerShell/7/pwsh.exe")
+        legacy = str(self.workspace / "windows/System32/WindowsPowerShell/v1.0/powershell.exe")
+        on_path = str(self.workspace / "bundled/pwsh.exe")
+        self.assertEqual(self._find_host({modern, legacy, on_path}, found={"pwsh.exe": on_path}), modern)
+
+    def test_powershell7_path_precedes_legacy(self) -> None:
+        modern = str(self.workspace / "bundled/pwsh.exe")
+        legacy = str(self.workspace / "windows/System32/WindowsPowerShell/v1.0/powershell.exe")
+        self.assertEqual(self._find_host({modern, legacy}, found={"pwsh.exe": modern}), modern)
+        self.assertEqual(self._find_host({modern, legacy}, found={"pwsh": modern}), modern)
+
+    def test_host_falls_back_to_existing_legacy(self) -> None:
+        legacy = str(self.workspace / "windows/System32/WindowsPowerShell/v1.0/powershell.exe")
+        self.assertEqual(self._find_host({legacy}), legacy)
+        on_path = str(self.workspace / "legacy/powershell.exe")
+        self.assertEqual(self._find_host({on_path}, found={"powershell.exe": on_path}), on_path)
+
+    def test_no_installed_host_or_invalid_which_returns_none(self) -> None:
+        self.assertIsNone(self._find_host(set()))
+        self.assertIsNone(self._find_host(set(), found={"pwsh.exe": "missing.exe", "powershell.exe": "directory"}))
+
+    def test_linked_host_is_rejected_even_when_reported_on_path(self) -> None:
+        modern = str(self.workspace / "program-files/PowerShell/7/pwsh.exe")
+        legacy = str(self.workspace / "windows/System32/WindowsPowerShell/v1.0/powershell.exe")
+        self.assertEqual(self._find_host({modern, legacy}, found={"pwsh.exe": modern}, linked={modern}), legacy)
+        self.assertIsNone(self._find_host({modern, legacy}, found={"pwsh.exe": modern}, linked={modern, legacy}))
+
+    def test_narration_generation_and_cache_share_new_version(self) -> None:
+        payload = validate_local_narration_payload({"segments": [{"text": "確認します。"}], "voice": "Microsoft Sayaka", "rate": 0})
+        legacy_identity = {"schema_version": 1, "implementation_version": "local-sapi-v1", "payload": payload}
+        legacy_key = hashlib.sha256(json.dumps(legacy_identity, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest().upper()
+        self.assertEqual(narration_module.IMPLEMENTATION_VERSION, NARRATION_IMPLEMENTATION_VERSION)
+        self.assertEqual(NARRATION_IMPLEMENTATION_VERSION, "local-sapi-v2-pwsh-preferred")
+        self.assertNotEqual(narration_cache_key(payload), legacy_key)
+        self.assertEqual(narration_cache_key(payload), narration_cache_key(dict(reversed(list(payload.items())))))
+        self.assertNotEqual(narration_cache_key(payload), narration_cache_key(payload, segment_start_ms=(0,)))
+
     def test_generates_concatenated_wav_captions_timings_and_manifest(self) -> None:
         fake = FakeSynthesizer()
         result = generate_local_narration(
@@ -116,6 +170,8 @@ class NarrationTests(unittest.TestCase):
         timings = json.loads(artifact_paths["timings.json"].read_text(encoding="utf-8"))
         self.assertEqual(timings["segments"][1]["start_ms"], 500)
         manifest = json.loads(artifact_paths["manifest.json"].read_text(encoding="utf-8"))
+        self.assertEqual(manifest["host_selection_policy"], narration_module.SAPI_HOST_SELECTION_POLICY)
+        self.assertEqual(manifest["implementation_version"], NARRATION_IMPLEMENTATION_VERSION)
         self.assertEqual(manifest["pronunciations"][0]["source"], "CLAUDE.md")
         self.assertEqual(manifest["pronunciations"][0]["target"], "クロード エムディー")
         self.assertEqual(manifest["manifest_sha256"], hashlib.sha256(
@@ -303,7 +359,8 @@ class NarrationTests(unittest.TestCase):
         ):
             result = preflight_local_sapi(cancel_event=cancel_event)
 
-        self.assertEqual(result, {"provider": "windows_sapi", "available": True})
+        self.assertEqual(result, {"provider": "windows_sapi", "available": True,
+                                 "host_selection_policy": narration_module.SAPI_HOST_SELECTION_POLICY})
         popen.assert_called_once()
         self.assertEqual(cancel_event.process_pids(), set())
         self.assertEqual(len(process.communicate_calls), 1)

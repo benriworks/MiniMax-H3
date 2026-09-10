@@ -488,6 +488,9 @@ export interface LocalTimelineRequest {
 export type LocalRemotionTimelineOverlayPosition = 'top' | 'center' | 'bottom';
 
 export type LocalRemotionTimelineVisualPreset = 'preserve_v1' | 'h3_low_res_sharp_v1';
+export type LocalRemotionTimelineLayoutPreset = 'full_bleed_v1' | 'screen_explainer_v1';
+/** Closed, versioned design tokens; never an arbitrary logo, color, font, or URL. */
+export type ScreenThemeId = 'neutral_v1' | 'claude_desktop_v1' | 'claude_code_v1' | 'technical_v1' | 'claude_editorial_v1';
 
 export interface LocalRemotionTimelineTransition {
   type: 'fade';
@@ -502,7 +505,17 @@ export interface LocalRemotionTimelineOverlay {
   stylePreset: 'shorts_ja_large_v1';
 }
 
+export interface ScreenFocusRegion {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface LocalRemotionTimelineClip extends LocalTimelineClip {
+  screenTheme?: ScreenThemeId;
+  focusRegion?: ScreenFocusRegion;
+  layoutPreset?: LocalRemotionTimelineLayoutPreset;
   volumePercent: number;
   /** Omitted legacy/browser preview values normalize to preserve_v1 before submission. */
   visualPreset?: LocalRemotionTimelineVisualPreset;
@@ -531,6 +544,7 @@ export interface DetailedTestVideoRequest {
 export type AnnouncementSceneRole = 'hook' | 'message' | 'cta';
 
 export interface AnnouncementVideoScene {
+  focusRegion?: ScreenFocusRegion;
   role: AnnouncementSceneRole;
   videoArtifactId: string;
   startMs: number;
@@ -546,7 +560,8 @@ export interface AnnouncementVideoScene {
 export interface AnnouncementVideoRecipe {
   schemaVersion: 1;
   name: string;
-  templatePreset: 'shorts_ja_15s_v1';
+  templatePreset: 'shorts_ja_15s_v1' | 'screen_explainer_ja_v1';
+  screenTheme?: ScreenThemeId;
   scenes: AnnouncementVideoScene[];
   voice?: string;
   rate: number;
@@ -591,10 +606,25 @@ export type LocalScreenCaptureAction =
   | { type: 'press'; atMs: number; selector: string; key: string };
 
 export interface LocalScreenCaptureRequest {
+  viewportPreset?: 'desktop_16_9';
   url: string;
   durationMs: number;
   settleMs: number;
   actions: LocalScreenCaptureAction[];
+}
+
+export interface ClaudeCaptureInspection {
+  available: boolean;
+  reason?: string;
+  targets: Array<{ selectionToken: string; label: string; width: number; height: number }>;
+  expiresInSeconds: number;
+}
+
+export interface ClaudeCaptureRequest {
+  requestId: string;
+  selectionToken: string;
+  durationMs: number;
+  confirmCapture: true;
 }
 
 /** Browser-facing request for the closed Windows primary-display capture contract. */

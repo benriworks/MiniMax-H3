@@ -1,0 +1,80 @@
+.screen-explainer-dialog { width: min(1240px, calc(100vw - 32px)); max-width: none; max-height: calc(100dvh - 32px); padding: 0; border: 1px solid #35465b; border-radius: 20px; background: #111a25; color: #edf3fa; box-shadow: 0 24px 90px #000a; }
+.screen-explainer-dialog::backdrop { background: #050911cb; backdrop-filter: blur(5px); }
+.screen-explainer-shell { padding: 26px; }
+.screen-explainer-header, .screen-explainer-actions, .screen-explainer-footer, .screen-explainer-load { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.screen-explainer-header { align-items: flex-start; }
+.screen-explainer-header > div { min-width: 0; }
+.screen-explainer-header > button { flex: 0 0 auto; min-width: 72px; white-space: nowrap; }
+.screen-explainer-header h2 { margin: 8px 0; font-size: 25px; }
+.screen-explainer-header p, .screen-explainer-footer, .screen-explainer-card small { color: #a9b9cc; font-size: 13px; line-height: 1.65; }
+.screen-explainer-dialog button { cursor: pointer; border: 1px solid #41546d; border-radius: 9px; background: #233247; color: #edf3fa; padding: 10px 14px; font: inherit; }
+.screen-explainer-dialog button:disabled { opacity: .45; cursor: not-allowed; }
+.screen-explainer-dialog button.primary { background: #77cfbc; color: #102725; border-color: #77cfbc; font-weight: 700; }
+.screen-explainer-dialog :focus-visible { outline: 3px solid #f0c780; outline-offset: 3px; }
+.screen-explainer-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 22px 0; }
+.screen-explainer-steps button { text-align: left; display: flex; align-items: center; gap: 12px; }
+.screen-explainer-steps button[aria-current] { background: #244b4b; border-color: #77cfbc; }
+.screen-explainer-steps span, .screen-explainer-card h3 span { display: inline-grid; place-items: center; width: 25px; height: 25px; border-radius: 50%; background: #ffffff14; }
+.screen-explainer-scope { margin-bottom: 16px; }
+.screen-explainer-scope p { margin-bottom: 0; line-height: 1.7; }
+.screen-explainer-progress { min-height: 24px; font-size: 14px; color: #a1ddce; }
+.screen-explainer-identity { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 11px; color: #94a6bf; overflow-wrap: anywhere; margin: 12px 0 18px; }
+.screen-explainer-theme { --theme-accent: #a1c6d3; margin: 18px 0; padding: 18px 20px; border: 1px solid #41546d; border-left: 4px solid var(--theme-accent); border-radius: 12px; background: #182434; }
+.screen-explainer-theme[data-theme=claude_desktop_v1], .screen-explainer-theme[data-theme=claude_code_v1], .screen-explainer-theme[data-theme=claude_editorial_v1] { --theme-accent: #da9175; }
+
+.screen-structure-review { border: 1px solid #697786; border-radius: 12px; padding: 16px; margin: 16px 0; }
+.screen-structure-review > p { line-height: 1.7; }
+.screen-structure-beats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 0; list-style: none; }
+.screen-structure-beats li { border-left: 4px solid #da9175; padding: 10px 12px; background: rgba(128,128,128,.10); min-width: 0; }
+.screen-structure-beats span { display: block; font-size: .85em; margin-top: 8px; }
+.screen-structure-beats p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.screen-structure-advice { line-height: 1.7; padding-left: 24px; }
+@media (max-width: 650px) { .screen-structure-beats { grid-template-columns: 1fr; } }
+.screen-explainer-theme[data-theme=technical_v1] { --theme-accent: #89b9ac; }
+.screen-explainer-theme h3 { margin: 0 0 8px; font-size: 17px; }
+.screen-explainer-theme p { color: #c4d0df; font-size: 13px; line-height: 1.8; margin: 8px 0; }
+.screen-explainer-theme .field { margin: 15px 0 8px; max-width: 460px; }
+.screen-explainer-theme-disclosure { border-top: 1px solid #41546d; padding-top: 12px; }
+.screen-explainer-scenes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 18px 0; }
+.screen-explainer-card { padding: 17px; background: #182434; border: 1px solid #304359; border-radius: 13px; min-width: 0; }
+.screen-explainer-card h3 { display: flex; align-items: center; gap: 9px; margin: 0 0 18px; font-size: 18px; }
+.screen-explainer-dialog .field { display: flex; flex-direction: column; gap: 7px; margin-bottom: 15px; min-width: 0; }
+.screen-explainer-dialog .field > span { color: #cddbea; font-size: 13px; }
+.screen-explainer-dialog input:not([type=checkbox]), .screen-explainer-dialog select, .screen-explainer-dialog textarea { background: #101925; color: #edf3fa; border: 1px solid #41546d; border-radius: 7px; padding: 10px; font: inherit; font-size: 14px; width: 100%; min-width: 0; box-sizing: border-box; }
+.screen-explainer-dialog input[type=file] { padding: 8px; font-size: 12px; }
+.screen-explainer-dialog textarea { resize: vertical; }
+.screen-explainer-preview { width: 100%; aspect-ratio: 16/9; object-fit: contain; background: #070c12; border: 1px solid #35475e; border-radius: 8px; margin: 8px 0; }
+.screen-explainer-placeholder { display: grid; place-items: center; color: #7e94af; font-size: 12px; }
+.screen-explainer-check { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; line-height: 1.65; margin: 12px 0; }
+.screen-explainer-check input { margin-top: 4px; flex-shrink: 0; }
+.screen-explainer-claude { margin: 18px 0; padding: 20px; border: 1px solid #4f7a79; border-radius: 13px; background: #173034; }
+.screen-explainer-claude h3 { margin-top: 0; }
+.screen-explainer-claude p, .screen-explainer-claude small { color: #bed4d7; line-height: 1.75; font-size: 13px; }
+.screen-explainer-claude .field { margin-top: 16px; }
+.screen-explainer-capture-status { display: flex; align-items: center; gap: 14px; margin: 12px 0; flex-wrap: wrap; }
+.screen-explainer-trim { font-size: 13px; color: #9cddcc; }
+.screen-explainer-preview-wrap { position: relative; width: 100%; margin: 8px 0; overflow: hidden; border: 1px solid #35475e; border-radius: 8px; background: #070c12; }
+.screen-explainer-preview-wrap .screen-explainer-preview { display: block; position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; border: 0; margin: 0; max-height: none; }
+.screen-explainer-focus-overlay { position: absolute; pointer-events: none; box-sizing: border-box; border: 2px solid #f2d481; background: #f2d4810b; box-shadow: 0 0 0 1px #152333; }
+.screen-explainer-focus { margin: 14px 0; padding: 10px; border: 1px solid #35475e; border-radius: 8px; }
+.screen-explainer-focus summary { cursor: pointer; font-size: 12px; color: #d1dcea; }
+.screen-explainer-focus p { font-size: 12px; color: #a9b9cc; line-height: 1.7; }
+.screen-explainer-focus-inputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 10px; }
+.screen-explainer-id { display: block; overflow-wrap: anywhere; }
+.screen-explainer-load .field { flex: 1; }
+.screen-explainer-errors { color: #ffd09e; font-size: 13px; line-height: 1.9; padding-left: 22px; }
+.screen-explainer-render { max-width: 850px; margin: 24px auto; }
+.screen-explainer-render dl { display: grid; gap: 14px; background: #182434; border-radius: 12px; padding: 20px; }
+.screen-explainer-render dl > div { display: grid; grid-template-columns: 75px 1fr; gap: 12px; }
+.screen-explainer-render dt { color: #9db1ca; }
+.screen-explainer-render dd { margin: 0; line-height: 1.6; }
+.screen-explainer-render p { line-height: 1.8; }
+.screen-explainer-results { display: flex; gap: 20px; flex-wrap: wrap; margin: 20px 0; }
+.screen-explainer-results > div { flex: 1 1 250px; min-width: 0; }
+.screen-explainer-results video { width: 100%; max-height: 430px; margin-top: 10px; }
+.screen-explainer-actions { justify-content: flex-end; margin: 22px 0; }
+.screen-explainer-footer { border-top: 1px solid #304359; margin-top: 24px; padding-top: 18px; font-size: 11px; }
+.screen-explainer-footer > span { flex: 1; }
+.screen-explainer-dialog code { overflow-wrap: anywhere; }
+@media (max-width: 860px) { .screen-explainer-scenes { grid-template-columns: 1fr; } .screen-explainer-card { display: block; } .screen-explainer-preview { max-height: 300px; } .screen-explainer-footer { flex-wrap: wrap; } }
+@media (max-width: 520px) { .screen-explainer-dialog { width: calc(100vw - 12px); max-height: calc(100dvh - 12px); border-radius: 12px; } .screen-explainer-shell { padding: 14px; } .screen-explainer-header h2 { font-size: 20px; } .screen-explainer-steps { gap: 5px; } .screen-explainer-steps button { font-size: 11px; padding: 9px 6px; gap: 5px; } .screen-explainer-steps span { display: none; } .screen-explainer-actions { align-items: stretch; flex-direction: column; } .screen-explainer-load { align-items: stretch; flex-direction: column; gap: 4px; } .screen-explainer-footer > span { flex-basis: 100%; } }
