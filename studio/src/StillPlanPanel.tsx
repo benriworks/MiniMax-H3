@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { StillApiError, type StillImage, type StillSource } from './stillLibraryApi';
 import { planApi, planId, planSource, type StillPlan, type PlanStep } from './stillPlanApi';
+import StillPackPreview from './StillPackPreview';
 
 const RECEIPT = 'studio.still-plan.pending.v1';
 const bodyKey = (plan: StillPlan) => JSON.stringify([plan.id, plan.revision, plan.title, plan.steps]);
 const problem = (error: unknown) => error instanceof Error ? error.message : '撮影手順を処理できませんでした。';
+const sourceLabel = (source: StillSource) => ({ web: 'ローカルWeb', claude: 'Claude', terminal: 'Windows Terminal', artifact: '登録済みPNG' }[source.kind]);
 
 export default function StillPlanPanel({ source, selectedImage, locked, onPrepare, onDirty }: {
   source: StillSource; selectedImage?: StillImage; locked: boolean;
@@ -70,6 +72,7 @@ export default function StillPlanPanel({ source, selectedImage, locked, onPrepar
   };
   return <section className="still-plans" aria-label="撮影手順">
     <header><div><h3>撮影手順 — 素材を集める順番を決める</h3><p className="still-muted">手順を保存して再利用できます。自動操作・一括撮影はせず、各場面で対象と許可を確認します。</p></div></header>
+    <p className="still-plan-selection">割り当てる選択画像：{selectedImage?.ready ? `${selectedImage.title}（メモ版${selectedImage.revision}）` : '未選択 — 下の保存画像から選んでください'}</p>
     {error && <p role="alert" className="still-error">{error}</p>}
     {uncertain && <p className="still-warning">保存結果が未確認です。自動で再送しません。<button type="button" disabled={busy} onClick={() => void load(uncertain)}>保存結果を確認</button><button type="button" disabled={busy} onClick={() => { if (window.confirm('一覧と保存結果を確認しましたか？遅れて保存される可能性があります。')) { localStorage.removeItem(RECEIPT); setUncertain(''); } }}>未確認状態を解除</button></p>}
     <fieldset disabled={disabled}>
@@ -81,7 +84,7 @@ export default function StillPlanPanel({ source, selectedImage, locked, onPrepar
         <ol className="still-plan-steps">{draft.steps.map((step, index) => <li key={step.id}>
           <label>場面{index + 1}の見出し<input maxLength={120} value={step.title} onChange={(event) => updateStep(index, { title: event.target.value })} /></label>
           <label>場面{index + 1}の説明<textarea rows={2} maxLength={2000} value={step.memo} onChange={(event) => updateStep(index, { memo: event.target.value })} /></label>
-          <p className="still-muted">撮影元: {step.source.kind} · {step.image ? `画像 ${step.image.id.slice(-8)} / メモ版${step.image.revision}` : '画像未割り当て'}</p>
+          <p className="still-muted">撮影元: {sourceLabel(step.source)} · {step.image ? `画像 ${step.image.id.slice(-8)} / メモ版${step.image.revision}` : '画像未割り当て'}</p>
           <div className="still-actions">
             <button type="button" disabled={dirty} onClick={() => onPrepare(step)}>場面{index + 1}の撮影を準備</button>
             <button type="button" onClick={() => updateStep(index, { source: planSource(source) })}>現在の撮影条件を使う</button>
@@ -99,6 +102,7 @@ export default function StillPlanPanel({ source, selectedImage, locked, onPrepar
           <button type="button" disabled={!draft.revision} onClick={() => void load(draft.id)}>保存済み手順を読み直す</button>
         </div>
         <details><summary>手順の保存履歴</summary>{draft.history?.map((entry) => <p key={entry.revision}>版{entry.revision} · {entry.title} · {entry.created_at}</p>)}</details>
+        <StillPackPreview key={draft.id} plan={draft} disabled={disabled || dirty} />
       </>}
     </fieldset>
   </section>;

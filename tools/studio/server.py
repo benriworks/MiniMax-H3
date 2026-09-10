@@ -740,12 +740,17 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
         self, path: str, query: dict[str, list[str]], *, send_body: bool
     ) -> None:
         service = self.server.service
+        if path == "/api/still-plans" or path.startswith("/api/still-plans/"):
+            if not (tokens_equal(self.server.session_token, self._cookie_token()) or tokens_equal(self.server.session_token, self.headers.get("X-Studio-Token"))):
+                self._error(403, "forbidden", "A valid Studio session is required.", send_body=send_body)
+                return
         if path == "/api/still-plans":
             self._send_json(200, service.stills.plans.list(), send_body=send_body)
             return
-        plan_match = re.fullmatch(r"/api/still-plans/(plan_[a-f0-9]{32})", path)
+        plan_match = re.fullmatch(r"/api/still-plans/(plan_[a-f0-9]{32})(/preview)?", path)
         if plan_match:
-            self._send_json(200, service.stills.plans.get(plan_match.group(1)), send_body=send_body)
+            result = service.stills.plans.preview(plan_match.group(1)) if plan_match.group(2) else service.stills.plans.get(plan_match.group(1))
+            self._send_json(200, result, send_body=send_body)
             return
         if path == "/api/stills" or path.startswith("/api/stills/"):
             if not (tokens_equal(self.server.session_token, self._cookie_token()) or tokens_equal(self.server.session_token, self.headers.get("X-Studio-Token"))):
@@ -860,9 +865,12 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
 
     def _dispatch_post(self, path: str, body: dict[str, Any]) -> None:
         service = self.server.service
-        plan_match = re.fullmatch(r"/api/still-plans/(plan_[a-f0-9]{32})", path)
+        plan_match = re.fullmatch(r"/api/still-plans/(plan_[a-f0-9]{32})(/export)?", path)
         if plan_match:
-            self._send_json(200, service.stills.plans.save(plan_match.group(1), body))
+            if plan_match.group(2):
+                self._send_still_bytes(service.stills.plans.export(plan_match.group(1), body), "application/zip", plan_match.group(1) + ".zip")
+            else:
+                self._send_json(200, service.stills.plans.save(plan_match.group(1), body))
             return
         if path == "/api/stills":
             self._send_json(202, service.stills.submit(body, session_binding=windows_capture_session_binding_digest(self.server.session_token)))

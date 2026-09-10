@@ -1,6 +1,6 @@
 // Real UI + Python API + SQLite + registered synthetic PNG. No user app capture.
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 import { once } from 'node:events';
 import { createInterface } from 'node:readline';
 import { mkdir } from 'node:fs/promises';
@@ -10,7 +10,7 @@ import test from 'node:test';
 import { chromium } from 'playwright';
 
 const studio = join(dirname(fileURLToPath(import.meta.url)), '..');
-test('real capture plans: save, reorder, prepare without capture, reload and duplicate', { timeout: 90000 }, async () => {
+test('real capture plans and pack: save, prepare, reload, link, lost response, preview and ZIP', { timeout: 90000 }, async () => {
   const server = spawn('python', ['-m', 'tests.still_library_live_server'], { cwd: join(studio, '..'), windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
   let browser, page, stderr = '';
   server.stderr.on('data', (chunk) => { stderr += chunk; });
@@ -55,10 +55,55 @@ test('real capture plans: save, reorder, prepare without capture, reload and dup
     await page.getByRole('button', { name: '撮影手順を保存', exact: true }).click();
     await page.getByText(/手順を保存済み · 版1/).waitFor();
     assert.equal((await get('/api/still-plans')).items.length, 2);
+    await page.getByRole('button', { name: '素材パックの内容を確認', exact: true }).click();
+    await page.getByText('場面1に画像を割り当ててください。', { exact: true }).waitFor();
+    assert.equal(await page.getByRole('button', { name: '記事素材パックをZIPで保存', exact: true }).isDisabled(), true);
+    // Import an existing fixture PNG through the real library UI, not a fake API.
+    const sources = await get('/api/stills/sources');
+    await page.getByRole('combobox', { name: '撮影元', exact: true }).selectOption('artifact');
+    await page.getByRole('combobox', { name: '登録済みPNG', exact: true }).selectOption(sources.items[0].id);
+    await page.getByLabel('画像名', { exact: true }).fill('素材パック用・検証画像');
+    await page.getByLabel('メモ', { exact: true }).fill('機密情報を含まない合成画像');
+    await page.getByLabel('対象・機密情報を確認しました。撮影／コピーを許可します。', { exact: true }).check();
+    await page.getByRole('button', { name: 'PNGをコピーして保存', exact: true }).click();
+    await page.getByRole('button', { name: '素材パック用・検証画像を確認', exact: true }).click();
+    for (let i = 1; i <= 3; i++) await page.getByRole('button', { name: `選択画像を場面${i}に割り当て`, exact: true }).click();
+    const cloneId = await page.getByRole('combobox', { name: '保存した撮影手順', exact: true }).inputValue();
+    let posts = 0;
+    await page.route(`**/api/still-plans/${cloneId}`, async (route) => {
+      if (route.request().method() !== 'POST') return route.continue();
+      posts++; await route.fetch(); await route.abort('connectionfailed');
+    });
+    await page.getByRole('button', { name: '撮影手順を保存', exact: true }).click();
+    await page.getByRole('button', { name: '保存結果を確認', exact: true }).waitFor();
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.getByRole('button', { name: '保存結果を確認', exact: true }).click();
+    await page.getByText(/手順を保存済み · 版2/).waitFor();
+    assert.equal(posts, 1, 'lost response must not trigger another save');
+    assert.equal(await page.evaluate(() => localStorage.getItem('studio.still-plan.pending.v1')), null);
+    await page.unroute(`**/api/still-plans/${cloneId}`);
+    await page.getByRole('button', { name: '素材パックの内容を確認', exact: true }).click();
+    await page.getByAltText('場面1の確認画像', { exact: true }).waitFor();
+    const consent = page.getByLabel('全場面の画像・見出し・説明・素材メモに公開できない情報がないことを確認しました。', { exact: true });
+    await consent.check();
+    const download = page.waitForEvent('download');
+    await page.getByRole('button', { name: '記事素材パックをZIPで保存', exact: true }).click();
+    const zipPath = join(output, 'still-article-pack.zip'); await (await download).saveAs(zipPath);
+    const archive = JSON.parse(execFileSync('python', ['-c', 'import json,sys,zipfile; z=zipfile.ZipFile(sys.argv[1]); print(json.dumps({"files":z.namelist(),"manifest":json.loads(z.read("manifest.json")),"article":z.read("ARTICLE.md").decode("utf-8")}))', zipPath], { encoding: 'utf8', windowsHide: true }));
+    assert.equal(archive.manifest.images.length, 3);
+    assert.ok(archive.files.includes('images/03.png')); assert.ok(archive.article.includes('操作・入力'));
+    assert.equal(archive.manifest.plan_id, cloneId);
     await page.screenshot({ path: join(output, 'still-plans-desktop.png') });
     await page.setViewportSize({ width: 390, height: 844 });
     assert.equal(await page.locator('.still-library').evaluate((element) => element.scrollWidth <= element.clientWidth + 2), true);
     await page.screenshot({ path: join(output, 'still-plans-mobile.png') });
+    // Stale review: changing image notes externally must block this old approval.
+    const image = (await get('/api/stills')).items[0];
+    const edited = await context.request.post(info.studio_url + `/api/stills/${image.id}/edit`, { headers: { Origin: info.studio_url }, data: { operation_id: 'edit_' + crypto.randomUUID().replaceAll('-', ''), expected_revision: image.revision, title: '新しい素材メモ', memo: '確認後の変更' } });
+    assert.equal(edited.status(), 200);
+    await page.getByRole('button', { name: '記事素材パックをZIPで保存', exact: true }).click();
+    await page.getByRole('alert').filter({ hasText: 'メモ版が変わりました' }).waitFor();
+    assert.equal(await page.getByRole('button', { name: '記事素材パックをZIPで保存', exact: true }).count(), 0);
     assert.deepEqual(errors, []);
   } catch (error) { if (page) await page.screenshot({ path: join(output, 'still-plans-failure.png') }).catch(() => {}); throw error; }
   finally { if (browser) await browser.close(); server.stdin.end('\n'); await Promise.race([once(server, 'exit'), new Promise((resolve) => { const timer = setTimeout(() => { server.kill(); resolve(); }, 5000); timer.unref(); })]); }
