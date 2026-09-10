@@ -26,7 +26,7 @@ from .security import (
 )
 
 
-SCHEMA_VERSION = 10
+SCHEMA_VERSION = 11
 MAX_EVENT_LINE_BYTES = 2 * 1024 * 1024
 MAX_ANNOUNCEMENT_RECIPE_BYTES = 256 * 1024
 _RUN_EXECUTION_PROFILES = {
@@ -838,6 +838,58 @@ class StudioDatabase:
             # retried instead of being advertised as complete.
             connection.execute("BEGIN IMMEDIATE")
             try:
+                connection.execute("""
+                    CREATE TABLE IF NOT EXISTS still_images (
+                        id TEXT PRIMARY KEY,
+                        request_digest TEXT NOT NULL,
+                        job_id TEXT NOT NULL UNIQUE REFERENCES jobs(id),
+                        title TEXT NOT NULL,
+                        memo TEXT NOT NULL,
+                        revision INTEGER NOT NULL DEFAULT 1 CHECK(revision >= 1),
+                        parent_id TEXT REFERENCES still_images(id),
+                        source_json TEXT NOT NULL,
+                        media_json TEXT,
+                        created_at TEXT NOT NULL
+                    )
+                """)
+                connection.execute("""
+                    CREATE TABLE IF NOT EXISTS still_image_edits (
+                        image_id TEXT NOT NULL REFERENCES still_images(id),
+                        revision INTEGER NOT NULL CHECK(revision >= 1),
+                        operation_id TEXT NOT NULL UNIQUE,
+                        request_digest TEXT NOT NULL,
+                        title TEXT NOT NULL,
+                        memo TEXT NOT NULL,
+                        created_at TEXT NOT NULL,
+                        PRIMARY KEY(image_id, revision)
+                    )
+                """)
+                connection.execute("CREATE INDEX IF NOT EXISTS still_images_created ON still_images(created_at DESC, id)")
+                connection.execute("""
+                    CREATE TRIGGER IF NOT EXISTS still_image_edits_no_update
+                    BEFORE UPDATE ON still_image_edits BEGIN
+                        SELECT RAISE(ABORT, 'still image history is append-only');
+                    END
+                """)
+                connection.execute("""
+                    CREATE TRIGGER IF NOT EXISTS still_image_edits_no_delete
+                    BEFORE DELETE ON still_image_edits BEGIN
+                        SELECT RAISE(ABORT, 'still image history is append-only');
+                    END
+                """)
+                connection.execute("""
+                    CREATE TRIGGER IF NOT EXISTS still_images_source_immutable
+                    BEFORE UPDATE OF id,request_digest,job_id,parent_id,source_json,created_at ON still_images BEGIN
+                        SELECT RAISE(ABORT, 'still image source is immutable');
+                    END
+                """)
+                connection.execute("""
+                    CREATE TRIGGER IF NOT EXISTS still_images_media_immutable
+                    BEFORE UPDATE OF media_json ON still_images
+                    WHEN OLD.media_json IS NOT NULL AND NEW.media_json IS NOT OLD.media_json BEGIN
+                        SELECT RAISE(ABORT, 'still image media is immutable');
+                    END
+                """)
                 run_columns = {
                     row["name"]
                     for row in connection.execute("PRAGMA table_info(runs)").fetchall()
@@ -9069,6 +9121,93 @@ class StudioDatabase:
                 "SELECT * FROM jobs ORDER BY created_at DESC LIMIT ?", (limit,)
             ).fetchall()
         return [self._job_dict(row) for row in rows]
+
+    def find_claude_capture_job(self, production_id: str, request_id: str) -> dict[str, Any] | None:
+        """Resolve a client checkpoint without enumerating unrelated job payloads."""
+        with self.session() as connection:
+            rows = connection.execute(
+                "SELECT * FROM jobs WHERE kind='claude_window_capture' AND production_id=? "
+                "AND json_extract(payload_json, '$.capture_request_id')=? LIMIT 2",
+                (production_id, request_id),
+            ).fetchall()
+        if len(rows) > 1:
+            raise ValueError("Claude capture request identity is not unique")
+        return self._job_dict(rows[0]) if rows else None
+
+    def list_incomplete_claude_captures(self) -> list[dict[str, Any]]:
+        with self.session() as connection:
+            rows = connection.execute("SELECT * FROM jobs WHERE kind='claude_window_capture' AND status!='succeeded'").fetchall()
+        return [self._job_dict(row) for row in rows]
+
+    def complete_claude_capture_job(
+        self, job_id: str, production_id: str, result: dict[str, Any],
+        artifact_records: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Publish source artifacts and the source Job together, without a fake Run."""
+        timestamp = utc_now()
+        with self.transaction() as connection:
+            row = connection.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
+            if row is None or row["kind"] != "claude_window_capture" or row["production_id"] != production_id or row["status"] != "running":
+                raise ValueError("Claude capture is no longer active")
+            if result.get("production_id") != production_id or result.get("capture_request_id") != _loads(row["payload_json"], {}).get("capture_request_id"):
+                raise ValueError("Claude capture result identity changed")
+            records = [self._register_studio_artifact_in_transaction(connection, production_id, artifact, timestamp=timestamp) for artifact in artifact_records]
+            public = sanitize_for_storage({**result, "artifacts": records})
+            connection.execute(
+                "UPDATE jobs SET status='succeeded', completed_at=?, result_json=?, error_code=NULL, error_message=NULL WHERE id=? AND status='running'",
+                (timestamp, _json(public), job_id),
+            )
+            if connection.execute("SELECT changes() AS count").fetchone()["count"] != 1:
+                raise ValueError("Claude capture stopped before completion")
+            self._append_event(connection, "job", job_id, "job.succeeded", {"result": public, "error_code": None, "error_message": None}, created_at=timestamp)
+        return public
+
+    def fail_claude_capture_cleanup(self, job_id: str) -> bool:
+        """Preserve a privacy failure even when cancellation won the terminal race.
+
+        Only this source-only capture kind and fixed cleanup error may replace
+        interrupted/failed truth. Committed success and unrelated jobs stay immutable.
+        """
+        validate_identifier(job_id, label="job id")
+        timestamp = utc_now()
+        code = "claude_capture_cleanup_failed"
+        message = "Capture cleanup failed. Private media may remain; another recording is blocked until cleanup succeeds."
+        with self.transaction() as connection:
+            row = connection.execute("SELECT kind, status, error_code, result_json FROM jobs WHERE id=?", (job_id,)).fetchone()
+            if row is None or row["kind"] != "claude_window_capture" or row["status"] not in {"queued", "running", "interrupted", "failed"}:
+                return False
+            previous_result = _loads(row["result_json"], None)
+            resolved = isinstance(previous_result, dict) and previous_result.get("privacy_cleanup_completed") is True
+            if row["status"] == "failed" and row["error_code"] == code and not resolved:
+                return True
+            connection.execute(
+                "UPDATE jobs SET status='failed', completed_at=?, result_json=NULL, error_code=?, error_message=? WHERE id=?",
+                (timestamp, code, message, job_id),
+            )
+            self._append_event(connection, "job", job_id, "job.failed", {"result": None, "error_code": code, "error_message": message}, created_at=timestamp)
+        return True
+
+    def has_unresolved_claude_capture_cleanup(self) -> bool:
+        with self.session() as connection:
+            return connection.execute(
+                "SELECT 1 FROM jobs WHERE kind='claude_window_capture' AND status='failed' "
+                "AND error_code='claude_capture_cleanup_failed' "
+                "AND COALESCE(json_extract(result_json, '$.privacy_cleanup_completed'), 0)!=1 LIMIT 1"
+            ).fetchone() is not None
+
+    def resolve_claude_capture_cleanup(self, job_id: str) -> None:
+        """Record verified cleanup separately without turning failed capture into success."""
+        validate_identifier(job_id, label="job id")
+        timestamp = utc_now()
+        with self.transaction() as connection:
+            connection.execute(
+                "UPDATE jobs SET result_json=? WHERE id=? AND kind='claude_window_capture' AND status='failed' "
+                "AND error_code='claude_capture_cleanup_failed' "
+                "AND COALESCE(json_extract(result_json, '$.privacy_cleanup_completed'), 0)!=1",
+                (_json({"privacy_cleanup_completed": True}), job_id),
+            )
+            if connection.execute("SELECT changes() AS count").fetchone()["count"] == 1:
+                self._append_event(connection, "job", job_id, "capture.cleanup_completed", {"privacy_cleanup_completed": True}, created_at=timestamp)
 
     def find_active_windows_capture_job(self) -> dict[str, Any] | None:
         """Return the single active native capture admitted in this workspace.

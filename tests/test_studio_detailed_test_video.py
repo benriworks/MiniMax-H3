@@ -482,6 +482,42 @@ class DetailedTestVideoContractTests(unittest.TestCase):
                 )
                 self.assertEqual(audit["request_payload_sha256"], expected)
 
+    def test_focus_contract_reaches_detailed_request_key_and_audit(self) -> None:
+        request = _payload()
+        request["clips"][0]["layout_preset"] = "screen_explainer_v1"
+        original = validate_detailed_test_video_payload(request)
+        old_key = detailed_test_video_key(original, source_clips=_source_identity(), remotion_cache_key=REMOTION_KEY)
+        region = {"x": 0.25, "y": 0.25, "width": 0.5, "height": 0.5}
+        request["clips"][0]["focus_region"] = region
+        normalized = validate_detailed_test_video_payload(request)
+        key = detailed_test_video_key(normalized, source_clips=_source_identity(), remotion_cache_key=REMOTION_KEY)
+        self.assertNotEqual(key, old_key)
+        audit = detailed_test_video_audit_payload(normalized, request_key=key, source_clips=_source_identity(), remotion_cache_key=REMOTION_KEY)
+        self.assertEqual(audit["clips"][0]["focus_region"], region)
+        self.assertNotIn("focus_region", original["clips"][0])
+        request["clips"][0]["layout_preset"] = "full_bleed_v1"
+        with self.assertRaises(DetailedTestVideoValidationError):
+            validate_detailed_test_video_payload(request)
+
+    def test_screen_theme_reaches_detailed_identity_and_audit_without_narration_change(self) -> None:
+        request = _payload()
+        request["clips"][0]["layout_preset"] = "screen_explainer_v1"
+        original = validate_detailed_test_video_payload(request)
+        old_key = detailed_test_video_key(original, source_clips=_source_identity(), remotion_cache_key=REMOTION_KEY)
+        request["clips"][0]["screen_theme"] = "claude_code_v1"
+        normalized = validate_detailed_test_video_payload(request)
+        key = detailed_test_video_key(normalized, source_clips=_source_identity(), remotion_cache_key=REMOTION_KEY)
+        self.assertNotEqual(key, old_key)
+        audit = detailed_test_video_audit_payload(normalized, request_key=key, source_clips=_source_identity(), remotion_cache_key=REMOTION_KEY)
+        before = detailed_test_video_audit_payload(original, request_key=old_key, source_clips=_source_identity(), remotion_cache_key=REMOTION_KEY)
+        self.assertEqual(audit["clips"][0]["screen_theme"], "claude_code_v1")
+        self.assertNotIn("screen_theme", original["clips"][0])
+        # Narration inputs are still only text/voice/rate/pronunciations; theme is visual.
+        for field in ("segments", "voice", "rate", "pronunciations"):
+            self.assertEqual(normalized[field], original[field])
+        for field in ("segment_count", "text_chars", "segment_text_sha256", "voice", "rate", "pronunciation_count"):
+            self.assertEqual(audit[field], before[field])
+
     def test_shorts_caption_preflight_boundaries_and_policy_audit(self) -> None:
         valid_cases = ["あ" * 19, "A" * 20]
         for text in valid_cases:

@@ -1,4 +1,5 @@
 import {createRequire} from 'node:module';
+import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {lstat, readFile, readdir, realpath, rename, stat, writeFile} from 'node:fs/promises';
 import os from 'node:os';
@@ -72,9 +73,28 @@ const validateInputProps = (inputProps) => {
         'volumePercent',
         'transitionToNext',
         'overlay',
+        ...(Object.hasOwn(clip, 'layoutPreset') ? ['layoutPreset'] : []),
+        ...(Object.hasOwn(clip, 'screenTheme') ? ['screenTheme'] : []),
+        ...(Object.hasOwn(clip, 'focusRegion') ? ['focusRegion'] : []),
       ],
       `clips[${index}]`,
     );
+    if (Object.hasOwn(clip, 'layoutPreset') && !['full_bleed_v1', 'screen_explainer_v1'].includes(clip.layoutPreset)) {
+      fail(`clips[${index}].layoutPreset is invalid`);
+    }
+    if (Object.hasOwn(clip, 'screenTheme') && (clip.layoutPreset !== 'screen_explainer_v1'
+      || !['neutral_v1', 'claude_desktop_v1', 'claude_code_v1', 'technical_v1', 'claude_editorial_v1'].includes(clip.screenTheme))) {
+      fail(`clips[${index}].screenTheme is invalid`);
+    }
+    if (Object.hasOwn(clip, 'focusRegion')) {
+      assertExactKeys(clip.focusRegion, ['x', 'y', 'width', 'height'], `clips[${index}].focusRegion`);
+      const focus = clip.focusRegion;
+      if (clip.layoutPreset !== 'screen_explainer_v1'
+        || Object.values(focus).some((value) => typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1 || Math.round(value * 10_000) / 10_000 !== value)
+        || focus.width < 0.2 || focus.height < 0.2 || focus.x + focus.width > 1 || focus.y + focus.height > 1) {
+        fail(`clips[${index}].focusRegion is invalid`);
+      }
+    }
     if (
       clip.src !== `clip-${String(index).padStart(2, '0')}.mp4` ||
       !isInteger(clip.startMs, 0, 60000) ||
@@ -285,6 +305,27 @@ for (const [index] of request.input_props.clips.entries()) {
   if (!resolvedSource.startsWith(`${expectedPublicDirectory}${path.sep}`)) {
     fail(`clips[${index}] source escapes the public directory`);
   }
+}
+const needsScreenFont = request.input_props.clips.some((clip) => clip.layoutPreset === 'screen_explainer_v1');
+const publicNames = await readdir(expectedPublicDirectory);
+const expectedPublicNames = request.input_props.clips.map((_, index) => `clip-${String(index).padStart(2, '0')}.mp4`);
+if (needsScreenFont) expectedPublicNames.push('template-assets');
+if (publicNames.sort().join('\n') !== expectedPublicNames.sort().join('\n')) fail('public asset set is invalid');
+if (needsScreenFont) {
+  const assetDirectory = path.join(expectedPublicDirectory, 'template-assets');
+  const fontName = 'NotoSansJP-Variable.ttf';
+  const stagedFont = path.join(assetDirectory, fontName);
+  const sourceFont = fileURLToPath(new URL(`../../studio/public/template-assets/${fontName}`, import.meta.url));
+  const directoryInfo = await lstat(assetDirectory);
+  if (directoryInfo.isSymbolicLink() || !directoryInfo.isDirectory()
+    || (await readdir(assetDirectory)).join('\n') !== fontName) fail('template assets are invalid');
+  for (const filename of [stagedFont, sourceFont]) {
+    const info = await lstat(filename);
+    if (info.isSymbolicLink() || !info.isFile() || info.size < 1 || info.size > 32 * 1024 * 1024
+      || await realpath(filename) !== filename) fail('template font is invalid');
+  }
+  const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
+  if (digest(await readFile(stagedFont)) !== digest(await readFile(sourceFont))) fail('template font identity differs');
 }
 const versions = {};
 for (const name of packageNames) {

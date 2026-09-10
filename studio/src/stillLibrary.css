@@ -1,0 +1,24 @@
+.still-library { width: min(1240px, 96vw); max-height: 94dvh; padding: 0; border: 1px solid #354c55; border-radius: 16px; background: #111e26; color: #e4eef0; overflow: auto; box-shadow: 0 28px 100px #0009; }
+.still-library::backdrop { background: #050b13c9; }
+.still-library h2 { font-size: 26px; margin: 4px 0 8px; }.still-library h3 { font-size: 18px; margin: 0 0 16px; }
+.still-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 28px 30px 20px; border-bottom: 1px solid #354650; }
+.still-header p { margin: 0; }.still-eyebrow { color: #87d1bd; font-size: 11px; font-weight: 700; letter-spacing: .15em; }
+.still-header > div { min-width: 0; }.still-header > button { flex-shrink: 0; white-space: nowrap; }.still-jump { margin: 12px 30px 0; }.still-collection { scroll-margin-top: 20px; }
+.still-layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 28px; padding: 24px 30px; }
+.still-library label { display: flex; flex-direction: column; gap: 7px; font-size: 13px; margin-bottom: 16px; }
+.still-library input:not([type="checkbox"]), .still-library select, .still-library textarea { width: 100%; box-sizing: border-box; border: 1px solid #47616d; background: #0b161e; color: #edf7f8; padding: 10px 12px; border-radius: 7px; font: inherit; }
+.still-library input:focus-visible, .still-library textarea:focus-visible, .still-library select:focus-visible, .still-library button:focus-visible, .still-library a:focus-visible { outline: 3px solid #87d1bd; outline-offset: 3px; }
+.still-library fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }.still-library fieldset:disabled { opacity: .6; }
+.still-muted, .still-library small { color: #adbdc7; font-size: 12px; line-height: 1.7; }.still-muted { margin-bottom: 20px; overflow-wrap: anywhere; }
+.still-library .still-check { flex-direction: row; align-items: flex-start; line-height: 1.65; }.still-check input { flex-shrink: 0; margin-top: 4px; accent-color: #87d1bd; }
+.still-toolbar { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }.still-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.still-card { border: 1px solid #3b4c59; border-radius: 10px; overflow: hidden; min-width: 0; background: #172731; }.still-card.is-selected { border-color: #87d1bd; box-shadow: 0 0 0 1px #87d1bd; }
+.still-card-select { display: block; width: 100%; border: 0; padding: 0 0 12px; text-align: left; background: transparent; color: inherit; cursor: pointer; }.still-card-select:disabled { cursor: default; }
+.still-card img, .still-placeholder { display: block; width: 100%; height: 155px; object-fit: contain; background: #081117; }.still-placeholder { display: grid; place-items: center; color: #b0c6cc; }
+.still-card strong, .still-card span { display: block; padding: 0 12px; overflow-wrap: anywhere; }.still-card strong { margin-top: 12px; font-size: 14px; }.still-card span { margin-top: 7px; font-size: 11px; color: #b6cbd0; }
+.still-empty { padding: 44px 24px; border: 1px dashed #47616d; border-radius: 12px; text-align: center; line-height: 1.8; color: #b5c9d1; }
+.still-editor { border-top: 1px solid #3b505c; margin-top: 26px; padding-top: 24px; }.still-editor a { color: #97e0d3; }.still-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }.still-editor details { margin: 16px 0; font-size: 12px; }
+.still-history { padding: 10px 0; border-bottom: 1px solid #3b505c; }.still-history time { display: block; color: #b0c5cc; }.still-history p { white-space: pre-wrap; overflow-wrap: anywhere; }.still-hash { display: block; overflow-wrap: anywhere; margin-top: 12px; }
+.still-error { background: #42242b; color: #ffb8b8; border-left: 3px solid #e99292; padding: 12px; }.still-notices { margin: 0 30px; }.still-notices p { font-size: 13px; }.still-warning { margin: 16px 30px; padding: 12px; background: #463b27; color: #ffe3a7; font-size: 13px; }.still-warning button { margin: 8px; }
+.still-parent { font-size: 12px; color: #b9e2d7; }.still-parent button { margin-left: 6px; }.still-footer { padding: 18px 30px; border-top: 1px solid #354650; color: #9db5c0; font-size: 12px; }.still-library nav { display: flex; gap: 15px; margin: 20px 0; }
+@media (max-width: 800px) { .still-layout { grid-template-columns: minmax(0, 1fr); padding: 20px; }.still-header { padding: 20px; }.still-library { width: calc(100vw - 20px); max-width: calc(100vw - 20px); }.still-grid { grid-template-columns: repeat(2,minmax(0, 1fr)); }.still-card img { height: 130px; } }

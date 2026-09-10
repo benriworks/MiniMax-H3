@@ -50,6 +50,57 @@ const recipe = (overrides = {}) => ({
   ...overrides,
 });
 
+test('screen explainer uses hard cuts, preserves layout and accepts 15 through 30 seconds', () => {
+  for (const seconds of [5, 7, 10]) {
+    const source = recipe({ templatePreset: 'screen_explainer_ja_v1' });
+    source.scenes.forEach((scene) => { scene.endMs = seconds * 1000; });
+    const result = api.normalizeAnnouncementVideoInput(source);
+    assert.deepEqual(result.errors, []);
+    assert.equal(result.outputDurationMs, seconds * 3000);
+    assert.equal(result.payload.template_preset, 'screen_explainer_ja_v1');
+    assert.deepEqual(result.detailedRequest.clips.map((clip) => clip.transitionToNext), [null, null, null]);
+    assert.deepEqual(result.detailedRequest.clips.map((clip) => clip.layoutPreset), Array(3).fill('screen_explainer_v1'));
+    assert.deepEqual(result.detailedRequest.clips.map((clip) => clip.overlay.position), Array(3).fill('top'));
+    assert.deepEqual(api.normalizeAnnouncementVideoInput(result.payload).errors, []);
+  }
+});
+
+test('desktop capture passes only the named viewport preset', () => {
+  const source = { url: 'http://127.0.0.1:8765/', durationMs: 5000, settleMs: 1000, actions: [], viewportPreset: 'desktop_16_9' };
+  const result = api.normalizeLocalScreenCaptureInput(source);
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.payload.viewport_preset, 'desktop_16_9');
+  assert.ok(api.normalizeLocalScreenCaptureInput({ ...source, viewportPreset: 'arbitrary' }).errors.length);
+  const { viewportPreset, ...legacy } = source;
+  assert.equal(Object.hasOwn(api.normalizeLocalScreenCaptureInput(legacy).payload, 'viewport_preset'), false);
+});
+
+test('screen themes round-trip to every compiled clip and remain optional for legacy recipes', () => {
+  const legacy = recipe({ templatePreset: 'screen_explainer_ja_v1' });
+  const old = api.normalizeAnnouncementVideoInput(legacy);
+  assert.equal(Object.hasOwn(old.recipe, 'screenTheme'), false);
+  assert.equal(Object.hasOwn(old.payload, 'screen_theme'), false);
+  assert.equal(old.detailedRequest.clips.some((clip) => Object.hasOwn(clip, 'screenTheme')), false);
+  for (const screenTheme of ['neutral_v1', 'claude_desktop_v1', 'claude_code_v1', 'technical_v1', 'claude_editorial_v1']) {
+    const result = api.normalizeAnnouncementVideoInput({ ...legacy, screenTheme });
+    assert.deepEqual(result.errors, []);
+    assert.equal(result.payload.screen_theme, screenTheme);
+    assert.deepEqual(result.detailedRequest.clips.map((clip) => clip.screenTheme), Array(3).fill(screenTheme));
+    assert.deepEqual(api.normalizeAnnouncementVideoInput(result.payload).recipe, result.recipe);
+    assert.deepEqual(result.detailedRequest.segments, old.detailedRequest.segments);
+    assert.equal(result.detailedRequest.voice, old.detailedRequest.voice);
+    assert.deepEqual(result.recipe.scenes, old.recipe.scenes);
+  }
+});
+
+test('unknown, null, object, and non-screen recipe themes fail closed', () => {
+  for (const screenTheme of ['unknown', null, 0, {}, '']) {
+    assert.throws(() => api.buildAnnouncementVideoRecipePayload(recipe({ templatePreset: 'screen_explainer_ja_v1', screenTheme })), /テーマ/);
+    assert.throws(() => api.buildAnnouncementVideoRecipePayload({ ...recipe({ templatePreset: 'screen_explainer_ja_v1' }), screen_theme: screenTheme }), /テーマ/);
+  }
+  assert.throws(() => api.buildAnnouncementVideoRecipePayload(recipe({ screenTheme: 'claude_code_v1' })), /テーマ/);
+});
+
 test('announcement recipe compiles exact fixed HOOK -> MESSAGE -> CTA payload', () => {
   const normalized = api.normalizeAnnouncementVideoInput(recipe({ unsafePath: 'C:/nope.mp4' }));
   assert.deepEqual(normalized.errors, []);

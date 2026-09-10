@@ -30,8 +30,11 @@ MAX_ACTIONS = 16
 MAX_SELECTOR_CHARS = 256
 MAX_URL_CHARS = 2_048
 OUTPUT_POLICY_VERSION = "h264-yuv420p-1080x1920-24fps-video-only-v1"
+DESKTOP_VIEWPORT_PRESET = "desktop_16_9"
+DESKTOP_OUTPUT_POLICY_VERSION = "h264-yuv420p-1920x1080-24fps-video-only-v1"
 
 _PUBLIC_KEYS = {"url", "duration_ms", "settle_ms", "actions"}
+_OPTIONAL_PUBLIC_KEYS = {"viewport_preset"}
 _ACTION_KEYS = {
     "scroll": {"type", "at_ms", "delta_y"},
     "click": {"type", "at_ms", "selector"},
@@ -80,6 +83,21 @@ def _integer(value: Any, *, label: str, minimum: int, maximum: int) -> int:
             f"{label} must be between {minimum} and {maximum}"
         )
     return value
+
+
+def browser_capture_viewport(viewport_preset: Any = None) -> dict[str, int]:
+    """Resolve a closed preset; arbitrary dimensions never enter the worker."""
+
+    if viewport_preset is None:
+        return {"width": CANVAS_WIDTH, "height": CANVAS_HEIGHT}
+    if viewport_preset == DESKTOP_VIEWPORT_PRESET:
+        return {"width": 1920, "height": 1080}
+    raise BrowserCaptureValidationError("viewport_preset must be desktop_16_9 when provided")
+
+
+def browser_capture_output_policy_version(viewport_preset: Any = None) -> str:
+    browser_capture_viewport(viewport_preset)
+    return DESKTOP_OUTPUT_POLICY_VERSION if viewport_preset is not None else OUTPUT_POLICY_VERSION
 
 
 def _loopback_url(value: Any) -> tuple[str, dict[str, Any]]:
@@ -171,10 +189,18 @@ def _action(value: Any, *, index: int, duration_ms: int) -> dict[str, Any]:
 
 
 def validate_browser_capture_payload(body: Any) -> dict[str, Any]:
-    if not isinstance(body, dict) or set(body) != _PUBLIC_KEYS:
+    if (
+        not isinstance(body, dict)
+        or not _PUBLIC_KEYS.issubset(body)
+        or set(body) - _PUBLIC_KEYS - _OPTIONAL_PUBLIC_KEYS
+    ):
         raise BrowserCaptureValidationError(
-            "request body must contain only url, duration_ms, settle_ms, and actions"
+            "request body must contain url, duration_ms, settle_ms, actions, and optionally viewport_preset"
         )
+    if "viewport_preset" in body:
+        if body["viewport_preset"] != DESKTOP_VIEWPORT_PRESET:
+            raise BrowserCaptureValidationError("viewport_preset must be desktop_16_9 when provided")
+        browser_capture_viewport(body["viewport_preset"])
     url, target = _loopback_url(body.get("url"))
     duration_ms = _integer(
         body.get("duration_ms"),
@@ -202,13 +228,16 @@ def validate_browser_capture_payload(body: Any) -> dict[str, Any]:
         for index in range(1, len(normalized_actions))
     ):
         raise BrowserCaptureValidationError("actions must be ordered by at_ms")
-    return {
+    normalized = {
         "url": url,
         "duration_ms": duration_ms,
         "settle_ms": settle_ms,
         "actions": normalized_actions,
         "target": target,
     }
+    if "viewport_preset" in body:
+        normalized["viewport_preset"] = body["viewport_preset"]
+    return normalized
 
 
 def browser_capture_audit_payload(
@@ -232,16 +261,19 @@ def browser_capture_audit_payload(
             if action["type"] == "press":
                 item["key"] = action["key"]
         audited_actions.append(item)
-    return {
+    audit = {
         "capture_key": capture_key,
         "target": dict(target),
         "duration_ms": payload["duration_ms"],
         "settle_ms": payload["settle_ms"],
         "actions": audited_actions,
-        "canvas": {"width": CANVAS_WIDTH, "height": CANVAS_HEIGHT},
+        "canvas": browser_capture_viewport(payload.get("viewport_preset")),
         "frame_rate": FRAME_RATE,
         "audio": "omitted",
     }
+    if "viewport_preset" in payload:
+        audit["viewport_preset"] = payload["viewport_preset"]
+    return audit
 
 
 def browser_capture_key(payload: Mapping[str, Any], nonce: str) -> str:
@@ -254,8 +286,10 @@ def browser_capture_key(payload: Mapping[str, Any], nonce: str) -> str:
         "duration_ms": payload["duration_ms"],
         "settle_ms": payload["settle_ms"],
         "actions": payload["actions"],
-        "output_policy_version": OUTPUT_POLICY_VERSION,
+        "output_policy_version": browser_capture_output_policy_version(payload.get("viewport_preset")),
     }
+    if "viewport_preset" in payload:
+        identity["viewport_preset"] = payload["viewport_preset"]
     return hashlib.sha256(canonical_json(identity).encode("utf-8")).hexdigest().upper()
 
 
@@ -266,7 +300,9 @@ def browser_capture_public_result(
     expected_duration_ms: int,
     expected_origin: str,
     artifacts: list[dict[str, Any]],
+    expected_viewport_preset: str | None = None,
 ) -> dict[str, Any]:
+    viewport = browser_capture_viewport(expected_viewport_preset)
     if not isinstance(raw, dict):
         raise BrowserCaptureError(
             "The local screen capture worker returned an invalid result.",
@@ -290,12 +326,20 @@ def browser_capture_public_result(
         or raw.get("cache_hit") is not False
         or raw.get("provider_task_id") is not None
         or raw.get("actual_cost") != 0
+        or (
+            expected_viewport_preset is not None
+            and (
+                raw.get("viewport_preset") != expected_viewport_preset
+                or raw.get("video_dimensions") != viewport
+            )
+        )
+        or (expected_viewport_preset is None and "viewport_preset" in raw)
     ):
         raise BrowserCaptureError(
             "The local screen capture worker returned invalid metadata.",
             code="invalid_worker_result",
         )
-    return {
+    result = {
         "artifacts": artifacts,
         "duration_ms": duration_ms,
         "capture_key": expected_capture_key,
@@ -305,14 +349,17 @@ def browser_capture_public_result(
         "actual_cost": 0,
         "timing_source": TIMING_SOURCE,
         "target_origin": expected_origin,
-        "video_dimensions": {"width": CANVAS_WIDTH, "height": CANVAS_HEIGHT},
+        "video_dimensions": viewport,
         "frame_rate": FRAME_RATE,
         "output_policy": {
-            "policy_version": OUTPUT_POLICY_VERSION,
+            "policy_version": browser_capture_output_policy_version(expected_viewport_preset),
             "audio": "omitted",
         },
         "cost": {"amount": "0.00", "currency": "USD", "source": "local"},
     }
+    if expected_viewport_preset is not None:
+        result["viewport_preset"] = expected_viewport_preset
+    return result
 
 
 def safe_browser_capture_error(exc: BaseException) -> tuple[str, str]:
@@ -328,6 +375,8 @@ __all__ = [
     "BrowserCaptureValidationError",
     "CANVAS_HEIGHT",
     "CANVAS_WIDTH",
+    "DESKTOP_VIEWPORT_PRESET",
+    "DESKTOP_OUTPUT_POLICY_VERSION",
     "FRAME_RATE",
     "IMPLEMENTATION_VERSION",
     "MAX_ACTIONS",
@@ -340,6 +389,8 @@ __all__ = [
     "browser_capture_audit_payload",
     "browser_capture_key",
     "browser_capture_public_result",
+    "browser_capture_viewport",
+    "browser_capture_output_policy_version",
     "safe_browser_capture_error",
     "validate_browser_capture_payload",
 ]

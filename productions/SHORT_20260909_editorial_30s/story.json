@@ -1,0 +1,17 @@
+{
+  "title": "Claude Desktopで告知文を3案｜下書きはAI、判断はあなた",
+  "theme": "claude_editorial_v1",
+  "duration_ms": 30000,
+  "headlines": ["告知文、書き出しに\n迷っていませんか？", "候補を見比べて\n自分の言葉に", "下書きは任せる。\n判断は、あなた。"],
+  "voice": "Microsoft Sayaka",
+  "rate": 0,
+  "segments": [
+    {"start_ms": 500, "text": "クロードで、告知文を三案。"},
+    {"start_ms": 4700, "text": "目的と条件を添えて、依頼します。"},
+    {"start_ms": 10500, "text": "候補が出たら、表現を選びます。"},
+    {"start_ms": 14700, "text": "そのまま使わず、自分の言葉に。"},
+    {"start_ms": 20500, "text": "日付と文字数は、最後に確認。"},
+    {"start_ms": 24700, "text": "下書きは任せて、判断はあなた。"}
+  ],
+  "description": "Claude Desktopの通常チャットを題材にした、30秒の非公式解説です。\n\n0:00 目的と条件を添える（既存の独自AIイラスト＋編集図解）\n0:10 候補から表現を選ぶ（既存Claude Desktop実画面の15〜25秒を等速で使用）\n0:20 日付と文字数を確認（編集図解）\n\n架空カフェの告知文が題材です。9月20日・40字以内は依頼した条件であり、AIの回答が条件を満たす保証ではありません。実際の出店告知ではありません。実画面は回答取得後の収録で、Claude Codeの実演や思考中の表示ではありません。製品UIの生成・文字の差し替え・新規収録は行っていません。\n\nイラスト：以前にCodex内蔵画像生成で制作した独自の概念イラストを再利用。編集：Studio共通RemotionとFFmpeg。見出し：Noto Sans JP（OFL 1.1）。声：Windows SAPI Microsoft Sayaka、通常速度。台本に合わせて新規合成、音質改善は保留中。BGMなし。ロゴ素材なし。Anthropicの提供・協賛ではありません。\n\n#Claude #ClaudeDesktop #生成AI"
+}

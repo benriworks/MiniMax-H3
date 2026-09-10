@@ -25,6 +25,7 @@ MAX_VOICE_CHARS = 128
 MAX_PROVIDER_CHARS = 128
 MAX_CACHE_KEY_CHARS = 256
 MAX_DURATION_MS = 30 * 60 * 1000
+NARRATION_IMPLEMENTATION_VERSION = "local-sapi-v2-pwsh-preferred"
 NARRATION_TIMING_POLICY_ABSOLUTE_SEGMENT_STARTS_V1 = (
     "absolute_segment_starts_v1"
 )
@@ -213,7 +214,7 @@ def narration_cache_key(
 
     identity = {
         "schema_version": 1,
-        "implementation_version": "local-sapi-v1",
+        "implementation_version": NARRATION_IMPLEMENTATION_VERSION,
         "payload": payload,
     }
     if segment_start_ms is not None:

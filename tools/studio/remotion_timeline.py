@@ -109,7 +109,13 @@ _FIRST_PARTY_SOURCE_PATHS = {
     "api_source": "studio/src/api.ts",
     "status_source": "studio/src/status.ts",
     "types_source": "studio/src/types.ts",
+    "screen_themes_source": "studio/src/remotion/screenThemes.ts",
+    "screen_typography_source": "studio/src/remotion/ScreenTypography.tsx",
+    "screen_font_asset": "studio/public/template-assets/NotoSansJP-Variable.ttf",
+    "screen_font_license": "studio/public/template-assets/OFL-NotoSansJP.txt",
 }
+_SCREEN_FONT_PUBLIC_PATH = "template-assets/NotoSansJP-Variable.ttf"
+_MAX_SCREEN_FONT_BYTES = 32 * 1024 * 1024
 _RUNTIME_ATTESTATION_ALGORITHM = "sha256-node-dependency-closure-v1"
 _RUNTIME_ROOT_PACKAGES = tuple(sorted((*_REMOTION_PACKAGES, "playwright")))
 _ARTIFACT_SPECS: tuple[dict[str, str], ...] = (
@@ -364,11 +370,22 @@ def _complete_scratch_space_preflight(
         expected_names = {
             f"clip-{index:02d}.mp4" for index in range(int(audit["clip_count"]))
         }
+        has_screen = any(item.get("layout_preset") == "screen_explainer_v1" for item in audit["clips"])
+        if has_screen:
+            expected_names.add("template-assets")
         children = list(staged_sources.iterdir())
         if {child.name for child in children} != expected_names:
             raise OSError("unexpected staged source set")
         actual_staged_source_bytes = 0
         for child in children:
+            if child.name == "template-assets":
+                font = child / Path(_SCREEN_FONT_PUBLIC_PATH).name
+                if (child.is_symlink() or not child.is_dir()
+                    or {entry.name for entry in child.iterdir()} != {font.name}
+                    or font.is_symlink() or not font.is_file()
+                    or not 0 < font.stat().st_size <= _MAX_SCREEN_FONT_BYTES):
+                    raise OSError("invalid staged template font")
+                continue
             if child.is_symlink() or not child.is_file():
                 raise OSError("invalid staged source")
             actual_staged_source_bytes += child.stat().st_size
@@ -650,6 +667,8 @@ def _resolve_runtime(
         ffprobe_executable = _assembly._find_tool("ffprobe", ffprobe)
         render_script = workspace_path(workspace, "tools/studio/remotion_render.mjs", must_exist=True)
         doctor_script = workspace_path(workspace, "tools/studio/remotion_doctor.mjs", must_exist=True)
+        if any(_has_symlink_component(workspace, relative_path) for relative_path in _FIRST_PARTY_SOURCE_PATHS.values()):
+            raise OSError("first-party renderer source must not contain symlinks")
         first_party_source_files = {
             name: workspace_path(workspace, relative_path, must_exist=True)
             for name, relative_path in _FIRST_PARTY_SOURCE_PATHS.items()
@@ -1160,6 +1179,53 @@ def _stage_sources(
             )
 
 
+def _assert_staged_screen_font(
+    workspace: Path, public_directory: Path, tool_identity: Mapping[str, Mapping[str, str]],
+) -> None:
+    """Verify the only allowed non-video public asset, never caller-selected files."""
+    source = workspace / _FIRST_PARTY_SOURCE_PATHS["screen_font_asset"]
+    staged = public_directory / _SCREEN_FONT_PUBLIC_PATH
+    expected = tool_identity.get("screen_font_asset", {}).get("sha256")
+    try:
+        if (
+            not isinstance(expected, str) or not _SHA256_RE.fullmatch(expected)
+            or _has_symlink_component(workspace, source)
+            or _has_symlink_component(workspace, staged)
+            or not source.is_file() or not staged.is_file()
+            or not 0 < source.stat().st_size <= _MAX_SCREEN_FONT_BYTES
+            or source.stat().st_size != staged.stat().st_size
+            or _sha256_file(source) != expected or _sha256_file(staged) != expected
+        ):
+            raise OSError("template font integrity failed")
+    except (OSError, SecurityError, ValueError) as exc:
+        raise RemotionTimelineError("The fixed template font changed or is unavailable", code="tool_changed") from exc
+
+
+def _stage_screen_font(
+    workspace: Path, public_directory: Path, clips: Sequence[Mapping[str, Any]],
+    tool_identity: Mapping[str, Mapping[str, str]],
+) -> None:
+    if not any(item.get("layout_preset") == "screen_explainer_v1" for item in clips):
+        return
+    source = workspace / _FIRST_PARTY_SOURCE_PATHS["screen_font_asset"]
+    destination = public_directory / _SCREEN_FONT_PUBLIC_PATH
+    expected = tool_identity.get("screen_font_asset", {}).get("sha256")
+    try:
+        if (
+            _has_symlink_component(workspace, source)
+            or _has_symlink_component(workspace, destination)
+            or not source.is_file() or not 0 < source.stat().st_size <= _MAX_SCREEN_FONT_BYTES
+            or _sha256_file(source) != expected
+        ):
+            raise OSError("template font source integrity failed")
+        destination.parent.mkdir()
+        with source.open("rb") as incoming, destination.open("xb") as outgoing:
+            shutil.copyfileobj(incoming, outgoing)
+        _assert_staged_screen_font(workspace, public_directory, tool_identity)
+    except (OSError, SecurityError, ValueError) as exc:
+        raise RemotionTimelineError("The fixed template font could not be staged", code="tool_changed") from exc
+
+
 def _input_props(
     clips: Sequence[Mapping[str, Any]],
     compiled: Mapping[str, Any],
@@ -1189,6 +1255,9 @@ def _input_props(
                 ),
                 "durationInFrames": resolved["duration_in_frames"],
                 "volumePercent": resolved["volume_percent"],
+                **({"layoutPreset": source["layout_preset"]} if "layout_preset" in source else {}),
+                **({"screenTheme": source["screen_theme"]} if "screen_theme" in source else {}),
+                **({"focusRegion": source["focus_region"]} if "focus_region" in source else {}),
                 "transitionToNext": None
                 if transition is None
                 else {
@@ -1305,6 +1374,9 @@ def _timeline_document(
                 "end_ms": item["end_ms"],
                 "volume_percent": item["volume_percent"],
                 "visual_preset": item["visual_preset"],
+                **({"layout_preset": item["layout_preset"]} if "layout_preset" in item else {}),
+                **({"screen_theme": item["screen_theme"]} if "screen_theme" in item else {}),
+                **({"focus_region": item["focus_region"]} if "focus_region" in item else {}),
                 "transition_to_next": item["transition_to_next"],
                 "overlay": item["overlay"],
                 "source_bytes": item["source_bytes"],
@@ -1780,6 +1852,7 @@ def _generate_or_validate(
             ffprobe=ffprobe_executable,
             cancel_event=cancel_event,
         )
+        _stage_screen_font(root, public_directory, prepared, tool_identity)
         _progress(progress_callback, 22, "scratch_recheck")
         scratch_space = _complete_scratch_space_preflight(
             cache_directory.parent,
@@ -1853,10 +1926,12 @@ def _generate_or_validate(
         # The composition and scripts were hashed into the cache identity.
         # Recheck them after Node exits to close an in-place replacement race.
         for name, path in runtime["source_files"].items():
-            if _sha256_file(path) != tool_identity[name]["sha256"]:
+            if _has_symlink_component(root, path) or _sha256_file(path) != tool_identity[name]["sha256"]:
                 raise RemotionTimelineError(
                     "The Remotion runtime changed during rendering", code="tool_changed"
                 )
+        if any(item.get("layout_preset") == "screen_explainer_v1" for item in prepared):
+            _assert_staged_screen_font(root, public_directory, tool_identity)
         for index, item in enumerate(prepared):
             _assert_source_unchanged(root, item, label=f"clips[{index}]")
         _cancel(cancel_event)

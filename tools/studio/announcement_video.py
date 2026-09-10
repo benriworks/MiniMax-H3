@@ -19,14 +19,18 @@ from .detailed_test_video import (
 from .remotion_timeline_execution import (
     DEFAULT_VISUAL_PRESET,
     VISUAL_PRESETS,
+    SCREEN_THEMES,
+    RemotionTimelineValidationError,
     frames_to_milliseconds,
     milliseconds_to_frames,
+    validate_focus_region,
 )
 from .security import SecurityError, canonical_json, validate_identifier
 
 
 ANNOUNCEMENT_VIDEO_SCHEMA_VERSION = 1
 ANNOUNCEMENT_VIDEO_TEMPLATE_PRESET = "shorts_ja_15s_v1"
+SCREEN_EXPLAINER_TEMPLATE_PRESET = "screen_explainer_ja_v1"
 ANNOUNCEMENT_VIDEO_ROLES = ("hook", "message", "cta")
 ANNOUNCEMENT_VIDEO_TRANSITION_MS = 250
 ANNOUNCEMENT_VIDEO_MIN_DURATION_MS = 10_000
@@ -55,7 +59,7 @@ _SCENE_REQUIRED_KEYS = {
     "headline",
     "narration",
 }
-_SCENE_KEYS = _SCENE_REQUIRED_KEYS | {"visual_preset"}
+_SCENE_KEYS = _SCENE_REQUIRED_KEYS | {"visual_preset", "focus_region"}
 _PRONUNCIATION_KEYS = {"source", "target"}
 _RECIPE_ID_RE = re.compile(r"^announcement_[0-9a-f]{32}$")
 _CONTROL_RE = re.compile(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]")
@@ -197,6 +201,11 @@ def _scene(value: Any, *, expected_role: str) -> dict[str, Any]:
         if not isinstance(visual_preset, str) or visual_preset not in VISUAL_PRESETS:
             raise AnnouncementVideoValidationError()
         normalized["visual_preset"] = visual_preset
+    if "focus_region" in value:
+        try:
+            normalized["focus_region"] = validate_focus_region(value["focus_region"])
+        except RemotionTimelineValidationError:
+            raise AnnouncementVideoValidationError() from None
     return normalized
 
 
@@ -223,6 +232,7 @@ def announcement_recipe_to_detailed_payload(
     """Compile one normalized announcement recipe to exact Detailed v1."""
 
     scenes = recipe["scenes"]
+    screen_explainer = recipe["template_preset"] == SCREEN_EXPLAINER_TEMPLATE_PRESET
     clips: list[dict[str, Any]] = []
     for index, scene in enumerate(scenes):
         duration_ms = scene["end_ms"] - scene["start_ms"]
@@ -237,7 +247,7 @@ def announcement_recipe_to_detailed_payload(
                 ),
                 "transition_to_next": (
                     None
-                    if index == len(scenes) - 1
+                    if screen_explainer or index == len(scenes) - 1
                     else {
                         "type": "fade",
                         "duration_ms": ANNOUNCEMENT_VIDEO_TRANSITION_MS,
@@ -247,11 +257,19 @@ def announcement_recipe_to_detailed_payload(
                     "text": scene["headline"],
                     "start_ms": 125,
                     "end_ms": duration_ms - 125,
-                    "position": _ROLE_OVERLAY_POSITIONS[scene["role"]],
+                    "position": "top" if screen_explainer else _ROLE_OVERLAY_POSITIONS[scene["role"]],
                     "style_preset": "shorts_ja_large_v1",
                 },
             }
         )
+        if screen_explainer:
+            clips[-1]["layout_preset"] = "screen_explainer_v1"
+            if "screen_theme" in recipe:
+                clips[-1]["screen_theme"] = recipe["screen_theme"]
+        if "focus_region" in scene:
+            # The detailed validator rejects focus on the legacy layout even
+            # when a caller bypasses the outer announcement normalizer.
+            clips[-1]["focus_region"] = scene["focus_region"]
     payload: dict[str, Any] = {
         "schema_version": 1,
         "clips": clips,
@@ -301,11 +319,14 @@ def announcement_narration_segment_starts(
 def validate_announcement_recipe_payload(body: Any) -> dict[str, Any]:
     """Normalize an exact v1 editable recipe and prove its compiled contract."""
 
-    if not isinstance(body, dict) or set(body) != _RECIPE_KEYS:
+    if not isinstance(body, dict) or not _RECIPE_KEYS.issubset(body) or not set(body).issubset(_RECIPE_KEYS | {"screen_theme"}):
         raise AnnouncementVideoValidationError()
     if (
         body.get("schema_version") != ANNOUNCEMENT_VIDEO_SCHEMA_VERSION
-        or body.get("template_preset") != ANNOUNCEMENT_VIDEO_TEMPLATE_PRESET
+        or not isinstance(body.get("template_preset"), str)
+        or body.get("template_preset") not in {
+            ANNOUNCEMENT_VIDEO_TEMPLATE_PRESET, SCREEN_EXPLAINER_TEMPLATE_PRESET
+        }
     ):
         raise AnnouncementVideoValidationError()
     raw_scenes = body.get("scenes")
@@ -317,11 +338,23 @@ def validate_announcement_recipe_payload(body: Any) -> dict[str, Any]:
         _scene(item, expected_role=role)
         for item, role in zip(raw_scenes, ANNOUNCEMENT_VIDEO_ROLES, strict=True)
     ]
+    screen_explainer = body["template_preset"] == SCREEN_EXPLAINER_TEMPLATE_PRESET
+    if "screen_theme" in body and (
+        not screen_explainer
+        or not isinstance(body["screen_theme"], str)
+        or body["screen_theme"] not in SCREEN_THEMES
+    ):
+        raise AnnouncementVideoValidationError()
+    if not screen_explainer and any("focus_region" in scene for scene in scenes):
+        raise AnnouncementVideoValidationError()
+    transition_ms = 0 if screen_explainer else ANNOUNCEMENT_VIDEO_TRANSITION_MS
     total_duration_ms = (
         sum(item["end_ms"] - item["start_ms"] for item in scenes)
-        - ANNOUNCEMENT_VIDEO_TRANSITION_MS * (len(scenes) - 1)
+        - transition_ms * (len(scenes) - 1)
     )
-    if not ANNOUNCEMENT_VIDEO_MIN_DURATION_MS <= total_duration_ms <= ANNOUNCEMENT_VIDEO_MAX_DURATION_MS:
+    minimum_ms = 15_000 if screen_explainer else ANNOUNCEMENT_VIDEO_MIN_DURATION_MS
+    maximum_ms = 30_000 if screen_explainer else ANNOUNCEMENT_VIDEO_MAX_DURATION_MS
+    if not minimum_ms <= total_duration_ms <= maximum_ms:
         raise AnnouncementVideoValidationError()
 
     voice_value = body.get("voice")
@@ -353,7 +386,7 @@ def validate_announcement_recipe_payload(body: Any) -> dict[str, Any]:
     normalized = {
         "schema_version": ANNOUNCEMENT_VIDEO_SCHEMA_VERSION,
         "name": _text(body.get("name"), maximum=120),
-        "template_preset": ANNOUNCEMENT_VIDEO_TEMPLATE_PRESET,
+        "template_preset": body["template_preset"],
         "scenes": scenes,
         "voice": voice,
         "rate": rate,
@@ -363,6 +396,8 @@ def validate_announcement_recipe_payload(body: Any) -> dict[str, Any]:
         "audio_mix_preset": audio_mix_preset,
         "variant": variant,
     }
+    if "screen_theme" in body:
+        normalized["screen_theme"] = body["screen_theme"]
     try:
         announcement_recipe_to_detailed_payload(normalized)
     except DetailedTestVideoValidationError:
@@ -427,7 +462,11 @@ def announcement_recipe_audit_summary(recipe: Mapping[str, Any]) -> dict[str, An
         "scene_count": len(normalized["scenes"]),
         "headline_chars": [len(item["headline"]) for item in normalized["scenes"]],
         "narration_chars": [len(item["narration"]) for item in normalized["scenes"]],
-        "overlay_policy": ANNOUNCEMENT_VIDEO_OVERLAY_POLICY,
+        "overlay_policy": (
+            "screen_explainer_safe_header_v1"
+            if normalized["template_preset"] == SCREEN_EXPLAINER_TEMPLATE_PRESET
+            else ANNOUNCEMENT_VIDEO_OVERLAY_POLICY
+        ),
         "include_captioned": normalized["include_captioned"],
         "caption_style_preset": normalized["caption_style_preset"],
         "audio_mix_preset": normalized["audio_mix_preset"],
@@ -441,6 +480,10 @@ def announcement_recipe_audit_summary(recipe: Mapping[str, Any]) -> dict[str, An
             item.get("visual_preset", DEFAULT_VISUAL_PRESET)
             for item in normalized["scenes"]
         ]
+    if any("focus_region" in item for item in normalized["scenes"]):
+        summary["focus_regions"] = [item.get("focus_region") for item in normalized["scenes"]]
+    if "screen_theme" in normalized:
+        summary["screen_theme"] = normalized["screen_theme"]
     return summary
 
 
@@ -451,6 +494,7 @@ __all__ = [
     "ANNOUNCEMENT_VIDEO_ROLES",
     "ANNOUNCEMENT_VIDEO_SCHEMA_VERSION",
     "ANNOUNCEMENT_VIDEO_TEMPLATE_PRESET",
+    "SCREEN_EXPLAINER_TEMPLATE_PRESET",
     "ANNOUNCEMENT_VIDEO_TRANSITION_MS",
     "AnnouncementRecipeConflict",
     "AnnouncementVideoValidationError",

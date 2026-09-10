@@ -67,6 +67,18 @@ _PUBLIC_ERROR_CODES = frozenset(
         "cache_key_mismatch",
         "cache_integrity_failed",
         "caption_timing_out_of_range",
+        "claude_capture_busy",
+        "claude_capture_cleanup_failed",
+        "claude_capture_confirmation_required",
+        "claude_capture_failed",
+        "claude_capture_guard_unavailable",
+        "claude_capture_selection_invalid",
+        "claude_capture_target_changed",
+        "claude_capture_tool_changed",
+        "claude_capture_unavailable",
+        "invalid_claude_capture_media",
+        "invalid_claude_capture_output",
+        "invalid_claude_capture_request",
         "comfyui_failed",
         "comfyui_generation_failed",
         "comfyui_request_rejected",
@@ -1514,6 +1526,7 @@ class JobManager:
                     cleanup_failure = getattr(exc, "error_code", None) in {
                         "windows_capture_cleanup_failed",
                         "windows_capture_cleanup_required",
+                        "claude_capture_cleanup_failed",
                     }
                     if context.is_set() and not cleanup_failure:
                         preserve_provider_task = context.preserve_provider_task
@@ -1537,7 +1550,12 @@ class JobManager:
                         # safe exceptions.
                         error_code = _public_error_code(exc)
                         error_message = _public_error_message(exc, error_code)
-                        if atomic_stage_attempt_id is not None:
+                        if error_code == "claude_capture_cleanup_failed" and atomic_stage_attempt_id is None:
+                            if not self.database.fail_claude_capture_cleanup(job_id):
+                                # Preserve ordinary failure behavior for an unrelated
+                                # worker that accidentally reuses this safe error code.
+                                self.database.update_job(job_id, "failed", error_code=error_code, error_message=error_message)
+                        elif atomic_stage_attempt_id is not None:
                             self.database.fail_job_with_stage_attempt(
                                 job_id,
                                 atomic_stage_attempt_id,

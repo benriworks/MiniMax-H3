@@ -8,6 +8,7 @@ and arbitrary Remotion props are deliberately absent from this boundary.
 """
 
 import hashlib
+import math
 import re
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -34,6 +35,9 @@ OUTPUT_POLICY_VERSION = "remotion-source-fidelity-v2"
 SOURCE_ENHANCEMENT_POLICY_VERSION = "lanczos-cover-luma-unsharp-v1"
 DEFAULT_VISUAL_PRESET = "preserve_v1"
 VISUAL_PRESETS = frozenset({DEFAULT_VISUAL_PRESET, "h3_low_res_sharp_v1"})
+DEFAULT_LAYOUT_PRESET = "full_bleed_v1"
+LAYOUT_PRESETS = frozenset({DEFAULT_LAYOUT_PRESET, "screen_explainer_v1"})
+SCREEN_THEMES = frozenset({"neutral_v1", "claude_desktop_v1", "claude_code_v1", "technical_v1", "claude_editorial_v1"})
 REMOTION_FRAME_IMAGE_FORMAT = "png"
 REMOTION_VIDEO_CRF = 16
 REMOTION_SCRATCH_POLICY_VERSION = "png-frame-scratch-v1"
@@ -62,7 +66,8 @@ _CLIP_REQUIRED_KEYS = {
     "transition_to_next",
     "overlay",
 }
-_CLIP_KEYS = _CLIP_REQUIRED_KEYS | {"visual_preset"}
+_CLIP_KEYS = _CLIP_REQUIRED_KEYS | {"visual_preset", "layout_preset", "focus_region", "screen_theme"}
+_FOCUS_REGION_KEYS = {"x", "y", "width", "height"}
 _TRANSITION_KEYS = {"type", "duration_ms"}
 _OVERLAY_KEYS = {"text", "start_ms", "end_ms", "position", "style_preset"}
 _INTERNAL_EXTRA_KEYS = {"source_path", "source_bytes", "source_sha256"}
@@ -175,6 +180,33 @@ def _overlay(value: Any, *, index: int, clip_duration_ms: int) -> dict[str, Any]
     }
 
 
+def validate_focus_region(value: Any) -> dict[str, int | float]:
+    """Normalize a bounded source-relative rectangle without accepting crop commands."""
+    if not isinstance(value, dict) or set(value) != _FOCUS_REGION_KEYS:
+        raise RemotionTimelineValidationError("focus_region must contain only x, y, width, and height")
+    normalized: dict[str, int | float] = {}
+    for key in ("x", "y", "width", "height"):
+        component = value[key]
+        if (
+            isinstance(component, bool)
+            or not isinstance(component, (int, float))
+            or not 0 <= component <= 1
+            or not math.isfinite(component)
+            or round(component, 4) != component
+        ):
+            raise RemotionTimelineValidationError(f"focus_region.{key} must be finite, within 0..1, and use at most four decimal places")
+        # JSON/JavaScript have one number type. Canonicalize 0.0/-0.0/1.0
+        # to the same integers emitted by JSON.stringify on the frontend.
+        normalized[key] = int(component) if component in (0, 1) else component
+    if (
+        normalized["width"] < 0.2 or normalized["height"] < 0.2
+        or normalized["x"] + normalized["width"] > 1
+        or normalized["y"] + normalized["height"] > 1
+    ):
+        raise RemotionTimelineValidationError("focus_region must stay inside the source and be at least 0.2 wide and high")
+    return normalized
+
+
 def _public_clip(value: Any, *, index: int) -> dict[str, Any]:
     if (
         not isinstance(value, dict)
@@ -206,16 +238,50 @@ def _public_clip(value: Any, *, index: int) -> dict[str, Any]:
         raise RemotionTimelineValidationError(
             f"clips[{index}].visual_preset is invalid"
         )
+    layout_preset = value.get("layout_preset", DEFAULT_LAYOUT_PRESET)
+    if not isinstance(layout_preset, str) or layout_preset not in LAYOUT_PRESETS:
+        raise RemotionTimelineValidationError(f"clips[{index}].layout_preset is invalid")
     duration_ms = end_ms - start_ms
-    return {
+    overlay = _overlay(value.get("overlay"), index=index, clip_duration_ms=duration_ms)
+    if layout_preset == "screen_explainer_v1":
+        if visual_preset != DEFAULT_VISUAL_PRESET:
+            raise RemotionTimelineValidationError(
+                f"clips[{index}] screen_explainer_v1 requires preserve_v1 to avoid cropping"
+            )
+        if overlay is not None and (
+            overlay["position"] != "top"
+            or len(overlay["text"].splitlines()) > 2
+            or any(
+                sum(1 if 0x20 <= ord(char) <= 0x7E or 0xFF61 <= ord(char) <= 0xFF9F else 2 for char in line) > 20
+                for line in overlay["text"].splitlines()
+            )
+        ):
+            raise RemotionTimelineValidationError(
+                f"clips[{index}] screen_explainer_v1 overlay requires top and at most two 20-unit lines"
+            )
+    normalized = {
         "video_artifact_id": artifact_id,
         "start_ms": start_ms,
         "end_ms": end_ms,
         "volume_percent": volume_percent,
         "visual_preset": visual_preset,
         "transition_to_next": _transition(value.get("transition_to_next"), index=index),
-        "overlay": _overlay(value.get("overlay"), index=index, clip_duration_ms=duration_ms),
+        "overlay": overlay,
     }
+    # The absent key is the historical full-bleed contract. Do not rewrite
+    # legacy recipes, manifests, or their content identity when it is omitted.
+    if "layout_preset" in value:
+        normalized["layout_preset"] = layout_preset
+    if "screen_theme" in value:
+        theme = value["screen_theme"]
+        if layout_preset != "screen_explainer_v1" or not isinstance(theme, str) or theme not in SCREEN_THEMES:
+            raise RemotionTimelineValidationError("screen_theme is invalid or requires screen_explainer_v1")
+        normalized["screen_theme"] = theme
+    if "focus_region" in value:
+        if layout_preset != "screen_explainer_v1":
+            raise RemotionTimelineValidationError("focus_region is only available for screen_explainer_v1")
+        normalized["focus_region"] = validate_focus_region(value["focus_region"])
+    return normalized
 
 
 def _validate_sequence(clips: list[dict[str, Any]]) -> None:
@@ -257,9 +323,13 @@ def normalize_internal_clips(clips: Sequence[Mapping[str, Any]]) -> list[dict[st
         raise RemotionTimelineValidationError(f"clips must contain between 1 and {MAX_CLIPS} entries")
     public_values: list[dict[str, Any]] = []
     for index, value in enumerate(clips):
-        if not isinstance(value, Mapping) or set(value) != _CLIP_KEYS | _INTERNAL_EXTRA_KEYS:
+        if (
+            not isinstance(value, Mapping)
+            or not ((_CLIP_KEYS - {"layout_preset", "focus_region", "screen_theme"}) | _INTERNAL_EXTRA_KEYS).issubset(value)
+            or not set(value).issubset(_CLIP_KEYS | _INTERNAL_EXTRA_KEYS)
+        ):
             raise RemotionTimelineValidationError(f"clips[{index}] contains unsupported internal fields")
-        public_values.append({key: value[key] for key in _CLIP_KEYS})
+        public_values.append({key: value[key] for key in _CLIP_KEYS if key in value})
     normalized_public = validate_remotion_timeline_payload(
         {"schema_version": SCHEMA_VERSION, "clips": public_values}
     )["clips"]
@@ -315,6 +385,9 @@ def compile_remotion_timeline(clips: Sequence[Mapping[str, Any]]) -> dict[str, A
                 if transition is None
                 else {**transition, "duration_in_frames": transition_frames},
                 "overlay": compiled_overlay,
+                **({"layout_preset": item["layout_preset"]} if "layout_preset" in item else {}),
+                **({"screen_theme": item["screen_theme"]} if "screen_theme" in item else {}),
+                **({"focus_region": item["focus_region"]} if "focus_region" in item else {}),
             }
         )
         cursor += duration_frames - transition_frames
@@ -354,7 +427,7 @@ def remotion_timeline_cache_key(
     normalized = normalize_internal_clips(clips)
     identity_clips = []
     for item in normalized:
-        public = {key: item[key] for key in _CLIP_KEYS}
+        public = {key: item[key] for key in _CLIP_KEYS if key in item}
         identity_clips.append(
             {
                 **public,
@@ -391,6 +464,9 @@ def remotion_timeline_audit_payload(
                 "end_ms": item["end_ms"],
                 "volume_percent": item["volume_percent"],
                 "visual_preset": item["visual_preset"],
+                **({"layout_preset": item["layout_preset"]} if "layout_preset" in item else {}),
+                **({"screen_theme": item["screen_theme"]} if "screen_theme" in item else {}),
+                **({"focus_region": item["focus_region"]} if "focus_region" in item else {}),
                 "transition_to_next": item["transition_to_next"],
                 "overlay": None
                 if overlay is None
@@ -550,6 +626,9 @@ __all__ = [
     "MAX_TIMELINE_DURATION_MS",
     "OUTPUT_POLICY_VERSION",
     "DEFAULT_VISUAL_PRESET",
+    "DEFAULT_LAYOUT_PRESET",
+    "LAYOUT_PRESETS",
+    "SCREEN_THEMES",
     "REMOTION_FRAME_IMAGE_FORMAT",
     "REMOTION_SCRATCH_HEADROOM_DENOMINATOR",
     "REMOTION_SCRATCH_HEADROOM_NUMERATOR",
@@ -582,4 +661,5 @@ __all__ = [
     "remotion_output_policy",
     "safe_remotion_timeline_error",
     "validate_remotion_timeline_payload",
+    "validate_focus_region",
 ]

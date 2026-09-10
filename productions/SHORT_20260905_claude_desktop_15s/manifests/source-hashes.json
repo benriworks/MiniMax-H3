@@ -1,0 +1,32 @@
+{
+  "production": "SHORT_20260905_claude_desktop_15s",
+  "created_date": "2026-09-05",
+  "generated_image": {
+    "path": "outputs/productions/SHORT_20260905_claude_desktop_15s/assets/desktop-hero.png",
+    "generator": "builtin_imagegen",
+    "width": 941,
+    "height": 1672,
+    "bytes": 1456308,
+    "sha256": "1BAC7370D602485B50F5867AEE68445D97A2570104D41D6280ABE2ADDB512302"
+  },
+  "composition_sha256": "B5BE5831434D7B80D6CBF439764AA229951252EE8105F01E21F75763BF0E2896",
+  "source_mp4": [
+    {"name": "cut_01_desktop.mp4", "frames": 126, "bytes": 196947, "sha256": "9C72E6C8A02CA769A90F0AB815C96151C15E770EBD33F9804A391F8D87F2DBA9"},
+    {"name": "cut_02_folder.mp4", "frames": 126, "bytes": 753937, "sha256": "9256A30C14965F3AF03ABEBC4F489F6BA89D51DE508A3580C3C960E4BDAA9435"},
+    {"name": "cut_03_review.mp4", "frames": 120, "bytes": 237896, "sha256": "D9A31158FC0BE7BB1289DCA2E5CDCE106C202AC373EEBA8C8BF8CFD743CE98E6"}
+  ],
+  "masters": [
+    {"name": "ClaudeCode_desktop_15s_captioned.mp4", "bytes": 1318397, "sha256": "639567BAE52A1219B7664C347CA4026E3C4D543DC9234DEEDC5FFF9FFD42E2EF"},
+    {"name": "ClaudeCode_desktop_15s_clean.mp4", "bytes": 1268152, "sha256": "A176B4643E21DD534662D62A5874F3BA0832E11B7F566A601F9C7B5FD59D3E1E"}
+  ],
+  "audio": {"name": "narration.wav", "bytes": 623448, "sha256": "1F8A708E5296BC529CD0FB192D282069329B72726A9341E49321709836A83707"},
+  "captions": {"name": "captions.srt", "bytes": 364, "sha256": "D169DD2739608F0ED895A80DA82D20D48D147549FBA81B01B42A610DB74F8018"},
+  "studio_production_id": "production_ce49b3a8ef3c5dba86ec52ab6a767b7f",
+  "studio_run_id": null,
+  "studio_top_job_id": null,
+  "worker_cache_run_id": "run_0a7434ab8a1623781f69bafae604a228",
+  "technical_qc": "pass",
+  "independent_visual_qc": "pass",
+  "human_listening": "not_performed",
+  "published": false
+}

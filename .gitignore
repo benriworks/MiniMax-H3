@@ -12,3 +12,6 @@ __pycache__/
 studio/node_modules/
 studio/dist/
 studio/.test-dist/
+.playwright-cli/
+output/playwright/
+studio/output/playwright/

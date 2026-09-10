@@ -24,6 +24,8 @@ from tools.studio.remotion_timeline import (
     _scratch_requirement,
     _runtime_attestation_identity,
     _source_enhancement_plans,
+    _input_props,
+    _timeline_document,
     discard_remotion_timeline_outputs,
     generate_remotion_timeline,
     validate_remotion_timeline_outputs,
@@ -107,6 +109,11 @@ class RemotionTimelineWorkerTests(unittest.TestCase):
         self.api = tools / "api.ts"
         self.status = tools / "status.ts"
         self.types = tools / "types.ts"
+        self.screen_themes = tools / "screenThemes.ts"
+        self.screen_typography = tools / "ScreenTypography.tsx"
+        self.screen_font = self.workspace / "studio/public/template-assets/NotoSansJP-Variable.ttf"
+        self.screen_font.parent.mkdir(parents=True)
+        self.screen_license = self.screen_font.with_name("OFL-NotoSansJP.txt")
         self.render_script = tools / "remotion_render.mjs"
         self.browser = tools / "chrome.exe"
         for path in (
@@ -116,6 +123,10 @@ class RemotionTimelineWorkerTests(unittest.TestCase):
             self.api,
             self.status,
             self.types,
+            self.screen_themes,
+            self.screen_typography,
+            self.screen_font,
+            self.screen_license,
             self.render_script,
             self.browser,
         ):
@@ -173,6 +184,14 @@ class RemotionTimelineWorkerTests(unittest.TestCase):
                 "version": PINNED_REMOTION_VERSION,
                 "sha256": hashlib.sha256(name.encode("utf-8")).hexdigest().upper(),
             }
+        extra_sources = {
+            "screen_themes_source": self.screen_themes,
+            "screen_typography_source": self.screen_typography,
+            "screen_font_asset": self.screen_font,
+            "screen_font_license": self.screen_license,
+        }
+        for name, filename in extra_sources.items():
+            self.tool_identity[name] = {"version": "local-remotion-timeline-v1", "sha256": _sha256(filename)}
         self.runtime = {
             "browser": self.browser,
             "doctor": {},
@@ -184,6 +203,7 @@ class RemotionTimelineWorkerTests(unittest.TestCase):
                 "status_source": self.status,
                 "types_source": self.types,
                 "render_script": self.render_script,
+                **extra_sources,
             },
         }
         self.cache_key = remotion_timeline_cache_key(
@@ -225,6 +245,10 @@ class RemotionTimelineWorkerTests(unittest.TestCase):
             for path in Path(request["public_dir"]).glob("clip-*.mp4")
         )
         props = request["input_props"]
+        self.node_input_props = props
+        self.node_staged_digests = [_sha256(path) for path in sorted(Path(request["public_dir"]).glob("clip-*.mp4"))]
+        staged_font = Path(request["public_dir"]) / "template-assets/NotoSansJP-Variable.ttf"
+        self.node_staged_font_digest = _sha256(staged_font) if staged_font.exists() else None
         duration = props["durationInFrames"] / 24
         subprocess.run(
             [
@@ -305,6 +329,95 @@ class RemotionTimelineWorkerTests(unittest.TestCase):
             cache_key=self.cache_key,
             clips=self.clips,
         )
+
+    def test_layout_reaches_renderer_and_document_without_changing_legacy_props(self) -> None:
+        plans = [{"trimmed_to_used_frames": False}]
+        legacy = _input_props(self.clips, compile_remotion_timeline(self.clips), plans)
+        self.assertNotIn("layoutPreset", legacy["clips"][0])
+        screen = [{**self.clips[0], "layout_preset": "screen_explainer_v1", "overlay": None}]
+        props = _input_props(screen, compile_remotion_timeline(screen), plans)
+        self.assertEqual(props["clips"][0]["layoutPreset"], "screen_explainer_v1")
+        self.assertEqual(props["clips"][0]["trimAfterFrame"], legacy["clips"][0]["trimAfterFrame"])
+        document = _timeline_document(production_id=self.production_id, run_id=self.run_id, cache_key="A" * 64, clips=screen)
+        self.assertEqual(document["recipe"]["clips"][0]["layout_preset"], "screen_explainer_v1")
+
+    def test_focus_reaches_renderer_manifest_and_cache_without_rewriting_source(self) -> None:
+        original_bytes = self.source.read_bytes()
+        region = {"x": 0.25, "y": 0.25, "width": 0.5, "height": 0.5}
+        self.clips[0].update(layout_preset="screen_explainer_v1", focus_region=region, overlay=None)
+        self.cache_key = remotion_timeline_cache_key(self.clips, tool_identity=self.tool_identity)
+        first_patch, second_patch = self._patch_worker()
+        with first_patch, second_patch:
+            first = self._generate()
+            second = self._generate()
+        self.assertFalse(first["cache_hit"])
+        self.assertTrue(second["cache_hit"])
+        self.assertEqual(self.node_calls, 1)
+        self.assertEqual(self.node_input_props["clips"][0]["focusRegion"], region)
+        self.assertEqual(self.node_input_props["clips"][0]["trimAfterFrame"], 12)
+        self.assertEqual(self.node_staged_digests, [self.source_digest])
+        self.assertEqual(self.source.read_bytes(), original_bytes)
+        output = self.workspace / first["output_directory"]
+        timeline = json.loads((output / "remotion-timeline.json").read_text(encoding="utf-8"))
+        self.assertEqual(timeline["recipe"]["clips"][0]["focus_region"], region)
+        self.assertEqual(timeline["compiled"]["clips"][0]["focus_region"], region)
+
+    def test_theme_and_closed_font_reach_renderer_manifest_and_cache(self) -> None:
+        self.clips[0].update(layout_preset="screen_explainer_v1", screen_theme="claude_code_v1", overlay=None)
+        self.cache_key = remotion_timeline_cache_key(self.clips, tool_identity=self.tool_identity)
+        first_patch, second_patch = self._patch_worker()
+        with first_patch, second_patch:
+            result = self._generate()
+            self.assertTrue(self._generate()["cache_hit"])
+        self.assertEqual(self.node_calls, 1)
+        self.assertEqual(self.node_input_props["clips"][0]["screenTheme"], "claude_code_v1")
+        self.assertEqual(self.node_staged_font_digest, _sha256(self.screen_font))
+        output = self.workspace / result["output_directory"]
+        timeline = json.loads((output / "remotion-timeline.json").read_text(encoding="utf-8"))
+        manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(timeline["recipe"]["clips"][0]["screen_theme"], "claude_code_v1")
+        self.assertEqual(timeline["compiled"]["clips"][0]["screen_theme"], "claude_code_v1")
+        self.assertEqual(manifest["tool_identity"]["screen_font_asset"]["sha256"], _sha256(self.screen_font))
+        self.assertFalse((output / "template-assets").exists())
+
+    def test_font_changes_after_identity_resolution_fail_before_node(self) -> None:
+        self.clips[0].update(layout_preset="screen_explainer_v1", overlay=None)
+        self.cache_key = remotion_timeline_cache_key(self.clips, tool_identity=self.tool_identity)
+        self.screen_font.write_bytes(b"changed font")
+        first_patch, second_patch = self._patch_worker()
+        with first_patch, second_patch, self.assertRaises(RemotionTimelineError) as raised:
+            self._generate()
+        self.assertEqual(raised.exception.error_code, "tool_changed")
+        self.assertEqual(self.node_calls, 0)
+
+    def test_staged_font_changes_during_node_fail_after_render(self) -> None:
+        self.clips[0].update(layout_preset="screen_explainer_v1", overlay=None)
+        self.cache_key = remotion_timeline_cache_key(self.clips, tool_identity=self.tool_identity)
+        def changing_bounded(arguments, **kwargs):
+            result = self._bounded(arguments, **kwargs)
+            if arguments[0] == "mock-node":
+                request = json.loads(Path(arguments[2]).read_text(encoding="utf-8"))
+                (Path(request["public_dir"]) / "template-assets/NotoSansJP-Variable.ttf").write_bytes(b"tampered font")
+            return result
+        with mock.patch("tools.studio.remotion_timeline._resolve_runtime", self._runtime), mock.patch(
+            "tools.studio.remotion_timeline._bounded_process", changing_bounded,
+        ), self.assertRaises(RemotionTimelineError) as raised:
+            self._generate()
+        self.assertEqual(raised.exception.error_code, "tool_changed")
+
+    def test_source_font_changes_during_node_fail_after_render(self) -> None:
+        self.clips[0].update(layout_preset="screen_explainer_v1", overlay=None)
+        self.cache_key = remotion_timeline_cache_key(self.clips, tool_identity=self.tool_identity)
+        def changing_bounded(arguments, **kwargs):
+            result = self._bounded(arguments, **kwargs)
+            if arguments[0] == "mock-node":
+                self.screen_font.write_bytes(b"changed font")
+            return result
+        with mock.patch("tools.studio.remotion_timeline._resolve_runtime", self._runtime), mock.patch(
+            "tools.studio.remotion_timeline._bounded_process", changing_bounded,
+        ), self.assertRaises(RemotionTimelineError) as raised:
+            self._generate()
+        self.assertEqual(raised.exception.error_code, "tool_changed")
 
     def test_mocked_node_generation_publishes_exact_verified_set_and_hits_cache(self) -> None:
         first_patch, second_patch = self._patch_worker()
@@ -861,10 +974,14 @@ class RemotionTimelineWorkerTests(unittest.TestCase):
                 "api_source",
                 "status_source",
                 "types_source",
+                "screen_themes_source",
+                "screen_typography_source",
+                "screen_font_asset",
+                "screen_font_license",
             },
             set(_FIRST_PARTY_SOURCE_PATHS),
         )
-        for name in ("api_source", "status_source", "types_source"):
+        for name in ("api_source", "status_source", "types_source", "screen_themes_source", "screen_typography_source", "screen_font_asset", "screen_font_license"):
             with self.subTest(name=name):
                 changed_identity = {
                     key: dict(value) for key, value in self.tool_identity.items()

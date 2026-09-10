@@ -29,6 +29,8 @@ from .security import (
     workspace_path,
 )
 from .service import RequestValidationError, StudioService
+from .still_library import StillLibraryError
+from .claude_capture import ClaudeCaptureError
 from .production_intake import (
     MAX_VIDEO_IMPORT_BYTES,
     VIDEO_IMPORT_FILENAME_HEADER,
@@ -50,6 +52,8 @@ _PRODUCTION_DETAIL_RE = re.compile(r"^/api/productions/([^/]+)$")
 _PRODUCTION_IMPORT_VIDEO_RE = re.compile(
     r"^/api/productions/([^/]+)/artifacts/import-video$"
 )
+_CLAUDE_CAPTURE_RE = re.compile(r"^/api/productions/([^/]+)/claude-captures$")
+_CLAUDE_CAPTURE_LOOKUP_RE = re.compile(r"^/api/productions/([^/]+)/claude-captures/([^/]+)$")
 _PRODUCTION_RENAME_RE = re.compile(r"^/api/productions/([^/]+)/library/rename$")
 _PRODUCTION_ARCHIVE_RE = re.compile(r"^/api/productions/([^/]+)/library/archive$")
 _PRODUCTION_DUPLICATE_RE = re.compile(r"^/api/productions/([^/]+)/library/duplicate$")
@@ -608,6 +612,10 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
             self._dispatch_post(path, body)
         except SecurityError:
             self._error(400, "invalid_path", "The requested path is invalid.")
+        except StillLibraryError as exc:
+            self._error(exc.status, exc.code, str(exc))
+        except ClaudeCaptureError as exc:
+            self._error(422, exc.code, "Claudeウィンドウを再確認してください。対象変更・選択期限切れ・撮影エラーの可能性があります。")
         except RequestValidationError as exc:
             if raw_video_request:
                 # A failed verifier may not have consumed the declared body.
@@ -675,6 +683,8 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
                 self._serve_static(path, send_body=send_body)
         except SecurityError:
             self._error(400, "invalid_path", "The requested path is invalid.", send_body=send_body)
+        except StillLibraryError as exc:
+            self._error(exc.status, exc.code, str(exc), send_body=send_body)
         except RequestValidationError as exc:
             self._error(422, exc.code, str(exc), send_body=send_body)
         except KeyError:
@@ -730,6 +740,23 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
         self, path: str, query: dict[str, list[str]], *, send_body: bool
     ) -> None:
         service = self.server.service
+        if path == "/api/stills" or path.startswith("/api/stills/"):
+            if not (tokens_equal(self.server.session_token, self._cookie_token()) or tokens_equal(self.server.session_token, self.headers.get("X-Studio-Token"))):
+                self._error(403, "forbidden", "A valid Studio session is required.", send_body=send_body)
+                return
+            if path == "/api/stills":
+                self._send_json(200, service.stills.list(limit=self._query_integer(query, "limit", 60, minimum=1, maximum=100), offset=self._query_integer(query, "offset", 0, minimum=0, maximum=1000000)), send_body=send_body)
+                return
+            if path == "/api/stills/sources":
+                self._send_json(200, service.stills.sources(), send_body=send_body)
+                return
+            match = re.fullmatch(r"/api/stills/(still_[a-f0-9]{32})(/file)?", path)
+            if match:
+                if match.group(2):
+                    self._send_still_bytes(service.stills.image(match.group(1)), "image/png", match.group(1) + ".png", send_body=send_body)
+                else:
+                    self._send_json(200, service.stills.get(match.group(1)), send_body=send_body)
+                return
         if path == "/api/health":
             self._send_json(200, service.health(), send_body=send_body)
             return
@@ -748,6 +775,14 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
         if path == "/api/jobs":
             limit = self._query_integer(query, "limit", 100, minimum=1, maximum=500)
             self._send_json(200, service.list_jobs(limit=limit), send_body=send_body)
+            return
+        match = _CLAUDE_CAPTURE_LOOKUP_RE.fullmatch(path)
+        if match:
+            job = service.claude_capture_job(match.group(1), match.group(2))
+            if job is None:
+                self._error(404, "not_found", "The capture checkpoint was not found.", send_body=send_body)
+            else:
+                self._send_json(200, job, send_body=send_body)
             return
         if path == "/api/providers/status":
             self._send_json(200, service.providers_status(), send_body=send_body)
@@ -804,8 +839,33 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
             return
         self._error(404, "not_found", "The API endpoint was not found.", send_body=send_body)
 
+    def _send_still_bytes(self, data: bytes, content_type: str, name: str, *, send_body: bool = True) -> None:
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cross-Origin-Resource-Policy", "same-origin")
+        disposition = "attachment" if content_type == "application/zip" else "inline"
+        self.send_header("Content-Disposition", f'{disposition}; filename="{name}"')
+        self._common_headers()
+        self.end_headers()
+        if send_body:
+            self.wfile.write(data)
+
     def _dispatch_post(self, path: str, body: dict[str, Any]) -> None:
         service = self.server.service
+        if path == "/api/stills":
+            self._send_json(202, service.stills.submit(body, session_binding=windows_capture_session_binding_digest(self.server.session_token)))
+            return
+        if path == "/api/stills/terminal/inspect":
+            self._send_json(200, service.stills.inspect_terminal(body, session_binding=windows_capture_session_binding_digest(self.server.session_token)))
+            return
+        match = re.fullmatch(r"/api/stills/(still_[a-f0-9]{32})/(edit|export)", path)
+        if match:
+            if match.group(2) == "edit":
+                self._send_json(200, service.stills.edit(match.group(1), body))
+            else:
+                self._send_still_bytes(service.stills.export(match.group(1), body), "application/zip", match.group(1) + ".zip")
+            return
         session_binding_digest = windows_capture_session_binding_digest(
             self.server.session_token
         )
@@ -826,6 +886,13 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
             return
         if path == "/api/capabilities/windows-capture/inspect":
             self._send_json(200, service.inspect_windows_capture_capability(body))
+            return
+        if path == "/api/capabilities/claude-capture/inspect":
+            self._send_json(200, service.inspect_claude_capture(body, session_binding_digest=session_binding_digest))
+            return
+        match = _CLAUDE_CAPTURE_RE.fullmatch(path)
+        if match:
+            self._send_json(202, service.execute_claude_capture(match.group(1), body, session_binding_digest=session_binding_digest))
             return
         if path == "/api/index/refresh":
             self._send_json(202, service.refresh_index())
@@ -1200,6 +1267,9 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header(
             "Content-Type",
+            # Windows registry MIME mappings can omit the bundled TTF type.
+            # Keep font delivery deterministic under the existing nosniff policy.
+            "font/ttf" if candidate.suffix.casefold() == ".ttf" else
             mimetypes.guess_type(candidate.name)[0] or "application/octet-stream",
         )
         self.send_header("Content-Length", str(len(content)))

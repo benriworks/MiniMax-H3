@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "production_id": "production_18812c9ff18e4955858700ee7815f678",
+  "recipe_id": "announcement_20260906c1a0de000000000000000001",
+  "expected_revision": 3,
+  "timeout_seconds": 1800,
+  "recipe": {
+    "schema_version": 1,
+    "name": "Claude Desktop：告知文を3案、最後は自分で確認",
+    "template_preset": "screen_explainer_ja_v1",
+    "scenes": [
+      {
+        "role": "hook",
+        "video_artifact_id": "art_9e344d7299e339f7781c17d5832985dc",
+        "start_ms": 0,
+        "end_ms": 7000,
+        "volume_percent": 0,
+        "visual_preset": "preserve_v1",
+        "headline": "Claude Desktop\n告知文を３案",
+        "narration": "条件を添えて、三案まとめて依頼。"
+      },
+      {
+        "role": "message",
+        "video_artifact_id": "art_9e344d7299e339f7781c17d5832985dc",
+        "start_ms": 15000,
+        "end_ms": 22000,
+        "volume_percent": 0,
+        "visual_preset": "preserve_v1",
+        "headline": "回答を確認\n使いたい表現を選ぶ",
+        "narration": "候補が出たら、使う表現を選びます。",
+        "focus_region": {"x": 0.145, "y": 0.319, "width": 0.68, "height": 0.2}
+      },
+      {
+        "role": "cta",
+        "video_artifact_id": "art_9e344d7299e339f7781c17d5832985dc",
+        "start_ms": 23000,
+        "end_ms": 30000,
+        "volume_percent": 0,
+        "visual_preset": "preserve_v1",
+        "headline": "日付・文字数は\n最後に自分で確認",
+        "narration": "最後は、日付と文字数を確認。",
+        "focus_region": {"x": 0.18, "y": 0.324, "width": 0.4, "height": 0.2}
+      }
+    ],
+    "voice": "Microsoft Sayaka",
+    "rate": 0,
+    "pronunciations": [],
+    "include_captioned": true,
+    "caption_style_preset": "shorts_ja_large_v1",
+    "audio_mix_preset": "narration_only_v1",
+    "variant": "captioned"
+  },
+  "metadata": {
+    "title": "Claude Desktopで告知文を3案｜条件を添える・最後は確認",
+    "description": "Claude Desktopの実画面を使った21秒の操作解説です。架空カフェ「こもれび珈琲」を題材に、条件を添えて告知文を3案依頼し、回答を確認します。\n\n0:00 条件を添えて依頼\n0:07 回答から表現を選ぶ\n0:14 日付・文字数を自分で確認\n\n依頼の送信は1件のみ。収録は回答取得後の実画面で、読み待ちの時間やスクロールの一部を編集しています。UI文字の差し替えやAIによる画面生成は行っていません。架空店舗の制作例であり、実際の出店告知ではありません。AIの回答は指定条件を満たすとは限りません。公開前に事実・文字数・表現を確認してください。\n\n映像：Claude Desktop実ウィンドウ収録。編集・見出し・字幕：Studio／Remotion／FFmpeg。ナレーション：Windows SAPI Microsoft Sayaka（音質は試聴確認待ち）。BGMなし。Anthropic公式動画ではありません。\n\n#Claude #ClaudeDesktop #生成AI"
+  }
+}
