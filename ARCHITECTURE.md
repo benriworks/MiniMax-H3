@@ -1,5 +1,15 @@
 # Architecture
 
+## 撮影手順ライブラリ（2026-09-10）
+
+`StillPlans`を`StillLibrary.plans`として追加。schema 12の`still_plan_versions`はplan ID・版・一意なoperation ID・要求digest・JSON payloadの追記専用テーブル。DDLを既存migration transactionに含め、schema更新失敗時は一緒にrollbackする。保存はexpected revisionを照合し、同一操作の再送は重複版を作らない。更新／削除をDB triggerで拒否する。
+
+1〜12場面の見出し・説明・撮影条件と、任意の完成画像ID／メモ版を保存。native sourceはkindのみ保存でき、token・HWND・コマンド・許可の永続化は禁止。Web撮影条件は既存validatorを通す。画像割り当ては同じDB write transactionで成功状態と版を照合する。手順の複製は新ID・新step IDとし、画像割り当てを外す。
+
+`StillPlanPanel`は手動保存・並べ替え・複製・選択画像の割り当て・既存撮影フォームへの条件読み込みを担当。読み込み時に許可とnative selectorをリセットし、撮影は自動開始しない。未保存変更は閉じる／切替／ブラウザ離脱で警告する。通信応答が不明ならopaqueなplan IDのみをlocalStorageに残してGETで確認し、自動再POSTしない。保存手順一覧は最新200件。公開APIは既存Studio認証配下の`/api/still-plans`と`/api/still-plans/<id>`。
+
+実UI＋実HTTP／SQLiteの隔離試験で保存・並べ替え・準備時に撮影されないこと・reload・複製・390px表示を確認。既存撮影と同様、通常Studio DBは試験対象にしない。
+
 ## Windows Terminal静止画アダプター（2026-09-10）
 
 `terminal_capture.py`の`TerminalStillController`を静止画ライブラリの`source.kind=terminal`として接続。Claude Code CLIの画面素材用だが、CLIの起動・コマンド送信・実行状態の判定はしない。実際の対象は利用者が選択したWindows Terminalウィンドウ全体。Microsoft Store安定版のpackage family／full name／AUMID／パッケージ内実行ファイル位置／ウィンドウclassを確認し、Preview・unpackaged・従来console hostは対象外とする。

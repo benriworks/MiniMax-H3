@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { api } from './api';
 import ClaudeStillSelector from './ClaudeStillSelector';
+import StillPlanPanel from './StillPlanPanel';
 import { stillApi, stillId, StillApiError, STILL_PENDING_KEY, type StillImage, type StillSource } from './stillLibraryApi';
 import './stillLibrary.css';
 
@@ -15,6 +16,9 @@ export default function StillLibraryPanel({ onClose }: { onClose: () => void }) 
   const loading = useRef(false);
   const sending = useRef(false);
   const editorDirty = useRef(false);
+  const planDirty = useRef(false);
+  const setPlanDirty = useCallback((value: boolean) => { planDirty.current = value; }, []);
+  const [showPlans, setShowPlans] = useState(false);
   const requestController = useRef<AbortController | null>(null);
   const [items, setItems] = useState<StillImage[]>([]);
   const [total, setTotal] = useState(0);
@@ -77,7 +81,7 @@ export default function StillLibraryPanel({ onClose }: { onClose: () => void }) 
   }, [pending, unresolved, refresh]);
 
   const close = () => {
-    if ((title || memo || editorDirty.current) && !window.confirm('未保存の名前・メモを破棄して閉じますか？保存済みの画像と処理中の撮影は残ります。')) return;
+    if ((title || memo || editorDirty.current || planDirty.current) && !window.confirm('未保存の名前・メモ・撮影手順を破棄して閉じますか？保存済みの画像と処理中の撮影は残ります。')) return;
     onClose();
   };
   const capture = async (event: FormEvent) => {
@@ -124,6 +128,13 @@ export default function StillLibraryPanel({ onClose }: { onClose: () => void }) 
   return <dialog ref={dialog} className="still-library" aria-labelledby="still-library-title" onCancel={(event) => { event.preventDefault(); close(); }}>
     <header className="still-header"><div><p className="still-eyebrow">ASSET LIBRARY / 静止画素材</p><h2 id="still-library-title">静止画ライブラリ</h2><p>動画を作らずに、記事・画面解説の素材を集める。</p></div><button type="button" className="button button-secondary" onClick={close}>閉じる</button></header>
     <div className="still-notices" aria-live="polite">{error && <p role="alert" className="still-error">{error}</p>}{notice && <p role="status">{notice}</p>}</div>
+    <div className="still-plan-toggle"><button type="button" className="button button-secondary" aria-expanded={showPlans} onClick={() => { if (showPlans && planDirty.current && !window.confirm('未保存の撮影手順を破棄しますか？')) return; setShowPlans(!showPlans); }}>撮影手順を{showPlans ? '閉じる' : '開く'}</button></div>
+    {showPlans && <StillPlanPanel source={source} selectedImage={selected} locked={busy || pending} onDirty={setPlanDirty} onPrepare={(step) => {
+      if ((title || memo) && !window.confirm('撮影フォームをこの場面の条件に置き換えますか？')) return;
+      setSource(step.source); setTitle(step.title); setMemo(step.memo); setParent(undefined); setConsent(false); setSelectorEpoch((value) => value + 1);
+      setNotice(`「${step.title}」の撮影条件を読み込みました。対象を確認して撮影後、画像をこの場面に割り当ててください。`);
+      dialog.current?.querySelector('.still-capture')?.scrollIntoView({ block: 'start' });
+    }} />}
     {total > 0 && <button type="button" className="button button-secondary still-jump" onClick={() => dialog.current?.querySelector('.still-collection')?.scrollIntoView({ block: 'start' })}>保存画像へ ↓</button>}
     {unresolved && <div className="still-warning">撮影の受付記録がまだ見つかりません。自動で再送はしません。<button type="button" onClick={() => { setUnresolved(false); void refresh(); }}>受付を再確認</button><button type="button" onClick={() => { if (window.confirm('一覧に同じ撮影がないか確認しましたか？遅れて処理が完了する可能性があります。')) { localStorage.removeItem(STILL_PENDING_KEY); setPendingId(''); setUnresolved(false); } }}>確認を解除</button></div>}
     <div className="still-layout">

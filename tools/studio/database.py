@@ -26,7 +26,7 @@ from .security import (
 )
 
 
-SCHEMA_VERSION = 11
+SCHEMA_VERSION = 12
 MAX_EVENT_LINE_BYTES = 2 * 1024 * 1024
 MAX_ANNOUNCEMENT_RECIPE_BYTES = 256 * 1024
 _RUN_EXECUTION_PROFILES = {
@@ -838,6 +838,8 @@ class StudioDatabase:
             # retried instead of being advertised as complete.
             connection.execute("BEGIN IMMEDIATE")
             try:
+                from .still_plans import install_schema as install_still_plans_schema
+                install_still_plans_schema(connection)
                 connection.execute("""
                     CREATE TABLE IF NOT EXISTS still_images (
                         id TEXT PRIMARY KEY,

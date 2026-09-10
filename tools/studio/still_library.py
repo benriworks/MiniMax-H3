@@ -88,6 +88,8 @@ class StillLibrary:
         self.claude_controller = claude_controller
         from .terminal_capture import TerminalStillController
         self.terminal_controller = TerminalStillController(workspace)
+        from .still_plans import StillPlans
+        self.plans = StillPlans(self)
 
     def inspect_terminal(self, body, *, session_binding):
         if not isinstance(body, dict) or body:

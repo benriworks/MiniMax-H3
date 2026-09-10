@@ -21,6 +21,7 @@ async function response(path: string, body?: unknown, signal?: AbortSignal) {
   return result;
 }
 async function json<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> { return (await response(path, body, signal)).json(); }
+export { json as stillJson, response as stillResponse };
 export const stillApi = {
   list: (offset = 0, signal?: AbortSignal) => json<{ items: StillImage[]; total: number }>(`/api/stills?limit=60&offset=${offset}`, undefined, signal),
   sources: (signal?: AbortSignal) => json<{ items: { id: string; name: string }[] }>('/api/stills/sources', undefined, signal),

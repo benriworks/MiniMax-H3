@@ -1,5 +1,22 @@
 # Architecture diagram
 
+## 保存可能な撮影手順（2026-09-10）
+
+```mermaid
+flowchart LR
+    PlanUI[場面を追加・並べ替え・複製] --> API[認証済み手順API]
+    API --> CAS[操作ID再送照合 + expected revision]
+    CAS --> DB[(schema12 / 追記専用still_plan_versions)]
+    PlanUI --> Prepare[保存済み場面の撮影準備]
+    Prepare --> Reset[既存撮影フォーム / tokenと許可をリセット]
+    Reset --> Manual[利用者が対象確認・撮影許可]
+    Manual --> Library[既存静止画ライブラリ]
+    Library --> Assign[画像ID・メモ版を場面へ割り当て]
+    Assign --> API
+```
+
+手順は実行スクリプトではない。保存・準備・複製だけでは画像取得や外部API課金は発生しない。
+
 ## CLI素材用Terminalアダプター（2026-09-10）
 
 ```mermaid
