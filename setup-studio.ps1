@@ -104,6 +104,17 @@ if (($env:OS -eq 'Windows_NT') -and (Test-Path -LiteralPath $windowsCaptureProje
             catch {
                 Write-Warning 'The optional Windows capture capability helper could not be built. Core Studio setup will continue; the capture tab will report the capability as blocked.'
             }
+            $claudeControlProject = Join-Path $projectRoot 'native\claude-control-helper\claude-control-helper.csproj'
+            if (Test-Path -LiteralPath $claudeControlProject -PathType Leaf) {
+                try {
+                    Invoke-External -FilePath $dotnetCommand.Source `
+                        -ArgumentList @('build', $claudeControlProject, '--configuration', 'Release', '--nologo', '-p:RestoreLockedMode=true') `
+                        -Description 'Build the optional Claude preparation helper (does not operate apps)'
+                }
+                catch {
+                    Write-Warning 'The optional Claude preparation helper could not be built. Existing capture remains available; automatic preparation will be blocked.'
+                }
+            }
         }
     }
 }

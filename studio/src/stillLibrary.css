@@ -43,3 +43,23 @@
 .still-pack-grid img { display: block; width: 100%; height: 150px; object-fit: contain; background: #081117; margin: 12px 0; }
 .still-pack-grid p { white-space: pre-wrap; }.still-pack-grid a { color: #9edcd5; }
 @media (max-width: 800px) { .still-plans { margin: 12px; padding: 14px; } }
+.still-guided, .still-capture-review { padding: 20px; border: 1px solid #578e98; border-radius: 12px; background: #102631; margin: 16px 0; }
+.still-guided p { font-size: .85rem; line-height: 1.6; }
+.still-comparison-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin: 20px 0; }
+.still-comparison-grid figure { margin: 0; padding: 16px; min-width: 0; border: 1px solid #3f5965; border-radius: 10px; background: #0c1922; overflow-wrap: anywhere; }
+.still-comparison-grid figcaption { font-weight: 700; margin-bottom: 12px; }
+.still-comparison-grid img { width: 100%; height: 280px; object-fit: contain; background: #050b10; margin-bottom: 12px; }
+.still-comparison-memo { white-space: pre-wrap; }
+@media (max-width: 640px) { .still-comparison-grid { grid-template-columns: 1fr; } .still-comparison-grid img { height: 220px; } }
+.claude-control { margin: 1rem 1.5rem; border: 1px solid var(--border, #465363); border-radius: 12px; padding: 1rem; }
+.claude-control-body { display: grid; gap: .8rem; max-width: 850px; }
+.claude-control-body fieldset { display: grid; gap: .75rem; border: 0; padding: 0; min-width: 0; }
+.claude-control-body label { display: grid; gap: .4rem; }
+.claude-control-body label.still-check { display: flex; }
+.claude-control-body textarea, .claude-control-body select { max-width: 100%; width: 100%; min-width: 0; box-sizing: border-box; }
+.claude-control-body li { overflow-wrap: anywhere; margin: .6rem 0; }
+.claude-control-diagnostics { border: 1px solid #55727d; border-radius: 10px; padding: 16px; background: #102831; font-size: 13px; line-height: 1.7; min-width: 0; overflow-wrap: anywhere; }
+.claude-control-diagnostics h4 { margin: 0 0 8px; font-size: 16px; }.claude-control-diagnostics ol { padding-left: 1.5em; }
+.claude-control-capabilities { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+.claude-control-capabilities > div { background: #0b1b23; border-radius: 6px; padding: 10px; }.claude-control-capabilities dt { color: #adbdc7; }.claude-control-capabilities dd { margin: 4px 0 0; color: #b7efdf; font-weight: 700; }
+@media (max-width: 600px) { .claude-control { margin: .5rem; padding: .8rem; } }

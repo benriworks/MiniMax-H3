@@ -702,6 +702,8 @@ class StudioService:
         self._windows_capture_submit_lock = threading.Lock()
         self._claude_capture = ClaudeCaptureService(self.workspace, self.database, self.jobs, self._windows_capture_submit_lock)
         self.stills = StillLibrary(self.workspace, self.database, self.jobs, claude_controller=self._claude_capture.controller, submit_lock=self._windows_capture_submit_lock)
+        from .claude_control import ClaudeControl
+        self.claude_control = ClaudeControl(self.stills)
         self._production_intake_lock = threading.Lock()
         self._pipeline_capability = object()
         self._announcement_narration_timing_capability = object()

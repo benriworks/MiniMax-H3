@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { api } from './api';
 import ClaudeStillSelector from './ClaudeStillSelector';
+import ClaudeControlPanel from './ClaudeControlPanel';
 import StillPlanPanel from './StillPlanPanel';
-import { stillApi, stillId, StillApiError, STILL_PENDING_KEY, type StillImage, type StillSource } from './stillLibraryApi';
+import StillCaptureReview from './StillCaptureReview';
+import { planApi, type StillPlan } from './stillPlanApi';
+import { stillApi, stillId, StillApiError, STILL_PENDING_KEY, type StillImage, type StillSource, type PlanCaptureContext } from './stillLibraryApi';
 import './stillLibrary.css';
 
 const freshSource = (): StillSource => ({ kind: 'web', url: 'http://127.0.0.1:3000/', viewport: 'desktop', area: 'viewport', selector: '' });
@@ -17,7 +20,17 @@ export default function StillLibraryPanel({ onClose }: { onClose: () => void }) 
   const sending = useRef(false);
   const editorDirty = useRef(false);
   const planDirty = useRef(false);
-  const setPlanDirty = useCallback((value: boolean) => { planDirty.current = value; }, []);
+  const controlDirty = useRef(false);
+  const [controlBusy, setControlBusy] = useState(false);
+  const setControlDirty = useCallback((value: boolean) => { controlDirty.current = value; }, []);
+  const controlChanged = useCallback(() => { setSource((old) => old.kind === 'claude' ? { kind: 'claude' } : old); setConsent(false); setSelectorEpoch((value) => value + 1); }, []);
+  const [planIsDirty, setPlanIsDirty] = useState(false), [editorIsDirty, setEditorIsDirty] = useState(false);
+  const [planBusy, setPlanBusy] = useState(false);
+  const setPlanDirty = useCallback((value: boolean) => { planDirty.current = value; setPlanIsDirty(value); }, []);
+  const setEditorDirty = useCallback((value: boolean) => { editorDirty.current = value; setEditorIsDirty(value); }, []);
+  const [guided, setGuided] = useState<PlanCaptureContext>();
+  const [adoptedPlan, setAdoptedPlan] = useState<StillPlan>();
+  const onAdopted = useCallback((plan: StillPlan) => { setAdoptedPlan(plan); setGuided(undefined); setShowPlans(true); }, []);
   const [showPlans, setShowPlans] = useState(false);
   const requestController = useRef<AbortController | null>(null);
   const [items, setItems] = useState<StillImage[]>([]);
@@ -59,7 +72,7 @@ export default function StillLibraryPanel({ onClose }: { onClose: () => void }) 
           setUnresolved(false);
           if (!active(receipt)) {
             localStorage.removeItem(STILL_PENDING_KEY); setPendingId('');
-            if (receipt.ready) { if (!editorDirty.current) setSelected(receipt); setNotice('静止画を保存しました。元の画像は上書きしていません。'); }
+            if (receipt.ready) { if (!editorDirty.current) setSelected(receipt); setNotice(receipt.plan_capture ? '場面用の静止画を保存しました。比較して採用すると手順が更新されます。' : '静止画を保存しました。元の画像は上書きしていません。'); }
             else setError(receipt.source.kind === 'claude' ? 'Claude撮影は失敗または中断しました。ウィンドウの移動・最小化・選択期限を確認し、対象を選び直してください。' : '撮影は失敗または中断しました。URL・ページの読み込み・撮影範囲を確認して、新規撮影してください。');
           }
         } catch (failure) {
@@ -80,23 +93,24 @@ export default function StillLibraryPanel({ onClose }: { onClose: () => void }) 
     return () => window.clearInterval(timer);
   }, [pending, unresolved, refresh]);
 
+  const mayChangeSource = (kind: StillSource['kind']) => kind === 'claude' || !controlDirty.current || window.confirm('Claude用の未保存の入力文を破棄して、撮影元を切り替えますか？');
   const close = () => {
-    if ((title || memo || editorDirty.current || planDirty.current) && !window.confirm('未保存の名前・メモ・撮影手順を破棄して閉じますか？保存済みの画像と処理中の撮影は残ります。')) return;
+    if ((title || memo || editorDirty.current || planDirty.current || controlDirty.current) && !window.confirm('未保存の名前・メモ・撮影手順・入力文を破棄して閉じますか？保存済みの画像と処理中の撮影・操作は残ります。')) return;
     onClose();
   };
   const capture = async (event: FormEvent) => {
-    event.preventDefault(); if (busy || pending || (source.kind === 'claude' && !source.selection_token)) return;
+    event.preventDefault(); if (busy || pending || controlBusy || ((source.kind === 'claude' || source.kind === 'terminal') && !source.selection_token)) return;
     const id = stillId('still');
     sending.current = true;
     setBusy(true); setError(''); setNotice('');
     try {
       // Persist only an opaque receipt ID, before sending. No URL or page text.
       localStorage.setItem(STILL_PENDING_KEY, id); setPendingId(id);
-      const item = await stillApi.submit({ id, title, memo, source, parent_id: parent?.id ?? null, confirm_capture: consent });
+      const item = guided ? await planApi.capture(guided, id, source.kind === 'claude' || source.kind === 'terminal' ? source.selection_token : undefined, consent) : await stillApi.submit({ id, title, memo, source, parent_id: parent?.id ?? null, confirm_capture: consent });
       if (!alive.current) return;
       setUnresolved(false);
       setItems((previous) => [item, ...previous.filter((entry) => entry.id !== id)]);
-      setTitle(''); setMemo(''); setParent(undefined); setConsent(false); setOffset(0);
+      setTitle(''); setMemo(''); setParent(undefined); setGuided(undefined); setConsent(false); setOffset(0);
       setNotice('処理を開始しました。この画面を閉じても撮影は続きます。');
     } catch (failure) {
       if (failure instanceof StillApiError && failure.status < 500) { localStorage.removeItem(STILL_PENDING_KEY); setPendingId(''); }
@@ -118,7 +132,9 @@ export default function StillLibraryPanel({ onClose }: { onClose: () => void }) 
     finally { if (alive.current) setBusy(false); }
   };
   const retake = (item: StillImage) => {
+    if (controlBusy || !mayChangeSource(item.source.kind)) return;
     if ((title || memo) && !window.confirm('入力中の撮影条件を、この画像の条件に置き換えますか？')) return;
+    setGuided(undefined);
     setSource(item.source); setTitle(`${item.title.slice(0, 112)}・撮り直し`); setMemo(item.memo); setParent(item); setConsent(false);
     setSelectorEpoch((value) => value + 1);
     setNotice(item.source.kind === 'claude' || item.source.kind === 'terminal' ? '撮り直し元を設定しました。ウィンドウを再確認し、対象を選び直してください。' : '同じ条件を読み込みました。必要ならURLや範囲を変更して撮影してください。');
@@ -129,27 +145,34 @@ export default function StillLibraryPanel({ onClose }: { onClose: () => void }) 
     <header className="still-header"><div><p className="still-eyebrow">ASSET LIBRARY / 静止画素材</p><h2 id="still-library-title">静止画ライブラリ</h2><p>動画を作らずに、記事・画面解説の素材を集める。</p></div><button type="button" className="button button-secondary" onClick={close}>閉じる</button></header>
     <div className="still-notices" aria-live="polite">{error && <p role="alert" className="still-error">{error}</p>}{notice && <p role="status">{notice}</p>}</div>
     <div className="still-plan-toggle"><button type="button" className="button button-secondary" aria-expanded={showPlans} onClick={() => { if (showPlans && planDirty.current && !window.confirm('未保存の撮影手順を破棄しますか？')) return; setShowPlans(!showPlans); }}>撮影手順を{showPlans ? '閉じる' : '開く'}</button></div>
-    {showPlans && <StillPlanPanel source={source} selectedImage={selected} locked={busy || pending} onDirty={setPlanDirty} onPrepare={(step) => {
+    {showPlans && <StillPlanPanel source={source} selectedImage={selected} locked={busy || pending || controlBusy} onDirty={setPlanDirty} adoptedPlan={adoptedPlan} onActivity={setPlanBusy} onPrepare={(step, plan) => {
+      if (!mayChangeSource(step.source.kind)) return;
       if ((title || memo) && !window.confirm('撮影フォームをこの場面の条件に置き換えますか？')) return;
       setSource(step.source); setTitle(step.title); setMemo(step.memo); setParent(undefined); setConsent(false); setSelectorEpoch((value) => value + 1);
-      setNotice(`「${step.title}」の撮影条件を読み込みました。対象を確認して撮影後、画像をこの場面に割り当ててください。`);
+      setGuided({ plan_id: plan.id, plan_revision: plan.revision, step_id: step.id });
+      setNotice(`「${step.title}」に紐づけて撮影します。撮影後に画像を比較し、採用してください。`);
       dialog.current?.querySelector('.still-capture')?.scrollIntoView({ block: 'start' });
     }} />}
     {total > 0 && <button type="button" className="button button-secondary still-jump" onClick={() => dialog.current?.querySelector('.still-collection')?.scrollIntoView({ block: 'start' })}>保存画像へ ↓</button>}
     {unresolved && <div className="still-warning">撮影の受付記録がまだ見つかりません。自動で再送はしません。<button type="button" onClick={() => { setUnresolved(false); void refresh(); }}>受付を再確認</button><button type="button" onClick={() => { if (window.confirm('一覧に同じ撮影がないか確認しましたか？遅れて処理が完了する可能性があります。')) { localStorage.removeItem(STILL_PENDING_KEY); setPendingId(''); setUnresolved(false); } }}>確認を解除</button></div>}
+    {source.kind === 'claude' && <ClaudeControlPanel locked={busy || pending || planBusy} onActivity={setControlBusy} onChanged={controlChanged} onDirty={setControlDirty} />}
     <div className="still-layout">
       <form onSubmit={(event) => void capture(event)} className="still-capture">
         <h3>01　素材を追加</h3><p className="still-muted">{source.kind === 'claude' || source.kind === 'terminal' ? '選択したウィンドウだけを取得します。対象の移動・サイズ変更などがあれば停止し、全画面撮影には切り替えません。' : 'ログイン済みブラウザは操作しません。外部通信や読み込みエラーのあるページは撮影失敗になります。'}</p>
-        <fieldset disabled={busy || pending}>
-          <label>撮影元<select value={source.kind} onChange={(event) => { setSource(event.target.value === 'web' ? freshSource() : event.target.value === 'claude' || event.target.value === 'terminal' ? { kind: event.target.value } : { kind: 'artifact', artifact_id: '' }); setConsent(false); }}><option value="web">ローカルWebを1枚撮影</option><option value="claude">Claudeウィンドウを1枚撮影</option><option value="terminal">Claude Code CLI用 — Windows Terminalを撮影</option><option value="artifact">登録済みPNGを取り込む</option></select></label>
+        <fieldset disabled={busy || pending || controlBusy}>
+          {guided && <div className="still-guided" role="status"><strong>場面用の撮影：{title}</strong><p>手順 版{guided.plan_revision}の条件を使用します。ウィンドウの選択と撮影許可は毎回必要です。条件を変更する場合は手順を編集し、再度準備してください。</p><button type="button" onClick={() => { setGuided(undefined); setConsent(false); }}>場面への紐づけを外す</button></div>}
+          <fieldset disabled={!!guided}>
+          <label>撮影元<select value={source.kind} onChange={(event) => { if (!mayChangeSource(event.target.value as StillSource['kind'])) return; setSource(event.target.value === 'web' ? freshSource() : event.target.value === 'claude' || event.target.value === 'terminal' ? { kind: event.target.value } : { kind: 'artifact', artifact_id: '' }); setConsent(false); }}><option value="web">ローカルWebを1枚撮影</option><option value="claude">Claudeウィンドウを1枚撮影</option><option value="terminal">Claude Code CLI用 — Windows Terminalを撮影</option><option value="artifact">登録済みPNGを取り込む</option></select></label>
           {source.kind === 'web' ? <>
             <label>ローカルURL<input type="url" required value={source.url} onChange={(event) => setSource({ ...source, url: event.target.value })} placeholder="http://127.0.0.1:3000/" /></label>
             <label>画面サイズ<select value={source.viewport} onChange={(event) => setSource({ ...source, viewport: event.target.value as 'desktop' | 'mobile' })}><option value="desktop">PC — 1440 × 900</option><option value="mobile">モバイル幅 — 390 × 844</option></select></label>
             <label>撮影範囲<select value={source.area} onChange={(event) => setSource({ ...source, area: event.target.value as 'viewport' | 'fullpage' | 'element', selector: '' })}><option value="viewport">表示領域</option><option value="fullpage">ページ全体</option><option value="element">指定要素（CSS）</option></select></label>
             {source.area === 'element' && <label>CSSセレクター<input required maxLength={200} placeholder="#main-content" value={source.selector} onChange={(event) => setSource({ ...source, selector: event.target.value })} /></label>}
-          </> : source.kind === 'claude' || source.kind === 'terminal' ? <ClaudeStillSelector key={`${source.kind}:${selectorEpoch}`} kind={source.kind} value={source.selection_token} onSelect={source.kind === 'terminal' ? selectTerminal : selectClaude} /> : <label>登録済みPNG<select aria-label="登録済みPNG" required value={source.artifact_id} onChange={(event) => setSource({ ...source, artifact_id: event.target.value })}><option value="">選択してください</option>{sources.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}（{entry.id.slice(-8)}）</option>)}</select><small>インデックス登録済みの最新500件。Claude収録時のPNGも対象です。</small></label>}
+          </> : source.kind === 'claude' || source.kind === 'terminal' ? null : <label>登録済みPNG<select aria-label="登録済みPNG" required value={source.artifact_id} onChange={(event) => setSource({ ...source, artifact_id: event.target.value })}><option value="">選択してください</option>{sources.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}（{entry.id.slice(-8)}）</option>)}</select><small>インデックス登録済みの最新500件。Claude収録時のPNGも対象です。</small></label>}
           <label>画像名<input id="still-new-title" required maxLength={120} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="例：Claudeの回答画面" /></label>
           <label>メモ<textarea aria-label="メモ" maxLength={4000} rows={3} value={memo} onChange={(event) => setMemo(event.target.value)} placeholder="用途・見せたい部分・撮影条件など" /></label>
+          </fieldset>
+          {(source.kind === 'claude' || source.kind === 'terminal') && <ClaudeStillSelector key={`${source.kind}:${selectorEpoch}`} kind={source.kind} value={source.selection_token} onSelect={source.kind === 'terminal' ? selectTerminal : selectClaude} />}
           {parent && <p className="still-parent">撮り直し元：{parent.title}<button type="button" onClick={() => setParent(undefined)}>関連を外す</button></p>}
           <label className="still-check"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} required />対象・機密情報を確認しました。撮影／コピーを許可します。</label>
           <button type="submit" className="button button-primary" disabled={!consent || !title.trim() || ((source.kind === 'claude' || source.kind === 'terminal') && !source.selection_token)}>{pending ? '処理中…' : source.kind === 'artifact' ? 'PNGをコピーして保存' : '1枚撮影して保存'}</button>
@@ -157,19 +180,21 @@ export default function StillLibraryPanel({ onClose }: { onClose: () => void }) 
       </form>
       <section className="still-collection" aria-label="保存した静止画">
         <div className="still-toolbar"><h3>02　確認・取り出す <small>{total}枚</small></h3><button type="button" className="button button-secondary" onClick={() => void refresh()}>一覧を更新</button></div>
+        {selected?.ready && selected.plan_capture && <button type="button" className="button button-secondary still-jump" onClick={() => dialog.current?.querySelector('.still-capture-review')?.scrollIntoView({ block: 'start' })}>この場面の比較へ ↓</button>}
         <label>このページの画像名・メモで絞り込み<input type="search" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
         {items.length === 0 && <div className="still-empty"><strong>まだ素材がありません</strong><p>左のフォームから最初の1枚を追加してください。<br />元画像を残したまま、撮り直しとメモを管理できます。</p></div>}
         <div className="still-grid">{items.filter((item) => `${item.title} ${item.memo}`.toLocaleLowerCase().includes(query.toLocaleLowerCase())).map((item) => <article key={item.id} className={`still-card ${selected?.id === item.id ? 'is-selected' : ''}`}>
           <button type="button" className="still-card-select" disabled={busy || !item.ready} onClick={() => void select(item)} aria-label={`${item.title}を確認`}>
             {item.ready ? <img src={item.image_url} alt={item.title} loading="lazy" /> : <div className="still-placeholder">{statusLabel(item)}</div>}
-            <strong>{item.title}</strong><span>{statusLabel(item)}{item.media ? ` · ${item.media.width} × ${item.media.height}` : ''}{item.parent_id ? ' · 撮り直し' : ''}</span>
+            <strong>{item.title}</strong><span>{statusLabel(item)}{item.media ? ` · ${item.media.width} × ${item.media.height}` : ''}{item.parent_id ? ' · 撮り直し' : ''}{item.plan_capture ? ' · 場面用' : ''}</span>
           </button>
           {active(item) && <button type="button" disabled={busy} onClick={async () => { setBusy(true); try { await api.cancelJob(item.job_id); await refresh(); } catch (failure) { setError(message(failure)); } finally { setBusy(false); } }}>撮影を停止</button>}
         </article>)}</div>
         {total > 60 && <nav aria-label="静止画のページ"><button disabled={!offset} onClick={() => setOffset(Math.max(0, offset - 60))}>前へ</button><span>{offset + 1}–{Math.min(offset + 60, total)} / {total}</span><button disabled={offset + 60 >= total} onClick={() => setOffset(offset + 60)}>次へ</button></nav>}
-        {selected?.ready && <StillEditor key={`${selected.id}:${selected.revision}:${editorEpoch}`} item={selected} locked={busy} onRetake={retake} onDirty={(dirty) => { editorDirty.current = dirty; }} onReload={() => void select(selected)} onSaved={(item) => { editorDirty.current = false; setSelected(item); void refresh(); }} />}
+        {selected?.ready && <StillEditor key={`${selected.id}:${selected.revision}:${editorEpoch}`} item={selected} locked={busy || controlBusy} onRetake={retake} onDirty={setEditorDirty} onReload={() => void select(selected)} onSaved={(item) => { setEditorDirty(false); setSelected(item); void refresh(); }} />}
       </section>
     </div>
+    {selected?.ready && selected.plan_capture && <StillCaptureReview key={`${selected.id}:${selected.revision}`} item={selected} locked={busy || pending || planIsDirty || editorIsDirty || planBusy || controlBusy} onBusy={setBusy} onAdopted={onAdopted} />}
     <footer className="still-footer">PNG原本・SHA-256・編集履歴をローカル保存。Claude公式MSIX版／Windows Terminal安定版に対応。CLIの自動操作・Codexデスクトップ対応は未実装です。自動公開は行いません。</footer>
   </dialog>;
 }

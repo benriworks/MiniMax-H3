@@ -740,12 +740,27 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
         self, path: str, query: dict[str, list[str]], *, send_body: bool
     ) -> None:
         service = self.server.service
-        if path == "/api/still-plans" or path.startswith("/api/still-plans/"):
+        if path == "/api/still-plans" or path.startswith("/api/still-plans/") or path == "/api/claude-control" or path.startswith("/api/claude-control/"):
             if not (tokens_equal(self.server.session_token, self._cookie_token()) or tokens_equal(self.server.session_token, self.headers.get("X-Studio-Token"))):
                 self._error(403, "forbidden", "A valid Studio session is required.", send_body=send_body)
                 return
+        if path == "/api/claude-control":
+            self._send_json(200, service.claude_control.list(), send_body=send_body)
+            return
+        control_match = re.fullmatch(r"/api/claude-control/(control_[a-f0-9]{32})", path)
+        if control_match:
+            receipt = service.claude_control.get(control_match.group(1))
+            if receipt is None:
+                self._error(404, "not_found", "操作の受付記録がありません。", send_body=send_body)
+            else:
+                self._send_json(200, receipt, send_body=send_body)
+            return
         if path == "/api/still-plans":
             self._send_json(200, service.stills.plans.list(), send_body=send_body)
+            return
+        comparison_match = re.fullmatch(r"/api/still-plans/(plan_[a-f0-9]{32})/captures/(still_[a-f0-9]{32})", path)
+        if comparison_match:
+            self._send_json(200, service.stills.plans.comparison(*comparison_match.groups()), send_body=send_body)
             return
         plan_match = re.fullmatch(r"/api/still-plans/(plan_[a-f0-9]{32})(/preview)?", path)
         if plan_match:
@@ -865,6 +880,20 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
 
     def _dispatch_post(self, path: str, body: dict[str, Any]) -> None:
         service = self.server.service
+        if path == "/api/claude-control/inspect":
+            self._send_json(200, service.claude_control.inspect(body, session_binding=windows_capture_session_binding_digest(self.server.session_token)))
+            return
+        if path == "/api/claude-control/actions":
+            self._send_json(202, service.claude_control.submit(body, session_binding=windows_capture_session_binding_digest(self.server.session_token)))
+            return
+        capture_match = re.fullmatch(r"/api/still-plans/(plan_[a-f0-9]{32})/steps/(step_[a-f0-9]{32})/capture", path)
+        if capture_match:
+            self._send_json(202, service.stills.plans.capture(capture_match.group(1), capture_match.group(2), body, session_binding=windows_capture_session_binding_digest(self.server.session_token)))
+            return
+        adoption_match = re.fullmatch(r"/api/still-plans/(plan_[a-f0-9]{32})/captures/(still_[a-f0-9]{32})/adopt", path)
+        if adoption_match:
+            self._send_json(200, service.stills.plans.adopt(*adoption_match.groups(), body))
+            return
         plan_match = re.fullmatch(r"/api/still-plans/(plan_[a-f0-9]{32})(/export)?", path)
         if plan_match:
             if plan_match.group(2):
