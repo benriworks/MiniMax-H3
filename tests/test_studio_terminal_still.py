@@ -74,6 +74,23 @@ class TerminalStillTests(unittest.TestCase):
         self.assertNotIn('private', json.dumps(result)); self.assertNotIn('hwnd', json.dumps(result))
         with self.assertRaises(StillLibraryError): self.library.inspect_terminal({'command': 'claude'}, session_binding=SESSION)
 
+    def test_guided_native_capture_still_requires_fresh_session_bound_selection(self):
+        plan_id, step_id = 'plan_' + uuid.uuid4().hex, 'step_' + uuid.uuid4().hex
+        self.library.plans.save(plan_id, {'operation_id': 'planedit_' + uuid.uuid4().hex, 'expected_revision': 0, 'title': 'CLI記事', 'steps': [
+            {'id': step_id, 'title': '全体像', 'memo': '', 'source': {'kind': 'terminal'}, 'image': None}]})
+        token = self.body()['source']['selection_token']
+        request = {'id': 'still_' + uuid.uuid4().hex, 'expected_revision': 1, 'selection_token': token, 'confirm_capture': True}
+        with self.assertRaises(capture.ClaudeCaptureError): self.library.plans.capture(plan_id, step_id, {**request, 'selection_token': None}, session_binding=SESSION)
+        with self.assertRaises(capture.ClaudeCaptureError): self.library.plans.capture(plan_id, step_id, request, session_binding=OTHER_SESSION)
+        with mock.patch.object(capture.native, '_run_contained_process', side_effect=self.fake_process):
+            item = self.library.plans.capture(plan_id, step_id, request, session_binding=SESSION)
+            self.assertEqual(self.service.jobs.wait(item['job_id'], timeout=10)['status'], 'succeeded')
+        self.assertEqual(self.library.plans.capture(plan_id, step_id, request, session_binding=SESSION)['job_id'], item['job_id'])
+        with self.assertRaises(capture.ClaudeCaptureError): self.library.plans.capture(plan_id, step_id, {**request, 'id': 'still_' + uuid.uuid4().hex}, session_binding=SESSION)
+        self.assertEqual(self.library.plans.get(plan_id)['revision'], 1)
+        self.assertNotIn(token, json.dumps(self.library.get(item['id'])))
+        self.assertEqual(self.library.get(item['id'])['plan_capture']['step_id'], step_id)
+
     def test_source_rejects_commands_handles_and_paths(self):
         source = self.body()['source']
         self.assertEqual(validate_source(source), source)

@@ -4,7 +4,9 @@ export interface StillImage {
   source: StillSource; created_at: string; status: string; ready: boolean; image_url?: string;
   media: { width: number; height: number; bytes: number; sha256: string } | null;
   history?: { revision: number; title: string; memo: string; created_at: string }[];
+  plan_capture?: PlanCaptureContext;
 }
+export interface PlanCaptureContext { plan_id: string; plan_revision: number; step_id: string }
 export interface StillRequest { id: string; title: string; memo: string; parent_id: string | null; source: StillSource; confirm_capture: boolean }
 export const stillId = (prefix: 'still' | 'edit') => `${prefix}_${crypto.randomUUID().replaceAll('-', '')}`;
 export const STILL_PENDING_KEY = 'studio.still-library.pending.v1';

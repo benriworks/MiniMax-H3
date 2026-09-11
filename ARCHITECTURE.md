@@ -1,5 +1,41 @@
 # Architecture
 
+## Claude画面の準備操作（2026-09-12・現行schema 14）
+
+静止画ライブラリに`ClaudeControlPanel`／`claudeControlApi`と`ClaudeControl`サービスを追加。対象は公式Claude MSIX版だけで、Windows Terminal／CLI／Codexは操作しない。利用者が1操作ごとに起動・タブ切替・未送信入力を選択し許可する。撮影手順に自動操作を保存したり、起動→入力→撮影を自動連続実行したりはしない。
+
+`GET /api/claude-control`と`GET .../control_<id>`はStudio session必須。`POST .../inspect`と`POST .../actions`は既存session／origin検証配下。inspectは既存Claude selectorの60秒・session固定tokenを消費し、MSIX identity／PID／開始時刻／ウィンドウの一致を確認する。FlaUI.UIA3 5.0.0のRawViewから、Mode／モード群の上部タブと書込可能な入力欄だけを抽出する。日本語の「チャットと Cowork」「Code、作業中」を閉じた別名として扱う。全文・会話タイトル・runtime ID・native HWND・既存入力のhashはブラウザへ返さず、匿名入力欄名・文字数・相対位置・入力方式のみ表示。操作対象snapshotはvolatile tokenに60秒だけ紐づく。
+
+`native/claude-control-helper`は.NET 8 Windowsコンソールプログラム。起動は固定AUMIDへの`IApplicationActivationManager`要求のみ、引数や任意実行ファイルを受け付けない。タブは`SelectionItemPattern.Select`または許可名の`InvokePattern`。入力は`ValuePattern.SetValue`を優先し、ValuePatternが存在しない場合だけ、LegacyIAccessibleのROLE_SYSTEM_TEXT・focusable・非readonly／非protected等を満たす欄で`SetValue`を選択する。既にValuePatternがreadonlyならLegacyへ迂回しない。送信ボタン・Enter・SendInput・クリップボード・座標fallbackはない。入力は4000 UTF-16 code units以内、LF以外の制御文字を拒否。既存内容があれば明示置換許可が必要。実行直前にidentityとUI snapshot（対象位置・値hash・入力方式・native hostを含む）を再照合し、対象から親ウィンドウまでの可視性・有効状態・所属も検査する。非表示のChat rendererが残る場合を想定し、祖先からのhidden判定を子へ引き継ぐ。ただしUIAには他の人間操作との原子的排他はないので、操作中はClaudeを触らない運用が必要。
+
+UIA3の接続／呼出timeoutは各2秒、最大2500要素・24候補。候補0件の場合だけ300ms後に観察を1回追加し、操作失敗やprovider例外は再試行しない。入力方式は実行前に確定し、書込み後の例外・readback不一致でも別方式へ切り替えない。ヘルパー応答protocol 2をPython境界で検査し、旧buildには更新案内を出す。`packages.lock.json`と`NuGet.Config`で依存を固定し、setupはlocked restoreを要求する。FlaUI／Interopのライセンス通知はhelper出力に同梱する。
+
+`ClaudeControlDiagnostics`はタブ・入力の候補数を別々に表示し、部分対応・候補なしを区別する。inspect応答の診断は固定engine／viewと有界カウンタのみをPythonでallowlistし、候補数との一致も検査する。画面上の直近診断は操作token失効後も説明用に残せるが、操作許可ではない。診断JSONは利用者のクリックで明示的に保存し、全文・window名・パス・ID・tokenを除いた別projectionを使う。自動保存／外部送信／DB追加はない。診断数は原因の断定や実機受入の証拠ではない。
+
+ヘルパーへの文章・identityは有界UTF-8 stdinのみ。既存Windows Job Object封じ込めを再利用し、suspended生成→割当→再開後にstdinを書き、15秒でtimeout。stdout／stderrは上限付きで、provider例外は固定文に置換してからJob記録へ渡す。capturing／controlは同じsubmit lockとcapture laneを共有し、操作受付時と終了時に古い撮影選択を無効化する。操作完了後の撮影は再選択・別許可が必須。
+
+schema 14は追記専用`claude_control_actions`を既存migration transactionに追加。ID・request digest・operation・job ID・文字数・時刻のみをqueue前に保存し、文章・token・UI snapshotは保存しない。UIもlocalStorageにはopaque受付IDだけを保持。応答喪失や再起動はGETによる結果確認だけを行い、自動再実行しない。同じID・同じrequestの再送は既存Jobを返す。失敗・cancel・interrupted・起動要求・照合できないInvoke結果は「実画面確認が必要」で、取り消し／未実行の保証ではない。
+
+実機の受入状態：2026-09-12のComputer Use再観察では、初期はDocument止まりだったがChat画面の描画後にタブ・入力欄が取得できた。Codeへ戻った際に非表示Chat側のtreeが残る挙動も観察した。これはComputer Use経路での観察であり、今回のUIA3ヘルパーによる実入力／実タブ切替／起動の受入は未実施。ネイティブbuild／非操作self-test、合成native境界と実Studio HTTP／SQLite／ブラウザの結合試験は、実Claude操作の成功とは区別する。通常制作DB・実CLI・課金APIは今回の試験に使わない。詳細は[Claude画面操作ガイド](STUDIO_CLAUDE_CONTROL_JA.md)。
+
+## 場面に紐づく撮影と比較・採用（2026-09-11）
+
+静止画ライブラリを二段階拡張した。第一段階は保存済み場面からの撮影、第二段階は旧画像と新画像の比較・明示採用。CLIコマンド実行、Codexデスクトップ、動画生成、課金APIへの接続は増やさない。
+
+`POST /api/still-plans/<plan>/steps/<step>/capture`は画像受付ID・expected revision・一時的な選択token・撮影許可だけを受け付ける。条件はサーバーの保存済み手順版から解決し、クライアントのURLやコマンド上書きは認めない。native撮影では既存のsession／期限／一回限りの選択を再利用する。UIの場面準備は条件欄を固定するが、対象選択・撮影許可は毎回必要。条件変更は手順の再編集・保存・再準備、または明示的な紐づけ解除で行う。
+
+schema 13の追記専用`still_plan_captures`はstill ID・plan ID・plan revision・step IDを保持し、手順版と画像へ外部キーで接続する。Jobのqueue投入前に画像行・初期メモ行・紐づけを同一transactionで保存し、同じwriter lockで手順の最新版を照合する。不一致なら三つの行をrollbackし、Jobはsetup failureで終了して撮影workerを起動しない。Job自体の失敗記録は監査用に残る。DDLとschema versionも同じmigration transaction。撮影要求digestに場面の紐づけを含め、同じ受付IDの異なる場面への再使用を拒否する。
+
+`StillImage.plan_capture`とローカル撮影manifestに紐づけを返すため、画面を閉じたり撮影応答を失ったりしてもstill IDから復元できる。撮影成功は画像公開の境界であり、手順更新の境界ではない。既存画像はparent IDとして保持し、自動採用しない。ブラウザへの受付保存は従来どおりopaque still IDのみ。
+
+`GET /api/still-plans/<plan>/captures/<still>`は撮影時の固定手順版から旧画像ID・メモ版を解決し、新画像の現在メモ版と並べる。比較用snapshotは画像・寸法・hash・固定メモ・手順版を含むが、元URL・選択token・ローカルパスは含めない。旧メモは最新メモへ置換せず履歴から解決。手順が進んでいれば採用済み／再確認必要の理由を表示する。画像差分検出・OCR・公開品質判定は行わない。
+
+`StillCaptureReview`は両PNGの読み込み後のみ確認チェックを許可し、原寸リンクとPC横並び／狭幅縦並びで比較する。画像読み込み失敗・未保存編集・他処理中は採用不可。`POST .../captures/<still>/adopt`は操作ID・expected revision・review digest・明示許可を受ける。DB writer lock内で確認snapshotを再照合し、PNGの完全decode／hashを検証して対象場面のimage参照だけを新しい`still_plan_versions`行へ保存する。同じ操作IDの再送は既存結果を返し、別内容への再使用や競合は409。元PNG・旧手順版は変更しない。
+
+採用応答喪失時は自動POSTせず、画面内の同じ操作IDでの明示再確認またはGETでの採用状況確認を提供。採用requestと許可はブラウザを閉じると失われるが、画像の紐づけと採用済みの手順版はDBに残り、再度画像を選んでGET確認できる。採用成功後は保存済み手順をUIへ反映する。古い手順の候補は強制採用せず、最新手順を読んで既存の手動割り当てを使う。
+
+回帰は`tests/test_studio_still_plans.py`、`tests/test_studio_terminal_still.py`、`studio/tests/still-guided-live.test.mjs`。後者は実Studio／SQLite／ChromiumでローカルHTMLを撮影し、撮影応答喪失・再読み込み・旧新比較・採用応答喪失と同一ID再確認・旧原本保持・手順競合・390px UIを検証する。ユーザーの通常DBや実CLI画面は使用しない。操作説明は[静止画ライブラリ](STUDIO_STILL_LIBRARY_JA.md)。
+
 ## 記事素材パック・確認内容に固定した一括書き出し（2026-09-10）
 
 `StillPlans.preview`は手順版と各場面に割り当てた画像のメモ版を照合し、公開物に含める見出し・説明・素材メモ・hashだけのsnapshotを作る。画像が未割り当て／未完成／メモ版変更の場合はblockerを返す。sourceのURL・セレクター・token・元ファイルパス・過去のメモをsnapshotへ転記しない。ユーザー入力と画像内の情報は自動匿名化されない。

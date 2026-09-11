@@ -1,5 +1,63 @@
 # Architecture diagram
 
+## Claudeの準備操作と撮影の分離（2026-09-12・現行schema 14）
+
+```mermaid
+flowchart TD
+    User[利用者の1回ごとの許可] --> UI[ClaudeControlPanel]
+    UI -->|固定アプリ起動| API[sessionとorigin検証]
+    UI --> Select[既存Claude selectorでウィンドウを選択]
+    Select --> Inspect[UIA3 Raw観察 / 0候補時のみ観察を1回追加]
+    Inspect --> Visible[祖先の可視性・native host所属を検査]
+    Visible --> Exposed{対応するタブや書込可能な入力欄があるか}
+    Visible --> Diagnostics[protocol 2検査 / 匿名の診断カウンタ]
+    Diagnostics --> Display[タブと入力を別表示 / 手動再確認の案内]
+    Display --> Export[明示クリックで診断JSON / 文章やtokenなし]
+    Exposed -->|なし| Stop[停止 / 手動操作後の撮影を案内]
+    Exposed -->|あり| Confirm[60秒snapshot / 対象と文章を確認 / 置換は別許可]
+    Confirm --> API
+    API --> Lock[共通submit lock / 撮影との同時受付を拒否]
+    Lock --> Receipt[(schema 14 / 操作IDとJobと文字数のみ保存)]
+    Receipt --> Lane[capture lane]
+    Lane --> Native[有界stdin / Job Object / 15秒timeout]
+    Native --> Check{MSIX identityとsnapshotと可視祖先を再照合}
+    Check -->|不一致| Review[実画面を確認 / 自動再実行しない]
+    Check -->|一致| Action[固定起動 / 許可タブ / 標準または限定Legacy SetValue]
+    Action --> Verify[結果照合 / 送信操作なし]
+    Verify --> Review
+    Review --> Fresh[古い選択を無効化 / 撮影対象を再選択]
+    Fresh --> Capture[既存の1枚撮影と比較・採用]
+    Receipt -->|応答喪失・再起動後はGETだけ| UI
+```
+
+Computer Use経路では、Chatの描画後に要素を取得できた一方、Codeへ移動後も隠れたChat側のtreeが残る挙動を観察した。新しいUIA3ヘルパーによる実起動・実入力・実タブ切替は未受入。図の操作経路は実装＋合成境界試験の範囲。Terminal／CLIの操作は含まない。候補取得の再観察は読取りのみで、操作失敗後の再送や方式切替はしない。
+
+## 場面撮影 → 比較 → 明示採用（2026-09-11追加・schema 13由来）
+
+```mermaid
+flowchart TD
+    Plan[保存済み手順版と場面] --> Prepare[場面の撮影を準備 / 条件固定]
+    Prepare --> Consent[利用者の対象選択と撮影許可]
+    Consent --> API[認証済み場面capture API]
+    Plan --> API
+    API --> Checkpoint{queue投入前に手順版を照合}
+    Checkpoint -->|一致| DB[(画像と初期メモと場面紐づけを同時保存)]
+    Checkpoint -->|競合| Fail[行をrollback / Job失敗 / 撮影しない]
+    DB --> Job[既存capture lane / 原寸PNG検証]
+    Job -->|成功| Candidate[場面用の候補画像 / 手順は未変更]
+    Candidate --> Review[旧版の画像・メモと新画像を比較]
+    Plan --> Review
+    Review --> Adopt[両画像確認と明示採用 / 操作IDとdigest]
+    Adopt --> CAS{writer lock内で手順版と確認内容を再照合}
+    CAS -->|変更あり| Stop[採用を停止 / 最新の手順を確認]
+    CAS -->|一致| New[(対象場面のみ更新した新しい手順版)]
+    New --> Pack[既存の記事素材パックpreviewとZIP]
+    DB --> Restore[受付IDのGETで画像と紐づけを復元]
+    New --> Retry[同じ操作IDでの再確認は重複版を作らない]
+```
+
+撮影と採用は別の操作。元画像と過去の手順版は保持する。通信応答が不明でも自動で再撮影・再採用しない。native選択tokenは永続化せず、画面内の入力・スクロール・CLIコマンド実行へは接続しない。以下の図は各機能導入時点のschema番号を含む。
+
 ## 確認済み記事素材パック（2026-09-10）
 
 ```mermaid

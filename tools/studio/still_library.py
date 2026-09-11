@@ -118,6 +118,11 @@ class StillLibrary:
                           {k: v for k, v in source.items() if k not in ("rel_path", "sha256")})
         media = json.loads(item.pop("media_json") or "null")
         item.pop("request_digest", None)
+        plan_id = item.pop('capture_plan_id', None)
+        plan_revision = item.pop('capture_plan_revision', None)
+        step_id = item.pop('capture_step_id', None)
+        if plan_id is not None:
+            item['plan_capture'] = {'plan_id': plan_id, 'plan_revision': plan_revision, 'step_id': step_id}
         item["ready"] = item["status"] == "succeeded" and media is not None
         item["media"] = media if item["ready"] else None
         if item["ready"]:
@@ -126,20 +131,20 @@ class StillLibrary:
 
     def list(self, *, limit=100, offset=0):
         with self.database.session() as connection:
-            rows = connection.execute("SELECT s.*, j.status FROM still_images s JOIN jobs j ON j.id=s.job_id ORDER BY s.created_at DESC, s.id LIMIT ? OFFSET ?", (limit, offset)).fetchall()
+            rows = connection.execute("SELECT s.*, j.status,c.plan_id AS capture_plan_id,c.plan_revision AS capture_plan_revision,c.step_id AS capture_step_id FROM still_images s JOIN jobs j ON j.id=s.job_id LEFT JOIN still_plan_captures c ON c.still_id=s.id ORDER BY s.created_at DESC, s.id LIMIT ? OFFSET ?", (limit, offset)).fetchall()
             total = connection.execute("SELECT count(*) FROM still_images").fetchone()[0]
         return {"items": [self._record(row) for row in rows], "total": total}
 
     def get(self, image_id):
         _identifier(image_id)
         with self.database.session() as connection:
-            row = connection.execute("SELECT s.*,j.status FROM still_images s JOIN jobs j ON j.id=s.job_id WHERE s.id=?", (image_id,)).fetchone()
+            row = connection.execute("SELECT s.*,j.status,c.plan_id AS capture_plan_id,c.plan_revision AS capture_plan_revision,c.step_id AS capture_step_id FROM still_images s JOIN jobs j ON j.id=s.job_id LEFT JOIN still_plan_captures c ON c.still_id=s.id WHERE s.id=?", (image_id,)).fetchone()
             if row is None:
                 raise KeyError(image_id)
             edits = connection.execute("SELECT revision,title,memo,created_at FROM still_image_edits WHERE image_id=? ORDER BY revision", (image_id,)).fetchall()
         return {**self._record(row), "history": [dict(edit) for edit in edits]}
 
-    def submit(self, body, *, session_binding=None):
+    def submit(self, body, *, session_binding=None, plan_capture=None):
         if set(body) != {"id", "title", "memo", "source", "parent_id", "confirm_capture"} or body["confirm_capture"] is not True:
             raise StillLibraryError("機密情報が写らないことを確認して、撮影・取り込みを承認してください。")
         image_id = _identifier(body["id"])
@@ -156,7 +161,7 @@ class StillLibrary:
         if parent is not None:
             if not self.get(_identifier(parent))["ready"]:
                 raise StillLibraryError("撮り直し元が完成していません。")
-        digest = _digest({**body, "source": source, "title": title, "memo": memo})
+        digest = _digest({**body, "source": source, "title": title, "memo": memo, **({'plan_capture': plan_capture} if plan_capture else {})})
         with self._lock:
             with self.database.session() as connection:
                 existing = connection.execute("SELECT request_digest FROM still_images WHERE id=?", (image_id,)).fetchone()
@@ -180,6 +185,8 @@ class StillLibrary:
                 with self.database.transaction() as connection:
                     connection.execute("INSERT INTO still_images (id,request_digest,job_id,title,memo,parent_id,source_json,created_at) VALUES (?,?,?,?,?,?,?,?)", (image_id, digest, job["id"], title, memo, parent, _json(source), _now()))
                     connection.execute("INSERT INTO still_image_edits VALUES (?,?,?,?,?,?,?)", (image_id, 1, "initial_" + image_id, digest, title, memo, _now()))
+                    if plan_capture:
+                        self.plans.checkpoint_capture(connection, image_id, plan_capture)
 
             controller = self._controller(source["kind"])
             claim = controller.claim_still({"selection_token": token, "confirm_capture": True}, session_binding=session_binding) if token else None
@@ -215,7 +222,8 @@ class StillLibrary:
                 raise StillLibraryError("撮影できませんでした。ローカルページ・外部リソース・撮影範囲を確認してください。")
         cancel.raise_if_cancelled()
         _, media = self._png(f"{relative}/image.png")
-        (directory / "manifest.json").write_text(_json({"schema_version": 1, "id": image_id, "source": source, "media": media}), encoding="utf-8")
+        context = self.get(image_id).get('plan_capture')
+        (directory / "manifest.json").write_text(_json({"schema_version": 1, "id": image_id, "source": source, "media": media, **({'plan_capture': context} if context else {})}), encoding="utf-8")
         cancel.raise_if_cancelled()
         with self.database.transaction() as connection:
             connection.execute("UPDATE still_images SET media_json=? WHERE id=?", (_json(media), image_id))

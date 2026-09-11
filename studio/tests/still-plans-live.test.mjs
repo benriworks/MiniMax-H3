@@ -44,6 +44,8 @@ test('real capture plans and pack: save, prepare, reload, link, lost response, p
     const saved = await get('/api/still-plans/' + plans.items[0].id);
     assert.equal(saved.steps[0].title, '操作・入力'); assert.deepEqual(saved.steps[0].source, { kind: 'terminal' });
     assert.equal(saved.history.length, 2);
+    assert.equal(await page.getByLabel('画像名', { exact: true }).isDisabled(), true);
+    await page.getByRole('button', { name: '場面への紐づけを外す', exact: true }).click();
     await page.getByLabel('画像名', { exact: true }).fill('');
     await page.getByRole('button', { name: '閉じる', exact: true }).click();
     await page.reload();

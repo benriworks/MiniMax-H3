@@ -1199,6 +1199,7 @@ def _run_contained_process(
     label: str,
     cancel_event: Any | None,
     environment: Mapping[str, str] | None = None,
+    input_bytes: bytes | None = None,
 ) -> tuple[int, bytes, bytes]:
     """Run one bounded child suspended, assigned, then resumed and reaped.
 
@@ -1210,6 +1211,8 @@ def _run_contained_process(
     that could terminate an unrelated user process.
     """
 
+    if input_bytes is not None and (not isinstance(input_bytes, bytes) or len(input_bytes) > 32768):
+        raise WindowsCaptureToolError("Invalid bounded helper input.", code="windows_capture_failed")
     _cancel(cancel_event)
     containment: _WindowsKillOnCloseJob | None = None
     process: subprocess.Popen[bytes] | None = None
@@ -1243,7 +1246,7 @@ def _run_contained_process(
             list(arguments),
             cwd=str(cwd),
             shell=False,
-            stdin=subprocess.DEVNULL,
+            stdin=subprocess.PIPE if input_bytes is not None else subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             close_fds=True,
@@ -1277,6 +1280,17 @@ def _run_contained_process(
         for reader in readers:
             reader.start()
         containment.resume(process)
+        if input_bytes is not None:
+            def feed() -> None:
+                try:
+                    assert process is not None and process.stdin is not None
+                    process.stdin.write(input_bytes)
+                    process.stdin.close()
+                except (OSError, ValueError):
+                    excessive.set()
+            writer = threading.Thread(target=feed, name=f"windows-capture-{label}-stdin", daemon=True)
+            readers.append(writer)
+            writer.start()
         deadline = time.monotonic() + timeout
         while process.poll() is None:
             _cancel(cancel_event)
@@ -1316,6 +1330,7 @@ def _run_contained_process(
             containment.close()
         _stop_process(process)
         for stream in (
+            getattr(process, "stdin", None),
             getattr(process, "stdout", None),
             getattr(process, "stderr", None),
         ):

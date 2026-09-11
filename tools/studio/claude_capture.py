@@ -498,6 +498,22 @@ class ClaudeCaptureController:
                 selections.append({"selection_token": token, "label": f"Claude {index + 1}", "width": window.width, "height": window.height, "available": True, "expires_in_seconds": SELECTION_TTL_SECONDS})
         return {"schema_version": 1, "provider": PROVIDER, "available": bool(selections), "reason": None if selections else "claude_window_not_available", "actual_capture_performed": False, "selections": selections}
 
+    def invalidate_control_selections(self) -> None:
+        """An app mutation requires fresh target selection, even in another Studio tab."""
+        with self._lock:
+            self._selections.clear()
+
+    def consume_control_selection(self, token: str, *, session_binding: str) -> _Window:
+        digest, session = selection_token_digest(token), _session(session_binding)
+        with self._lock:
+            item = self._selections.get(digest)
+            if item is None or item[1] <= time.monotonic() or item[2] != session:
+                _fail("claude_capture_selection_invalid", "Select the Claude window again.")
+            self._selections.clear()
+        if self._system().snapshot(item[0].hwnd) != item[0]:
+            _fail("claude_capture_selection_invalid", "The selected Claude window changed.")
+        return item[0]
+
     def claim(self, body: Any, *, session_binding: str) -> ClaudeCaptureClaim:
         payload = validate_capture_request(body)
         session = _session(session_binding)

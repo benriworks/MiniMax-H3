@@ -8,9 +8,10 @@ const bodyKey = (plan: StillPlan) => JSON.stringify([plan.id, plan.revision, pla
 const problem = (error: unknown) => error instanceof Error ? error.message : '撮影手順を処理できませんでした。';
 const sourceLabel = (source: StillSource) => ({ web: 'ローカルWeb', claude: 'Claude', terminal: 'Windows Terminal', artifact: '登録済みPNG' }[source.kind]);
 
-export default function StillPlanPanel({ source, selectedImage, locked, onPrepare, onDirty }: {
+export default function StillPlanPanel({ source, selectedImage, locked, onPrepare, onDirty, adoptedPlan, onActivity }: {
   source: StillSource; selectedImage?: StillImage; locked: boolean;
-  onPrepare: (step: PlanStep) => void; onDirty: (dirty: boolean) => void;
+  onPrepare: (step: PlanStep, plan: StillPlan) => void; onDirty: (dirty: boolean) => void;
+  adoptedPlan?: StillPlan; onActivity: (busy: boolean) => void;
 }) {
   const [plans, setPlans] = useState<Pick<StillPlan, 'id' | 'title' | 'revision'>[]>([]);
   const [draft, setDraft] = useState<StillPlan>();
@@ -30,6 +31,13 @@ export default function StillPlanPanel({ source, selectedImage, locked, onPrepar
     return () => { alive.current = false; };
   }, []);
   useEffect(() => { onDirty(dirty || !!uncertain); return () => onDirty(false); }, [dirty, uncertain, onDirty]);
+  useEffect(() => { onActivity(busy); return () => onActivity(false); }, [busy, onActivity]);
+  useEffect(() => {
+    if (!adoptedPlan) return;
+    // Adoption is disabled while this editor has changes or a request in flight.
+    setDraft(adoptedPlan); setSavedKey(bodyKey(adoptedPlan)); setUncertain(''); attempt.current = undefined;
+    void refresh().catch((failure) => { if (alive.current) setError(problem(failure)); });
+  }, [adoptedPlan]);
   useEffect(() => {
     if (!dirty && !uncertain) return;
     const warn = (event: BeforeUnloadEvent) => event.preventDefault();
@@ -86,7 +94,7 @@ export default function StillPlanPanel({ source, selectedImage, locked, onPrepar
           <label>場面{index + 1}の説明<textarea rows={2} maxLength={2000} value={step.memo} onChange={(event) => updateStep(index, { memo: event.target.value })} /></label>
           <p className="still-muted">撮影元: {sourceLabel(step.source)} · {step.image ? `画像 ${step.image.id.slice(-8)} / メモ版${step.image.revision}` : '画像未割り当て'}</p>
           <div className="still-actions">
-            <button type="button" disabled={dirty} onClick={() => onPrepare(step)}>場面{index + 1}の撮影を準備</button>
+            <button type="button" disabled={dirty} onClick={() => onPrepare(step, draft)}>場面{index + 1}の撮影を準備</button>
             <button type="button" onClick={() => updateStep(index, { source: planSource(source) })}>現在の撮影条件を使う</button>
             <button type="button" disabled={!selectedImage?.ready} onClick={() => { if (selectedImage?.ready) updateStep(index, { image: { id: selectedImage.id, revision: selectedImage.revision } }); }}>選択画像を場面{index + 1}に割り当て</button>
             {step.image && <button type="button" onClick={() => updateStep(index, { image: null })}>画像の割り当てを外す</button>}
