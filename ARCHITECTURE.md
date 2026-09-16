@@ -1,5 +1,13 @@
 # Architecture
 
+## Claudeモデル進化の30秒初稿（2026-09-16）
+
+`productions/SHORT_20260916_claude_code_evolution_30s/`は、公式出典から作る年表・比較図解の案件用制作経路。`SOURCES_JA.md`が根拠、`story.json`が字幕・発音辞書・モデル名・発表日・比較値の正本。`produce.py prepare`は既存Windows SAPIで6発話を生成し、実WAVの尺が各5秒枠へ収まることを検査する。`render.mjs`と`Evolution.tsx`は同梱フォントを読み込み、30秒の独自図解を描画する。`produce.py finish`は既存assembly workerで字幕あり／なしMP4を合成し、形式・全decode・ZIP読戻しを検査する。
+
+映像の数値はAnthropicの同一比較表から得たTerminal-Bench 4.0で、0〜100%の共通軸を使う。Claude Code実画面やモデルの独自実測ではない。入力と描画ソースをhashで拘束し、通常Studio DBには制作／Run／Jobを作らない。`outputs/studio/runs/run_*`は共通workerのファイル作業IDであり、DB登録の証拠ではない。音声ノイズ改善は保留、音声は仮、公開品質と採用は未確認。[制作記録](productions/SHORT_20260916_claude_code_evolution_30s/README.md)。
+
+音声だけの修正では`produce.py prepare <検証済みの前版フォルダー>`により、無音映像を再利用できる。この案件の映像入力（models／duration_ms／fps）、描画コード・フォント・依存定義のhash、前版の無音MP4のhashと検証記録が一致する場合に限定する。前版のpreparation／render記録もhashで参照し、音声・字幕・合成物は別出力へ保存する。利用者指定により現在のSAPI rateは1、小数版`Fable 5.1`は「フェイブルごーてんいち」、整数版の5は「ファイブ」。表示字幕と発音辞書は分離する。
+
 ## Claude画面の準備操作（2026-09-12・現行schema 14）
 
 静止画ライブラリに`ClaudeControlPanel`／`claudeControlApi`と`ClaudeControl`サービスを追加。対象は公式Claude MSIX版だけで、Windows Terminal／CLI／Codexは操作しない。利用者が1操作ごとに起動・タブ切替・未送信入力を選択し許可する。撮影手順に自動操作を保存したり、起動→入力→撮影を自動連続実行したりはしない。

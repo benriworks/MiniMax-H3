@@ -1,5 +1,26 @@
 # Architecture diagram
 
+## Claudeモデル進化の図解制作（2026-09-16）
+
+```mermaid
+flowchart LR
+    Source[Anthropic公式発表] --> Facts[SOURCES_JA.md 出典と表現]
+    Facts --> Story[story.json 台本と比較値]
+    Story --> Voice[既存ローカルSAPI 仮音声]
+    Voice --> Timing[実WAVの尺と5秒枠を検査]
+    Story --> Render[独自Remotion図解と年表]
+    Font[同梱Noto Sans JP] --> Render
+    Prior[検証済み前版の無音MP4] --> Reuse[映像入力と描画依存の一致を確認]
+    Story --> Reuse
+    Reuse --> Assembly
+    Timing --> Assembly[既存FFmpeg assembly]
+    Render --> Assembly
+    Assembly --> Check[形式と全decode ZIP内容照合]
+    Check --> Draft[30秒初稿と投稿文 ZIP]
+    Draft --> Review[可読性と仮音声をレビュー]
+    Boundary[案件用スクリプト 通常Studio DBへ登録しない] -.-> Assembly
+```
+
 ## Claudeの準備操作と撮影の分離（2026-09-12・現行schema 14）
 
 ```mermaid
