@@ -1,5 +1,34 @@
 # Architecture diagram
 
+## 動画とブログを同じ企画から作る設計（2026-10-23・共通層は未実装）
+
+実線は現在存在する動画・ブログそれぞれの経路、破線は今回整理した共通管理と受け渡しの設計を示す。図はアプリの実行状態や公開完了を示さない。
+
+```mermaid
+flowchart TD
+    Project[共通案件の設計: 読者と課題と結論]
+    Project -.-> Facts[事実と出典と確認日]
+    Project -.-> People[人物とストーリーと承認範囲]
+    Project -.-> Assets[原素材とIDとhash]
+    Capture[既存: 実演画面と公式画像の取得] --> Assets
+    Generation[既存: 静止画とMiniMax人物動画] --> Assets
+    Facts -.-> Video[既存: 動画台本と制作経路]
+    People -.-> Video
+    Assets -.-> Video
+    Facts -.-> Article[既存: 別リポジトリのMDX記事]
+    Assets -.-> Handoff[設計: 記事用画像とaltと出典の受け渡し]
+    Handoff -.-> Article
+    Video --> VideoReview[動画の試聴と採用と公開判断]
+    Article --> ArticleReview[記事と画像の確認と公開判断]
+    VideoReview -.-> YouTube[公開済みYouTube動画]
+    ArticleReview -.-> Blog[公開済み詳細記事]
+    YouTube -.-> Profile[プロフィールのリンク]
+    Profile -.-> Blog
+    Blog -.-> YouTube
+```
+
+元撮影や秘密情報を含むproofは公開画像の受け渡しへ含めない。小さい動画用切り出しはブログ表示の可読性を再確認する。技術検証・ユーザー採用・公開状態は媒体ごとに保持する設計で、自動連携や公開を今回実装したものではない。工程本文は [VIDEO_TO_BLOG_WORKFLOW_JA.md](docs/video-production/VIDEO_TO_BLOG_WORKFLOW_JA.md) を参照。
+
 ## 制作運用と知見の資産化（2026-10-23）
 
 ```mermaid

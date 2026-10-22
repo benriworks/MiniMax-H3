@@ -170,4 +170,4 @@ APIキー、署名付きURL、個人情報入り撮影原本、未整理ログ�
 
 現行PCの参照先は `outputs/sharing/fullscreen-videos-20261023/delivery-index.json`。個別の制作記録は `productions/SERIES_20261022_claude_work/`、`productions/SERIES_20261022_dots_finale/`、`productions/COMPARE_20261022_duet_dots/`。これらの現行PCのパスは、GitHub上で同じ成果物が配布されているという意味ではない。
 
-**この資料整理のあと、プロジェクトの方向性を再検討する。** 次のシリーズ・尺・人物の役割・量産量を既定事項として進めない。[方向性の検討シート](DIRECTION_REVIEW_JA.md) を使い、ユーザーの次の指示で制作を再開する。
+**資料整理後、2026-10-23にユーザーは「自分用の制作環境を磨き、解説動画から詳細ブログへつなぐ」方向を示した。** 動画で決めた内容と撮影・生成・公式引用素材を記事にも活用する。[動画からブログへの共通工程](VIDEO_TO_BLOG_WORKFLOW_JA.md) と [方向性の記録](DIRECTION_REVIEW_JA.md) を参照する。共通台帳・自動受け渡しは設計段階。次のシリーズ・尺・人物の追加採用・量産量・記事公開は個別に決める。
