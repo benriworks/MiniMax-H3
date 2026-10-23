@@ -1,5 +1,9 @@
 # Architecture
 
+## dots第5〜9回の仕上げ改訂（2026-10-23）
+
+`productions/SERIES_20261023_dots_final_delivery/produce.py`は第5回の文脈保持と第7回の定期実行の使い方を独立IDで改訂する。既存原稿に一致するGemini Aoede発話だけを再利用し、変更分を既存TTSアダプターで生成して共通Shorts処理へ渡す。旧dotsのMiniMax人物動画・公式引用証跡を保ち、第6・8・9回の検証済み動画と合わせて独立フォルダーへ集約する。Driveへの共有は接続ツールによる個別操作。UI・API・DB・実schedule登録経路は追加しない。詳細は[専用アーキテクチャ](productions/SERIES_20261023_dots_final_delivery/ARCHITECTURE.md)。
+
 ## チャットで進める動画・記事制作の共通処理（2026-10-23）
 
 `tools/studio/content_projects.py` は共通案件JSONから公開用画像を照合し、`outputs/content-projects/<id>/blog-handoff/<version>/` へ選択した画像、素材台帳、MDXのFigure記述を出力する。CLIは `validate` と `export-blog`。UI・HTTP API・DB migration・自動公開は追加していない。ユーザーは当面チャットを窓口にし、制作中の改善を共通処理へ反映する。

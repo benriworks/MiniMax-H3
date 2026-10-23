@@ -1,5 +1,20 @@
 # Architecture diagram
 
+## dots第5〜9回の改訂経路（2026-10-23）
+
+```mermaid
+flowchart LR
+    Scripts[第5回と第7回の修正台本] --> Driver[専用改訂ドライバー]
+    Old[旧Gemini生成証跡] --> Driver
+    Driver --> TTS[一致発話の再利用と変更分の生成]
+    TTS --> Core[共通prepareと描画とfinish]
+    Core --> Collection[第6回 第8回 第9回と合わせた5本]
+    Collection --> Drive[接続ツールでDriveへ共有]
+    Drive --> Review[メタデータ確認と利用者の試聴]
+```
+
+旧完成品は上書きしない。人物は既存MiniMax動画を再利用する。専用の[詳細図](productions/SERIES_20261023_dots_final_delivery/ARCHITECTURE_DIAGRAM.md)を独立して維持する。
+
 ## チャット経由の共通画像受け渡しとレビュー（2026-10-23）
 
 ```mermaid
