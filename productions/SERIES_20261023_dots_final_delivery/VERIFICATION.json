@@ -1,0 +1,121 @@
+{
+  "checked_date": "2026-10-23",
+  "episodes": [
+    {
+      "episode": 5,
+      "title": "【ChatGPT】dotsは前の話を引き継ぐ？記憶とコンテキストの違い",
+      "duration_seconds": 30,
+      "video": {
+        "path": "outputs/productions/SERIES_20261023_dots_final_delivery/05/dots-05-gemini-aoede.mp4",
+        "bytes": 6058783,
+        "sha256": "66E3B2BA8EA30D29A202755B67B6E4203F15753FF00BFC8DCB0E251DD662FA70"
+      },
+      "provider": "gemini",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "new_tts_requests": 6,
+      "full_decode_verified": true,
+      "visual_review": "AI-assisted completed-frame inspection passed",
+      "drive_metadata_readback_verified": true,
+      "human_final_listening": "pending",
+      "mobile_playback": "pending",
+      "user_approved": false,
+      "youtube_uploaded": false
+    },
+    {
+      "episode": 6,
+      "title": "【ChatGPT】声でも頼める！dotsは通話を切った後も仕事が続く",
+      "duration_seconds": 30,
+      "video": {
+        "path": "outputs/productions/SERIES_20261023_dots_final_delivery/06/dots-06-gemini-aoede.mp4",
+        "bytes": 6410219,
+        "sha256": "9736A2F417951A7653905B005AB0D82326164106400747A1B6508A729389FC85"
+      },
+      "provider": "gemini",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "new_tts_requests": 0,
+      "full_decode_verified": true,
+      "visual_review": "AI-assisted completed-frame inspection passed",
+      "drive_metadata_readback_verified": true,
+      "human_final_listening": "pending",
+      "mobile_playback": "pending",
+      "user_approved": false,
+      "youtube_uploaded": false
+    },
+    {
+      "episode": 7,
+      "title": "【ChatGPT】dotsに「毎朝9時に教えて」！定期実行の設定・確認・解除",
+      "duration_seconds": 45,
+      "video": {
+        "path": "outputs/productions/SERIES_20261023_dots_final_delivery/07/dots-07-gemini-aoede.mp4",
+        "bytes": 8421423,
+        "sha256": "D42C2CA56C18A8B00DA2861262EF7CA1156B3401971780F9C0345F36AA14A2E5"
+      },
+      "provider": "gemini",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "new_tts_requests": 7,
+      "full_decode_verified": true,
+      "visual_review": "AI-assisted completed-frame inspection passed",
+      "drive_metadata_readback_verified": true,
+      "human_final_listening": "pending",
+      "mobile_playback": "pending",
+      "user_approved": false,
+      "youtube_uploaded": false
+    },
+    {
+      "episode": 8,
+      "title": "【ChatGPT】頼む前に気づく？dotsの「先回り調査」でできること",
+      "duration_seconds": 30,
+      "video": {
+        "path": "outputs/productions/SERIES_20261023_dots_final_delivery/08/dots-08-gemini-aoede.mp4",
+        "bytes": 6777921,
+        "sha256": "EB5C223B59730E97EB1F066726DFE3517CACAF092D089CD3B0420DB713564ABB"
+      },
+      "provider": "gemini",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "new_tts_requests": 0,
+      "full_decode_verified": true,
+      "visual_review": "AI-assisted completed-frame inspection passed",
+      "drive_metadata_readback_verified": true,
+      "human_final_listening": "pending",
+      "mobile_playback": "pending",
+      "user_approved": false,
+      "youtube_uploaded": false
+    },
+    {
+      "episode": 9,
+      "title": "【ChatGPT】任せる前に知りたい！dotsの権限と「止め方」3つ",
+      "duration_seconds": 30,
+      "video": {
+        "path": "outputs/productions/SERIES_20261023_dots_final_delivery/09/dots-09-gemini-aoede.mp4",
+        "bytes": 6828507,
+        "sha256": "5C59A1C439A8D5D132854351D2EAFED7CFFA572BF7F5B6AF329E4A0DC99FBFFB"
+      },
+      "provider": "gemini",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "new_tts_requests": 0,
+      "full_decode_verified": true,
+      "visual_review": "AI-assisted completed-frame inspection passed",
+      "drive_metadata_readback_verified": true,
+      "human_final_listening": "pending",
+      "mobile_playback": "pending",
+      "user_approved": false,
+      "youtube_uploaded": false
+    }
+  ],
+  "preserved_previous_videos": true,
+  "external_new_tts_requests": 13,
+  "actual_billing_known": false,
+  "drive_uploads": 5,
+  "drive_metadata_readback_verified": true,
+  "mobile_playback_verified": false,
+  "human_final_listening": "pending",
+  "user_approved": false,
+  "youtube_uploaded": false,
+  "tests": "13 relevant supplied narration, Gemini adapter, and media window tests passed",
+  "media_storage": "Local PC and owner-only Google Drive; media not committed to GitHub"
+}
