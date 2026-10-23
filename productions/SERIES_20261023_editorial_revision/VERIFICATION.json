@@ -1,0 +1,122 @@
+{
+  "date": "2026-10-23",
+  "revision": "v02",
+  "videos": [
+    {
+      "episode": 1,
+      "title": "【Claude】メモからDocsへ！資料をつなぎ、人とAIで仕上げる",
+      "duration_seconds": 45,
+      "video_sha256": "5569410FDEB6391C62F7A7EEC3F401DE0633029DB97CA1AF0E76126D086AF48D",
+      "bytes": 10027670,
+      "full_decode_verified": true,
+      "voice": "Gemini Aoede",
+      "loudness": {
+        "input_i": "-16.02",
+        "input_tp": "-3.06",
+        "input_lra": "2.30",
+        "input_thresh": "-26.85",
+        "output_i": "-16.20",
+        "output_tp": "-3.26",
+        "output_lra": "2.30",
+        "output_thresh": "-27.01",
+        "normalization_type": "dynamic",
+        "target_offset": "0.20"
+      },
+      "ai_visual_review": "representative_frames_checked",
+      "drive_metadata_match": true,
+      "mobile_playback": "pending",
+      "human_listening": "pending",
+      "user_approved": false
+    },
+    {
+      "episode": 8,
+      "title": "【ChatGPT】頼む前に次の一手！dotsの「先回り提案」",
+      "duration_seconds": 30,
+      "video_sha256": "A36A1BE1EB5BF0AD7EB2C3B1DE1D30F3910A37634B57681890095541FF5E9C3E",
+      "bytes": 6185036,
+      "full_decode_verified": true,
+      "voice": "Gemini Aoede",
+      "loudness": {
+        "input_i": "-16.02",
+        "input_tp": "-3.12",
+        "input_lra": "3.30",
+        "input_thresh": "-26.96",
+        "output_i": "-15.53",
+        "output_tp": "-2.91",
+        "output_lra": "2.60",
+        "output_thresh": "-26.45",
+        "normalization_type": "dynamic",
+        "target_offset": "-0.47"
+      },
+      "ai_visual_review": "representative_frames_checked",
+      "drive_metadata_match": true,
+      "mobile_playback": "pending",
+      "human_listening": "pending",
+      "user_approved": false
+    },
+    {
+      "episode": 9,
+      "title": "【ChatGPT】dotsに任せても、決めるのはあなた！実行前の確認と判断",
+      "duration_seconds": 30,
+      "video_sha256": "C9BB4CEC49423073B8640DF9313A6CA295FCBB92D06699BA9BA62141F7FC4E30",
+      "bytes": 6418361,
+      "full_decode_verified": true,
+      "voice": "Gemini Aoede",
+      "loudness": {
+        "input_i": "-16.02",
+        "input_tp": "-1.38",
+        "input_lra": "3.40",
+        "input_thresh": "-26.49",
+        "output_i": "-16.08",
+        "output_tp": "-1.50",
+        "output_lra": "3.40",
+        "output_thresh": "-26.53",
+        "normalization_type": "dynamic",
+        "target_offset": "0.08"
+      },
+      "ai_visual_review": "representative_frames_checked",
+      "drive_metadata_match": true,
+      "mobile_playback": "pending",
+      "human_listening": "pending",
+      "user_approved": false
+    },
+    {
+      "episode": 7,
+      "title": "【ChatGPT】dotsに「毎朝9時に教えて」！定期実行の設定・確認・解除",
+      "duration_seconds": 45,
+      "video_sha256": "2A9AFC6963001F238855AE7E89E00F9555A149A8F832CC863A74F4C82A376CA8",
+      "bytes": 8421173,
+      "full_decode_verified": true,
+      "voice": "Gemini Aoede",
+      "loudness": {
+        "input_i": "-16.02",
+        "input_tp": "-2.10",
+        "input_lra": "4.90",
+        "input_thresh": "-27.09",
+        "output_i": "-16.72",
+        "output_tp": "-2.52",
+        "output_lra": "4.10",
+        "output_thresh": "-27.74",
+        "normalization_type": "dynamic",
+        "target_offset": "0.72"
+      },
+      "ai_visual_review": "representative_frames_checked",
+      "drive_metadata_match": true,
+      "mobile_playback": "pending",
+      "human_listening": "pending",
+      "user_approved": false
+    }
+  ],
+  "article": {
+    "draft": true,
+    "mdx_rendered": true,
+    "images_loaded": 5,
+    "pdf_pages": 9,
+    "ai_visual_review": "all_pages_checked",
+    "content_validation": 152,
+    "link_references_checked": 530
+  },
+  "new_capture_performed": false,
+  "new_character_video_generated": false,
+  "publication_performed": false
+}

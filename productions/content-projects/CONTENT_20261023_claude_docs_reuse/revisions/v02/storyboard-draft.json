@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "status": "editorial_draft_not_render_ready",
+  "content_project_id": "CONTENT_20261023_claude_docs_reuse",
+  "revision": "v02",
+  "title_candidate": "【Claude】Docsは「一緒に仕上げる」文書作成。人とAIの共同編集",
+  "takeaway": "様々な資料を踏まえ、人とClaudeが同じ文書を見ながら完成へ近づける",
+  "voice": "Aoede",
+  "voice_direction": "Keep the v01 voice, pace and audio quality direction positively reviewed by the user. New transcript listening remains pending.",
+  "duration_seconds_proposed": 45,
+  "sources": [
+    {"id": "docs-guide", "url": "https://support.claude.com/en/articles/16923645-get-started-with-claude-docs", "checked_at": "2026-10-23"},
+    {"id": "artifact-workflow", "url": "https://academy.claude.com/tutorials/intro-to-artifacts", "checked_at": "2026-10-23"}
+  ],
+  "scenes": [
+    {"seconds": 3, "narration_draft": "文書づくりは、下書きが出た後も続きます。", "visual": "既存人物が下書きの相談に入る", "evidence": "existing_character_motion_candidate"},
+    {"seconds": 7, "narration_draft": "Claude Docsは、人とAIが同じ文書を見ながら、手を入れる作業場所です。", "visual": "チャットと文書の全体を大きく見せる", "evidence": "needs_wide_app_capture"},
+    {"seconds": 7, "narration_draft": "ファイルやこれまでの会話、接続済みの資料を下書きに生かします。", "visual": "架空資料2点を渡し、文書に反映された対応箇所を示す。接続アプリまで実演したとは表示しない", "evidence": "official_description_available_multiple_source_demo_pending"},
+    {"seconds": 7, "narration_draft": "見出しや表のある文書を確認して、細かな言葉は自分で直接編集。", "visual": "本文への直接入力と、変更された語句を見せる", "evidence": "needs_direct_edit_demo"},
+    {"seconds": 9, "narration_draft": "考え直したい箇所は、コメントでClaudeに相談。文書に修正が反映されます。", "visual": "箇所選択、コメント、Claudeの応答、本文の更新をつなげる", "evidence": "existing_comment_result_available_connected_operation_capture_needed"},
+    {"seconds": 6, "narration_draft": "人の手直しとClaudeへの依頼を重ね、同じ文書を一緒に仕上げます。", "visual": "修正後の同じ文書を全体で示す。共同編集を複数人ログインの実証に見せない", "evidence": "needs_result_and_edit_lineage_capture"},
+    {"seconds": 6, "narration_draft": "詳しい共同編集の手順は、プロフィールのブログへ。", "visual": "人物で締め、記事の対応見出しを示す", "evidence": "article_link_and_final_audio_pending"}
+  ],
+  "paid_generation_started": false,
+  "additional_capture_completed": false,
+  "user_approved_content": false
+}

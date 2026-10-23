@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "example_only": true,
+  "implementation_status": "design_only",
+  "content_project_id": "CONTENT_YYYYMMDD_fictional_document_work",
+  "topic": "架空メモから文書を作り、修正後の数字を確かめる",
+  "audience": "仕事でAI文書作成を試したい人",
+  "takeaway": "下書きの生成と内容の照合を分ける",
+  "decisions": [{"decision": "動画とブログで企画・実演・素材を共用する", "status": "user_requested", "date": "2026-10-23"}],
+  "sources": [{"source_id": "source-official-docs", "kind": "official", "url": null, "title": null, "checked_at": null, "status": "pending"}],
+  "claims": [{"claim_id": "claim-budget-preserved", "text": "修正後も入力の予算と一致したか", "kind": "demonstration", "status": "pending", "source_ids": [], "asset_ids": ["input-public", "after-public"], "used_by": ["video-scene-compare", "article-section-compare"]}],
+  "characters": [{"character_id": "fictional-guide-v01", "approval_record": null, "user_approved": false, "role": "架空の実演の担当者"}],
+  "videos": [{"production_id": null, "story_path": null, "youtube_url": null, "technical_review": "pending", "final_listening_review": "pending", "user_approved": false, "published": false}],
+  "article": {"repository": "benriworks/blog", "slug": null, "content_type": "guide", "brief_path": "article-brief.md", "planned_path": null, "published_url": null, "draft": true, "outline_review": "pending", "user_approved": false, "published": false},
+  "assets": [
+    {"asset_id": "input-public", "kind": "demonstration_capture", "phase": "before", "version": "v01", "path": null, "parent_asset_id": null, "width": null, "height": null, "sha256": null, "source_id": null, "fictional_materials_only": true, "privacy_review": "pending", "alt": "架空の文書に使う価格と予算の入力", "caption_draft": "入力例。実在の案件ではありません。", "channels": {"video": {"review": "pending", "user_approved": false}, "blog": {"review": "pending", "user_approved": false, "destination_path": null}}},
+    {"asset_id": "after-public", "kind": "demonstration_capture", "phase": "after", "version": "v01", "path": null, "parent_asset_id": null, "width": null, "height": null, "sha256": null, "source_id": null, "fictional_materials_only": true, "privacy_review": "pending", "alt": "修正後の予算欄。入力と照合する対象", "caption_draft": "修正後。数字と見出しを入力・初回出力と照合します。", "channels": {"video": {"review": "pending", "user_approved": false}, "blog": {"review": "pending", "user_approved": false, "destination_path": null}}}
+  ],
+  "funnel": {"shorts_cta_draft": "手順と入力例は、プロフィールのブログへ。", "profile_destination_url": null, "article_video_link": null, "link_check": "pending"},
+  "storage_policy": {"github": "企画・出典・プロンプト・修正理由・公開可能な台帳", "local": "原本・画像派生・音声・動画・レビュー", "video_files_in_github": false, "signed_urls_persisted": false},
+  "notes": "形式の記載例。nullは未取得・未決。既存アプリやブログへ自動連携する機能ではない。"
+}

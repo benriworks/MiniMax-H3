@@ -12,6 +12,24 @@ __pycache__/
 studio/node_modules/
 studio/dist/
 studio/.test-dist/
+studio/.comparison-test-dist/
 .playwright-cli/
+.playwright-mcp/
 output/playwright/
 studio/output/playwright/
+
+# Production media stay on the local PC or an approved sharing store.
+# Existing upstream-tracked demo assets are unaffected by ignore rules.
+*.mp4
+*.m4v
+*.mov
+*.mkv
+*.webm
+*.avi
+*.wav
+*.flac
+*.mp3
+*.aac
+*.m4a
+*.zip
+**/_private/

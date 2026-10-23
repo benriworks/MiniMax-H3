@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "example_only": true,
+  "production_id": "SHORT_YYYYMMDD_fictional_example_30s",
+  "asset_root": "outputs/",
+  "assets": [
+    {
+      "asset_id": "fictional-guide-v01-reference",
+      "kind": "character_reference",
+      "version": "v01",
+      "relative_path": "characters/fictional-guide/v01/reference/portrait.png",
+      "bytes": null,
+      "sha256": null,
+      "parent_asset_id": null,
+      "technical_review": "pending",
+      "ai_visual_review": "pending",
+      "user_approved": false,
+      "approval_record": null
+    },
+    {
+      "asset_id": "fictional-guide-v01-motion-01",
+      "kind": "minimax_character_video",
+      "version": "v01",
+      "relative_path": "characters/fictional-guide/v01/motion/thinking.mp4",
+      "bytes": null,
+      "sha256": null,
+      "parent_asset_id": "fictional-guide-v01-reference",
+      "media": {"width": null, "height": null, "fps": null, "frames": null},
+      "technical_review": "pending",
+      "ai_visual_review": "pending",
+      "user_approved": false
+    }
+  ],
+  "latest_delivery": null,
+  "previous_deliveries": [],
+  "final_listening_review": "pending",
+  "youtube_uploaded": false,
+  "signed_urls_persisted": false,
+  "notes": "記載例。実ファイルを確認して値を入れる。動画本体はGitHubへ保管しない。"
+}

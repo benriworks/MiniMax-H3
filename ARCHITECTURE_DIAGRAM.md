@@ -1,5 +1,580 @@
 # Architecture diagram
 
+## dots第5〜9回の改訂経路（2026-10-23）
+
+```mermaid
+flowchart LR
+    Scripts[第5回と第7回の修正台本] --> Driver[専用改訂ドライバー]
+    Old[旧Gemini生成証跡] --> Driver
+    Driver --> TTS[一致発話の再利用と変更分の生成]
+    TTS --> Core[共通prepareと描画とfinish]
+    Core --> Collection[第6回 第8回 第9回と合わせた5本]
+    Collection --> Drive[接続ツールでDriveへ共有]
+    Drive --> Review[メタデータ確認と利用者の試聴]
+```
+
+旧完成品は上書きしない。人物は既存MiniMax動画を再利用する。専用の[詳細図](productions/SERIES_20261023_dots_final_delivery/ARCHITECTURE_DIAGRAM.md)を独立して維持する。
+
+## チャット経由の共通画像受け渡しとレビュー（2026-10-23）
+
+```mermaid
+flowchart TD
+    Chat[チャットで制作を進める] --> Project[共通案件JSON]
+    Project --> Core[Studio共通処理 content_projects]
+    Core --> Verify[公開用画像のhashと寸法と確認状態を照合]
+    Verify --> Export[版付き画像と台帳とFigure記述]
+    Export --> Draft[別ブログのdraft記事]
+    Chat --> Pilot[既存人物動画と音声6件を再利用]
+    Pilot --> CTA[Aoedeの締め1件を生成]
+    CTA --> QC[30秒動画の合成と技術検証]
+    QC --> Drive[コネクターでGoogle Driveへ保存]
+    Drive --> Human[モバイル再生と最終試聴と採用]
+    QC -. Driveが難しい場合または会社への持ち込み .-> S3[S3で受け渡し]
+```
+
+実装済みの共通処理はCLIで利用する。Studio UI/APIからの操作、Drive自動送信、記事自動公開は未実装。人の採用と公開判断を技術検証で代用しない。
+
+## 動画とブログを同じ企画から作る全体設計（2026-10-23・画像受け渡しCLIは初期実装済み）
+
+実線は現在存在する動画・ブログそれぞれの経路、破線は今回整理した共通管理と受け渡しの設計を示す。図はアプリの実行状態や公開完了を示さない。
+
+```mermaid
+flowchart TD
+    Project[共通案件の設計: 読者と課題と結論]
+    Project -.-> Facts[事実と出典と確認日]
+    Project -.-> People[人物とストーリーと承認範囲]
+    Project -.-> Assets[原素材とIDとhash]
+    Capture[既存: 実演画面と公式画像の取得] --> Assets
+    Generation[既存: 静止画とMiniMax人物動画] --> Assets
+    Facts -.-> Video[既存: 動画台本と制作経路]
+    People -.-> Video
+    Assets -.-> Video
+    Facts -.-> Article[既存: 別リポジトリのMDX記事]
+    Assets -.-> Handoff[設計: 記事用画像とaltと出典の受け渡し]
+    Handoff -.-> Article
+    Video --> VideoReview[動画の試聴と採用と公開判断]
+    Article --> ArticleReview[記事と画像の確認と公開判断]
+    VideoReview -.-> YouTube[公開済みYouTube動画]
+    ArticleReview -.-> Blog[公開済み詳細記事]
+    YouTube -.-> Profile[プロフィールのリンク]
+    Profile -.-> Blog
+    Blog -.-> YouTube
+```
+
+元撮影や秘密情報を含むproofは公開画像の受け渡しへ含めない。小さい動画用切り出しはブログ表示の可読性を再確認する。技術検証・ユーザー採用・公開状態は媒体ごとに保持する設計で、自動連携や公開を今回実装したものではない。工程本文は [VIDEO_TO_BLOG_WORKFLOW_JA.md](docs/video-production/VIDEO_TO_BLOG_WORKFLOW_JA.md) を参照。
+
+## 制作運用と知見の資産化（2026-10-23）
+
+```mermaid
+flowchart TD
+    Brief[企画と視聴者] --> Character[最初に人物とペルソナを作る]
+    Character --> User{ユーザーの人物確認}
+    User -->|修正| Character
+    User -->|確認済み| Story[一貫した人物と物語の台本]
+    Story --> Motion[MiniMaxで人物を動画化]
+    Story --> Capture[公式引用と架空素材の実演]
+    Story --> Voice[ナレーション別冊に従う生成と試聴]
+    Motion --> Pilot[まず1本を編集]
+    Capture --> Pilot
+    Voice --> Pilot
+    Pilot --> Review[対象版と時刻を指定してレビュー]
+    Review --> Revision[初回と修正版を保存]
+    Revision --> Quality[媒体と画面と試聴と採用を別記録]
+    Quality --> Local[ローカル素材台帳と納品物]
+    Local --> Share[必要な動画だけS3等で共有]
+    Quality --> Learning[規定と改善理由と検証要約を更新]
+    Learning --> Git[個人forkへ文書を保存]
+    Local --> Media[動画と音声本体はGitHub保管不要]
+    Git --> Direction[文書整理後に方向性を再検討]
+```
+
+## 全面人物動画への改訂（2026-10-23）
+
+```mermaid
+flowchart TD
+    Previous[旧完成MP4・原稿・人物素材を保持] --> Revision[独立した改訂世代]
+    Revision --> Reuse[既存MiniMax MP4と音声を再利用]
+    Reuse --> Scene{editorialに人物動画がある}
+    Scene -->|yes| Window[実probeから再生可能frameを固定]
+    Window --> Full[画面全面の人物映像と下部テロップ]
+    Full --> Tail[素材終了後はまとめ表示・音声は継続]
+    Scene -->|no| Evidence[既存の公式引用・実演・図解]
+    Tail --> Still[顔と字幕の配置を静止画で確認]
+    Evidence --> Still
+    Still --> Render[全frame安全域検査と直列描画]
+    Render --> Audio[音声合成・全decode・旧AAC一致]
+    Audio --> Review[完成画面確認と独立した聴感状態]
+    Review --> Delivery[新版だけを検証してS3共有]
+```
+
+```mermaid
+flowchart LR
+    Dots[旧dots納品物] --> Reprepare[reprepare_fullframeで独立世代を準備]
+    Reprepare --> Preview[preview_fullframeで字幕出現時も確認]
+    Claude[Claudeの固定台本とAoede] --> Revision[renderer-revisionsで出力を連結]
+    Preview --> Render[共通コードを固定して直列描画]
+    Revision --> Render
+    Render --> DotsAudit[finalize_fullframe_videos]
+    Render --> ClaudeAudit[Claude finalize 全5本と旧26動画]
+    DotsAudit --> Share[検証済みMP4だけをS3共有]
+    ClaudeAudit --> Share
+    Share --> Receipt[署名URLを含めない独立receipt]
+```
+
+## 比較専用の描画経路（2026-10-22）
+
+```mermaid
+flowchart LR
+    Script[根拠付き比較台本] --> Props[60から90秒の専用props検査]
+    Source[公式PNGと来歴proof] --> Prepare[外側の準備検査]
+    Motion[新人物の実MP4と生成証跡] --> Prepare
+    Prepare --> Props
+    Props --> Entry[comparisonEntry ProductComparison]
+    Entry --> Scenes[公式引用 上下比較図 人物とまとめ]
+    Scenes --> Bounds[固定フォントと各frame文字矩形]
+    Bounds --> Review[全カット確認と実音声の試聴]
+    Missing[素材未取得] --> Fixture[明示fixture 公開不可]
+    Legacy[既存CreatorShort 60秒上限] --> Preserve[旧描画と出力を保全]
+```
+
+```mermaid
+flowchart LR
+    TTS[Aoede14区間 68.113秒] --> Place[元PCM不変の75秒配置]
+    Capture[親確認と画素一致の公式3画像] --> Stage[比較用prepare]
+    Clip[実人物124frame 重複なし3区間] --> Stage
+    Place --> Stage
+    Stage --> Full[comparison-render 全1800frame]
+    Full --> Mix[無音映像とナレーションと自作音]
+    Mix --> Quality[decode 音量 目視 聴感を別記録]
+    Quality --> Zip[公開素材allowlistとmember hash検証]
+```
+
+## Claude業務編：公式引用と実演の証跡（2026-10-22）
+
+```mermaid
+flowchart TD
+    Story[Claude 5本 各30秒7場面] --> Preflight[読取り専用 preflight]
+    Official[許可した公式URLの引用] --> OfficialProof[origin officialと出典と撮影日時]
+    Demo[架空素材を使った実演画面] --> DemoProof[origin demonstrationと製品と撮影段階]
+    Demo --> PrivateRaw[private 原本PNGと撮影日時JSONを保全]
+    PrivateRaw --> Encoding[実体JPEGなら同一デコード画素のPNGを別保存]
+    Encoding --> ExactCrop[明示矩形だけをpixel exact crop]
+    ExactCrop --> SeparateReviews[担当確認と親確認と利用者承認を分離]
+    SeparateReviews --> DemoProof
+    Demo --> Export[実際に書き出したDOCX]
+    Export --> XMLCheck[CRC 本文XML 数値 未定 書式を読取り検査]
+    Export --> Viewer[Word保護ビューで実際に開く]
+    Viewer --> PrivateRaw
+    XMLCheck --> ExportProof[本文照合と画面確認を別の証拠へ]
+    ExportProof --> Preflight
+    DemoProof --> Privacy[架空素材のみ 個人情報除外 URLを保持しない]
+    OfficialProof --> Crop[元画面とcropの座標 寸法 hash 目視]
+    Privacy --> Crop
+    Crop --> Preflight
+    Character[新しい人物PNG] --> Keyframe[確認済みI2VAキー画像]
+    Keyframe --> H3[MiniMax人物動画と生成証跡]
+    H3 --> Preflight
+    Preflight --> Explicit[明示的な generate]
+    Explicit --> Speech[Aoede 22秒間隔 検証済みcacheのみ再利用]
+    Speech -. 不明送信 .-> Halt[自動再送せず停止]
+    Speech --> Prepare[実音声で場面と字幕を配置]
+    Crop --> Prepare
+    H3 --> Prepare
+    Prepare --> Business[business配色と可読性制限 公式と実演を別表示]
+    Business --> Review[完成動画の形式 音量 全画面確認]
+    Review --> Package[MP4 公開用10ファイルZIP CRCとhash]
+    Package --> Human[最終試聴 利用者承認 公開は別記録]
+    Crop -. 公開ZIPへ含めない .-> Private[撮影原本と文脈記録]
+```
+
+## dots人物動画改訂：音声と中盤を保持（2026-10-22）
+
+```mermaid
+flowchart TD
+    Original[固定済み原稿と保存済み音声] --> Clone[別のcharacter-video-revisions原稿]
+    Male[元男性の確認済みフレーム] --> MiniMax[新しい男女のMiniMax動画]
+    Female[第1回の女性キー画像] --> MiniMax
+    MiniMax --> Proof[provider 成功証跡 元人物とキー画像hash 目視]
+    Proof --> Clone
+    Clone --> Equal[冒頭と締めのmedia指定以外が同一]
+    Equal --> Middle[中盤と公式引用を維持]
+    Latest[現在の完成MP4 ZIP state] --> Preserve[旧版を独立保存]
+    Latest --> AAC[旧AACを再圧縮せずコピー]
+    Middle --> Render[元dots配色で再描画]
+    Render --> Verify[完成画面とAAC同一性を確認]
+    AAC --> Verify
+    Preserve --> Verify
+    Verify --> New[新しいMP4 ZIP 納品ポインター更新]
+    Equal -. 音声生成コマンドなし .-> Zero[追加TTS要求0 追加発話文字0]
+```
+
+```mermaid
+flowchart TD
+    Clips[完成した5人物素材 MP4と固定proof] --> Registry[人物台帳 元人物とキー画像とhash]
+    Registry --> Prepared[改訂準備後は素材proofを固定]
+    Prepared --> Final[完成した第5から9回のMP4]
+    Final --> Samples[各MP4の冒頭と締めから3時点ずつ抽出]
+    Samples --> Motion[30動作サンプルと目視記録をhash結合]
+    Final --> Scenes[35場面と5公式引用の確認]
+    Final --> Audio[5本の旧AAC packet hash一致]
+    Final --> Package[ZIP全メンバーと旧12動画のhash照合]
+    Motion --> Audit[人物動画版の独立した集約監査]
+    Scenes --> Audit
+    Audio --> Audit
+    Package --> Audit
+    Audit --> Delivery[character-video-deliveryと検証記録]
+    Delivery --> Root[親担当のAI画面確認を別root-reviewへ]
+    Root --> Stage[AllowedRoots内へ完成MP4だけコピー hash確認]
+    Stage --> DryRun[再生用と添付用を個別dry-run]
+    DryRun --> Share[直列送信 終了0とverifiedを確認]
+    Share --> Receipt[署名URLを除いた共有receipt]
+    Share --> Reply[署名URLと期限を納品返信だけに返す]
+    Root -. 人間の確認とは別 .-> Human[利用者承認と最終試聴は別状態]
+```
+
+## 人物案内役と音声を変えない改訂（2026-10-22）
+
+```mermaid
+flowchart TD
+    Frozen[固定済み元原稿と音声計画] --> Clone[別のvisual-revisions原稿]
+    Character[透過PNGの人物案内役] --> CharacterProof[画像hashと目視・生成元・透過証跡]
+    CharacterProof --> Clone
+    Clone --> OnlyVisual[冒頭hookと締めrecapへ人物指定だけ追加]
+    OnlyVisual --> Equal[人物指定以外の全原稿と音声署名の一致]
+    Equal --> Staging[presenter PNGと証跡を入力へ結合]
+    Old[旧完成MP4とZIP] --> Preserve[旧納品物とstateを保持]
+    Old --> Reuse[字幕・場面尺・WAV・BGM・効果音を再照合]
+    Voice[保存済み検証済みAoede音声] --> First[初回映像の準備]
+    Reuse --> Staging
+    First --> Staging
+    Staging --> Render[人物構図を描画 公式引用場面には重ねない]
+    Render --> Mux[完成済みの回は旧AACをストリームコピー]
+    Mux --> Verify[音声hash同一性と全体decode・画面を確認]
+    Preserve --> Verify
+    Verify --> Delivery[新MP4とZIP 旧成果物も保持]
+    Equal -. 新しいTTS要求なし .-> Zero[視覚改訂による追加音声生成0件]
+```
+
+```mermaid
+flowchart LR
+    Plan[当初の音声要求計画35件] --> Verified[検証済み音声35件]
+    Unknown[第9回で結果不明1件] --> Halt[自動再送せず停止]
+    Halt --> Inspect[担当者が元記録を調査・保持]
+    Inspect --> Manual[明示的な置換1件を記録]
+    Manual --> Verified
+    Unknown --> Count[検証済み35件と不明1件を別集計]
+    Verified --> Count
+    Count --> Total[要求計36件 実請求は不明]
+```
+
+## dots第5〜9弾の制作経路（2026-10-22）
+
+```mermaid
+flowchart TD
+    Docs[公式資料を再確認] --> Stories[第5〜9弾 各7場面の原稿]
+    Docs --> Capture[Playwrightで最小限の箇所を撮影]
+    Capture --> Proof[元画面 座標 出典 hash 目視]
+    Stories --> Freeze[全原稿検証と各原稿hash固定]
+    Freeze --> Gate[排他と22秒間隔]
+    Gate --> Speech[Aoede 場面ごとに1回]
+    Speech --> Cache[実WAV 計測時間 生成証跡]
+    Cache --> Reuse[再開時は検証済みWAVを再利用]
+    Gate -. 未確定の送信 .-> Stop[自動再送せず停止]
+    Cache --> Prepare[30秒の場面と字幕を配分]
+    Proof --> Prepare
+    Prepare --> Layout[8種の新しい編集構図と出典表示]
+    Layout --> Render[1080x1920 720frame 安全域検査]
+    Render --> QC[全decode 音量 35場面の目視]
+    QC --> Package[5本のMP4 各10ファイルのZIP]
+    Package --> Hash[CRC 全メンバーhash 旧12動画の保持確認]
+    Hash --> S3[S3upで再生と添付を検証共有]
+    S3 --> Review[利用者の最終試聴とYouTube投稿]
+    Proof -. 公開ZIPへ含めない .-> Private[原本と制作記録]
+```
+
+## 公式ページの引用を含む第4弾（2026-10-22）
+
+```mermaid
+flowchart TD
+    Official[OpenAI公式資料を再確認] --> Browser[Playwrightで実ページを拡大して撮影]
+    Browser --> Original[元画面とURLと撮影日時を保存]
+    Original --> Crop[作業リンク 進行欄 成果物欄の必要部分]
+    Crop --> Proof[座標 PNG寸法 hash 出典 目視を記録]
+    Proof --> Check[source入力で証跡と元画面内の切出しを照合]
+    Check --> Stage[capture PNGをローカル同梱]
+    Official --> Story[7場面の解説と架空の作業例]
+    Story --> Voice[Aoedeを場面別に1回ずつ生成]
+    Story --> Layout[EditorialScene 4種のレイアウト]
+    Stage --> Layout
+    Voice --> Timing[実音声に合わせて場面と字幕を配置]
+    Timing --> Render[全frame安全域と文字検査]
+    Layout --> Render
+    Render --> Verify[全decode 音量 引用画像と出典を目視]
+    Verify --> Delivery[独立したMP4 ZIP 見出し 説明欄 出典]
+    Original -. 公開ZIPへ含めない .-> Private[制作記録]
+```
+
+## アプリ連携編をAoedeで仕上げる経路（2026-10-22）
+
+```mermaid
+flowchart TD
+    Prior[旧9本と公開済み補足編] --> Preserve[既存MP4のhashを保持]
+    Official[OpenAI公式資料を再確認] --> Story[第3話の原稿と発音辞書]
+    Choice[利用者がAoedeを選択] --> TTS[8場面別Gemini TTS 各1回]
+    Story --> TTS
+    TTS --> Proof[送信前記録と実WAVとusageとhash]
+    Proof --> Load[narration_source 読込時はAPI要求なし]
+    Story --> Load
+    Load --> Validate[モデル 声 原稿順 証跡 PCM sample一致]
+    Validate --> Timing[実音声の長さで場面と字幕を再配置]
+    Timing --> Render[共通Remotion 全frame文字領域検査]
+    Timing --> Music[112 BPM BGMと効果音 発話時減音]
+    Render --> Finish[H264とAAC 全decode 音量とpeak]
+    Music --> Finish
+    Finish --> Review[完成画像の目視 最終試聴は利用者確認]
+    Review --> Package[独立した公開用MP4とZIP CRCと全hash]
+    Preserve --> Package
+    Package --> Share[S3upで指定MP4を検証して共有]
+```
+
+## Geminiの声を少量で比較する独立経路（2026-10-22更新）
+
+```mermaid
+flowchart TD
+    Script[既存補足編の冒頭3場面] --> Prepare[prepare 発音辞書と試聴計画]
+    Prepare --> Baseline[Windows SAPIの比較音声]
+    Prepare --> Plan[KoreとAoedeの短い原稿]
+    Plan --> Explicit[generate 明示実行]
+    Key[環境変数のキー 記録しない] --> Header[固定HTTPS先の認証ヘッダー]
+    Header --> API[Gemini TTS API]
+    Explicit --> Once[各声1回 送信前記録]
+    Once --> API
+    API --> Validate[完了応答 PCM形式 尺 全decode hash]
+    API --> Error[無効キーや成否不明は停止 自動再送なし]
+    Validate --> Saved[検証済み試聴用WAVを保存]
+    Saved --> Package[package_voice_trial 音量調整と3音声比較]
+    Baseline --> Package
+    Package --> Check[H264とAAC 全decode 音量 hash 目視]
+    Check --> Local[版別MP4とローカル試聴ページ]
+    Local --> S3[S3up 指定MP4だけ検証して共有]
+    S3 --> Audition[利用者が声を選択 45秒版への採用待ち]
+```
+
+## クラウドPC比較の補足編とBGM差分（2026-10-21）
+
+```mermaid
+flowchart TD
+    Docs[OpenAI公式資料を確認] --> Claims[比較対象と条件と場面別出典]
+    Claims --> Story[45秒の補足JSON台本]
+    Story --> Voice[SAPI発話を実測して字幕と場面を配置]
+    Story --> Preset[閉じたmusic_preset]
+    Preset --> Legacy[既定120 BPM 既存PCMを維持]
+    Preset --> Bright[明るい112 BPMの新曲を合成]
+    Voice --> Duck[発話中は音楽を減音]
+    Legacy --> Duck
+    Bright --> Duck
+    Preset --> Signature[音声再利用署名と準備記録]
+    Voice --> Render[共通Remotionと既存キャラクター]
+    Render --> Mix[映像とナレーションと音楽を合成]
+    Duck --> Mix
+    Mix --> QC[全decode 形式 音量 全frame文字領域 目視]
+    QC --> Delivery[MP4 BGM カバー 字幕 見出し 説明欄 出典]
+```
+
+## 公式資料から9本の機能紹介ショートへ（2026-10-06）
+
+```mermaid
+flowchart TD
+    Official[OpenAI公式発表と機能資料] --> Ledger[確認日と場面別出典と提供条件]
+    Ledger --> Stories[9本のJSON台本 各30秒]
+    Ledger --> Descriptions[YouTube説明欄と出典要約]
+    Stories --> Voice[SAPI音声を実測 尺と字幕を検査]
+    Verified[検証済み男女キャラクター] --> Media[原本と生成記録のhash照合]
+    Media --> Render[共通Remotion 全文字領域を検査]
+    Voice --> Render
+    Graphics[FeatureDiagram 図と大きな数値] --> Render
+    Voice --> Mix[独自BGMと効果音 音量正規化]
+    Render --> QC[720frames 全decode 音量とhash]
+    Mix --> QC
+    QC --> Visual[実際の完成画像を目視]
+    Visual --> Package[9本のMP4とカバーと字幕]
+    Descriptions --> Package
+    Package --> VerifyZip[ZIP読戻し CRCと全hash]
+    VerifyZip --> Review[相対リンクの確認ページ 利用者採否待ち]
+    Review -. 利用者が公開操作 .-> YouTube[YouTube]
+```
+
+## 女性キャラクター差分を音声固定で反映（2026-09-30）
+
+```mermaid
+flowchart LR
+    Old[明るい服装版の始点画像] --> Edit[組込み画像編集 顔と配色を維持し体格を調整]
+    Edit --> New[新しい女性版の始点とprompt記録]
+    New --> H3[ローカルH3 I2VA UUIDを保存して一度だけ送信]
+    H3 --> AssetQC[形式と全decodeと目視 原本hashを記録]
+    AssetQC --> Story[30秒版の女性素材を差替え]
+    Story --> Render[共通Remotion 注釈を表示しない]
+    Prior[前版の検証済み音声とMP4] --> Match[台本と場面時刻と素材hashを照合]
+    Match --> Copy[AAC stream copy]
+    Render --> Copy
+    Copy --> QC[720frames 文字領域 全decode 音声packet一致]
+    QC --> Output[改訂版MP4と確認用ZIP]
+```
+
+## 演出付きショートの共通部品と制作経路（2026-09-30）
+
+```mermaid
+flowchart TD
+    Studio[Studio 告知の演出選択] --> Recipe[既存recipe 保存と版管理]
+    Studio -. セッション拒否時のみ .-> Session[同一originでcookie再取得 一度だけ再送]
+    Session --> Recipe
+    Recipe --> Compile[Creator presetをDetailedへcompile]
+    Compile --> Timeline[既存Remotion timeline]
+    Script[案件JSON 台本と素材] --> Voice[SAPI 音声sample数を実測]
+    Voice --> Schedule[尺内に場面と字幕を配置]
+    Schedule --> Creator[CreatorShortComposition 図解と人物]
+    Common[共通 安全域と動く見出しと寄り引き] --> Timeline
+    Common --> Creator
+    Timeline --> Assembly[既存assembly フレーズ字幕]
+    Creator --> Render[PNGからH264 CRF14]
+    Schedule --> Sound[独自BGMと効果音 発話中は減音]
+    Voice --> Sound
+    Render --> Mux[映像コピーと音声2-pass正規化]
+    Sound --> Mux
+    Mux --> QC[形式 全decode 音量 実文字領域 目視]
+    Assembly --> LegacyQC[既存QCと制作記録]
+    QC --> Delivery[日時別MP4 字幕 比較ページ ZIP]
+```
+
+## 30秒のClaude Code紹介（2026-09-26）
+
+```mermaid
+flowchart LR
+    Official[公式資料] --> Script[台本と6場面]
+    Existing[既存H3 男女キャラクター] --> Verify[媒体hashと生成記録を照合]
+    Verify --> Remotion[人物映像と4場面の図解 ツール名テロップなし]
+    Script --> Remotion
+    Script --> SAPI[ローカル音声 各5秒枠を実測]
+    SAPI --> Music[独自BGM 発話中は減音]
+    Remotion --> Video[1080x1920 720frames]
+    Video --> Mix[映像コピーと音声合成]
+    Music --> Mix
+    Prior[検証済み前版の音声] --> CheckAudio[台本と音楽設定とhashを照合]
+    CheckAudio --> CopyAudio[視覚改訂時はAACをコピー]
+    Video --> CopyAudio
+    CopyAudio --> Identical[前版との音声packet一致]
+    Identical --> Review
+    Mix --> Review[形式 decode 音量 目視検証]
+    Review --> Delivery[30秒候補と字幕と制作記録]
+```
+
+## 女性版の明るい服装への変更（2026-09-21）
+
+```mermaid
+flowchart LR
+    Old[前回女性版の始点画像 保持] --> Edit[Codex画像編集 衣服の色を変更]
+    Edit --> Bright[アイボリーと水色の新しい始点]
+    Bright --> H3[ローカルH3 I2VA 別UUIDで生成]
+    H3 --> Check[原本目視と生成来歴の照合]
+    Check --> Compose[5秒 1080x1920 文字合成]
+    Audio[男性版の検証済み声とチャイム] --> Compose
+    Compose --> Candidate[明るい服装の動画候補]
+    Candidate --> Compare[衣装比較と参照台帳]
+    Old --> Compare
+```
+
+## キャラクター参照と女性版I2VA（2026-09-20）
+
+```mermaid
+flowchart LR
+    Male[利用者が基本に選んだ男性の冒頭画像] --> Image[Codex画像生成 女性版へ編集]
+    Image --> Frame[保存済み女性始点画像とhash]
+    Frame --> I2VA[ローカルMiniMax H3 first_frame]
+    Prompt[キー画像対応の英語prompt] --> I2VA
+    I2VA --> Proof[同一UUIDのhistory graph hash 原本目視]
+    Proof --> Render[同じRemotion文字デザイン]
+    Prior[男性版の検証済みSAPI音声とチャイム] --> Reuse[台詞 設定 timing hashを照合]
+    Reuse --> Finish[映像を再圧縮せず合成]
+    Render --> Finish
+    Finish --> Review[女性版5秒候補と検証記録]
+    Male --> Guide[キャラクター基準 男性採用 女性試作]
+    Frame --> Guide
+```
+
+## ゲーム風の獲得キャッチ（2026-09-19）
+
+```mermaid
+flowchart LR
+    Request[ゲーム風の獲得演出を指定] --> Prompt[案件用T2VA prompt]
+    Prompt --> H3[ローカルMiniMax H3 768x1376]
+    H3 --> Proof[graph history hash 全decode 原本目視]
+    Proof --> Render[Remotion 5秒 大きな獲得メッセージ CRF 12]
+    Story[台本 発音 速度] --> Voice[共通Windows SAPI worker]
+    Voice --> Timing[実WAVの終了が4.9秒以内]
+    Synth[独自PCMチャイム] --> Mix[声と効果音をmix]
+    Timing --> Mix
+    Render --> Mux[映像stream copy 音声AAC]
+    Mix --> Mux
+    Synth --> Mux
+    Mux --> QC[形式 全decode 音声peak 360px目視]
+    QC --> Review[声あり版 効果音のみ版 利用者確認待ち]
+```
+
+## 冒頭の高解像度化と圧縮回数の削減（2026-09-18）
+
+```mermaid
+flowchart LR
+    Prompt[同じ夜景promptとseed 20 steps] --> H3[MiniMax H3 768x1376で新規生成]
+    H3 --> Proof[graph history 原本hash 実解像度の検証]
+    Proof --> Render[Remotion 1080x1920 CRF 12]
+    Prior[前版の検証済み完成MP4] --> AAC[同じAAC packetをcopy]
+    Captions[前版SRTと共通80px ASS preset] --> Burn[中間映像から直接字幕焼込み CRF 14 slow]
+    Render --> Burn
+    Render --> Clean[字幕なし映像はstream copy]
+    AAC --> Burn
+    AAC --> Clean
+    Burn --> QC[形式 全decode 音声同一性 目視比較]
+    Clean --> QC
+    QC --> Review[HQ改訂版MP4とZIP]
+```
+
+## 新しい夜景の生成と差し替え（2026-09-18）
+
+```mermaid
+flowchart LR
+    Prompt[NIGHT_CITY_H3.md 明るい夜景と水面の反射] --> Graph[固定T2VA graph 縦0.4MP 5秒]
+    Graph --> H3[ローカルMiniMax H3 official INT8 + Q4]
+    H3 --> Raw[新規の夜景MP4]
+    Graph --> Evidence[送信ID 完了history 入力と原本hash]
+    Raw --> Evidence
+    Evidence --> Verify[rendererで生成記録と入力を照合]
+    Verify --> Intro[冒頭5秒へ配置 暗幕を軽減]
+    Intro --> Render[最低54pxの30秒動画]
+    Prior[前版の同じナレーションと字幕] --> Assembly[字幕合成]
+    Render --> Assembly
+    Assembly --> QC[全decode スマホ幅の目視 音声同一性]
+    QC --> Review[改訂版MP4とZIP]
+```
+
+## 文字拡大と生成映像の再利用（2026-09-17）
+
+```mermaid
+flowchart LR
+    Story[story.json 台本と映像設定] --> Check[原本と生成記録のhashを検査]
+    H3[既存MiniMax H3 都市映像] --> Check
+    Record[保存済みH3生成検証JSON] --> Check
+    Check --> Intro[冒頭5秒だけ無音で配置]
+    Text[最低54pxの図解と見出し] --> Render[Remotion 30秒映像]
+    Intro --> Render
+    Prior[前版のナレーション4成果物] --> Same[台本 声 速度 読み方 時刻を照合]
+    Story --> Same
+    Same --> Audio[同じWAVと字幕を再利用]
+    Render --> Assembly[字幕付きと字幕なしMP4]
+    Audio --> Assembly
+    Assembly --> QA[全decode 音声同一性 360px幅の目視]
+    QA --> Draft[更新版MP4とZIP]
+```
+
 ## Claudeモデル進化の図解制作（2026-09-16）
 
 ```mermaid
@@ -964,3 +1539,16 @@ Remotion詳細timelineは既存の`TimelineWorker`によるハードカットを
 明示cancelはjob／attemptの中断と`provider_tasks.cancel_requested`を同じSQLite transaction・同じ時刻で確定します。その後のstartup／manual再照合は同じUUIDへのGETとtargeted cancelだけを使い、生成用`POST /prompt`を再送しません。未送信はlocal terminalへ確定し、running／404／一時的な照合不能はfenceを保持します。
 
 Local経路のprompt/mediaはloopback ComfyUIへ渡ります。通常の`local_comfyui`は固定graphと実行環境を照合し、default workerを占有しないGPU FIFO laneから同じComfyUIへ接続します。schema v8の`local_video_generation_claims`が同一Run／cache／payloadのactive requestを1 jobへ集約し、`provider_tasks`はComfyUI UUID、state、origin/current attempt、CAS owner、DPAPI暗号化restart payloadを保持します。UUIDはmarkerとDBへ先に永続化してから`POST /prompt`へ渡し、応答ID完全一致を要求します。terminal provider failureはmarkerへ先にfsyncします。Studio再起動はHTTP起動を妨げないbackground coordinatorが担当し、旧job/attemptを復活させず失敗履歴として残し、同じRunへ新attempt/jobを追記して`GET /api/jobs/{id}`とhistory/cacheを照合します。既知taskは再POSTせず、404、旧IDなしmarker、runtime不一致は手動確認へfail closedにします。通常終了はprovider生成を継続し、明示cancelだけが対象jobのcancel endpointを呼びます。UIは公開stateだけを2秒pollingし、実照合時刻と状態だけをstatus-only live regionで通知し、手動resumeも同じtaskへ限定します。`local_pipeline`は`POST /api/productions/{production_id}/execute-local-pipeline`でrequest schema v4の厳密なbodyを受け、6 requested stage（`video_generation`、`narration`、`captions`、`timeline`、`assembly`、`qc`）を一つのimmutableな0円Runへ束ねます。専用pipeline laneがGPU childとdefault childを協調し、ComfyUI動画生成→SAPI→one-clip timeline→assembly→QCの5 stageを実行します。schema v8の`local_pipeline_claims`はcanonical key、公開continuation state、source job/attempt、再開回数と、現在のWindowsユーザーだけが復号できる完全な正規化request暗号文を保持します。provider復旧成功と動画checkpointは同一transactionで`ready`へ確定し、単一coordinatorがCASで新topを一件だけenqueueします。新topのvideo childは指定checkpointを含む検証済みcacheだけを許可し、欠損・改ざん・lineage不一致ではprovider task作成や`POST /prompt`へ進まず停止します。SAPI以降は同じRunで通常どおり実行し、成功topとclaim、失敗topとclaimもそれぞれ同一transactionで確定します。parent cancelはchild job/processのjoin後にterminalへ確定し、復旧結果が後から成功しても`cancelled`のまま自動継続しません。raw prompt/scriptはSQLite、event、job metadataへ平文複製せず、ComfyUI再開payloadとpipeline継続requestだけをDPAPI暗号文として保存し、成功または確定cancelで消去します。明示的な`workflow.json`、`timings`、`manifest` artifactにはcontentが含まれ得ます。local pipelineはElevenLabs、MiniMax API、費用承認を使いません。API経路のprompt/mediaはMiniMaxの外部境界を越えます。Bearer key付きrequestはredirectを拒否し、MP4 CDN downloadにはkeyを付けません。Studioはsession保護されたloopback内で台帳とartifactを索引化します。`test-video` CLIは同じworkspaceをlockし、既存serviceをmain threadから順番に呼んでローカルMP4と監査IDをまとめます。費用gateとpayload確認を通った`elevenlabs_tts`だけはナレーション本文と固定設定をElevenLabsへ1回送信します。
+
+
+## 2026-10-23 編集改訂
+
+```mermaid
+flowchart LR
+  Feedback[レビュー指摘] --> Revision[Docs / dots改訂driver]
+  Revision --> Studio[既存Studio共通処理]
+  Studio --> Drive[版付きレビュー]
+  Evidence[公式根拠と架空実演] --> Revision
+  Evidence --> Article[記事MDXとPDF]
+  Article --> Drive
+```

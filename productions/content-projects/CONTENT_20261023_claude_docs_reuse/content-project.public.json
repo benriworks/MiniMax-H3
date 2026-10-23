@@ -1,0 +1,175 @@
+{
+  "schema_version": 1,
+  "content_project_id": "CONTENT_20261023_claude_docs_reuse",
+  "title": "メモからClaude Docsを作る",
+  "audience": "仕事のメモからAI文書を作り、確認と修正まで試したい人",
+  "mode": "chat_led_studio_shared_core",
+  "review_storage": {
+    "preferred": "google_drive",
+    "fallback": "s3",
+    "private_receipt": "local_only",
+    "mobile_playback": "pending"
+  },
+  "article": {
+    "repository": "benriworks/blog",
+    "slug": "claude-docs-from-memo",
+    "draft": true,
+    "published": false,
+    "outline_review": "draft_for_user_review"
+  },
+  "videos": [
+    {
+      "production_id": "SHORT_20261023_claude_docs_blog",
+      "status": "in_production",
+      "user_approved": false,
+      "youtube_url": null
+    }
+  ],
+  "sources": [
+    {
+      "id": "claude-docs",
+      "url": "https://support.claude.com/en/articles/16923645-get-started-with-claude-docs",
+      "checked_at": "2026-10-23",
+      "kind": "official"
+    }
+  ],
+  "assets": [
+    {
+      "asset_id": "input-memo",
+      "kind": "demonstration_capture",
+      "path": "outputs/productions/SHORT_20261023_claude_docs_blog/captures/input-memo.png",
+      "bytes": 82529,
+      "sha256": "E5CB1E351E074AB5A632D311EC77EC5BCEAB3A9B8FC2640EDFEBBB36DB94BA3C",
+      "width": 800,
+      "height": 285,
+      "phase": "before",
+      "fictional_materials_only": true,
+      "privacy_review": "passed",
+      "alt": "入力した架空メモと文書作成の依頼",
+      "caption": "入力した架空メモと文書作成の依頼。2026年10月22日の架空店舗の実演です。",
+      "user_approved_for_blog": false
+    },
+    {
+      "asset_id": "first-output",
+      "kind": "demonstration_capture",
+      "path": "outputs/productions/SHORT_20261023_claude_docs_blog/captures/first-output.png",
+      "bytes": 50174,
+      "sha256": "457068C5FEF0B29ECFDCF59CE91D1FA76A86695518953D3BF50CE28F1AFF78B8",
+      "width": 700,
+      "height": 790,
+      "phase": "first-output",
+      "fictional_materials_only": true,
+      "privacy_review": "passed",
+      "alt": "初回出力の日程・告知方法・予算・未決定事項",
+      "caption": "初回出力の日程・告知方法・予算・未決定事項。2026年10月22日の架空店舗の実演です。",
+      "user_approved_for_blog": false
+    },
+    {
+      "asset_id": "revision-request",
+      "kind": "demonstration_capture",
+      "path": "outputs/productions/SHORT_20261023_claude_docs_blog/captures/revision-request-v02.png",
+      "bytes": 37217,
+      "sha256": "0D8D37DDD37A78E6563EBDE060D1ADE8E7B80EA0021DFD0FCA92656ED26BF531",
+      "width": 940,
+      "height": 145,
+      "phase": "revision",
+      "fictional_materials_only": true,
+      "privacy_review": "passed",
+      "alt": "見出しと金額の表示を変える修正依頼",
+      "caption": "見出しと金額の表示を変える修正依頼。2026年10月22日の架空店舗の実演です。",
+      "user_approved_for_blog": false
+    },
+    {
+      "asset_id": "after-output",
+      "kind": "demonstration_capture",
+      "path": "outputs/productions/SHORT_20261023_claude_docs_blog/captures/after-output.png",
+      "bytes": 52300,
+      "sha256": "13FE4D6206A73B06444D4FBC9E6C5C1B39576C8325DE26C6633295F30785DB89",
+      "width": 700,
+      "height": 790,
+      "phase": "after",
+      "fictional_materials_only": true,
+      "privacy_review": "passed",
+      "alt": "修正後の日程・告知方法・告知予算・これから決めること",
+      "caption": "修正後の日程・告知方法・告知予算・これから決めること。2026年10月22日の架空店舗の実演です。",
+      "user_approved_for_blog": false
+    },
+    {
+      "asset_id": "official-create-context",
+      "kind": "official_capture",
+      "path": "outputs/productions/SHORT_20261023_claude_docs_blog/captures/official-create-context-v02.png",
+      "bytes": 37617,
+      "sha256": "C3C1E7E5BAB45C12AB4485D977A30D4340A3DBA4B8246A54DEFBA9C68D43FA7B",
+      "width": 2100,
+      "height": 330,
+      "privacy_review": "passed",
+      "source_url": "https://support.claude.com/en/articles/16923645-get-started-with-claude-docs",
+      "source_checked_at": "2026-10-23",
+      "blog_usage_review": "passed",
+      "alt": "Claude公式ヘルプのCreate a docと会話から始める操作案内",
+      "caption": "出典：Claude Help Center「Get started with Claude Docs」。2026年10月23日確認。保存済み公式ページの必要箇所を切り出しています。",
+      "user_approved_for_blog": false,
+      "review_basis": "Necessary short excerpt accompanying feature explanation; attributed; publication approval remains pending."
+    }
+  ],
+  "issues": [
+    {
+      "id": "P01",
+      "problem": "動画用の切り出しが小さく記事の文脈が不足",
+      "status": "resolved",
+      "action": "原撮影から記事向けの広い範囲を無加工で切り出し、画面を確認",
+      "result": "Wider original crops visually checked; revision crop v01 was clipped and replaced by v02, with the rejected candidate retained."
+    },
+    {
+      "id": "P02",
+      "problem": "初回の文書作成はコメント経由。通常チャットだけの実演と混同しやすい",
+      "status": "resolved",
+      "action": "公式の開始方法と、実際に試した操作経路を記事で分ける"
+    },
+    {
+      "id": "P03",
+      "problem": "動画の締めが次回予告でブログへの案内がない",
+      "status": "resolved",
+      "action": "締めのナレーションだけ変更し、他6場面は音声を再利用"
+    },
+    {
+      "id": "P04",
+      "problem": "動画と記事の素材受け渡しが手作業",
+      "status": "resolved",
+      "action": "Studio共通処理にhash照合・画像台帳・Figure出力を追加"
+    },
+    {
+      "id": "P05",
+      "problem": "レビュー共有がS3中心でモバイル確認に期限がある",
+      "status": "mobile_review_pending",
+      "action": "Driveを優先。既存版のアップロードとメタデータ確認済み、端末での再生は確認待ち"
+    },
+    {
+      "id": "P06",
+      "problem": "記事の公開先はまだ下書き",
+      "status": "open",
+      "action": "公開前は動画をレビュー版として扱い、プロフィールへのリンク設定を完了扱いにしない"
+    },
+    {
+      "id": "P07",
+      "problem": "汎用レビューHTMLに古い「図解」の説明が残る",
+      "status": "open",
+      "action": "今回の専用入口では実証画面として正しく説明。汎用テンプレートの文言分岐を次の共通改善へ"
+    },
+    {
+      "id": "P08",
+      "problem": "記事用アイキャッチと人物の掲載範囲が未確定",
+      "status": "open",
+      "action": "本文と画面のレビュー後、ブログの既存人物規定と合わせて決める"
+    }
+  ],
+  "editorial_review": {
+    "date": "2026-10-23",
+    "v01_audio_feedback": "user_positive",
+    "v01_content": "revision_required",
+    "takeaway": "人とClaudeが資料を踏まえ、同じ文書を一緒に仕上げる",
+    "revision_brief": "revisions/v02/EDITORIAL_BRIEF_JA.md",
+    "new_transcript_listening": "pending",
+    "new_capture": "pending"
+  }
+}
