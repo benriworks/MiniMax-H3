@@ -861,3 +861,8 @@ M5／M6の新しい自動回帰は、Delivery ZIPの13 entry＋外部SHA-256 sid
 Run契約修正後の再受入では、run `run_c0745a922f814b67b1c45f7fbac8fd80`が`requested_stages=[screen_capture,timeline]`、rerun planの`affected_stages=[screen_capture,timeline,assembly,qc]`を返しました。同Runのjob `job_66c8ae62688044a59cb3ca0a14207aec`も2.000秒、1080×1920、24fps、H.264、video-onlyのMP4と7 artifactを登録し、manifestに絶対pathを残していません。
 
 この受入はWeb viewport収録の証拠です。Windowsデスクトップ／ネイティブアプリ、system audio、microphone、既存ログインsession、外部Webサイト、複数page／popup、30秒超の収録は対象外です。収録MP4は既存timelineのvideo artifact候補として利用できますが、screen captureだけのRunでnarration／assemblyまで自動完走することは保証しません。
+
+
+## 2026-10-23 編集改訂
+
+Docs共同編集とdots先回り提案・実行前判断の案件用改訂を `productions/SERIES_20261023_editorial_revision/` に分離した。既存のStudio音声・レンダリング処理を再利用し、詳しい構成と検証範囲は同フォルダーのARCHITECTURE.mdに記録する。動画・音声・非公開共有URLはGitHubに保管しない。

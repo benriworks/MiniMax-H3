@@ -1,0 +1,268 @@
+{
+  "schema_version": 1,
+  "voice": "Aoede",
+  "rate": 1,
+  "pronunciations": [
+    {
+      "source": "dots",
+      "target": "ドッツ"
+    },
+    {
+      "source": "dot",
+      "target": "ドット"
+    },
+    {
+      "source": "ChatGPT",
+      "target": "チャットジーピーティー"
+    },
+    {
+      "source": "GPT-6 Astra",
+      "target": "ジーピーティーシックス、アストラ"
+    },
+    {
+      "source": "OpenAI",
+      "target": "オープンエーアイ"
+    },
+    {
+      "source": "Business Premium",
+      "target": "ビジネスプレミアム"
+    },
+    {
+      "source": "Enterprise",
+      "target": "エンタープライズ"
+    },
+    {
+      "source": "Pro",
+      "target": "プロ"
+    },
+    {
+      "source": "PC",
+      "target": "ピーシー"
+    },
+    {
+      "source": "Gmail",
+      "target": "ジーメール"
+    },
+    {
+      "source": "Drive",
+      "target": "ドライブ"
+    },
+    {
+      "source": "GitHub",
+      "target": "ギットハブ"
+    },
+    {
+      "source": "Slack",
+      "target": "スラック"
+    },
+    {
+      "source": "Teams",
+      "target": "チームズ"
+    },
+    {
+      "source": "Activity",
+      "target": "アクティビティ"
+    },
+    {
+      "source": "Scheduled",
+      "target": "スケジュールド"
+    },
+    {
+      "source": "SMS",
+      "target": "エスエムエス"
+    }
+  ],
+  "duration_seconds": 30,
+  "music_preset": "bright_groove_v1",
+  "id": "SHORT_20261023_dots_09_message_v02",
+  "title": "【ChatGPT】dotsに任せても、決めるのはあなた！実行前の確認と判断",
+  "scenes": [
+    {
+      "kind": "editorial",
+      "editorial_layout": "contrast",
+      "headline": "大切な操作は、\n確認してから。",
+      "narration": "大事なメール、送る前に確認したいですよね。",
+      "captions": [
+        "大事なメール、",
+        "送る前に\n確認したいですよね。"
+      ],
+      "body": "実行前に判断",
+      "items": [
+        {
+          "label": "送る前に",
+          "detail": "内容を確認"
+        },
+        {
+          "label": "決める人",
+          "detail": "あなた"
+        }
+      ],
+      "eyebrow": "DOTS 09 / 権限と停止",
+      "source_ids": [
+        "controls"
+      ],
+      "media": {
+        "path": "outputs/characters/explainer-motion-20261022/dots-male/MiniMax_H3_dots_male_00001_.mp4",
+        "proof": "outputs/characters/explainer-motion-20261022/dots-male/verification.json"
+      },
+      "mediaStart": 0
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "permissions",
+      "headline": "承認が必要なら、\nあなたへ確認。",
+      "narration": "dotsは、承認が必要な操作の前に、あなたへ確認します。",
+      "captions": [
+        "dotsは、承認が必要な",
+        "操作の前に、",
+        "あなたへ確認します。"
+      ],
+      "body": "内容を見て判断",
+      "items": [
+        {
+          "label": "確認する",
+          "detail": "相手と内容"
+        },
+        {
+          "label": "判断する",
+          "detail": "実行するか"
+        }
+      ],
+      "eyebrow": "DOTS 09 / 権限と停止",
+      "source_ids": [
+        "controls"
+      ]
+    },
+    {
+      "kind": "source",
+      "headline": "「メール送信は、\n毎回確認して」",
+      "narration": "たとえば、メール送信は毎回確認、とルールで指定。",
+      "captions": [
+        "たとえば、メール送信は",
+        "毎回確認、\nとルールで指定。"
+      ],
+      "capture": {
+        "title": "Control your dot",
+        "path": "outputs/productions/SHORT_20261022_dots_09_editorial/captures/official-rules.png",
+        "proof": "outputs/productions/SHORT_20261022_dots_09_editorial/captures/official-rules.json",
+        "source_url": "https://learn.chatgpt.com/docs/dots/controls"
+      },
+      "eyebrow": "DOTS 09 / 権限と停止",
+      "source_ids": [
+        "controls"
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "recap",
+      "headline": "送る・直す・やめる。\n決めるのはあなた。",
+      "narration": "宛先と内容を見て、送るか、修正するかを判断。",
+      "captions": [
+        "宛先と内容を見て、",
+        "送るか、\n修正するかを判断。"
+      ],
+      "body": "判断の例",
+      "items": [
+        {
+          "label": "送る",
+          "detail": "内容を確認して実行"
+        },
+        {
+          "label": "直す",
+          "detail": "修正して再確認"
+        },
+        {
+          "label": "やめる",
+          "detail": "今回は送らない"
+        }
+      ],
+      "eyebrow": "DOTS 09 / 権限と停止",
+      "source_ids": [
+        "controls"
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "contrast",
+      "headline": "下書きの依頼と、\n送信の許可は別。",
+      "narration": "下書きを作って、だけでは送信の許可になりません。",
+      "captions": [
+        "下書きを作って、だけでは",
+        "送信の許可になりません。"
+      ],
+      "body": "依頼の範囲を確認",
+      "items": [
+        {
+          "label": "作って",
+          "detail": "文面を準備"
+        },
+        {
+          "label": "送って",
+          "detail": "相手へ送信"
+        }
+      ],
+      "eyebrow": "DOTS 09 / 権限と停止",
+      "source_ids": [
+        "controls"
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "statement",
+      "headline": "許可や設定によって、\n確認の扱いは変わる。",
+      "narration": "事前の許可や設定で、確認なしに進む場合もあります。",
+      "captions": [
+        "事前の許可や設定で、",
+        "確認なしに進む",
+        "場合もあります。"
+      ],
+      "body": "常に毎回聞くとは\n限りません",
+      "action": "許可する範囲を決める",
+      "eyebrow": "DOTS 09 / 権限と停止",
+      "source_ids": [
+        "controls"
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "recap",
+      "headline": "確認が来たら、\nあなたが判断。",
+      "narration": "確認が来たら、あなたが判断。dotsと、一緒に進めましょう。",
+      "captions": [
+        "確認が来たら、\nあなたが判断。",
+        "dotsと、\n一緒に進めましょう。"
+      ],
+      "body": "任せる範囲を決める",
+      "items": [
+        {
+          "label": "確認する",
+          "detail": "相手と内容"
+        },
+        {
+          "label": "判断する",
+          "detail": "実行・修正・中止"
+        }
+      ],
+      "action": "dotsと仕事を進めよう",
+      "eyebrow": "DOTS 09 / 権限と停止",
+      "source_ids": [
+        "controls"
+      ],
+      "media": {
+        "path": "outputs/characters/explainer-motion-20261022/dots-female/MiniMax_H3_dots_female_00001_.mp4",
+        "proof": "outputs/characters/explainer-motion-20261022/dots-female/verification.json"
+      },
+      "mediaStart": 0
+    }
+  ],
+  "editorial": {
+    "checked_date": "2026-10-23",
+    "series_episode": 9,
+    "official_source_ids": [
+      "controls"
+    ],
+    "availability_note": "承認が必要な操作ではユーザーが判断。許可・設定・自動レビューにより確認なしで進む場合もある。表示する選択肢は判断の例であり実際のUIボタンの再現ではない。",
+    "user_approved": false,
+    "visuals": "One short excerpt captured from official documentation plus original editorial explanatory graphics; fictional examples are labelled. Not a live product test."
+  }
+}
