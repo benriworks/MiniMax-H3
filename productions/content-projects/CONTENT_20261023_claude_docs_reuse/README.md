@@ -42,3 +42,8 @@ DriveのレビューURLと個別ファイルIDを含む受領記録はローカ�
 ## 修正版v02の確認入口（2026-10-23）
 
 45秒の動画と9ページの記事PDFを作成し、Driveへ共有した。最新版は `revisions/v02/delivery-state.json`、ローカルの確認入口は `outputs/content-projects/CONTENT_20261023_claude_docs_reuse/review/v02/index.html`。Docsの複数資料参照と直接編集は公式機能の解説であり、追加実演は未撮影。技術検査とAI画面確認は実施済み、最終試聴・ユーザー採用・記事公開は未実施。以前のv01と構成案は履歴として保持する。
+
+
+## 実画面採用版v03（2026-10-23）
+
+実機撮影を動画の4場面、記事の3画像へ反映した。最新版の作業記録は `revisions/v04_native_integration/`、確認入口は `outputs/content-projects/CONTENT_20261023_claude_docs_reuse/review/v03/index.html`。45秒の動画と11ページの記事PDFをDriveへ保存し、画像7枚を含む記事案と公開用画像をブログPR #85へ更新した。ナレーションWAVは前版と同一で、新規API送信はない。ユーザー試聴・採用・公開は未実施。
