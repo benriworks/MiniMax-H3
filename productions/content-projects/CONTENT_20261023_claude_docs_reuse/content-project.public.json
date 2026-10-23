@@ -162,5 +162,14 @@
       "status": "open",
       "action": "本文と画面のレビュー後、ブログの既存人物規定と合わせて決める"
     }
-  ]
+  ],
+  "editorial_review": {
+    "date": "2026-10-23",
+    "v01_audio_feedback": "user_positive",
+    "v01_content": "revision_required",
+    "takeaway": "人とClaudeが資料を踏まえ、同じ文書を一緒に仕上げる",
+    "revision_brief": "revisions/v02/EDITORIAL_BRIEF_JA.md",
+    "new_transcript_listening": "pending",
+    "new_capture": "pending"
+  }
 }
