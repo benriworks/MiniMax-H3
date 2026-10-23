@@ -1,0 +1,70 @@
+{
+  "checked_date": "2026-10-23",
+  "content_project_id": "CONTENT_20261023_claude_docs_reuse",
+  "video": {
+    "path": "outputs/productions/SHORT_20261023_claude_docs_blog/20261023T003812418273Z/shorts-creator.mp4",
+    "bytes": 8897315,
+    "sha256": "2BEE36F099470B6514B64D58E2D15F43873D11767BBC6CCAC1938D734E7426F4"
+  },
+  "format": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 24,
+    "frames": 720,
+    "duration_seconds": 30,
+    "video": "h264",
+    "audio": "aac"
+  },
+  "full_decode": "passed",
+  "ai_visual_review": "passed",
+  "final_listening_review": "pending",
+  "user_approved": false,
+  "youtube_uploaded": false,
+  "voice": {
+    "name": "Aoede",
+    "reused_segments": 6,
+    "new_submissions": 1,
+    "actual_billing_verified": false
+  },
+  "studio_shared_core": {
+    "tests": 7,
+    "passed": 7,
+    "scope": "content_projects CLI; UI/API not added"
+  },
+  "blog": {
+    "draft": true,
+    "content_check": "passed",
+    "links": "passed",
+    "typecheck": "passed",
+    "lint": "passed",
+    "tests": 82,
+    "passed": 82,
+    "production_build": "passed",
+    "figures": 5,
+    "browser_preview_widths": [
+      390,
+      1280
+    ],
+    "all_images_loaded": true,
+    "horizontal_page_overflow": false,
+    "human_review": "pending",
+    "note": "Standalone MDX preview; not a published page"
+  },
+  "review_delivery": {
+    "provider": "google_drive",
+    "versions": [
+      "v00_existing_baseline",
+      "v01_blog_cta"
+    ],
+    "metadata_readback": "name_size_parent_match",
+    "raw_file_fetch": "returned_complete_file_reference_with_matching_size",
+    "remote_sha256": "not_available",
+    "mobile_playback": "pending",
+    "s3_uploaded": false
+  },
+  "privacy": {
+    "raw_captures_exported": false,
+    "capture_proofs_exported": false,
+    "private_drive_ids_in_public_record": false
+  }
+}

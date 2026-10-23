@@ -1,8 +1,18 @@
 # Architecture
 
+## チャットで進める動画・記事制作の共通処理（2026-10-23）
+
+`tools/studio/content_projects.py` は共通案件JSONから公開用画像を照合し、`outputs/content-projects/<id>/blog-handoff/<version>/` へ選択した画像、素材台帳、MDXのFigure記述を出力する。CLIは `validate` と `export-blog`。UI・HTTP API・DB migration・自動公開は追加していない。ユーザーは当面チャットを窓口にし、制作中の改善を共通処理へ反映する。
+
+画像はworkspace内の相対パス、種類、hash、bytes、寸法、AI補助のプライバシー確認、alt、captionを検証する。実演は架空素材だけ、公式画像は出典と日付付きの記事用途確認を要求する。`private`／`_private`、外部パス、画像外形式、改変済み素材を拒否する。撮影proofは複製せず、ユーザー採用と公開承認を昇格させない。既存の受け渡し版は上書きしない。
+
+最初の実案件は `productions/content-projects/CONTENT_20261023_claude_docs_reuse/`。7場面の動画は既存Aoede音声6件と既存MiniMax人物動画を再利用し、ブログ案内の締めだけを新規生成する専用ドライバーを用意した。元シリーズの台本・音声・納品ポインターは変更しない。記事は別ブログの独立ブランチで `draft: true` とする。
+
+レビュー配信はGoogle Drive優先。コネクターによるアップロードとメタデータreadbackを今回確認したが、Studio内にDrive連携を実装したものではない。ローカル受領記録に版・Drive ID・サイズ・確認範囲を残し、モバイル実再生とユーザー最終試聴は別の状態とする。S3はDrive不使用時または会社への持ち込み用途で指定された場合に使う。
+
 ## 自分用の動画・ブログ共通制作層の設計（2026-10-23）
 
-ユーザーは「まず自分用に磨く」「解説動画から詳細ブログへ誘導」「動画の決定事項と素材を記事にも利用」の方向を示した。現状はStudio／制作スクリプトの動画生成と、別リポジトリ `benriworks/blog` のMDX・画像掲載が別の経路として存在する。共通案件管理やブログ転送のAPI・DB・UIは今回追加していない。
+ユーザーは「まず自分用に磨く」「解説動画から詳細ブログへ誘導」「動画の決定事項と素材を記事にも利用」の方向を示した。現状はStudio／制作スクリプトの動画生成と、別リポジトリ `benriworks/blog` のMDX・画像掲載が別の経路として存在する。共通の画像受け渡しCLIを追加した。共通案件管理やブログ転送のAPI・DB・UIは未追加。
 
 [VIDEO_TO_BLOG_WORKFLOW_JA.md](docs/video-production/VIDEO_TO_BLOG_WORKFLOW_JA.md) は、共通 `content_project_id` から企画、確認した事実と出典、人物、原素材を参照し、動画と記事へ分ける設計を定める。[content-project.example.json](docs/video-production/templates/content-project.example.json) は契約の記載例で、既存DB migrationではない。動画のproduction ID・既存素材パスは維持する。
 

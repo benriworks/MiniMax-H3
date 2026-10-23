@@ -1,6 +1,25 @@
 # Architecture diagram
 
-## 動画とブログを同じ企画から作る設計（2026-10-23・共通層は未実装）
+## チャット経由の共通画像受け渡しとレビュー（2026-10-23）
+
+```mermaid
+flowchart TD
+    Chat[チャットで制作を進める] --> Project[共通案件JSON]
+    Project --> Core[Studio共通処理 content_projects]
+    Core --> Verify[公開用画像のhashと寸法と確認状態を照合]
+    Verify --> Export[版付き画像と台帳とFigure記述]
+    Export --> Draft[別ブログのdraft記事]
+    Chat --> Pilot[既存人物動画と音声6件を再利用]
+    Pilot --> CTA[Aoedeの締め1件を生成]
+    CTA --> QC[30秒動画の合成と技術検証]
+    QC --> Drive[コネクターでGoogle Driveへ保存]
+    Drive --> Human[モバイル再生と最終試聴と採用]
+    QC -. Driveが難しい場合または会社への持ち込み .-> S3[S3で受け渡し]
+```
+
+実装済みの共通処理はCLIで利用する。Studio UI/APIからの操作、Drive自動送信、記事自動公開は未実装。人の採用と公開判断を技術検証で代用しない。
+
+## 動画とブログを同じ企画から作る全体設計（2026-10-23・画像受け渡しCLIは初期実装済み）
 
 実線は現在存在する動画・ブログそれぞれの経路、破線は今回整理した共通管理と受け渡しの設計を示す。図はアプリの実行状態や公開完了を示さない。
 
