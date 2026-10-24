@@ -15,7 +15,7 @@ export function titleMotion(frame:number) {
   const enter=outCubic(frame/9);
   return {opacity:.35+.65*enter, y:(1-enter)*32, scale:.94+.06*enter};
 }
-export const FEATURE_GRAPHICS = ['release','cloud','apps','parallel','memory','chat','schedule','research','control','laptop'] as const;
+export const FEATURE_GRAPHICS = ['release','cloud','apps','parallel','memory','chat','schedule','research','control','laptop','web-services','web-flow'] as const;
 export const EDITORIAL_LAYOUTS = ['hook','parallel','conversation','closing','memory','channels','calendar','research','permissions','contrast','statement','recap'] as const;
 export type EditorialLayout = typeof EDITORIAL_LAYOUTS[number];
 export type FeatureGraphic = typeof FEATURE_GRAPHICS[number];

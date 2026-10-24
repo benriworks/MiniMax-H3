@@ -1,0 +1,111 @@
+{
+  "content_project_id": "CONTENT_20261024_php2shell_overview",
+  "production_id": "SHORT_20261024_php2shell_overview",
+  "revision": "v03",
+  "title": "【PHP】WordPressも要確認！PHP2Shellの概要と対策",
+  "status": "verified_candidate_awaiting_user_review",
+  "video": {
+    "path": "outputs/productions/SHORT_20261024_php2shell_overview/20261024T163345527432Z/release/php2shell-overview-v03.mp4",
+    "bytes": 7338286,
+    "sha256": "7FD62DF412205B75AE93080FB4B91236D9DFB3B01E8D5114C1F141A6E0281B9A"
+  },
+  "output": "outputs/productions/SHORT_20261024_php2shell_overview/20261024T163345527432Z",
+  "duration_seconds": 60,
+  "width": 1080,
+  "height": 1920,
+  "fps": 24,
+  "verification": {
+    "path": "outputs/productions/SHORT_20261024_php2shell_overview/20261024T163345527432Z/verification.json",
+    "bytes": 21640,
+    "sha256": "CB37A12D15E4A8EC70E7C10F72A025B9A03FA11F2E76DAF4FF4655BB28F6F7AD"
+  },
+  "ai_visual_review": {
+    "path": "outputs/productions/SHORT_20261024_php2shell_overview/20261024T163345527432Z/ai-visual-review.json",
+    "bytes": 1594,
+    "sha256": "102650708B836FA8B6790463840EBBB445945ADCDAB9E1418C85126E3D9EE4B8"
+  },
+  "blog_figures": [
+    {
+      "asset_id": "php-services-v03",
+      "kind": "original",
+      "source_type": "original_code_diagram",
+      "artifact": {
+        "path": "outputs/content-projects/CONTENT_20261024_php2shell_overview/blog-assets/v03/php-services.png",
+        "bytes": 73398,
+        "sha256": "7EF3734795AF305E5257A6566D5E4B24CB44DB5BB85BED3CBBBEF1003932F2D7"
+      },
+      "context": {
+        "path": "outputs/productions/SHORT_20261024_php2shell_overview/20261024T163345527432Z/design-02.png",
+        "bytes": 247728,
+        "sha256": "D5766DA027A40C182D23735D5B51AB154A33ADD76725617FACDA00C961AA1C4D"
+      },
+      "source_code": {
+        "path": "studio/src/remotion/WebRuntimeDiagram.tsx",
+        "bytes": 4966,
+        "sha256": "56122FC670F43EB5221E43539EA49906E8755B7D8E255EDBCFCDEF38CC708351"
+      },
+      "clip": {
+        "x": 72,
+        "y": 660,
+        "width": 828,
+        "height": 590
+      },
+      "content_modified": false,
+      "pixel_exact_crop_verified": true,
+      "alt": "利用者とブラウザー、サーバー内でPHPを利用するWordPress・フォーム・買い物の例",
+      "privacy_review": "passed",
+      "blog_usage_review": "pending",
+      "user_approved_for_blog": false
+    },
+    {
+      "asset_id": "php-request-response-v03",
+      "kind": "original",
+      "source_type": "original_code_diagram",
+      "artifact": {
+        "path": "outputs/content-projects/CONTENT_20261024_php2shell_overview/blog-assets/v03/php-request-response.png",
+        "bytes": 155246,
+        "sha256": "7D64B12E8CA820B7C54F860B1D2BED12D96FC6C629FD30BF19F638361C6A2E65"
+      },
+      "context": {
+        "path": "outputs/productions/SHORT_20261024_php2shell_overview/20261024T163345527432Z/flow-complete.png",
+        "bytes": 316365,
+        "sha256": "7C7CD0D00A95F4BC28D35AE17DD683B2F969B319FC41CBADECCAE1F12EE97C3B"
+      },
+      "source_code": {
+        "path": "studio/src/remotion/WebRuntimeDiagram.tsx",
+        "bytes": 4966,
+        "sha256": "56122FC670F43EB5221E43539EA49906E8755B7D8E255EDBCFCDEF38CC708351"
+      },
+      "clip": {
+        "x": 72,
+        "y": 660,
+        "width": 828,
+        "height": 590
+      },
+      "content_modified": false,
+      "pixel_exact_crop_verified": true,
+      "alt": "アクセスを受けたサーバー内のPHPが処理し、結果をブラウザーへ返す流れ",
+      "privacy_review": "passed",
+      "blog_usage_review": "pending",
+      "user_approved_for_blog": false
+    }
+  ],
+  "new_voice_segments": 4,
+  "reused_verified_voice_segments": 8,
+  "new_minimax_generations": 0,
+  "reused_approved_minimax_motion": true,
+  "voice": "Aoede",
+  "human_listening": "pending",
+  "user_adoption": "pending",
+  "publication": "not_performed",
+  "sharing": {
+    "provider": "google_drive",
+    "status": "uploaded_and_metadata_verified",
+    "receipt": {
+      "path": "outputs/content-projects/CONTENT_20261024_php2shell_overview/drive-review-v03.json",
+      "bytes": 1452,
+      "sha256": "8BBAF10FF6A4756C34269ED823FF5F53A9C56C7B3D371F590FE80F2FBB16B610"
+    },
+    "mobile_playback": "not_verified"
+  }
+}

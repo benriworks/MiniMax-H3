@@ -1010,3 +1010,19 @@ flowchart LR
 ```
 
 元の撮影形式と公開派生は分け、実演・公式引用・自作説明の来歴を保持する。人の試聴・採用・公開の状態を描画成功から自動的に変更しない。
+
+## Web処理を説明する共通図解（2026-10-25）
+
+```mermaid
+flowchart LR
+  Spec[閉じたgraphic指定] --> Services[web-services]
+  Spec --> Flow[web-flow]
+  Services --> Illustration[WebRuntimeDiagram]
+  Flow --> Illustration
+  Illustration --> Actors[外側の利用者とブラウザー]
+  Illustration --> Server[内側のPHPとサービス例]
+  Actors -->|アクセス| Server
+  Server -->|処理結果| Actors
+  Illustration --> Fingerprint[render入力hashと安全域検査]
+  Fingerprint --> Movie[動画と記事用の図解派生]
+```

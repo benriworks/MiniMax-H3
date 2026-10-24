@@ -28,3 +28,22 @@ flowchart TD
 ```
 
 Driveでの保存確認は、モバイル実機で再生できたことの証明と分ける。GitHubへの矢印には動画・音声・納品ZIPを含めない。
+
+## v03の改訂依存
+
+```mermaid
+flowchart LR
+  User[国内との関係と図解の修正依頼] --> Record[record-v03で返答を記録]
+  Stats[W3Techsの分母付き国内サーバー統計] --> Record
+  WP[WordPress要件とPHP公式入門] --> Record
+  PC[追加撮影と研究用原本] --> Record
+  Record --> Story[v03・12場面60秒]
+  Story --> New[冒頭4場面のAoede生成]
+  Old[既存8場面のproofとPCM] --> Voice[改訂版音声manifest]
+  New --> Voice
+  Motion[採用済みMiniMax人物動画] --> Edit[prepareとrender]
+  Voice --> Edit
+  Diagram[共通WebRuntimeDiagram] --> Edit
+  Edit --> QC[動画と図解・分母・音量の確認]
+  QC --> Review[別版Driveレビュー]
+```

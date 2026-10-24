@@ -2,6 +2,7 @@ import {useCurrentFrame} from 'remotion';
 import {Rise} from './ShortsMotionPrimitives';
 import {SHORTS_COLORS as C,SHORTS_SAFE as S,outCubic} from './shortsMotion';
 import type {CreatorScene,FeatureGraphic} from './shortsMotion';
+import {WebRuntimeDiagram} from './WebRuntimeDiagram';
 
 /** Original symbolic motion graphics; these are not replicas of product UI. */
 function Icon({kind}:{kind:FeatureGraphic}){
@@ -25,6 +26,7 @@ export function FeatureDiagram({scene}:{scene:CreatorScene}){
   const f=useCurrentFrame(),light=scene.tone==='light',items=scene.items??[],color=light?'#235848':C.lime;
   const surface=light?'#fff':'#18283d',stroke=light?'#b6c9be':'#354c64';
   const centerY=items.length?140:220;
+  if(scene.graphic==='web-services'||scene.graphic==='web-flow')return <WebRuntimeDiagram flow={scene.graphic==='web-flow'}/>;
   return <div style={{position:'absolute',left:S.left,top:660,width:S.width,height:590,color}}>
     <svg aria-hidden width="828" height="530" style={{position:'absolute',inset:0}}>
       <circle cx="414" cy={centerY} r={items.length?123:168} fill="none" stroke={stroke} strokeWidth="2"/>

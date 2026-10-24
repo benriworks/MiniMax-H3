@@ -13,7 +13,7 @@ const record=async p=>({path:path.relative(root,p).replaceAll('\\','/'),bytes:(a
 const check=async r=>{const p=path.resolve(root,r.path);if(!p.startsWith(root+path.sep))throw Error('Outside workspace');const a=await record(p);if(a.bytes!==r.bytes||a.sha256!==r.sha256)throw Error('Changed input '+r.path);return p;};
 const prep=JSON.parse(await fs.readFile(path.join(out,'preparation.json'),'utf8'));
 for(const source of prep.sources)await check(source);
-const names=['src/remotion/creatorEntry.tsx','src/remotion/CreatorShortComposition.tsx','src/remotion/EditorialScene.tsx','src/remotion/shortsMotion.ts','src/remotion/ShortsMotionPrimitives.tsx','src/remotion/FeatureDiagram.tsx','src/remotion/ScreenTypography.tsx','public/template-assets/NotoSansJP-Variable.ttf','package.json','package-lock.json','creator-render.mjs','capture-render-validation.mjs'];
+const names=['src/remotion/creatorEntry.tsx','src/remotion/CreatorShortComposition.tsx','src/remotion/EditorialScene.tsx','src/remotion/shortsMotion.ts','src/remotion/ShortsMotionPrimitives.tsx','src/remotion/FeatureDiagram.tsx','src/remotion/WebRuntimeDiagram.tsx','src/remotion/ScreenTypography.tsx','public/template-assets/NotoSansJP-Variable.ttf','package.json','package-lock.json','creator-render.mjs','capture-render-validation.mjs'];
 const sources=[...prep.sources,...await Promise.all(names.map(n=>record(path.join(studio,n))))];
 const pub=path.join(out,'public');await fs.mkdir(path.join(pub,'template-assets'),{recursive:true});
 await fs.copyFile(path.join(studio,'public/template-assets/NotoSansJP-Variable.ttf'),path.join(pub,'template-assets/NotoSansJP-Variable.ttf'));
