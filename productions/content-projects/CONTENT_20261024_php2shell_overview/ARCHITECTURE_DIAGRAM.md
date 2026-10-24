@@ -47,3 +47,22 @@ flowchart LR
   Edit --> QC[動画と図解・分母・音量の確認]
   QC --> Review[別版Driveレビュー]
 ```
+
+## v04の人物差し替え
+
+```mermaid
+flowchart LR
+  User[同じ男性の表情・仕草の修正] --> Prompt[困り顔と顎に添える緩い拳]
+  Ref[採用済み人物版1の画像] --> H3[専用MiniMax H3 I2VA]
+  Prompt --> H3
+  H3 --> Visual[生成・decode・顔と手のAI確認]
+  Visual --> Intro[冒頭91frameのmediaと開始位置]
+  Old[v03の台本・音声・字幕・図解] --> Match[原稿・時刻・hash一致]
+  Match --> Edit[prepare reuse_audio]
+  Intro --> Edit
+  Edit --> Render[既存カット割りで描画]
+  Old --> AAC[AAC stream copy]
+  Render --> Finish[finishとpacket hash一致]
+  AAC --> Finish
+  Finish --> Review[別版v04のDriveレビュー]
+```

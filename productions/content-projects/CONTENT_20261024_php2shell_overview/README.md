@@ -2,7 +2,7 @@
 
 2026-10-24開始。`CONTENT_20261024_php2shell_overview`。出力IDは `SHORT_20261024_php2shell_overview`。
 
-**最新版は2026-10-25のv03・60秒候補。** 国内サーバーの利用統計、WordPress、利用者→サーバー内のPHPとサービス→応答のイラストを追加した。[改訂記録](REVISION_V03_JA.md)と `delivery-v03.json` を参照。旧 `delivery.json` はv02の記録として保持し、最新版は出力フォルダーの `latest.json` から追う。
+**最新版は2026-10-25のv04・60秒候補。** [v03](REVISION_V03_JA.md)の内容を保ち、冒頭を少し困った表情で拳を顎に添えて考える人物動画へ差し替えた。[v04改訂記録](REVISION_V04_JA.md)と `delivery-v04.json` を参照。音声・字幕・図解・時刻を維持し、AACのpacket hash一致と後半11カットの確認画像の画素一致を検証。旧 `delivery.json` はv02、`delivery-v03.json` はv03の記録として保持し、最新版は出力フォルダーの `latest.json` から追う。
 
 ## 採用された目的
 
