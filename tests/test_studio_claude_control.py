@@ -16,6 +16,7 @@ from tools.studio import claude_capture as capture
 from tools.studio.claude_control import NativeClaudeControl, HELPER, validate_request, public_diagnostics
 from tools.studio.service import StudioService
 from tools.studio.server import create_server
+from tools.studio.database import SCHEMA_VERSION
 from tools.studio.still_library import StillLibraryError
 from tests.test_studio_claude_capture import FakeSystem, SESSION, OTHER_SESSION
 
@@ -194,7 +195,7 @@ class ClaudeControlTests(unittest.TestCase):
         replacement = StudioService(self.root); self.addCleanup(replacement.close)
         self.assertEqual(replacement.claude_control.get(receipt["id"]), receipt)
         with replacement.database.session() as connection:
-            self.assertEqual(connection.execute("SELECT value FROM schema_meta WHERE key='schema_version'").fetchone()[0], '14')
+            self.assertEqual(connection.execute("SELECT value FROM schema_meta WHERE key='schema_version'").fetchone()[0], str(SCHEMA_VERSION))
 
     def test_restart_marks_unfinished_receipt_for_review_without_replay(self):
         body = self.request("input")

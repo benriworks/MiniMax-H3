@@ -790,7 +790,7 @@ class DatabaseMigrationTests(unittest.TestCase):
             database_path = workspace / "studio.sqlite3"
             with closing(sqlite3.connect(database_path)) as connection:
                 connection.executescript(
-                    """
+                    f"""
                     CREATE TABLE schema_meta (
                         key TEXT PRIMARY KEY,
                         value TEXT NOT NULL
@@ -798,7 +798,7 @@ class DatabaseMigrationTests(unittest.TestCase):
                     INSERT INTO schema_meta(key, value) VALUES('schema_version', '1');
                     CREATE TRIGGER reject_current_schema
                     BEFORE UPDATE OF value ON schema_meta
-                    WHEN NEW.key='schema_version' AND NEW.value='14'
+                    WHEN NEW.key='schema_version' AND NEW.value='{SCHEMA_VERSION}'
                     BEGIN
                         SELECT RAISE(ABORT, 'test migration rollback');
                     END;

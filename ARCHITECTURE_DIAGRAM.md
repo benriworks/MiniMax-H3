@@ -964,3 +964,32 @@ Remotion詳細timelineは既存の`TimelineWorker`によるハードカットを
 明示cancelはjob／attemptの中断と`provider_tasks.cancel_requested`を同じSQLite transaction・同じ時刻で確定します。その後のstartup／manual再照合は同じUUIDへのGETとtargeted cancelだけを使い、生成用`POST /prompt`を再送しません。未送信はlocal terminalへ確定し、running／404／一時的な照合不能はfenceを保持します。
 
 Local経路のprompt/mediaはloopback ComfyUIへ渡ります。通常の`local_comfyui`は固定graphと実行環境を照合し、default workerを占有しないGPU FIFO laneから同じComfyUIへ接続します。schema v8の`local_video_generation_claims`が同一Run／cache／payloadのactive requestを1 jobへ集約し、`provider_tasks`はComfyUI UUID、state、origin/current attempt、CAS owner、DPAPI暗号化restart payloadを保持します。UUIDはmarkerとDBへ先に永続化してから`POST /prompt`へ渡し、応答ID完全一致を要求します。terminal provider failureはmarkerへ先にfsyncします。Studio再起動はHTTP起動を妨げないbackground coordinatorが担当し、旧job/attemptを復活させず失敗履歴として残し、同じRunへ新attempt/jobを追記して`GET /api/jobs/{id}`とhistory/cacheを照合します。既知taskは再POSTせず、404、旧IDなしmarker、runtime不一致は手動確認へfail closedにします。通常終了はprovider生成を継続し、明示cancelだけが対象jobのcancel endpointを呼びます。UIは公開stateだけを2秒pollingし、実照合時刻と状態だけをstatus-only live regionで通知し、手動resumeも同じtaskへ限定します。`local_pipeline`は`POST /api/productions/{production_id}/execute-local-pipeline`でrequest schema v4の厳密なbodyを受け、6 requested stage（`video_generation`、`narration`、`captions`、`timeline`、`assembly`、`qc`）を一つのimmutableな0円Runへ束ねます。専用pipeline laneがGPU childとdefault childを協調し、ComfyUI動画生成→SAPI→one-clip timeline→assembly→QCの5 stageを実行します。schema v8の`local_pipeline_claims`はcanonical key、公開continuation state、source job/attempt、再開回数と、現在のWindowsユーザーだけが復号できる完全な正規化request暗号文を保持します。provider復旧成功と動画checkpointは同一transactionで`ready`へ確定し、単一coordinatorがCASで新topを一件だけenqueueします。新topのvideo childは指定checkpointを含む検証済みcacheだけを許可し、欠損・改ざん・lineage不一致ではprovider task作成や`POST /prompt`へ進まず停止します。SAPI以降は同じRunで通常どおり実行し、成功topとclaim、失敗topとclaimもそれぞれ同一transactionで確定します。parent cancelはchild job/processのjoin後にterminalへ確定し、復旧結果が後から成功しても`cancelled`のまま自動継続しません。raw prompt/scriptはSQLite、event、job metadataへ平文複製せず、ComfyUI再開payloadとpipeline継続requestだけをDPAPI暗号文として保存し、成功または確定cancelで消去します。明示的な`workflow.json`、`timings`、`manifest` artifactにはcontentが含まれ得ます。local pipelineはElevenLabs、MiniMax API、費用承認を使いません。API経路のprompt/mediaはMiniMaxの外部境界を越えます。Bearer key付きrequestはredirectを拒否し、MP4 CDN downloadにはkeyを付けません。Studioはsession保護されたloopback内で台帳とartifactを索引化します。`test-video` CLIは同じworkspaceをlockし、既存serviceをmain threadから順番に呼んでローカルMP4と監査IDをまとめます。費用gateとpayload確認を通った`elevenlabs_tts`だけはナレーション本文と固定設定をElevenLabsへ1回送信します。
+
+## 2026-10-24 調査・企画から絵コンテまでの共通処理
+
+```mermaid
+flowchart TD
+    User[ユーザーのテーマと伝えたいこと] --> Chat[チャットの助手]
+    Web[公式資料・一次情報・ニュース] --> Chat
+    PC[実画面の撮影可否と実演] --> Chat
+    Chat --> CLI[content_workspace CLI]
+    UI[Studio 動画と記事の企画] --> API[認証付き content-projects API]
+    CLI --> Core[ContentWorkspace 共通サービス]
+    API --> Core
+    Core --> DB[(SQLite v15 正本と改訂履歴)]
+    Core --> Plan[調査と本数提案]
+    Plan --> Feedback[返答の記録・意図の反映・対象版の採用]
+    Feedback --> Capture[撮影計画と確認記録]
+    Capture --> Claims[主張と根拠]
+    Claims --> Assets[原本と公開用派生の素材台帳]
+    Assets --> Story[確認済み人物と絵コンテ]
+    Story --> Existing[既存の撮影・生成・編集処理へ引き継ぎ]
+    Core --> Impact[依存先だけ再確認]
+    Impact --> Story
+    Impact --> Article[記事節と共通素材]
+    Article --> Export[既存のブログ受け渡し検証]
+    Core --> Snapshot[確認後の公開用記録書き出し]
+    Private[非公開原本] -. ローカル参照だけ .-> Assets
+```
+
+検索・アプリ操作・外部アカウント接続はチャット側。共通サービスは保存・整合性確認・版管理を担当する。CLIは起動中ジョブを回復・中断せず同じDBへ接続する。図の引き継ぎは新しい生成・アップロード・公開の自動実行を意味しない。

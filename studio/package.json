@@ -6,14 +6,15 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
-    "test": "tsc --ignoreConfig --target ES2022 --module ESNext --moduleResolution Bundler --skipLibCheck --outDir .test-dist src/api.ts src/status.ts src/types.ts src/remotion/model.ts src/remotion/screenThemes.ts src/announcementRecovery.ts src/simpleCreate.ts src/simpleCreateWorkflow.ts src/screenExplainerWorkflow.ts src/contentQuality.ts src/manualPublication.ts src/App.test.tsx && node --test .test-dist/App.test.js tests/status.test.mjs tests/qc.test.mjs tests/timeline.test.mjs tests/remotion-timeline.test.mjs tests/screen-themes.test.mjs tests/screen-capture.test.mjs tests/narration.test.mjs tests/external-tts.test.mjs tests/video-generation.test.mjs tests/pipeline.test.mjs tests/detailed-test-video.test.mjs tests/announcement-video.test.mjs tests/simple-create.test.mjs tests/screen-explainer-workflow.test.mjs tests/claude-capture-api.test.mjs tests/review.test.mjs tests/content-quality.test.mjs tests/manual-publication.test.mjs",
+    "test": "tsc --ignoreConfig --target ES2022 --module ESNext --moduleResolution Bundler --skipLibCheck --outDir .test-dist src/api.ts src/status.ts src/types.ts src/remotion/model.ts src/remotion/screenThemes.ts src/announcementRecovery.ts src/simpleCreate.ts src/simpleCreateWorkflow.ts src/screenExplainerWorkflow.ts src/contentQuality.ts src/manualPublication.ts src/App.test.tsx && node --test .test-dist/App.test.js tests/status.test.mjs tests/qc.test.mjs tests/timeline.test.mjs tests/remotion-timeline.test.mjs tests/screen-themes.test.mjs tests/screen-capture.test.mjs tests/narration.test.mjs tests/external-tts.test.mjs tests/video-generation.test.mjs tests/pipeline.test.mjs tests/detailed-test-video.test.mjs tests/announcement-video.test.mjs tests/simple-create.test.mjs tests/screen-explainer-workflow.test.mjs tests/claude-capture-api.test.mjs tests/review.test.mjs tests/content-quality.test.mjs tests/manual-publication.test.mjs && npm run test:content-workspace",
     "test:claude-capture-ui": "node --test tests/claude-capture-ui.test.mjs",
     "test:still-library-live": "npm run build && node --test tests/still-library-live.test.mjs",
     "test:claude-still-ui": "node --test tests/claude-still-ui.test.mjs",
     "test:still-plans-live": "npm run build && node --test tests/still-plans-live.test.mjs",
     "test:still-guided-live": "npm run build && node --test tests/still-guided-live.test.mjs",
     "test:claude-control-live": "npm run build && node --test tests/claude-control-live.test.mjs",
-    "preview": "vite preview --host 127.0.0.1"
+    "preview": "vite preview --host 127.0.0.1",
+    "test:content-workspace": "tsc --ignoreConfig --target ES2022 --module ESNext --moduleResolution Bundler --skipLibCheck --outDir .test-dist src/contentWorkspaceApi.ts && node --test tests/content-workspace.test.mjs"
   },
   "dependencies": {
     "@remotion/bundler": "4.0.517",
