@@ -6,6 +6,7 @@
 - 動画制作に着手する前に `docs/video-production/README.md`、`VIDEO_PRODUCTION_HANDOFF_JA.md`、ナレーションを扱う場合は `NARRATION_HANDOFF_JA.md` を読む。いずれも `docs/video-production/` 内にある。
 - PC画面の撮影・公式画像引用を扱う場合は、同フォルダーの `SCREEN_CAPTURE_AND_QUOTES_JA.md` に従い、撮影原本・公開用切り出し・出典・確認日を残す。
 - 動画制作では記事草稿とブログ用素材収集も同時に行い、`VIDEO_TO_BLOG_WORKFLOW_JA.md` に従う。同じ企画の事実・実演・原素材を共用し、動画用と記事用の派生・レビュー・公開状態を分ける。ブログ側のAGENTS.mdと画像規定も読む。
+- 記事の既定の投稿先はユーザーの `benriworks/blog` リポジトリ。案件によってnoteも選べる。主な題材はClaude・ChatGPT・Codex関連だが、他の指定テーマを除外しない。投稿先の指定がなければblogを前提に準備し、note指定時も共通草稿・出典・原素材を残して媒体用の派生を作る。noteへの掲載にblog固有のMDXやFigureを要求しない。二重投稿や公開を自動で行わない。
 - ユーザーの最新指示を優先し、変更したルール・理由・検証範囲を制作記録とガイドへ反映する。
 
 ## 制作の必須工程
