@@ -4051,6 +4051,9 @@ const request = async <T>(path: string, init?: RequestInit, expectedStatus?: num
 const post = <T>(path: string, body?: unknown, signal?: AbortSignal, expectedStatus?: number): Promise<T> =>
   request<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body), signal }, expectedStatus);
 
+// Shared authenticated transport; editorial workspace uses the same error/retry contract.
+export { request as studioRequest };
+
 const postWindowsCapture = async <T>(
   path: string,
   body: unknown,

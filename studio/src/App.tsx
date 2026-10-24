@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type SyntheticEvent } from 'react';
 import StillLibraryPanel from './StillLibraryPanel';
+import ContentWorkspacePanel from './ContentWorkspacePanel';
 import { Player } from '@remotion/player';
 import './workspaceWorkflow.css';
 import {
@@ -1016,6 +1017,7 @@ function App() {
   const [simpleCreateOpen, setSimpleCreateOpen] = useState(false);
   const [screenExplainerOpen, setScreenExplainerOpen] = useState(false);
   const [stillLibraryOpen, setStillLibraryOpen] = useState(false);
+  const [contentWorkspaceOpen, setContentWorkspaceOpen] = useState(false);
   const [newProductionOpen, setNewProductionOpen] = useState(false);
   const [cancellingJobIds, setCancellingJobIds] = useState<Set<string>>(() => new Set());
   const [jobActionMessage, setJobActionMessage] = useState<string>();
@@ -1272,6 +1274,7 @@ function App() {
           <button className="button button-secondary" type="button" onClick={() => setScreenExplainerOpen(true)} aria-haspopup="dialog">
             画面解説を作る
           </button>
+          <button className="button button-secondary" type="button" onClick={() => setContentWorkspaceOpen(true)} aria-haspopup="dialog">動画と記事の企画</button>
           <button className="button button-secondary" type="button" onClick={() => setStillLibraryOpen(true)} aria-haspopup="dialog">
             静止画ライブラリ
           </button>
@@ -1374,6 +1377,7 @@ function App() {
       <ScreenExplainerPanel open={screenExplainerOpen} onClose={() => setScreenExplainerOpen(false)} onProductionReady={(id) => { setScreenExplainerOpen(false); void refreshProductionAfterMutation(id); }} production={detail ?? undefined} />
       <NewProductionDialog open={newProductionOpen} onClose={() => setNewProductionOpen(false)} onProductionReady={refreshProductionAfterMutation} canCreateProduction={canCreateProduction} />
       {stillLibraryOpen && <StillLibraryPanel onClose={() => setStillLibraryOpen(false)} />}
+      {contentWorkspaceOpen && <ContentWorkspacePanel onClose={() => setContentWorkspaceOpen(false)} />}
     </div>
   );
 }

@@ -655,3 +655,15 @@ M5／M6の新しい自動回帰は、Delivery ZIPの13 entry＋外部SHA-256 sid
 Run契約修正後の再受入では、run `run_c0745a922f814b67b1c45f7fbac8fd80`が`requested_stages=[screen_capture,timeline]`、rerun planの`affected_stages=[screen_capture,timeline,assembly,qc]`を返しました。同Runのjob `job_66c8ae62688044a59cb3ca0a14207aec`も2.000秒、1080×1920、24fps、H.264、video-onlyのMP4と7 artifactを登録し、manifestに絶対pathを残していません。
 
 この受入はWeb viewport収録の証拠です。Windowsデスクトップ／ネイティブアプリ、system audio、microphone、既存ログインsession、外部Webサイト、複数page／popup、30秒超の収録は対象外です。収録MP4は既存timelineのvideo artifact候補として利用できますが、screen captureだけのRunでnarration／assemblyまで自動完走することは保証しません。
+
+## 2026-10-24 調査から始める動画・記事の共通企画
+
+`tools/studio/content_workspace.py` が機能1〜5（調査・企画、撮影計画、根拠、素材、人物・絵コンテ）の共通サービスとCLIを提供する。`StudioService.content_workspace`、`/api/content-projects`、`ContentWorkspacePanel` が同じ正本へ接続する。Web調査・自然文解釈・Computer Useはチャット側で実行し、結果を共通処理へ記録する。ローカルStudioへ外部アカウント権限を複製したり、自律検索・生成・送信を追加したものではない。
+
+SQLite schema v15は `content_projects` と変更不能な `content_project_revisions` を追加する。更新はexpected_revisionとoperation_idで競合・重複を検出する。CLI接続は `StudioDatabase(recover=False)` を使用し、既存ジョブの回復・中断処理を実行しない。旧schema1 JSON全体、SHORT参照、採用・公開・未確認状態を保持し、CONTENTとStudio productionのIDを混同しない。
+
+助手が出典と確認日を収集し、本数と理由、各回の結論・概要・実演・記事の役割を提案する。自然文の返答を記録し、未反映の修正相談がある場合は企画採用を拒否する。採用は対象提案IDと返答IDを参照する。素材がない企画初期も保存可能。台本確定前の撮影可否確認、主張の根拠区分、確認済み人物版との対応を検証する。既存撮影・MiniMax生成・レンダリングそのものは各専用処理で行い、ここではその準備と証拠を結ぶ。
+
+claim/source/asset/character/episodeの参照から、変更の影響を受ける場面と記事節だけを再確認対象にする。動画構成から外した回は保持し、変わらない音声や原素材は再生成しない。素材の新しい版には新しいパスを使い、各版の公開画像は認証とハッシュ照合を経て表示する。非公開原本・ワークスペース外パス・現在非公開の素材の過去プレビューは表示しない。
+
+公開用記録は版付きのローカル書き出しで、原本・生の返答・機密参照を除外する。記事素材は既存 `content_projects.export_blog` へ接続し、記事で使う公開画像だけを検証・コピーする。技術検証、人の試聴、採用、公開は別状態。Drive/S3送信、記事公開、機能6〜10は今回の追加対象外。運用・契約・再現方法は `STUDIO_CONTENT_WORKSPACE_JA.md` を参照する。

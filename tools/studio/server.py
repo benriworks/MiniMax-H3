@@ -31,6 +31,7 @@ from .security import (
 from .service import RequestValidationError, StudioService
 from .still_library import StillLibraryError
 from .claude_capture import ClaudeCaptureError
+from .content_workspace import ContentError, PROJECT_RE
 from .production_intake import (
     MAX_VIDEO_IMPORT_BYTES,
     VIDEO_IMPORT_FILENAME_HEADER,
@@ -612,6 +613,8 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
             self._dispatch_post(path, body)
         except SecurityError:
             self._error(400, "invalid_path", "The requested path is invalid.")
+        except ContentError as exc:
+            self._error(exc.status, exc.code, str(exc))
         except StillLibraryError as exc:
             self._error(exc.status, exc.code, str(exc))
         except ClaudeCaptureError as exc:
@@ -683,6 +686,8 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
                 self._serve_static(path, send_body=send_body)
         except SecurityError:
             self._error(400, "invalid_path", "The requested path is invalid.", send_body=send_body)
+        except ContentError as exc:
+            self._error(exc.status, exc.code, str(exc), send_body=send_body)
         except StillLibraryError as exc:
             self._error(exc.status, exc.code, str(exc), send_body=send_body)
         except RequestValidationError as exc:
@@ -740,6 +745,30 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
         self, path: str, query: dict[str, list[str]], *, send_body: bool
     ) -> None:
         service = self.server.service
+        if path == "/api/content-projects" or path.startswith("/api/content-projects/"):
+            if not (tokens_equal(self.server.session_token, self._cookie_token()) or tokens_equal(self.server.session_token, self.headers.get("X-Studio-Token"))):
+                self._error(403, "forbidden", "A valid Studio session is required.", send_body=send_body)
+                return
+            if path == "/api/content-projects":
+                self._send_json(200, service.content_workspace.list(), send_body=send_body)
+                return
+            asset_match = re.fullmatch(rf"/api/content-projects/({PROJECT_RE})/assets/([a-z][a-z0-9_-]{{0,79}})", path)
+            if asset_match:
+                raw = query.get("version")
+                if raw and (len(raw) != 1 or not raw[0].isdigit() or int(raw[0]) < 1):
+                    raise ContentError("versionは正の整数で指定してください。")
+                data, content_type = service.content_workspace.public_image(asset_match[1], asset_match[2], int(raw[0]) if raw else None)
+                self._send_still_bytes(data, content_type, "content-preview", send_body=send_body)
+                return
+            match = re.fullmatch(rf"/api/content-projects/({PROJECT_RE})", path)
+            if match:
+                raw = query.get("revision")
+                if raw and (len(raw) != 1 or not raw[0].isdigit()):
+                    raise ContentError("revisionは正の整数で指定してください。")
+                self._send_json(200, service.content_workspace.get(match[1], int(raw[0]) if raw else None), send_body=send_body)
+                return
+            self._error(404, "not_found", "企画が見つかりません。", send_body=send_body)
+            return
         if path == "/api/still-plans" or path.startswith("/api/still-plans/") or path == "/api/claude-control" or path.startswith("/api/claude-control/"):
             if not (tokens_equal(self.server.session_token, self._cookie_token()) or tokens_equal(self.server.session_token, self.headers.get("X-Studio-Token"))):
                 self._error(403, "forbidden", "A valid Studio session is required.", send_body=send_body)
@@ -880,6 +909,20 @@ class StudioRequestHandler(BaseHTTPRequestHandler):
 
     def _dispatch_post(self, path: str, body: dict[str, Any]) -> None:
         service = self.server.service
+        if path == "/api/content-projects":
+            self._send_json(201, service.content_workspace.create(body))
+            return
+        match = re.fullmatch(rf"/api/content-projects/({PROJECT_RE})/([a-z-]+)", path)
+        if match:
+            if match[2] == "export":
+                destination = service.content_workspace.export_snapshot(match[1], expected_revision=body.get("expected_revision"), confirm_public_review=body.get("confirm_public_review"))
+                self._send_json(200, {"destination": destination.relative_to(service.workspace).as_posix()})
+            elif match[2] == "export-blog":
+                destination = service.content_workspace.export_blog(match[1], body.get("revision", "v01"))
+                self._send_json(200, {"destination": destination.relative_to(service.workspace).as_posix()})
+            else:
+                self._send_json(200, service.content_workspace.apply(match[1], match[2], body))
+            return
         if path == "/api/claude-control/inspect":
             self._send_json(200, service.claude_control.inspect(body, session_binding=windows_capture_session_binding_digest(self.server.session_token)))
             return
