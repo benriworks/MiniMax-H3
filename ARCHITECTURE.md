@@ -667,3 +667,11 @@ SQLite schema v15は `content_projects` と変更不能な `content_project_revi
 claim/source/asset/character/episodeの参照から、変更の影響を受ける場面と記事節だけを再確認対象にする。動画構成から外した回は保持し、変わらない音声や原素材は再生成しない。素材の新しい版には新しいパスを使い、各版の公開画像は認証とハッシュ照合を経て表示する。非公開原本・ワークスペース外パス・現在非公開の素材の過去プレビューは表示しない。
 
 公開用記録は版付きのローカル書き出しで、原本・生の返答・機密参照を除外する。記事素材は既存 `content_projects.export_blog` へ接続し、記事で使う公開画像だけを検証・コピーする。技術検証、人の試聴、採用、公開は別状態。Drive/S3送信、記事公開、機能6〜10は今回の追加対象外。運用・契約・再現方法は `STUDIO_CONTENT_WORKSPACE_JA.md` を参照する。
+
+## 2026-10-24 セキュリティ解説ショートの一次資料引用
+
+PHP2Shell案件で、共通Shortsの新規公式引用にPHP年次告知、IPAの年次注意喚起、JPCERT/CCの年次注意喚起という限定したHTTPSパスを追加した。Pythonの `official_capture_url` とTypeScriptの `isOfficialCaptureUrl` の両方で検証し、従来のdots引用契約と実演のプライバシー条件を維持する。`EditorialScene` は出典ホストに合わせた名義を表示し、非Anthropic資料をAnthropicとして表示しない。
+
+`shorts_creator.validate_story` は50秒を追加で許容する。Remotion側の10〜60秒範囲、1〜8秒のカット、発話時間の実測、原稿一致、素材hash照合、全decode、音量確認は従来どおり。新たなURLを一般許可したり、全案件を再レンダーする機能ではない。
+
+案件固有の生成は `productions/content-projects/CONTENT_20261024_php2shell_overview/production.py` に分離する。採用人物を専用ローカルH3で動かし、既存のAoede生成器と送信ロックを使用する。生成音声の原本は案件出力に保持し、共通Shortsが要求する `outputs/productions` 配下に同じhash付き音声マニフェストを置く。ブラウザー撮影の実バイト形式を検査し、JPEGだった場合は原本を保持したまま復号画素が一致するPNGを検証用に派生させる。画質が向上したとは扱わない。

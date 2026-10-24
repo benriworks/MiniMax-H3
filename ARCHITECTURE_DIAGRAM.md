@@ -993,3 +993,20 @@ flowchart TD
 ```
 
 検索・アプリ操作・外部アカウント接続はチャット側。共通サービスは保存・整合性確認・版管理を担当する。CLIは起動中ジョブを回復・中断せず同じDBへ接続する。図の引き継ぎは新しい生成・アップロード・公開の自動実行を意味しない。
+
+## 一次資料を引用するShortsの編集経路（2026-10-24）
+
+```mermaid
+flowchart LR
+  Official[PHP・IPA・JPCERT/CC等の限定HTTPS資料] --> Capture[PCで撮影した原本]
+  Capture --> Proof[画素一致のPNG切り出しと来歴]
+  Proof --> Python[Python URL・hash・原稿・実測時間の検証]
+  Voice[検証済みAoedeとPCM時間] --> Python
+  Motion[採用画像から生成し確認したMiniMax動画] --> Python
+  Python --> TS[TypeScriptのURL・50秒タイムライン検証]
+  TS --> Render[出典名義を表示してRemotion描画]
+  Render --> QC[全decode・音量・携帯幅でのAI確認]
+  QC --> Review[Driveレビューと人の試聴]
+```
+
+元の撮影形式と公開派生は分け、実演・公式引用・自作説明の来歴を保持する。人の試聴・採用・公開の状態を描画成功から自動的に変更しない。

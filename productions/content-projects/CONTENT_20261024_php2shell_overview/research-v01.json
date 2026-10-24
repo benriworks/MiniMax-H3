@@ -1,0 +1,84 @@
+{
+  "checked_at": "2026-10-24",
+  "sources": [
+    {
+      "source_id": "php_oct21",
+      "title": "PHP Security advisory: Critical remote code execution vulnerabilities, update now",
+      "url": "https://www.php.net/archive/2026.php#2026-10-21-5",
+      "kind": "official",
+      "published_at": "2026-10-21",
+      "event_at": "2026-10-21",
+      "checked_at": "2026-10-24",
+      "publisher": "The PHP Group",
+      "summary": "PHP本体の2件のRCEと修正済みリリース。Webリクエストを扱う構成が対象。設定変更だけでは両件の完全な解決にならない。"
+    },
+    {
+      "source_id": "php_oct23",
+      "title": "PHP Informational advisory: Session upload progress",
+      "url": "https://www.php.net/archive/2026.php#2026-10-23-1",
+      "kind": "official",
+      "published_at": "2026-10-23",
+      "event_at": "2026-10-23",
+      "checked_at": "2026-10-24",
+      "publisher": "The PHP Group",
+      "summary": "特殊な設定とアプリ内の設定切り替えが重なる場合の関連する追加注意喚起。10月21日の2件と別に扱い、更新だけで全て解決したとは表現しない。"
+    },
+    {
+      "source_id": "php_oom",
+      "title": "RCE via OOM corruption (GHSA-w8hw-w9fx-j79w)",
+      "url": "https://github.com/php/php-src/security/advisories/GHSA-w8hw-w9fx-j79w",
+      "kind": "official",
+      "published_at": "2026-10-21",
+      "checked_at": "2026-10-24",
+      "publisher": "php/php-src",
+      "summary": "CVE-2026-109618。メモリ不足で途中の状態を扱う処理に問題。深刻度CVSS v4.0 9.2。実際の成立条件は構成などに依存する。"
+    },
+    {
+      "source_id": "php_state",
+      "title": "RCE via stale global state (GHSA-6wmf-4rv5-p3rp)",
+      "url": "https://github.com/php/php-src/security/advisories/GHSA-6wmf-4rv5-p3rp",
+      "kind": "official",
+      "published_at": "2026-10-21",
+      "checked_at": "2026-10-24",
+      "publisher": "php/php-src",
+      "summary": "CVE-2026-109619。リクエスト終了後の古い内部状態を次の処理が参照する問題。構成・アプリ・処理経路で影響が異なる。"
+    },
+    {
+      "source_id": "ipa_oct22",
+      "title": "PHPの脆弱性対策について（CVE-2026-109618、CVE-2026-109619：PHP2shell）",
+      "url": "https://www.ipa.go.jp/security/security-alert/2026/alert20261022.html",
+      "kind": "official",
+      "published_at": "2026-10-22",
+      "event_at": "2026-10-21",
+      "checked_at": "2026-10-24",
+      "publisher": "IPA",
+      "summary": "日本語の公的注意喚起。利用する製品やサービス提供元の対策情報も確認する。対処が難しい場合は業務影響を踏まえて対応を検討する。"
+    },
+    {
+      "source_id": "jpcert_oct22",
+      "title": "PHPにおける複数の脆弱性に関する注意喚起 JPCERT-AT-2026-0033",
+      "url": "https://www.jpcert.or.jp/at/2026/at260033.html",
+      "kind": "official",
+      "published_at": "2026-10-22",
+      "event_at": "2026-10-21",
+      "checked_at": "2026-10-24",
+      "publisher": "JPCERT/CC",
+      "summary": "対策適用に加え侵害有無の調査を推奨。単一の検知や痕跡がないことだけで未侵害とは断定できない。"
+    },
+    {
+      "source_id": "aws_madpot",
+      "title": "Amazon Threat Intelligence identifies PHP2Shell exploitation prior to public disclosure in MadPot",
+      "url": "https://aws.amazon.com/blogs/security/amazon-threat-intelligence-identifies-php2shell-exploitation-prior-to-public-disclosure-in-madpot/",
+      "kind": "first_hand",
+      "published_at": "2026-10-21",
+      "checked_at": "2026-10-24",
+      "publisher": "AWS Security Blog",
+      "summary": "10月17日にさかのぼる悪用の試みの観測。実システムで成功したかは不明と明記されているため、試行と侵害成功を区別する。"
+    }
+  ],
+  "unknowns": [
+    "ユーザーの公開Webサーバーやホスティング構成は未指定。被害・影響の有無を推測しない。",
+    "実機での攻撃再現・侵害確認は行っていない。公式情報の解説として制作する。",
+    "文字の可読性と引用範囲は完成映像のスマホ幅で再確認する。"
+  ]
+}
