@@ -1,0 +1,12 @@
+<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>デモ環境｜架空案件管理</title><link rel="stylesheet" href="style.css">
+<header><div><small>DOTS DESKTOP PILOT</small><h1>架空案件管理</h1></div><span class="badge">デモ環境</span></header>
+<main><nav><a class="active" href="index.html">案件管理</a><a href="workbook.html">XLSXを開く</a></nav>
+<p class="notice">撮影用の架空データ専用です。外部通知・会計計上・実サービスとの連携はありません。</p>
+<div class="steps"><b id="s1">1 フォーム入力</b><b id="s2">2 内容確認</b><b id="s3">3 デモ登録</b><b id="s4">4 一覧再表示</b></div>
+<section id="entry"><h2>新しい案件を入力</h2><form id="caseForm" novalidate>
+<div class="formgrid"><label>案件ID<input id="caseId" name="id" placeholder="例：DEMO-001" autocomplete="off"></label><label>顧客名<input id="customer" name="customer" autocomplete="off"></label><label class="wide">案件名<input id="caseName" name="name" autocomplete="off"></label><label>納期<input id="due" name="due" placeholder="YYYY-MM-DD" inputmode="numeric" autocomplete="off"></label><label>金額円<input id="amount" name="amount" placeholder="0以上の整数" inputmode="numeric" autocomplete="off"></label></div>
+<p id="error" role="alert"></p><button type="submit">内容を確認</button></form></section>
+<section id="confirm" hidden><h2>登録前の内容確認</h2><p>以下の内容で、このデモ環境にだけ登録します。</p><dl id="confirmation"></dl><div class="actions"><button id="back" class="secondary">入力へ戻る</button><button id="register">デモ登録</button></div><p id="confirmError" role="alert"></p></section>
+<p id="status" role="status"></p>
+<section class="listing"><div class="sectionhead"><h2>登録済み案件</h2><button class="secondary" id="refresh">一覧を再表示</button></div><div id="summary" class="summary"></div><div class="tablewrap"><table><thead><tr><th>案件ID</th><th>顧客名</th><th>案件名</th><th>納期</th><th class="number">金額円</th></tr></thead><tbody id="cases"></tbody></table></div></section>
+<footer>保存先：このクラウドPC内の独立デモフォルダーのみ。Excelへの自動取り込み・自動登録は行いません。</footer></main><script src="app.js"></script></html>

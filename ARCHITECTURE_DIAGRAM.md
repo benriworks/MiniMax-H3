@@ -1026,3 +1026,19 @@ flowchart LR
   Illustration --> Fingerprint[render入力hashと安全域検査]
   Fingerprint --> Movie[動画と記事用の図解派生]
 ```
+
+## dotsクラウドデスクトップ短編試作（2026-10-25）
+
+```mermaid
+flowchart LR
+    A[採用構成 ContentWorkspace] --> B[dotsクラウド内の架空実演]
+    B --> C[撮影原本と公開用proof]
+    A --> D[場面原稿とGemini Aoede]
+    C --> E[共通Shorts編集]
+    D --> E
+    E --> F[レンダーとdecodeと画面確認]
+    F --> G[Driveレビュー候補]
+    C --> H[記事草稿と素材台帳]
+```
+
+詳しい設計・保存・状態境界は `productions/content-projects/CONTENT_20261025_dots_shared_desktop_pilot/ARCHITECTURE.md` と同フォルダーの独立した構成図に記載。

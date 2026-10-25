@@ -681,3 +681,9 @@ PHP2Shell案件で、共通Shortsの新規公式引用にPHP年次告知、IPA�
 Shortsのgraphic列挙に `web-services` と `web-flow` を追加し、`WebRuntimeDiagram.tsx` で描画する。利用者のブラウザーとサーバーの境界、サーバー内のPHPとWordPress・フォーム・買い物の例、アクセスと応答の方向を表現する。HTTPリクエストを実送信する機能ではない。重要な文字は54px以上で配置し、既存の安全域検証を通す。新部品をレンダーの入力hashへ含め、他のgraphicの描画は維持する。
 
 案件のv03では、追加調査・撮影をContentWorkspaceへ保存し、冒頭4場面だけを新しいAoedeで生成する。後半8場面と採用済み人物動画を再利用し、旧MP4・音声・納品記録を保持する。日本での統計を扱う場合はサーバー所在地と判別可能な言語という分母を音声・画面・出典へ残し、今回の脆弱性の影響率とは区別する。
+
+## dotsクラウドデスクトップ短編試作（2026-10-25）
+
+`CONTENT_20261025_dots_shared_desktop_pilot` は、採用構成をContentWorkspaceへ記録し、dotsクラウド側の架空実演をローカルのShorts編集へ渡す制作案件。独立した設計は同案件の `ARCHITECTURE.md`、構成図は `ARCHITECTURE_DIAGRAM.md`。`produce.py` がAoedeの既存送信・排他・証跡を再利用し、検証済みキャプチャと音声manifestから版付き編集入力を準備する。実演の成功、AI画面確認、人の試聴、採用、公開は分離する。
+
+共通 `shorts_creator.validate_story` は、今回の20〜35秒試作に合わせて20・25・35秒を追加し、既存の許容尺を維持した。音声を切らずに指定フレーム数へ配置し、過長原稿は拒否する。検証は `tests.test_shorts_pilot_durations` と既存Shortsテスト。

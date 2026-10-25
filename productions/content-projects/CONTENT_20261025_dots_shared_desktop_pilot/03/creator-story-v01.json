@@ -1,0 +1,157 @@
+{
+  "schema_version": 1,
+  "id": "SHORT_20261025_dots_desktop_03",
+  "title": "【ChatGPT】Excelから画面入力まで！dotsのクラウドPCで案件登録",
+  "voice": "Aoede",
+  "rate": 1,
+  "duration_seconds": 35,
+  "music_preset": "bright_groove_v1",
+  "pronunciations": [
+    {
+      "source": "dots",
+      "target": "ドッツ"
+    },
+    {
+      "source": "Excel",
+      "target": "エクセル"
+    },
+    {
+      "source": "25万円",
+      "target": "にじゅうごまんえん"
+    }
+  ],
+  "scenes": [
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "3件、25万円を\n入力して確認",
+      "eyebrow": "デモ環境 / 登録結果",
+      "narration": "Excelの3件を、クラウドの案件管理画面へ入力。",
+      "captions": [
+        "Excelの3件を、",
+        "クラウドの案件管理\n画面へ入力。"
+      ],
+      "capture": {
+        "origin": "demonstration",
+        "product": "ChatGPT",
+        "phase": "after",
+        "title": "クラウドの案件入力",
+        "path": "outputs/productions/SHORT_20261025_dots_desktop_03/captures/after.png",
+        "proof": "outputs/productions/SHORT_20261025_dots_desktop_03/captures/after-proof.json"
+      }
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "Excelを\nクラウドで開く",
+      "eyebrow": "架空の.xlsxを使う",
+      "narration": "まずはクラウドのビューアで、Excelの内容を確認。",
+      "captions": [
+        "まずはクラウドの\nビューアで、",
+        "Excelの内容を確認。"
+      ],
+      "capture": {
+        "origin": "demonstration",
+        "product": "ChatGPT",
+        "phase": "before",
+        "title": "クラウドの案件入力",
+        "path": "outputs/productions/SHORT_20261025_dots_desktop_03/captures/source.png",
+        "proof": "outputs/productions/SHORT_20261025_dots_desktop_03/captures/source-proof.json"
+      }
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "入力欄に\n1件ずつ転記",
+      "eyebrow": "案件・納期・金額",
+      "narration": "案件名、納期、金額を、画面の入力欄に転記します。",
+      "captions": [
+        "案件名、納期、金額を、",
+        "画面の入力欄に\n転記します。"
+      ],
+      "capture": {
+        "origin": "demonstration",
+        "product": "ChatGPT",
+        "phase": "revision",
+        "title": "クラウドの案件入力",
+        "path": "outputs/productions/SHORT_20261025_dots_desktop_03/captures/entry.png",
+        "proof": "outputs/productions/SHORT_20261025_dots_desktop_03/captures/entry-proof.json"
+      }
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "登録前に\n内容を確認",
+      "eyebrow": "入力してすぐ送らない",
+      "narration": "登録前に内容を確認し、デモ登録へ進みます。",
+      "captions": [
+        "登録前に内容を確認し、",
+        "デモ登録へ進みます。"
+      ],
+      "capture": {
+        "origin": "demonstration",
+        "product": "ChatGPT",
+        "phase": "revision",
+        "title": "クラウドの案件入力",
+        "path": "outputs/productions/SHORT_20261025_dots_desktop_03/captures/confirm.png",
+        "proof": "outputs/productions/SHORT_20261025_dots_desktop_03/captures/confirm-proof.json"
+      }
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "一覧を再表示\n元の表と照合",
+      "eyebrow": "3件・全15項目",
+      "narration": "一覧を開き直し、元の表と照合。合計は25万円。",
+      "captions": [
+        "一覧を開き直し、\n元の表と照合。",
+        "合計は25万円。"
+      ],
+      "capture": {
+        "origin": "demonstration",
+        "product": "ChatGPT",
+        "phase": "after",
+        "title": "クラウドの案件入力",
+        "path": "outputs/productions/SHORT_20261025_dots_desktop_03/captures/readback.png",
+        "proof": "outputs/productions/SHORT_20261025_dots_desktop_03/captures/readback-proof.json"
+      }
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "これは\nデモ環境",
+      "eyebrow": "実サービスではない",
+      "narration": "今回は疑似システム。実際の登録は、権限も確認。",
+      "captions": [
+        "今回は疑似システム。",
+        "実際の登録は、\n権限も確認。"
+      ],
+      "capture": {
+        "origin": "demonstration",
+        "product": "ChatGPT",
+        "phase": "export",
+        "title": "クラウドの案件入力",
+        "path": "outputs/productions/SHORT_20261025_dots_desktop_03/captures/caution.png",
+        "proof": "outputs/productions/SHORT_20261025_dots_desktop_03/captures/caution-proof.json"
+      }
+    },
+    {
+      "kind": "editorial",
+      "visual_style": "business",
+      "editorial_layout": "closing",
+      "headline": "入力と確認を\n画面でたどる",
+      "eyebrow": "DOTS / 画面で作業",
+      "body": "入力後まで確認",
+      "action": "まずはデモで試す",
+      "narration": "表を渡して終わりではなく、入力後の確認まで。",
+      "captions": [
+        "表を渡して終わり\nではなく、",
+        "入力後の確認まで。"
+      ],
+      "media": {
+        "path": "outputs/characters/explainer-motion-20261022/dots-male/MiniMax_H3_dots_male_00001_.mp4",
+        "proof": "outputs/characters/explainer-motion-20261022/dots-male/verification.json"
+      }
+    }
+  ]
+}

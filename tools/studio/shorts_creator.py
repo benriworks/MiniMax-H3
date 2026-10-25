@@ -194,8 +194,8 @@ def staged_capture(capture,image):
     return result
 
 def validate_story(story):
-    if story.get('schema_version') != 1 or story.get('duration_seconds') not in [15,30,45,50,60]:
-        raise ValueError('Use schema 1 and a 15/30/45/50/60 second duration')
+    if story.get('schema_version') != 1 or story.get('duration_seconds') not in [15,20,25,30,35,45,50,60]:
+        raise ValueError('Use schema 1 and a 15/20/25/30/35/45/50/60 second duration')
     music_preset=story.get('music_preset','electro_pop_v1')
     if not isinstance(music_preset,str) or music_preset not in MUSIC_PRESETS:
         raise ValueError('Unknown music preset')
@@ -624,6 +624,9 @@ def review_page(out,loudness):
     if any(scene.get('capture',{}).get('origin')=='official' for scene in story['scenes']):
         page=page.replace('非公式の紹介動画。開発画面は図解で、実操作の録画ではありません。',
             '公式資料の引用と自作の説明を含む解説動画です。引用画面の出典は動画と出典記録で確認できます。')
+    elif any(scene.get('capture',{}).get('origin')=='demonstration' for scene in story['scenes']):
+        page=page.replace('非公式の紹介動画。開発画面は図解で、実操作の録画ではありません。',
+            '架空素材を使った実演画面のキャプチャと、自作の解説・人物演出を含む動画です。画面の切り替えは編集しています。')
     (out/'index.html').write_text(page,encoding='utf-8')
     (out/'README_JA.txt').write_text(f"{story['title']}\n\n1080×1920 / 24fps / {story['duration_seconds']}秒\nローカル制作、生成ツール名の画面表示なし。\n発話実測による場面配置、フレーズ字幕、オリジナルBGM・効果音。\n音声：{story['voice']}、速度{story['rate']}。\nIntegrated loudness: {loudness['input_i']} LUFS / true peak: {loudness['input_tp']} dBFS\n\n字幕時刻の細分化は発話区間内の文字数配分で、単語アラインメントではありません。\n検証済み候補と利用者の採否は別に記録します。公開操作は行っていません。\n",encoding='utf-8')
 
