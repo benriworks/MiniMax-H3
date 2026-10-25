@@ -37,6 +37,31 @@ class ContentError(ValueError):
         self.code, self.status = code, status
 
 
+def validate_presenter_layout(scene: dict) -> None:
+    """Keep legacy full-screen scenes; allow deliberately planned presenter PIP."""
+    if scene.get('face_caption_separated') is not True:
+        raise ContentError('人物の顔と字幕を分離してください。')
+    layout=scene.get('presenter_layout')
+    if layout=='fullscreen':return
+    if layout!='pip':
+        raise ContentError('人物の表示はfullscreenまたは規則付きpipを指定してください。')
+    policy=scene.get('pip_policy')
+    if not isinstance(policy,dict):
+        raise ContentError('PIPの表示規則を指定してください。')
+    positions=policy.get('positions')
+    characters=scene.get('character_ids',[])
+    if not isinstance(positions,dict) or set(positions)!=set(characters) or not 1<=len(positions)<=2:
+        raise ContentError('PIPには出演人物ごとの左右位置を指定してください。')
+    if any(not isinstance(side,str) or side not in {'left','right'} for side in positions.values()) or len(set(positions.values()))!=len(positions):
+        raise ContentError('PIPの左右位置が不正または重複しています。')
+    if not isinstance(policy.get('trigger'),str) or policy['trigger'] not in {'before_demonstration','emphasis','caution','closing'}:
+        raise ContentError('PIPを表示する場面の規則を指定してください。')
+    if policy.get('avoid_gui_controls') is not True or policy.get('caption_safe') is not True:
+        raise ContentError('PIPが操作欄と字幕を遮らない配置を指定してください。')
+    if policy.get('speech_mode')!='audio_envelope' or policy.get('listener_mouth')!='closed':
+        raise ContentError('現行PIPは音声連動の簡易口パクと、聞き手の閉じた口を指定してください。')
+
+
 def install_schema(connection: sqlite3.Connection) -> None:
     connection.execute("""CREATE TABLE IF NOT EXISTS content_projects (
         id TEXT PRIMARY KEY, revision INTEGER NOT NULL, document_json TEXT NOT NULL,
@@ -536,8 +561,7 @@ class ContentWorkspace:
                 for char_id in scene.get("character_ids", []):
                     character = find(p["characters"], "character_id", char_id)
                     text(scene.get("character_action"), "人物の動き")
-                    if scene.get("presenter_layout") != "fullscreen" or scene.get("face_caption_separated") is not True:
-                        raise ContentError("人物は全面表示と顔・字幕の分離を設計してください。")
+                    validate_presenter_layout(scene)
                 scene.update(needs_review=False, review_reasons=[])
             episode["storyboard"] = scenes
             p["phase"] = "storyboard_ready" if all(e.get("storyboard") for e in p["episodes"]) else "capture_planning"
@@ -647,9 +671,12 @@ class ContentWorkspace:
                     warnings.append(f"素材の割当待ち: {e['episode_id']}/{scene['scene_id']}")
                 for cid in scene.get("character_ids", []):
                     current = find(p["characters"], "character_id", cid)
-                    if not any(a["asset_id"] in scene.get("asset_ids", []) and a.get("kind") == "generated_video"
+                    pip = scene.get('presenter_layout') == 'pip'
+                    required_kind = 'generated_still' if pip else 'generated_video'
+                    if not any(a["asset_id"] in scene.get("asset_ids", []) and a.get("kind") == required_kind
                                and a.get("character_id") == cid and a.get("character_version") == current["version"] for a in p["assets"]):
-                        warnings.append(f"現在の人物版のMiniMax動画を準備: {e['episode_id']}/{scene['scene_id']}")
+                        label = 'PIP表情素材' if pip else 'MiniMax動画'
+                        warnings.append(f"現在の人物版の{label}を準備: {e['episode_id']}/{scene['scene_id']}")
             if any(s.get("character_ids") for s in e.get("storyboard", [])):
                 beats = {s.get("beat") for s in e["storyboard"]}
                 if not {"problem", "try", "insight", "action"}.issubset(beats):

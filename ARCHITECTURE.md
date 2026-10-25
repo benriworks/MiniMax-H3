@@ -694,3 +694,10 @@ Shortsのgraphic列挙に `web-services` と `web-flow` を追加し、`WebRunti
 `productions/LONG_20261026_dots_transfer_detail` は、採用済みdots男女と新しい実GUI録画から16:9・4分40秒のレビュー候補を作る独立案件。`tools/studio/dialogue_narration.py` は2話者の短い音声、送信前記録、確定拒否と結果不明の区別、入力hashによるキャッシュ照合を提供する。`longform_audio.py` はPCM実長から台詞を配置し、収まらない場合は切らずに章を延長する。最後の発話後の余白、オリジナルBGM、発話中のダッキングと別音源を出力する。
 
 案件のrender.pyは実録の必要長、45カットの章尺、入力・コードhashを確認し、旧版の無断上書きを拒否する。字幕と音量調整後の完成MP4を全decode・音量実測・AI補助点検し、記事草稿・同時撮影PNGの派生を同じ根拠から用意する。共通ContentWorkspaceへの準備状態、人の試聴、最終採用、公開、スマホ実機確認は分離する。媒体とリンクはローカル出力とDriveへ保存し、Gitに保管しない。独立した設計本文と図、確認範囲は案件内ARCHITECTURE.md、ARCHITECTURE_DIAGRAM.md、VALIDATION_JA.mdを参照。
+
+
+## 会話と規則付きPIP（2026-10-26）
+
+`tools/studio/dialogue_avatar.py` は人物の表情アトラス、実PCMの発話区間、左右表示窓を使う共通部品。音声強度とヒステリシスによる簡易口パクで、聞き手と無音は閉口する。実操作の保護区間と表示窓の交差を拒否する。`ContentWorkspace` はfullscreenに加え、左右位置、表示理由、操作欄・字幕の保護、発話方式を指定したpipを受け付け、現在の人物版の表情素材を照合する。音素単位の同期やStudio UI内の動画プレビューを追加したものではない。
+
+自動転記案件v02は、採用されたH3待ち合わせ、中景3台詞、既存実演40台詞、8区間のPIPを294.5秒に組み込む。変わらない音声と撮影原本を再利用し、初回の語尾の点検結果と修正前版を保持する。共通CLIの構成採用、技術検証、人の試聴、完成物採用、公開を分ける。詳しい構成と図は `productions/LONG_20261026_dots_transfer_detail/ARCHITECTURE.md` と同階層の `ARCHITECTURE_DIAGRAM.md`。

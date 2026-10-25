@@ -75,6 +75,26 @@ class ContentWorkspaceTests(unittest.TestCase):
     def storyboard(self, eid="one", **extra):
         return self.apply("storyboard", {"episode_id": eid, "scenes": [{"scene_id": "intro", "purpose": "課題", "narration": "架空のメモを一緒に編集します", "visual": "実画面", "duration_seconds": 5, "claim_ids": ["joint"], "asset_ids": ["screen"], **extra}]})
 
+    def test_pip_storyboard_requires_side_policy_and_keeps_legacy_fullscreen(self):
+        self.prepared();self.claim();self.image();self.apply('capture',dict(capture(),episode_id='one'))
+        self.image('person',kind='generated_still',path='person.png')
+        self.apply('character',dict(character_id='aki',fictional_adult=True,name='架空のアキ',persona='仕事を説明する成人',
+            role='進行役',clothing='紺の上着',voice='落ち着いた声',continuity='同じ企画を担当',reference_asset_id='person'))
+        extras=dict(character_ids=['aki'],character_action='発話中に口を動かす',face_caption_separated=True)
+        with self.assertRaises(ContentError):self.storyboard(**extras,presenter_layout='pip')
+        policy=dict(trigger='emphasis',positions={'aki':'left'},avoid_gui_controls=True,caption_safe=True,
+            speech_mode='audio_envelope',listener_mouth='closed')
+        self.storyboard(**extras,presenter_layout='pip',pip_policy=policy)
+        self.assertEqual(self.project['episodes'][0]['storyboard'][0]['presenter_layout'],'pip')
+        with self.assertRaises(ContentError):
+            self.storyboard(**extras,presenter_layout='pip',pip_policy={**policy,'avoid_gui_controls':False})
+        with self.assertRaises(ContentError):
+            self.storyboard(**extras,presenter_layout='pip',pip_policy={**policy,'positions':{'aki':[]}})
+        with self.assertRaises(ContentError):
+            self.storyboard(**extras,presenter_layout='pip',pip_policy={**policy,'trigger':[]})
+        self.storyboard(**extras,presenter_layout='fullscreen')
+        self.assertEqual(self.project['episodes'][0]['storyboard'][0]['presenter_layout'],'fullscreen')
+
     def test_draft_without_assets_and_reopen_shared_database(self):
         self.assertEqual(self.project["assets"], [])
         self.assertEqual(self.project["request"]["format"], "shorts_first")

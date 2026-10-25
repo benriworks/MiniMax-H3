@@ -1,0 +1,31 @@
+{
+  "version": "v02",
+  "accepted_opening_user_reply": "まぁ、よいかな。そのまま2人で会話をしながら、自然に本編へ入ります。",
+  "opening_clip": "outputs/characters/dots-duo-opening-20261026/v01/dots-duo-opening-v01.mp4",
+  "new_voice_requests": 3,
+  "automatic_retry": false,
+  "opening_turns": [
+    {"speaker":"male","text":"今日は、何に困ってるの？","spoken":"今日は、何に困ってるの？","emotion":"curious"},
+    {"speaker":"female","text":"同じデータを、Excelとシステムの両方に入力してるの。","spoken":"同じデータを、エクセルとシステムの両方に入力してるの。","emotion":"worried"},
+    {"speaker":"male","text":"じゃあ、dotsに任せてみよう。","spoken":"じゃあ、ドッツに任せてみよう。","emotion":"pleased"}
+  ],
+  "pip_rules": {
+    "male_side": "left",
+    "female_side": "right",
+    "speech_animation": "voice-envelope-driven simple mouth movement, not phoneme-accurate lip synchronization",
+    "listener_mouth": "closed",
+    "show_on": ["before demonstration", "key point or caution", "closing"],
+    "hide_on": ["typing", "confirmation inspection", "registration click", "detailed field comparison"],
+    "content_safety": "Use dedicated takeaway layouts with reserved left/right portrait areas; do not cover actual GUI fields or captions"
+  },
+  "windows_in_original_main_seconds": [
+    {"start":20,"end":25,"kind":"before","title":"同じクラウドPCでつなぐ","lines":["Excelファイル → Webシステム","手元のPCとは別の作業場所"],"female":"neutral","male":"curious"},
+    {"start":63,"end":72,"kind":"emphasis","title":"任せる範囲を先に決める","lines":["対象は3件だけ","保存先と、止める条件も指定"],"female":"serious","male":"curious"},
+    {"start":110,"end":120,"kind":"emphasis","title":"登録の前に、人が確認","lines":["対象・内容・保存先を照合","本人の返答を受けて再開"],"female":"serious","male":"serious"},
+    {"start":149,"end":155,"kind":"before","title":"確認と登録は別","lines":["内容確認では、まだ未保存","この後の登録で保存される"],"female":"serious","male":"curious"},
+    {"start":223,"end":227,"kind":"emphasis","title":"保存後にも照合","lines":["全15項目・3件・25万円","今回のデモでは元の表と一致"],"female":"pleased","male":"pleased"},
+    {"start":245,"end":250,"kind":"caution","title":"最後の照合は必要","lines":["このデモで確認した拒否試験","すべてのミスを防ぐ保証ではない"],"female":"serious","male":"worried"},
+    {"start":250,"end":263,"kind":"closing","title":"小さな範囲から試そう","lines":["範囲を決める → 人が確認","入力・登録 → 保存後に照合"],"female":"pleased","male":"neutral"},
+    {"start":270,"end":280,"kind":"closing","title":"入力を任せて、結果を確かめる","lines":["まずは架空データと小さな範囲で","実運用にはシステムの利用権限が必要"],"female":"pleased","male":"pleased"}
+  ]
+}

@@ -1,5 +1,27 @@
 # dots転記 詳細動画の構成図
 
+## v02：会話と規則付きPIP
+
+```mermaid
+flowchart LR
+    A[採用済みH3の待ち合わせ] --> C[中景の3台詞]
+    B[新規3台詞と既存40台詞] --> Gate[PCMから発話と口開閉]
+    Art[2人の5表情アトラス] --> Gate
+    Gate --> C
+    Rule[左右位置と8区間の規則] --> PIP[中央に要点と左右の人物]
+    Gate --> PIP
+    Protected[実操作と詳細照合の保護区間] --> Rule
+    C --> Edit[294.5秒のv02]
+    PIP --> Edit
+    Demo[既存のGUI原録画と図解] --> Edit
+    Edit --> QA[全decodeと音量と開閉口確認]
+    QA --> Review[Drive全編と44.5秒抜粋]
+    Rule --> Workspace[ContentWorkspaceのpip検証]
+    Demo --> Blog[記事草稿と根拠画像10点]
+```
+
+口形は音声強度に反応する簡易方式。音素ごとの同期、人の試聴、本人採用、公開を技術検証から推定しない。
+
 ```mermaid
 flowchart TD
     U[ユーザーの詳細動画依頼と添付原稿] --> P[表示原稿と読み原稿 11章]

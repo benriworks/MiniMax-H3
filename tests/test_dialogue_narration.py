@@ -19,6 +19,11 @@ class DialogueSafetyTests(unittest.TestCase):
         self.assertEqual(p['generationConfig']['responseModalities'],['AUDIO'])
         self.assertEqual(p['generationConfig']['speechConfig']['voiceConfig']['prebuiltVoiceConfig']['voiceName'],'Charon')
 
+    def test_quoted_female_dialogue_does_not_request_a_male_voice(self):
+        p=payload('任せてみよう','female','quoted_dialogue_v2')
+        self.assertIn('Japanese female voice',p['contents'][0]['parts'][0]['text'])
+        self.assertEqual(p['generationConfig']['speechConfig']['voiceConfig']['prebuiltVoiceConfig']['voiceName'],'Aoede')
+
     def test_a_definite_rejection_is_not_submitted_again(self):
         error=HTTPError('https://example.invalid',400,'Bad request',{},io.BytesIO(json.dumps({'error':{'status':'INVALID_ARGUMENT','message':'Expected audio'}}).encode()))
         opener=Mock();opener.open.side_effect=error

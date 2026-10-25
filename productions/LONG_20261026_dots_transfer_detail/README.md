@@ -21,3 +21,11 @@ Driveへレビュー候補・記事素材・YouTube投稿文を保存し、フ�
 実装：`prepare_script.py` → `generate_voice.py` → `render.py prepare` → `presenters.py` → 根拠の検査 → `build_visuals.py` → `render.py render` → 画面・音声・音量の点検 → `package_article.py` → 共通CLI登録とDrive共有。外部APIを送るコマンドと、再利用・編集・検証を分離する。完成初稿の再書き込みは拒否し、修正時は旧版を保持する。
 
 [制作構成](ARCHITECTURE.md)、[Mermaid構成図](ARCHITECTURE_DIAGRAM.md)、[出典](SOURCES_JA.md)、[記事草稿](article-draft-v01.md)、[投稿タイトル](youtube-title.txt)、[概要欄・章](youtube-description.txt)を独立して管理する。動画・音声・PDF・ZIP・撮影原本はGitHubへ保管しない。
+
+## 最新改訂 v02：待ち合わせ・会話・ルール付きPIP
+
+ユーザーが待ち合わせ試作を採用し、会話から本編へ入り、男性を左・女性を右のPIPにするよう指定した。v02は294.5秒。最初の5.17秒は採用されたMiniMaxの走り込みを再利用し、同じ2人の中景で3台詞を話してから、元の転記実演へ接続する。本編40台詞はhash照合して再利用。新しい3台詞のTTSは初回3要求と女性1台詞の修正1要求、合計4要求。最初の書き出し・音声点検・原稿は `revision-history/v02-first-pass/` に保持。
+
+PIPは実演前・要点・注意点・締めの8区間。実操作と詳細照合中は非表示。中央に要点、左右に顔、下部に字幕を分離する。5表情の生成アトラスとPCM音声で口を開閉し、聞き手は閉口する。これは簡易口パクで、音素単位の同期やMiniMaxによるPIP全台詞の生成ではない。冒頭の走り込みはMiniMax、中景とPIPは生成静止画の編集アニメーションとして来歴を分ける。
+
+共通 `dialogue_avatar.py` とContentWorkspaceへ規則付きPIPを追加した。準備台帳revision 36はblocker・warningなしだが、人の試聴・男性声・完成物採用・公開は別状態。[演出規則と検証](PIP_POLICY_V02_JA.md)、[記事草稿v02](article-draft-v02.md)、[概要欄v02](youtube-description-v02.txt)を参照。約45秒の確認ダイジェストも保存。v01は保持し、公開やmainへのマージは行っていない。

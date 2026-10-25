@@ -1060,3 +1060,18 @@ flowchart LR
     Blog --> Review
     Review --> Human[人の試聴と採用は別確認]
 ```
+
+
+## 会話と規則付きPIP（2026-10-26）
+
+```mermaid
+flowchart LR
+    Policy[採用方針と左右位置と表示区間] --> Validate[ContentWorkspaceのpip検証]
+    PCM[台詞ごとのPCMと発話区間] --> Mouth[簡易口パクと聞き手閉口]
+    Atlas[現在の人物版の表情アトラス] --> Mouth
+    Validate --> Cutaway[字幕と操作欄を避けた要点画面]
+    Mouth --> Cutaway
+    Protected[実操作の保護区間] --> Cutaway
+    Cutaway --> Video[版付き動画と短い確認用抜粋]
+    Video --> Review[技術確認と人の評価を分離]
+```

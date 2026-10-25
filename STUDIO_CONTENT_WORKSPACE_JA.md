@@ -113,3 +113,10 @@ GitHubにはコード、ガイド、プロンプト、確認した出典、改�
 ## 検証
 
 `python -m unittest tests.test_content_workspace tests.test_content_projects` と `studio` の `npm test` / `npm run build` で契約・後方互換性を確認する。`python -m tests.content_workspace_live_server --stay-open` は別ワークスペースへ検証用Studioを起動する。実際のDocs案件があれば公開画像だけをコピーし、hash、元記録の保持、未採用状態を確認する。検証用の架空返答を実ユーザー承認と混同しない。終了はCtrl+C。
+
+
+## 人物PIPの準備契約（2026-10-26）
+
+人物のあるsceneは、従来の `presenter_layout: fullscreen` と、規則付きの `pip` を使える。顔と字幕の分離はどちらも必要。pipの `pip_policy` はtrigger（before_demonstration、emphasis、caution、closing）、出演人物IDごとのpositions（leftまたはright、重複なし）、avoid_gui_controlsとcaption_safeのtrue、speech_modeのaudio_envelope、listener_mouthのclosedを要求する。画像素材は現在の人物版のgenerated_stillとして照合する。音素同期を検証する契約ではない。
+
+本編の実操作の間は隠し、要点専用の領域へ人物を配置する。`dialogue_avatar.py` が区間交差とPCM由来の口の開閉を扱う。今回の追加は共通準備処理と制作側の描画部品で、Studio UI/APIへ外部アカウント連携や自動配信を追加していない。入力例は `productions/LONG_20261026_dots_transfer_detail/revision-v02.json`、登録例は `register_v02.py` を参照する。
