@@ -687,3 +687,10 @@ Shortsのgraphic列挙に `web-services` と `web-flow` を追加し、`WebRunti
 `CONTENT_20261025_dots_shared_desktop_pilot` は、採用構成をContentWorkspaceへ記録し、dotsクラウド側の架空実演をローカルのShorts編集へ渡す制作案件。独立した設計は同案件の `ARCHITECTURE.md`、構成図は `ARCHITECTURE_DIAGRAM.md`。`produce.py` がAoedeの既存送信・排他・証跡を再利用し、検証済みキャプチャと音声manifestから版付き編集入力を準備する。実演の成功、AI画面確認、人の試聴、採用、公開は分離する。
 
 共通 `shorts_creator.validate_story` は、今回の20〜35秒試作に合わせて20・25・35秒を追加し、既存の許容尺を維持した。音声を切らずに指定フレーム数へ配置し、過長原稿は拒否する。検証は `tests.test_shorts_pilot_durations` と既存Shortsテスト。
+
+
+## dots自動転記の長尺制作（2026-10-26）
+
+`productions/LONG_20261026_dots_transfer_detail` は、採用済みdots男女と新しい実GUI録画から16:9・4分40秒のレビュー候補を作る独立案件。`tools/studio/dialogue_narration.py` は2話者の短い音声、送信前記録、確定拒否と結果不明の区別、入力hashによるキャッシュ照合を提供する。`longform_audio.py` はPCM実長から台詞を配置し、収まらない場合は切らずに章を延長する。最後の発話後の余白、オリジナルBGM、発話中のダッキングと別音源を出力する。
+
+案件のrender.pyは実録の必要長、45カットの章尺、入力・コードhashを確認し、旧版の無断上書きを拒否する。字幕と音量調整後の完成MP4を全decode・音量実測・AI補助点検し、記事草稿・同時撮影PNGの派生を同じ根拠から用意する。共通ContentWorkspaceへの準備状態、人の試聴、最終採用、公開、スマホ実機確認は分離する。媒体とリンクはローカル出力とDriveへ保存し、Gitに保管しない。独立した設計本文と図、確認範囲は案件内ARCHITECTURE.md、ARCHITECTURE_DIAGRAM.md、VALIDATION_JA.mdを参照。

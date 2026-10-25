@@ -1042,3 +1042,21 @@ flowchart LR
 ```
 
 詳しい設計・保存・状態境界は `productions/content-projects/CONTENT_20261025_dots_shared_desktop_pilot/ARCHITECTURE.md` と同フォルダーの独立した構成図に記載。
+
+
+## dots自動転記の長尺制作（2026-10-26）
+
+```mermaid
+flowchart LR
+    Approval[本人による登録範囲の承認] --> Cloud[独立クラウドコピーでGUI実演]
+    Cloud --> Evidence[原録画とPNGとXLSXと保存結果]
+    Script[11章40台詞] --> Voice[2話者Gemini TTSと送信記録]
+    Voice --> Layout[実長による配置とBGM]
+    Evidence --> Edit[45カットと字幕と図解]
+    Layout --> Edit
+    Edit --> QA[全decodeと音量とAI補助確認]
+    Evidence --> Blog[記事草稿と画像10点]
+    QA --> Review[Driveレビュー候補]
+    Blog --> Review
+    Review --> Human[人の試聴と採用は別確認]
+```
