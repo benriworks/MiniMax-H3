@@ -130,12 +130,16 @@ def editorial(chapter,title,kind,rows=None,active=-1):
     return im
 
 
-def plate(chapter,title,note):
+def plate(chapter,title,note,*,semantic_lines=False):
     im=base(chapter,title).convert('RGBA');d=ImageDraw.Draw(im)
     # A wide stage for real GUI footage; editorial notes remain outside values/buttons.
     d.rectangle((70,200,1350,850),fill=(0,0,0,0))
     box(d,(1400,220,1850,825),WHITE)
     text(d,(1435,260),'この場面のポイント',30,MUTED)
-    text(d,(1435,350),note_lines(note),42)
+    if semantic_lines:
+        from tools.studio.text_layout import fit_explicit_lines
+        layout=fit_explicit_lines(note,375,lambda line,size:font(size).getlength(line))
+        text(d,(1435,350),'\n'.join(layout['lines']),layout['font_size'])
+    else:text(d,(1435,350),note_lines(note),42)
     text(d,(1435,710),'入力 → 確認 → 保存',27,MUTED)
     return im

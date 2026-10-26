@@ -1,0 +1,51 @@
+{
+  "project": "LONG_20261026_dots_transfer_detail",
+  "version": "v04",
+  "status": "technically_verified_review_pending",
+  "previous_user_adopted_version": "v03",
+  "changes": [
+    "0-5 seconds: short subject heading in the upper left, clear of faces and hands",
+    "32.167-50.167 seconds: three explicit semantic lines in the editorial note panel",
+    "127.125-131.125 seconds: unmodified actual input-complete frame at source recording time 15.1 seconds; 120000 fully readable"
+  ],
+  "numeric_or_ui_pixels_rewritten": false,
+  "new_application_capture": false,
+  "live_environment_reproven": false,
+  "verification": {
+    "seconds": 248.125,
+    "frames": 5955,
+    "width": 1920,
+    "height": 1080,
+    "fps": 24,
+    "audio": "AAC 48kHz stereo; stream copied from adopted v03",
+    "aac_sha256_identical_to_adopted_v03": true,
+    "full_movie_decode": true,
+    "review_excerpt_seconds": 25,
+    "review_excerpt_full_decode": true,
+    "old_v01_v02_v03_final_hashes_unchanged": true,
+    "visual_boundary_samples": 18,
+    "unchanged_region_sample_seconds": [60,150,200],
+    "unchanged_region_max_mean_pixel_error_limit": 2,
+    "related_unit_tests_passed": 54,
+    "content_workspace_revision": 48,
+    "content_workspace_blockers": [],
+    "content_workspace_warnings": [],
+    "article_evidence_images": 9,
+    "article_zip_member_hashes_verified": true,
+    "drive_metadata_name_bytes_parent_mime_verified": true,
+    "drive_permission_scope": "owner only; unchanged",
+    "additional_tts_calls": 0,
+    "additional_minimax_calls": 0,
+    "additional_imagegen_calls": 0,
+    "human_final_review": false,
+    "user_v04_adoption": false,
+    "mobile_device_playback_verified": false,
+    "published": false
+  },
+  "limits": [
+    "The replacement is an input-complete form before confirmation and saving, not a recaptured confirmation page",
+    "The actual GUI recording source remains 1188x760",
+    "PIP and mouth animation are reused; no claim of phoneme-aligned lip synchronization",
+    "Media, raw captures, share links and ZIP packages remain outside Git"
+  ]
+}

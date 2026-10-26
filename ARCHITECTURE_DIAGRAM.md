@@ -1098,3 +1098,23 @@ flowchart LR
 ```
 
 既定の音楽と配置方式を保持し、人物の再採用・人の試聴・公開を推定しない。媒体と共有URLはGitへ含めない。
+
+
+## 採用音声を保って画面の3区間を修正（2026-10-26）
+
+```mermaid
+flowchart LR
+    Request[本人の3か所の画面修正] --> Intervals[変更区間と意味を固定]
+    Prior[採用版の映像] --> Visual[冒頭見出しと説明欄と実静止フレーム]
+    Intervals --> Visual
+    Fit[明示行を守る実フォント幅検査] --> Visual
+    Real[読める入力完了の実録フレーム 数字加工なし] --> Visual
+    AAC[採用版AACをstream copy] --> Final[同じ尺の新レビュー候補]
+    Visual --> Final
+    Final --> Verify[全decodeとAAC一致と境界画像]
+    Verify --> Review[Drive全編と25秒の修正抜粋]
+    Real --> Article[記事草稿と画像9点と出典]
+    Article --> Review
+```
+
+入力画面を確認画面へ呼び替えず、旧版の採用・新版の採用・公開を別状態で管理する。

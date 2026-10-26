@@ -712,3 +712,12 @@ Shortsのgraphic列挙に `web-services` と `web-flow` を追加し、`WebRunti
 詳細転記動画v03は44台詞を録り直し、実GUI録画138秒の通常速度を保ち、図と明示した静止説明を新しい会話尺へ配分する。44カット・248.125秒・5955フレーム。PIPは新タイムラインの8区間と実操作保護を検査し、採用済み人物アトラスとMiniMax走り込みを再利用する。新しいMiniMax／人物画像生成は0回。旧2版はhashで保持し、記事草稿と根拠画像10点も新版へ追従する。
 
 関連51テスト、完成MP4と確認抜粋の全decode、音量-15.96 LUFS／true peak -2.26 dBFS、全カットを含む55画像のサンプル、独立した全文音声のAI補助点検を実施。ContentWorkspace revision 41に準備上のblocker・warningなし。人の最終試聴・完成物採用・スマホ実機・公開は別状態。工程は `docs/video-production/DIALOGUE_NARRATION_JA.md`、個別の設計とMermaid図は `productions/LONG_20261026_dots_transfer_detail/` に維持する。
+
+
+## 意味ごとの説明行と採用音声を維持する視覚修正（2026-10-26）
+
+`tools/studio/text_layout.py` の `fit_explicit_lines` は、明示した改行を守って実フォント幅を測り、文字サイズの下限で収まらなければ文言の短縮を要求する。日本語の重要語を途中で折り返さない。詳細動画の `graphics.plate` で任意指定の説明欄へ適用し、既定の描画を変えない。
+
+詳細転記動画v04は、冒頭の短い見出し・説明欄の改行・金額を読む静止説明の3区間だけを置換。数字やUIを描き直さず、元録画の入力完了時の実フレームを選び、確認画面と呼び替えない。採用済みv03のAACをそのままコピーし、全体hash一致を検証する。尺248.125秒・5955フレームを維持し、追加TTS・MiniMax・画像生成APIは0回。
+
+関連54テスト、全decode、変更境界を含む18確認画像、変更外3時点の画素差、旧3版の不変を確認。記事草稿も読める入力画像に合わせ、確認画像を外した根拠9点と出典・ZIP hashを保存する。共通台帳revision 48に準備上のblocker・warningなし。旧採用版と新レビュー候補、入力画面と確認画面、人の採用と公開を分ける。個別の独立設計とMermaid図、改訂理由は `productions/LONG_20261026_dots_transfer_detail/` を参照する。
