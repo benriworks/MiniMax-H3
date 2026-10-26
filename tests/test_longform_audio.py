@@ -40,5 +40,19 @@ class LongFormAudioTests(unittest.TestCase):
             self.assertTrue(all(a['end']<b['start'] for a,b in zip(turns,turns[1:])))
             self.assertLessEqual(turns[-1]['end'],12)
 
+    def test_conversation_answers_immediately_then_leaves_reading_space(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for i in range(4):
+                path=Path(directory)/'chapter-01'/f'turn-{i:02d}'
+                path.mkdir(parents=True)
+                write_pcm(path/'voice.wav',np.zeros(SR,dtype=np.float32))
+            p=plan_dialogue([dict(id='chapter-01',title='質問',target_seconds=16,pause_mode='after_answer',
+                turns=[dict(speaker=s,text='確認') for s in ['male','female','male','female']])],directory)
+            turns=p['chapters'][0]['turns']
+            self.assertAlmostEqual(turns[1]['start']-turns[0]['end'],.35)
+            self.assertAlmostEqual(turns[3]['start']-turns[2]['end'],.35)
+            self.assertGreater(turns[2]['start']-turns[1]['end'],8)
+            self.assertLessEqual(turns[-1]['end'],16)
+
 
 if __name__=='__main__':unittest.main()

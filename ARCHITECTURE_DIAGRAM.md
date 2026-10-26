@@ -1075,3 +1075,26 @@ flowchart LR
     Cutaway --> Video[版付き動画と短い確認用抜粋]
     Video --> Review[技術確認と人の評価を分離]
 ```
+
+
+## 任意の会話進行と明るいBGM（2026-10-26）
+
+```mermaid
+flowchart LR
+    Direction[本人が質問役と実演進行役を指定] --> Script[表示台詞と読み台詞]
+    Script --> TTS[conversational_v3 同じ声と送信証跡]
+    TTS --> Layout[PCM実尺 質問から回答へ短く接続]
+    Layout --> Timing[実録は通常速度 図の読取時間を調整]
+    Bright[任意のbright 112 BPM Cメジャー] --> Mix[声の下で伴奏を減音 別トラック保存]
+    Layout --> Mix
+    Timing --> Edit[版を分けた横長動画]
+    Pair[採用済み人物と保護区間付きPIP] --> Edit
+    Mix --> Edit
+    Edit --> Check[全decodeと音量と全文AI音声補助点検]
+    Check --> Drive[Drive全編と会話の確認抜粋]
+    Evidence[同じ実証と引用画像] --> Article[記事草稿と投稿文を同時更新]
+    Article --> Drive
+    Direction --> State[実指示と制作範囲をContentWorkspaceへ]
+```
+
+既定の音楽と配置方式を保持し、人物の再採用・人の試聴・公開を推定しない。媒体と共有URLはGitへ含めない。

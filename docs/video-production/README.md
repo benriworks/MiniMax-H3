@@ -10,6 +10,7 @@
 | --- | --- |
 | [VIDEO_PRODUCTION_HANDOFF_JA.md](VIDEO_PRODUCTION_HANDOFF_JA.md) | 制作ノウハウと全工程。人物確認、ストーリー、保存、レビュー、GitHub運用を含む。別の制作担当者へ渡す総合資料 |
 | [NARRATION_HANDOFF_JA.md](NARRATION_HANDOFF_JA.md) | **ナレーション担当者へ単体で渡せる別ファイル**。原稿、声、生成、速度・読み、組み込み、試聴、修正、保存の手順 |
+| [DIALOGUE_NARRATION_JA.md](DIALOGUE_NARRATION_JA.md) | 質問から返答・実演へつなぐ会話構成、自然なTTS、返答後の画面読取時間、明るいBGM、抜粋レビュー |
 | [SCREEN_CAPTURE_AND_QUOTES_JA.md](SCREEN_CAPTURE_AND_QUOTES_JA.md) | **撮影・編集担当者向けの別冊**。PC画面の撮り方、公式製品画像とスクリーンショットの引用、人物の効果的な使い分け |
 | [DIRECTION_REVIEW_JA.md](DIRECTION_REVIEW_JA.md) | 文書整備後に検討する方向性。案と未決事項を整理し、採用済みと混同しない |
 | [VIDEO_TO_BLOG_WORKFLOW_JA.md](VIDEO_TO_BLOG_WORKFLOW_JA.md) | 自分用の制作環境と、動画から詳細記事への導線。企画・実演・画像の共用、ブログへの受け渡しの設計 |

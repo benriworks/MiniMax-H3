@@ -1,0 +1,50 @@
+{
+  "project": "LONG_20261026_dots_transfer_detail",
+  "version": "v03",
+  "user_direction": "男性がやりたいことを尋ね、女性が答えて実演を進める。音楽を明るくする。",
+  "production": {
+    "seconds": 248.125,
+    "video_frames": 5955,
+    "width": 1920,
+    "height": 1080,
+    "fps": 24,
+    "audio": "AAC 48kHz stereo",
+    "edited_cuts": 44,
+    "new_tts_successes": 44,
+    "new_imagegen_calls": 0,
+    "new_minimax_calls": 0,
+    "reused_actual_gui_seconds_at_original_speed": 138,
+    "pip_windows": 8,
+    "music": {"style": "bright", "bpm": 112, "tonality": "C major", "voice_duck_gain": 0.32},
+    "review_excerpt_seconds": 41.1205,
+    "evidence_images_reused_for_article": 10
+  },
+  "verification": {
+    "related_unit_tests_passed": 51,
+    "full_movie_decode": true,
+    "review_excerpt_full_decode": true,
+    "integrated_loudness_lufs": -15.96,
+    "true_peak_dbfs": -2.26,
+    "ai_visual_sample_frames": 55,
+    "ai_visual_native_frames": 2,
+    "full_dialogue_ai_audio_review": "44 turns transcribed; no audible issues reported; not a word-perfect acoustic guarantee",
+    "old_v01_and_v02_final_hashes_unchanged": true,
+    "article_zip_member_hashes_verified": true,
+    "content_workspace_revision": 41,
+    "content_workspace_blockers": [],
+    "content_workspace_warnings": [],
+    "drive_uploaded_file_metadata_matches": true,
+    "drive_permission_scope": "owner only; unchanged",
+    "human_final_listening": false,
+    "user_final_adoption": false,
+    "mobile_device_playback": false,
+    "youtube_published_by_this_revision": false,
+    "article_published": false
+  },
+  "limits": [
+    "PIP mouth animation uses audio energy; not phoneme-aligned lip synchronization",
+    "GUI evidence uses the original 1188x760 source; editing canvas resolution does not increase source detail",
+    "No new product demonstration or factual claims were added in this narration revision",
+    "Media, raw requests, private captures, share URLs and ZIP packages remain outside Git"
+  ]
+}

@@ -144,17 +144,19 @@ def avatar_card(canvas,atlas,speaker,state,fallback,seconds):
             draw.rounded_rectangle((x+111+k*22,y+size+79-height,x+121+k*22,y+size+79),radius=3,fill=LIME)
 
 
-def render():
-    if (OUT/'dots-transfer-detail-v02.mp4').exists():raise ValueError('Preserve completed v02 before revision')
-    config=json.loads((HERE/'revision-v02.json').read_text(encoding='utf-8'))
+def render(*, config_path=None, output_name='dots-transfer-detail-v02.mp4', picture_source=None, replace_interlude=True):
+    if Path(output_name).name!=output_name or not output_name.endswith('.mp4'):raise ValueError('Expected MP4 filename')
+    if (OUT/output_name).exists():raise ValueError('Preserve completed output before revision')
+    config=json.loads(Path(config_path or HERE/'revision-v02.json').read_text(encoding='utf-8'))
     plan=json.loads((OUT/'timeline.json').read_text(encoding='utf-8'))
     driver=DialogueDriver([t for c in plan['chapters'] for t in c['turns']])
     pair=PairAtlas(OUT/'avatars/intro-atlas.png')
     sprites={s:SpriteAtlas(OUT/'avatars'/f'{s}-atlas.png',s) for s in ('male','female')}
     save(OUT/'avatars/registration.json',dict(pair=pair.registration,**{s:v.registration for s,v in sprites.items()}))
     folder=OUT/'segments';folder.mkdir(exist_ok=True)
-    signature=dict(timeline=fingerprint(OUT/'timeline.json'),policy=fingerprint(HERE/'revision-v02.json'),
-        source_manifest=fingerprint(OUT/'source-manifest.json'))
+    main_source=Path(picture_source or OLD/'picture-master.mp4')
+    signature=dict(timeline=fingerprint(OUT/'timeline.json'),policy=fingerprint(config_path or HERE/'revision-v02.json'),
+        source_manifest=fingerprint(OUT/'source-manifest.json'),picture_source=fingerprint(main_source))
     segments=[]
     def command(dest,args):
         with dest.with_suffix('.log').open('w',encoding='utf-8') as log:
@@ -176,14 +178,15 @@ def render():
         return image.crop(((1920-w)//2,(1080-h)//2,(1920+w)//2,(1080+h)//2)).resize((1920,1080),Image.Resampling.LANCZOS)
     cached_video(convo,dict(signature,kind='conversation'),lambda:pipe_video(convo,plan['conversation_seconds'],dialogue_frame))
     segments.append(convo)
-    overrides=[dict(start=8,end=13,kind='replace_old_character_interlude')]+config['windows_in_original_main_seconds']
+    windows=config.get('windows_in_main_seconds',config.get('windows_in_original_main_seconds',[]))
+    overrides=([dict(start=8,end=13,kind='replace_old_character_interlude')] if replace_interlude else [])+windows
     cursor=0;sequence=2
     def normal(a,b):
         nonlocal sequence
         if b<=a:return
         dest=folder/f'{sequence:02d}-main-{a:.0f}-{b:.0f}.mp4';sequence+=1
         cached_video(dest,dict(signature,kind='original',start=a,end=b),lambda:command(dest,['ffmpeg','-v','warning','-nostdin','-n',
-            '-ss',str(a),'-i',str(OLD/'picture-master.mp4'),'-t',str(b-a),'-an','-r','24',
+            '-ss',str(a),'-i',str(main_source),'-t',str(b-a),'-an','-r','24',
             '-c:v','libx264','-crf','18','-preset','veryfast','-threads','4',str(dest)]))
         segments.append(dest)
     for window in overrides:
@@ -193,7 +196,7 @@ def render():
             background=Image.open(OLD/'graphics/01-flow-2.png').convert('RGB')
             callback=lambda dest=dest,background=background,a=a,b=b:pipe_video(dest,b-a,lambda _:background)
         else:
-            chapter=next(c for c in plan['chapters'][1:] if c['start']-plan['main_offset']<=a<c['end']-plan['main_offset'])
+            chapter=next(c for c in plan['chapters'][1:] if c['start']-plan['main_offset']-1e-6<=a<c['end']-plan['main_offset']-1e-6)
             background=takeaway(window,chapter)
             def make_frame(local,window=window,background=background,a=a):
                 image=background.copy();time=plan['main_offset']+a+local
@@ -203,14 +206,14 @@ def render():
             callback=lambda dest=dest,a=a,b=b,make_frame=make_frame:pipe_video(dest,b-a,make_frame)
         cached_video(dest,dict(signature,kind=window),callback)
         print('Rendered',dest.name,flush=True);segments.append(dest);cursor=b
-    normal(cursor,280)
+    normal(cursor,plan['seconds']-plan['main_offset'])
     listing=OUT/'concat.txt';listing.write_text('\n'.join("file '"+p.as_posix()+"'" for p in segments),encoding='utf-8')
     command(OUT/'picture-master.mp4',['ffmpeg','-v','warning','-nostdin','-n','-f','concat','-safe','0','-i',str(listing),'-c','copy',str(OUT/'picture-master.mp4')])
     stderr=subprocess.run(['ffmpeg','-hide_banner','-nostdin','-i',str(OUT/'audio/mix-premaster.wav'),'-af',
         'loudnorm=I=-16:TP=-1.2:LRA=9:print_format=json','-f','null','-'],capture_output=True,text=True,check=True).stderr
     measurement=json.JSONDecoder().raw_decode(stderr[stderr.rfind('{'):])[0];save(OUT/'audio/loudness-pass1.json',measurement)
     af=f'loudnorm=I=-16:TP=-1.2:LRA=9:measured_I={measurement["input_i"]}:measured_TP={measurement["input_tp"]}:measured_LRA={measurement["input_lra"]}:measured_thresh={measurement["input_thresh"]}:offset={measurement["target_offset"]}:linear=true'
-    dest=OUT/'dots-transfer-detail-v02.mp4'
+    dest=OUT/output_name
     with (OUT/'final-render.log').open('w',encoding='utf-8') as log:
         subprocess.run(['ffmpeg','-v','info','-nostdin','-n','-i','picture-master.mp4','-i','audio/mix-premaster.wav',
             '-vf','ass=captions.ass:fontsdir=fonts','-af',af,'-map','0:v','-map','1:a','-c:v','libx264','-preset','fast',

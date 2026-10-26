@@ -1,5 +1,32 @@
 # dots転記 詳細動画の構成図
 
+## v03：質問と返答と実演の進行
+
+```mermaid
+flowchart TD
+    User[本人の会話再構築と明るい音楽の指示] --> Script[男性の質問と女性の回答と進行 44台詞]
+    Script --> Voice[同じAoedeとCharonで新規音声化]
+    Voice --> PCM[PCM実尺と質問直後の短い間]
+    Raw[既存の実GUI録画 138秒 通常速度を保持] --> Timing[図と静止説明の読取時間を再配分]
+    PCM --> Timing
+    Music[明るい112 BPM Cメジャー 声の下で減音] --> Mix[声と伴奏を別保存して合成]
+    PCM --> Mix
+    Timing --> Edit[248.125秒 5955フレームのv03]
+    Pair[採用済み走り込みと同じ人物アトラス] --> Edit
+    PIP[新しい8区間 左右と実操作の保護] --> Edit
+    Mix --> Edit
+    Edit --> QA[全decodeと音量と55確認フレーム]
+    Mix --> ASR[全文音声の独立したAI補助点検]
+    QA --> Drive[Drive全編と41.12秒の抜粋]
+    ASR --> Drive
+    Old[旧版v01とv02をhashで保持] --> QA
+    Script --> State[実指示と制作採用範囲を共通台帳へ]
+    Evidence[同じ根拠画像10点と公式引用] --> Blog[記事草稿v03と投稿文]
+    Blog --> Drive
+```
+
+新しい製品実証・人物生成ではなく、会話と音楽と編集時間の改訂。人の試聴・完成物採用・公開と区別する。
+
 ## v02：会話と規則付きPIP
 
 ```mermaid

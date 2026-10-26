@@ -701,3 +701,14 @@ Shortsのgraphic列挙に `web-services` と `web-flow` を追加し、`WebRunti
 `tools/studio/dialogue_avatar.py` は人物の表情アトラス、実PCMの発話区間、左右表示窓を使う共通部品。音声強度とヒステリシスによる簡易口パクで、聞き手と無音は閉口する。実操作の保護区間と表示窓の交差を拒否する。`ContentWorkspace` はfullscreenに加え、左右位置、表示理由、操作欄・字幕の保護、発話方式を指定したpipを受け付け、現在の人物版の表情素材を照合する。音素単位の同期やStudio UI内の動画プレビューを追加したものではない。
 
 自動転記案件v02は、採用されたH3待ち合わせ、中景3台詞、既存実演40台詞、8区間のPIPを294.5秒に組み込む。変わらない音声と撮影原本を再利用し、初回の語尾の点検結果と修正前版を保持する。共通CLIの構成採用、技術検証、人の試聴、完成物採用、公開を分ける。詳しい構成と図は `productions/LONG_20261026_dots_transfer_detail/ARCHITECTURE.md` と同階層の `ARCHITECTURE_DIAGRAM.md`。
+
+
+## 会話の進行と明るい伴奏の任意プロファイル（2026-10-26）
+
+`dialogue_narration` に `conversational_v3` を追加し、指定話者が引用台詞だけを自然な成人同僚の会話として話す。質問を回答として扱わない。同じAoede／Charon、送信証跡・成功hash再利用・拒否と結果不明の自動再送禁止を維持する。`longform_audio` の任意 `pause_mode='after_answer'` は今回の男性質問／女性回答の役割向けに質問直後を短く接続し、余分な読取時間を女性の回答後へ配分する。既定の配分は変更しない。
+
+任意 `music_style='bright'` は112 BPM・Cメジャーの短い撥弦とマリンバ風・シェーカーを生成し、声の下では0.32倍へ下げる。既定の88 BPMの穏やかな曲は保持する。声と音楽を別保存し、実PCM尺・字幕・測定した最終音量を追跡する。
+
+詳細転記動画v03は44台詞を録り直し、実GUI録画138秒の通常速度を保ち、図と明示した静止説明を新しい会話尺へ配分する。44カット・248.125秒・5955フレーム。PIPは新タイムラインの8区間と実操作保護を検査し、採用済み人物アトラスとMiniMax走り込みを再利用する。新しいMiniMax／人物画像生成は0回。旧2版はhashで保持し、記事草稿と根拠画像10点も新版へ追従する。
+
+関連51テスト、完成MP4と確認抜粋の全decode、音量-15.96 LUFS／true peak -2.26 dBFS、全カットを含む55画像のサンプル、独立した全文音声のAI補助点検を実施。ContentWorkspace revision 41に準備上のblocker・warningなし。人の最終試聴・完成物採用・スマホ実機・公開は別状態。工程は `docs/video-production/DIALOGUE_NARRATION_JA.md`、個別の設計とMermaid図は `productions/LONG_20261026_dots_transfer_detail/` に維持する。

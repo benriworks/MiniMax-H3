@@ -24,6 +24,13 @@ class DialogueSafetyTests(unittest.TestCase):
         self.assertIn('Japanese female voice',p['contents'][0]['parts'][0]['text'])
         self.assertEqual(p['generationConfig']['speechConfig']['voiceConfig']['prebuiltVoiceConfig']['voiceName'],'Aoede')
 
+    def test_conversation_profile_quotes_questions_without_asking_for_an_answer(self):
+        p=payload('何をしたいの？','male','conversational_v3')
+        text=p['contents'][0]['parts'][0]['text']
+        self.assertIn('never answer it',text)
+        self.assertIn('<transcript>\n何をしたいの？\n</transcript>',text)
+        self.assertEqual(p['generationConfig']['speechConfig']['voiceConfig']['prebuiltVoiceConfig']['voiceName'],'Charon')
+
     def test_a_definite_rejection_is_not_submitted_again(self):
         error=HTTPError('https://example.invalid',400,'Bad request',{},io.BytesIO(json.dumps({'error':{'status':'INVALID_ARGUMENT','message':'Expected audio'}}).encode()))
         opener=Mock();opener.open.side_effect=error

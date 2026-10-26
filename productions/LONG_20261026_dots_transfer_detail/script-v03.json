@@ -1,0 +1,371 @@
+{
+  "version": "v03",
+  "voices": {
+    "female": "Aoede",
+    "male": "Charon"
+  },
+  "opening": [
+    {
+      "speaker": "male",
+      "text": "今日は、どんな作業をやりたいの？",
+      "spoken": "今日は、どんな作業をやりたいの？",
+      "emotion": "curious"
+    },
+    {
+      "speaker": "female",
+      "text": "Excelの三件を、案件管理の画面へ移したいの。dotsに入力を頼んでみるね。",
+      "spoken": "エクセルの三件を、案件管理の画面へ移したいの。ドッツに入力を頼んでみるね。",
+      "emotion": "neutral"
+    },
+    {
+      "speaker": "male",
+      "text": "いいね。一緒に見てみよう。",
+      "spoken": "いいね。一緒に見てみよう。",
+      "emotion": "pleased"
+    }
+  ],
+  "chapters": [
+    {
+      "id": "chapter-01",
+      "title": "同じ情報の入力をdotsに任せる",
+      "target_seconds": 20,
+      "tail_seconds": 0.5,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "まず、転記が終わった画面を見てね。三件で、合計二十五万円になっているよ。",
+          "spoken": "まず、転記が終わった画面を見てね。三件で、合計二十五万円になっているよ。",
+          "emotion": "neutral"
+        },
+        {
+          "speaker": "male",
+          "text": "この三件を、まとめて移してもらうんだね。",
+          "spoken": "この三件を、まとめて移してもらうんだね。",
+          "emotion": "curious"
+        },
+        {
+          "speaker": "female",
+          "text": "うん。ここまでを、どう進めたか見ていこう。",
+          "spoken": "うん。ここまでを、どう進めたか見ていこう。",
+          "emotion": "neutral"
+        }
+      ]
+    },
+    {
+      "id": "chapter-02",
+      "title": "クラウドPCを作業場所に",
+      "target_seconds": 23,
+      "tail_seconds": 0.5,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "どこで作業してもらうの？",
+          "spoken": "どこで作業してもらうの？",
+          "emotion": "curious"
+        },
+        {
+          "speaker": "female",
+          "text": "dotsのクラウドPCだよ。ここに元のExcelと、入力先の画面を開いてあるの。",
+          "spoken": "ドッツのクラウドピーシーだよ。ここに元のエクセルと、入力先の画面を開いてあるの。",
+          "emotion": "neutral"
+        },
+        {
+          "speaker": "male",
+          "text": "この表が、元のデータ？",
+          "spoken": "このひょうが、元のデータ？",
+          "emotion": "curious"
+        },
+        {
+          "speaker": "female",
+          "text": "そう。実物のExcelファイルを、専用ビューアで見ているよ。Excel本体の画面ではないよ。",
+          "spoken": "そう。実物のエクセルファイルを、専用ビューアで見ているよ。エクセル本体の画面ではないよ。",
+          "emotion": "neutral"
+        }
+      ]
+    },
+    {
+      "id": "chapter-03",
+      "title": "3件・5項目をそろえる",
+      "target_seconds": 20,
+      "tail_seconds": 0.5,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "どの情報を移したいの？",
+          "spoken": "どの情報を移したいの？",
+          "emotion": "curious"
+        },
+        {
+          "speaker": "female",
+          "text": "この三件の、案件ID、顧客名、案件名、納期、金額だよ。まず、元の列と入力欄を対応づけるね。",
+          "spoken": "この三件の、あんけんアイディー、顧客名、案件名、納期、金額だよ。まず、元の列と入力欄を対応づけるね。",
+          "emotion": "neutral"
+        },
+        {
+          "speaker": "male",
+          "text": "三件かける五項目で、全部で十五項目だね。",
+          "spoken": "三件かける五項目で、全部で十五項目だね。",
+          "emotion": "curious"
+        }
+      ]
+    },
+    {
+      "id": "chapter-04",
+      "title": "任せる範囲を決める",
+      "target_seconds": 27,
+      "tail_seconds": 0.5,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "dotsには、どう頼めばいいの？",
+          "spoken": "ドッツには、どう頼めばいいの？",
+          "emotion": "curious"
+        },
+        {
+          "speaker": "female",
+          "text": "三件だけを、この登録先へ移して、と範囲を決めるよ。元の表は変えない。分からない値や重複が出たら、止めてもらうの。",
+          "spoken": "三件だけを、この登録先へ移して、と範囲を決めるよ。元のひょうは変えない。分からない値や重複が出たら、止めてもらうの。",
+          "emotion": "serious"
+        },
+        {
+          "speaker": "male",
+          "text": "登録も、そのまま進めるの？",
+          "spoken": "登録も、そのまま進めるの？",
+          "emotion": "curious"
+        },
+        {
+          "speaker": "female",
+          "text": "その前に内容をまとめて、本人の確認を待ってもらうよ。",
+          "spoken": "その前に内容をまとめて、本人の確認を待ってもらうよ。",
+          "emotion": "serious"
+        }
+      ]
+    },
+    {
+      "id": "chapter-05",
+      "title": "登録前に人が確認",
+      "target_seconds": 30,
+      "tail_seconds": 0.5,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "ここで、何を確認すればいい？",
+          "spoken": "ここで、何を確認すればいい？",
+          "emotion": "serious"
+        },
+        {
+          "speaker": "female",
+          "text": "この三件の内容と、登録する場所だよ。今はまだ未登録。元の表と日付や金額を見比べるの。",
+          "spoken": "この三件の内容と、登録する場所だよ。今はまだ未登録。元のひょうと日付や金額を見比べるの。",
+          "emotion": "neutral"
+        },
+        {
+          "speaker": "male",
+          "text": "合っていれば、進めていいと伝えるんだね。",
+          "spoken": "合っていれば、進めていいと伝えるんだね。",
+          "emotion": "curious"
+        },
+        {
+          "speaker": "female",
+          "text": "うん。実演でも本人に確認してもらったよ。違っていたら、この段階で直してもらえるね。",
+          "spoken": "うん。実演でも本人に確認してもらったよ。違っていたら、この段階で直してもらえるね。",
+          "emotion": "serious"
+        }
+      ]
+    },
+    {
+      "id": "chapter-06",
+      "title": "一件目を入力する",
+      "target_seconds": 29,
+      "tail_seconds": 0.5,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "じゃあ、一件目はどう進むの？",
+          "spoken": "じゃあ、一件目はどう進むの？",
+          "emotion": "curious"
+        },
+        {
+          "speaker": "female",
+          "text": "いま、元の表を見ながら、五つの欄に入力してくれているよ。案件IDと顧客名、それから案件名。",
+          "spoken": "いま、元のひょうを見ながら、五つの欄に入力してくれているよ。あんけんアイディーと顧客名、それから案件名。",
+          "emotion": "neutral"
+        },
+        {
+          "speaker": "female",
+          "text": "ここで日付と金額も確認するね。十一月十日、十二万円。元の値と合っているよ。",
+          "spoken": "ここで日付と金額も確認するね。十一月十日、十二万円。元の値と合っているよ。",
+          "emotion": "serious"
+        },
+        {
+          "speaker": "male",
+          "text": "欄の名前と数字を、順番に見ればいいんだね。",
+          "spoken": "欄の名前と数字を、順番に見ればいいんだね。",
+          "emotion": "curious"
+        }
+      ]
+    },
+    {
+      "id": "chapter-07",
+      "title": "確認と登録は別",
+      "target_seconds": 25,
+      "tail_seconds": 0.5,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "内容を確認、を押したら、保存は終わり？",
+          "spoken": "内容を確認、を押したら、保存は終わり？",
+          "emotion": "serious"
+        },
+        {
+          "speaker": "female",
+          "text": "まだだよ。ここは確認画面。五項目が合っているのを確かめてから、登録を進めるよ。",
+          "spoken": "まだだよ。ここは確認画面。五項目が合っているのを確かめてから、登録を進めるよ。",
+          "emotion": "serious"
+        },
+        {
+          "speaker": "male",
+          "text": "このボタンで、保存されるんだね。",
+          "spoken": "このボタンで、保存されるんだね。",
+          "emotion": "curious"
+        },
+        {
+          "speaker": "female",
+          "text": "うん。今回は撮影用の登録先だけ。実サービスへの通知や会計処理はしていないよ。",
+          "spoken": "うん。今回は撮影用の登録先だけ。実サービスへの通知や会計処理はしていないよ。",
+          "emotion": "neutral"
+        }
+      ]
+    },
+    {
+      "id": "chapter-08",
+      "title": "残り二件も同じ手順",
+      "target_seconds": 18,
+      "tail_seconds": 0.5,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "残りの二件も、同じように頼める？",
+          "spoken": "残りの二件も、同じように頼める？",
+          "emotion": "curious"
+        },
+        {
+          "speaker": "female",
+          "text": "うん。二件目も三件目も、入力、確認、登録の順で進めてもらうよ。",
+          "spoken": "うん。二件目も三件目も、入力、確認、登録の順で進めてもらうよ。",
+          "emotion": "serious"
+        },
+        {
+          "speaker": "female",
+          "text": "途中で違う値が出たら止めるよ。終わったら、保存結果を見よう。",
+          "spoken": "途中で違う値が出たら止めるよ。終わったら、保存結果を見よう。",
+          "emotion": "serious"
+        }
+      ]
+    },
+    {
+      "id": "chapter-09",
+      "title": "保存後に全項目を照合",
+      "target_seconds": 35,
+      "tail_seconds": 0.5,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "三件で、合計二十五万円。これで完成？",
+          "spoken": "三件で、合計二十五万円。これで完成？",
+          "emotion": "curious"
+        },
+        {
+          "speaker": "female",
+          "text": "もう少し確認するね。一覧を再表示して、ページも読み込み直すよ。保存された内容を、元の表と比べるの。",
+          "spoken": "もう少し確認するね。一覧を再表示して、ページも読み込み直すよ。保存された内容を、元のひょうと比べるの。",
+          "emotion": "serious"
+        },
+        {
+          "speaker": "male",
+          "text": "合計だけじゃなくて、日付や名前も見る？",
+          "spoken": "合計だけじゃなくて、日付や名前も見る？",
+          "emotion": "curious"
+        },
+        {
+          "speaker": "female",
+          "text": "そう。一件ずつ五項目、全部で十五項目だよ。今回の三件は、全部一致していたよ。",
+          "spoken": "そう。一件ずつ五項目、全部で十五項目だよ。今回の三件は、全部一致していたよ。",
+          "emotion": "pleased"
+        }
+      ]
+    },
+    {
+      "id": "chapter-10",
+      "title": "止まる仕組みも確認",
+      "target_seconds": 23,
+      "tail_seconds": 0.5,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "入力を間違えたら、どうなるの？",
+          "spoken": "入力を間違えたら、どうなるの？",
+          "emotion": "worried"
+        },
+        {
+          "speaker": "female",
+          "text": "このデモでは、同じIDと、存在しない日付、マイナス金額は受け付けなかったよ。",
+          "spoken": "このデモでは、同じアイディーと、存在しない日付、マイナス金額は受け付けなかったよ。",
+          "emotion": "neutral"
+        },
+        {
+          "speaker": "male",
+          "text": "じゃあ、もう確認しなくても大丈夫？",
+          "spoken": "じゃあ、もう確認しなくても大丈夫？",
+          "emotion": "worried"
+        },
+        {
+          "speaker": "female",
+          "text": "そこは確認したいね。防げないミスもあるから、最後の見比べは省かないよ。",
+          "spoken": "そこは確認したいね。防げないミスもあるから、最後の見比べは省かないよ。",
+          "emotion": "serious"
+        }
+      ]
+    },
+    {
+      "id": "chapter-11",
+      "title": "小さな範囲から試そう",
+      "target_seconds": 30,
+      "tail_seconds": 3.5,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "自分の仕事でも、同じように試せるかな？",
+          "spoken": "自分の仕事でも、同じように試せるかな？",
+          "emotion": "curious"
+        },
+        {
+          "speaker": "female",
+          "text": "まずは架空データ三件から試そう。登録先と、止める条件を決めて、内容を確認して進めるよ。",
+          "spoken": "まずは架空データ三件から試そう。登録先と、止める条件を決めて、内容を確認して進めるよ。",
+          "emotion": "serious"
+        },
+        {
+          "speaker": "male",
+          "text": "入力は任せて、最後に自分で結果を確かめるんだね。",
+          "spoken": "入力は任せて、最後に自分で結果を確かめるんだね。",
+          "emotion": "curious"
+        },
+        {
+          "speaker": "female",
+          "text": "うん。実際のシステムでは操作する権限も必要だよ。小さな作業から試してみよう。",
+          "spoken": "うん。実際のシステムでは操作する権限も必要だよ。小さな作業から試してみよう。",
+          "emotion": "pleased"
+        }
+      ]
+    }
+  ],
+  "user_direction": "男がやりたいことを聞き、女が答えて、女が話しながら進める。BGMを明るくする。",
+  "performers": "同じ架空の成人2人。実演を案内する役で、撮影された実操作担当者や本人の承認を演じ直すものではない。",
+  "bgm": {
+    "profile": "bright",
+    "bpm": 112,
+    "tonality": "C major",
+    "instrumentation": "light plucked chords, marimba-like notes, soft shaker; no sustained dark pad"
+  }
+}
