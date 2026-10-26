@@ -15,7 +15,12 @@
     "new_minimax_calls": 0,
     "reused_actual_gui_seconds_at_original_speed": 138,
     "pip_windows": 8,
-    "music": {"style": "bright", "bpm": 112, "tonality": "C major", "voice_duck_gain": 0.32},
+    "music": {
+      "style": "bright",
+      "bpm": 112,
+      "tonality": "C major",
+      "voice_duck_gain": 0.32
+    },
     "review_excerpt_seconds": 41.1205,
     "evidence_images_reused_for_article": 10
   },
@@ -30,13 +35,13 @@
     "full_dialogue_ai_audio_review": "44 turns transcribed; no audible issues reported; not a word-perfect acoustic guarantee",
     "old_v01_and_v02_final_hashes_unchanged": true,
     "article_zip_member_hashes_verified": true,
-    "content_workspace_revision": 41,
+    "content_workspace_revision": 42,
     "content_workspace_blockers": [],
     "content_workspace_warnings": [],
     "drive_uploaded_file_metadata_matches": true,
     "drive_permission_scope": "owner only; unchanged",
     "human_final_listening": false,
-    "user_final_adoption": false,
+    "user_final_adoption": true,
     "mobile_device_playback": false,
     "youtube_published_by_this_revision": false,
     "article_published": false
@@ -46,5 +51,12 @@
     "GUI evidence uses the original 1188x760 source; editing canvas resolution does not increase source detail",
     "No new product demonstration or factual claims were added in this narration revision",
     "Media, raw requests, private captures, share URLs and ZIP packages remain outside Git"
-  ]
+  ],
+  "adoption": {
+    "user_reply": "これで進めて",
+    "date": "2026-10-26",
+    "scope": "v03 video",
+    "article_adoption": false,
+    "published": false
+  }
 }
