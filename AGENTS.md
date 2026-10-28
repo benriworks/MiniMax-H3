@@ -4,6 +4,7 @@
 
 - 実装が進んだら `ARCHITECTURE.md` と `ARCHITECTURE_DIAGRAM.md` を更新する。設計本文とMermaid形式の図を、他の設計資料から独立して維持する。存在しなければ作る。
 - 動画制作に着手する前に `docs/video-production/README.md`、`VIDEO_PRODUCTION_HANDOFF_JA.md`、ナレーションを扱う場合は `NARRATION_HANDOFF_JA.md` を読む。いずれも `docs/video-production/` 内にある。
+- 題名・冒頭・フル動画の人物と掛け合いは `docs/video-production/EDITORIAL_PATTERNS_JA.md` を参照する。製品名と具体的な作業・結果を結ぶタイトルを動画とセットで用意し、完成像・結論を先に示す。質問役と実務役、実演前の短い前提説明、全面表示とPIPの使い分けを構成に反映する。個別の採用演出・未測定の仮説・未制作の依頼を混同しない。
 - PC画面の撮影・公式画像引用を扱う場合は、同フォルダーの `SCREEN_CAPTURE_AND_QUOTES_JA.md` に従い、撮影原本・公開用切り出し・出典・確認日を残す。
 - 動画制作では記事草稿とブログ用素材収集も同時に行い、`VIDEO_TO_BLOG_WORKFLOW_JA.md` に従う。同じ企画の事実・実演・原素材を共用し、動画用と記事用の派生・レビュー・公開状態を分ける。ブログ側のAGENTS.mdと画像規定も読む。
 - 記事の既定の投稿先はユーザーの `benriworks/blog` リポジトリ。案件によってnoteも選べる。主な題材はClaude・ChatGPT・Codex関連だが、他の指定テーマを除外しない。投稿先の指定がなければblogを前提に準備し、note指定時も共通草稿・出典・原素材を残して媒体用の派生を作る。noteへの掲載にblog固有のMDXやFigureを要求しない。二重投稿や公開を自動で行わない。
