@@ -1,5 +1,11 @@
 # Production records
 
+## 現行の制作ルール（2026-10-23）
+
+制作工程と担当者向けの入口は [動画制作ガイド](../docs/video-production/README.md)。新しい人物を使う場合は先にユーザーへ確認し、確認済み人物をMiniMaxで動画化する。人物のペルソナと物語、初回出力と修正履歴、素材の版と採否を案件記録へ残す。
+
+ナレーションは [独立した引き継ぎ資料](../docs/video-production/NARRATION_HANDOFF_JA.md) を参照。下記の既存台帳形式は保持し、今後の保存・レビュー・GitHub更新の運用を [総合ガイド](../docs/video-production/VIDEO_PRODUCTION_HANDOFF_JA.md) に従って補う。動画・音声・納品ZIPの本体はローカル／共有ストレージに置き、GitHubへは文書・軽量な台帳を残す。
+
 このディレクトリは、MiniMax H3およびStudioのローカル編集・モーショングラフィックスで制作した個別案件の追跡可能な台帳を置く場所です。再利用可能な制作判断はルートの[PRODUCTION_PLAYBOOK_JA.md](../PRODUCTION_PLAYBOOK_JA.md)へ集約し、案件固有のprompt、hash、採否、権利境界は各productionに残します。
 
 ## ディレクトリ契約

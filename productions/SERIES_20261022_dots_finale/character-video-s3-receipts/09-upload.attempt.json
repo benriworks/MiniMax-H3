@@ -1,0 +1,12 @@
+{
+  "episode": 9,
+  "mode": "upload",
+  "started_at": "2026-10-22T18:56:09.7860165+00:00",
+  "automatic_retry_allowed": false,
+  "status": "submission_started",
+  "source": {
+    "path": "outputs/productions/SHORT_20261022_dots_09_editorial/20261022T155717091107Z/release/dots-09-controls-official.mp4",
+    "bytes": 3475733,
+    "sha256": "2C2D2EF7697B7143C97C13FA6F3592D83F6433872F6137BB8D4FD4DA1143FE1E"
+  }
+}

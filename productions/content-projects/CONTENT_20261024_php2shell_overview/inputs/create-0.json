@@ -1,0 +1,7 @@
+{
+  "content_project_id": "CONTENT_20261024_php2shell_overview",
+  "title": "【PHP】PHP2Shellとは？サイト運営者が確認したい脆弱性と対策",
+  "topic": "2026年10月21日に公表されたPHPのCVE-2026-109618とCVE-2026-109619の概要と対策を1本のショートで解説",
+  "audience": "Webサイトを運営する担当者・小規模事業者。サーバーの専門知識は前提にしない。",
+  "operation_id": "op_php_create_v01"
+}

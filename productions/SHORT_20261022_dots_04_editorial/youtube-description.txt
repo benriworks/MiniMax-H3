@@ -1,0 +1,9 @@
+dots第4弾は「並行作業」。公式資料の画面例を引用し、仕事の分担、途中の追加指示、進行状況と成果物の確認を30秒で解説します。
+
+画面引用：OpenAI「Tasks and memory」内のUI例の一部（2026年10月22日撮影）。実アカウントでの作業を録画したものではありません。競合調査・資料整理の進行表示は説明用の架空例です。常にすべての仕事を同時実行できるという保証ではありません。
+
+出典
+https://learn.chatgpt.com/docs/dots/tasks-and-memory
+https://learn.chatgpt.com/docs/dots/controls
+
+#ChatGPT #dots #OpenAI #AI活用 #Shorts

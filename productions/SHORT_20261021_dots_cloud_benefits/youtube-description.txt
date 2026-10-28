@@ -1,0 +1,16 @@
+dots紹介・第2話「専用クラウドPC」の補足編。手元のPCで動くAI作業と比べ、クラウドPCのメリットを45秒で紹介します。
+
+・PCの電源に縛られず、クラウド側の作業を続けられる
+・専用ファイルやブラウザーの状態を保ち、続きに取り組める
+・スマホから依頼し、結果の確認や追加指示ができる
+
+比較対象は「手元のPCで動くAI作業」です。従来のChatGPT機能すべてがローカルで動いていたという意味ではありません。手元PCを使う作業には、接続許可・オンライン状態・ChatGPTアプリの起動が必要です。実行中のローカルタスクが自動でクラウドに移動することはありません。クラウドのブラウザーへのログインは別で、サイト側の制限や承認が必要な場合があります。
+
+情報確認日：2026年10月21日。OpenAI公式資料をもとにした非公式紹介です。独自モーショングラフィックスと架空キャラクターを使用し、実機操作録画ではありません。外出前の調査依頼などは利用例です。BGMは今回のために合成した112 BPMのオリジナル曲です。
+
+公式出典
+https://learn.chatgpt.com/docs/dots/computers-and-apps
+https://learn.chatgpt.com/docs/dots/tasks-and-memory
+https://learn.chatgpt.com/docs/enterprise/cloud-local-access
+
+#ChatGPT #dots #OpenAI #AI活用 #Shorts

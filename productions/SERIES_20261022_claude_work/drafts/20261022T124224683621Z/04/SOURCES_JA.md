@@ -1,0 +1,17 @@
+# 出典と実演範囲
+
+確認日：2026-10-22。
+
+- [What are artifacts and how do I use them?](https://support.claude.com/en/articles/17153992-what-are-artifacts-and-how-do-i-use-them)
+- [Get started with Claude Docs](https://support.claude.com/en/articles/16923645-get-started-with-claude-docs)
+
+登場人物の佐伯栞、店舗「灯台珈琲」、企画・資料は説明用の架空設定です。
+
+公式・公認動画ではありません。公式引用には出典を、実演には「こちらの実演・Claude」を表示します。
+
+## 下書き時点の確認範囲
+
+実際の操作は選択後の@Claude依頼。修正前→依頼→修正後→変更外価格を順に示し、意図が保持されたと断定しない。
+
+この下書きは公開用の完成報告ではありません。未取得の画面、生成待ちの人物動画、最終動画の可読性・音声・尺の確認はreadiness.jsonを参照してください。
+初回と修正後の比較は実際の画像を使用し、画像の文章を書き換えて再現しません。原本の私的画面は配布対象外です。

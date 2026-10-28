@@ -1,0 +1,32 @@
+{
+  "operation_id": "op_php_capture_3",
+  "expected_revision": 3,
+  "data": {
+    "inspection_id": "php-official-preflight",
+    "target_feature": "PHP公式の脆弱性告知と更新案内",
+    "status": "available",
+    "checked_at": "2026-10-24",
+    "app": "Codex内ブラウザー",
+    "login_state": "ログイン不要",
+    "feature_entry": "https://www.php.net/archive/2026.php#2026-10-21-5",
+    "display_result": "公式アーカイブの対象告知と2件のCVE、修正済みバージョンが実表示された",
+    "save_result": "outputs/content-projects/CONTENT_20261024_php2shell_overview/captures/preflight-v01/php-official-preflight.png",
+    "legibility": "468x927の原本で本文を確認。公開用は必要箇所に絞り、完成映像の360px幅で再確認する。",
+    "route": "新規ブラウザータブでPHP公式URLを開き、実表示を撮影しPNG保存",
+    "result": "Web告知画面の撮影・保存は可能。PATHと代表的な配置にはPHP実行環境が見つからず、実サーバーの脆弱性を確認したとは扱わない。",
+    "shots": [
+      {
+        "shot_id": "official_notice",
+        "purpose": "2件の重大な脆弱性の公式告知"
+      },
+      {
+        "shot_id": "fixed_releases",
+        "purpose": "修正リリースと提供元への確認を示す"
+      },
+      {
+        "shot_id": "followup_notice",
+        "purpose": "10月23日の追加注意喚起を区別して示す"
+      }
+    ]
+  }
+}

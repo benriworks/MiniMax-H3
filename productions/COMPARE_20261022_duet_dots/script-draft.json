@@ -1,0 +1,330 @@
+{
+  "schema_version": 1,
+  "id": "COMPARE_20261022_duet_dots",
+  "status": "researched_script_draft_not_produced",
+  "checked_date": "2026-10-22",
+  "title": "【ChatGPT】Claude Duetとdots、何が違う？3つの比較ポイント",
+  "target_duration_seconds": 82,
+  "allowed_duration_seconds": [
+    60,
+    90
+  ],
+  "timing_status": "provisional_until_measured_Aoede_audio",
+  "frame_rate": 24,
+  "width": 1080,
+  "height": 1920,
+  "narration_characters": 440,
+  "narration": "Claude DuetとChatGPTのdots。何が違う？Duetは10月21日発表。今は米国のPro・Max向け招待待ちで、日本は対象外です。架空のカフェで、予定確認と会議資料の準備を頼む場面で比べます。両方、クラウドのPCで作業でき、手元のPCを閉じてもクラウドの仕事は続けられます。一つ目は知らせ方。Duetは朝の要点まとめと、一定間隔の確認。dotsも必要なフォローを考え、定時の確認は予定として設定できます。二つ目は作業の見え方。Duetは今、ブラウザーを見たり、操作を引き継いだりできません。dotsは開いて、操作を引き継げます。dotsは許可した手元のPCで、Codexの作業も進められます。この場合は、PCをオンラインに。三つ目は利用枠。Duetは裏で動く分もClaudeと共通枠。dotsの会話はChatGPT枠を使いませんが、WorkやCodexの作業はそれぞれの枠を使います。速さや品質の優劣は未検証。朝の確認、途中の引き継ぎ。使いたい流れで比べましょう。",
+  "voice": {
+    "provider": "gemini",
+    "model": "gemini-2.5-flash-preview-tts",
+    "voice": "Aoede",
+    "generation_performed": false,
+    "pronunciations": {
+      "Claude Duet": "クロード・デュエット",
+      "Claude": "クロード",
+      "Duet": "デュエット",
+      "ChatGPT": "チャットジーピーティー",
+      "dots": "ドッツ",
+      "Codex": "コーデックス",
+      "Work": "ワーク",
+      "Pro": "プロ",
+      "Max": "マックス",
+      "PC": "ピーシー",
+      "10月21日": "じゅうがつにじゅういちにち"
+    }
+  },
+  "character": {
+    "id": "morikawa-haruka",
+    "name": "森川 遥",
+    "fictional": true,
+    "keyframe": "outputs/characters/duet-dots-haruka-20261022/haruka-office-keyframe.png",
+    "video_provider": "minimax",
+    "video_status": "pending_generation_and_visual_review",
+    "video_generation_by_this_research_task": false
+  },
+  "fictional_case": {
+    "name": "灯台珈琲の店内打ち合わせ準備",
+    "request": "来週の打ち合わせに向けて、許可したメールと予定を確認し、判断が必要な点と会議資料の下書きをまとめてください。外部へ送信・公開しません。",
+    "actual_product_execution": false
+  },
+  "comparison_axes": [
+    "知らせ方",
+    "作業の見え方と手元PC",
+    "利用条件と利用枠"
+  ],
+  "production_boundaries": {
+    "existing_dots_or_claude_outputs_changed": false,
+    "tts_generated": false,
+    "official_screenshots_captured": false,
+    "comparative_benchmark_performed": false,
+    "youtube_uploaded": false,
+    "user_approved": false
+  },
+  "mandatory_caveats": [
+    "2026年10月22日確認の公式情報",
+    "Duetは現研究プレビューで米国Pro/Maxの招待待ち。日本は対象外",
+    "Duetのアカウント確認は一定間隔、即時・常時監視を保証しない",
+    "dotsの手元PC作業には許可・オンライン・ChatGPTアプリ起動が必要",
+    "dots会話の利用枠扱いとWork/Codexの実作業枠を混同しない",
+    "公式画面の例と架空の仕事は、こちらで実行した製品実証ではない",
+    "性能・速度・成功率・料金効率の実測比較は未実施"
+  ],
+  "scenes": [
+    {
+      "id": "C01",
+      "kind": "presenter",
+      "layout": "opening",
+      "start_seconds_provisional": 0,
+      "end_seconds_provisional": 4,
+      "headline": "何が違う？",
+      "on_screen_points": [
+        "Claude Duet",
+        "dots"
+      ],
+      "source_ids": [
+        "S01",
+        "S03"
+      ],
+      "visual_direction": "森川遥の新規MiniMax動画。考える表情から軽く顔を上げる導入。製品UIを背景に合成しない。",
+      "narration": "Claude DuetとChatGPTのdots。何が違う？",
+      "status": "draft_pending_assets_and_measured_speech"
+    },
+    {
+      "id": "C02",
+      "kind": "source",
+      "layout": "announcement",
+      "start_seconds_provisional": 4,
+      "end_seconds_provisional": 11,
+      "headline": "米国から試験提供",
+      "on_screen_points": [
+        "2026/10/21 発表",
+        "日本は対象外"
+      ],
+      "source_ids": [
+        "S01",
+        "S02"
+      ],
+      "visual_direction": "公式記事の見出し・日付・提供条件の必要部分を撮影。上下に余白を設け、引用画像は書換えない。",
+      "narration": "Duetは10月21日発表。今は米国のPro・Max向け招待待ちで、日本は対象外です。",
+      "status": "draft_pending_assets_and_measured_speech"
+    },
+    {
+      "id": "C03",
+      "kind": "comparison",
+      "layout": "fictional_case",
+      "start_seconds_provisional": 11,
+      "end_seconds_provisional": 16,
+      "headline": "同じ仕事で比較",
+      "on_screen_points": [
+        "予定を確認",
+        "会議資料を準備"
+      ],
+      "source_ids": [],
+      "visual_direction": "架空の灯台珈琲。カレンダー→メール→資料の3つの自作アイコンが順番に点灯。実機画面は模倣しない。",
+      "narration": "架空のカフェで、予定確認と会議資料の準備を頼む場面で比べます。",
+      "status": "draft_pending_assets_and_measured_speech"
+    },
+    {
+      "id": "C04",
+      "kind": "comparison",
+      "layout": "workspace",
+      "start_seconds_provisional": 16,
+      "end_seconds_provisional": 22,
+      "headline": "両方クラウドで",
+      "on_screen_points": [
+        "手元のPCは閉じる",
+        "クラウドの仕事は続く"
+      ],
+      "source_ids": [
+        "S01",
+        "S04"
+      ],
+      "visual_direction": "PCの蓋を閉じ、中央のクラウド内だけで資料カードが進む。ローカル接続線はまだ表示しない。",
+      "narration": "両方、クラウドのPCで作業でき、手元のPCを閉じてもクラウドの仕事は続けられます。",
+      "status": "draft_pending_assets_and_measured_speech"
+    },
+    {
+      "id": "C05",
+      "kind": "comparison",
+      "layout": "signal",
+      "start_seconds_provisional": 22,
+      "end_seconds_provisional": 28,
+      "headline": "① 知らせ方",
+      "on_screen_points": [
+        "Duet：朝の要点",
+        "一定間隔で確認"
+      ],
+      "source_ids": [
+        "S01",
+        "S02"
+      ],
+      "visual_direction": "上段Duetレーンに朝日と要点カード。時計の一定間隔パルスを描き、常時監視・即時通知の演出にしない。",
+      "narration": "一つ目は知らせ方。Duetは朝の要点まとめと、一定間隔の確認。",
+      "status": "draft_pending_assets_and_measured_speech"
+    },
+    {
+      "id": "C06",
+      "kind": "comparison",
+      "layout": "signal",
+      "start_seconds_provisional": 28,
+      "end_seconds_provisional": 34,
+      "headline": "自発と定時を分ける",
+      "on_screen_points": [
+        "dots：自発フォロー",
+        "定時は予定を保存"
+      ],
+      "source_ids": [
+        "S05"
+      ],
+      "visual_direction": "下段dotsに気付きカード。別の小さな予定時計を分岐表示。自発フォローと固定スケジュールを一つの時計で表さない。",
+      "narration": "dotsも必要なフォローを考え、定時の確認は予定として設定できます。",
+      "status": "draft_pending_assets_and_measured_speech"
+    },
+    {
+      "id": "C07",
+      "kind": "source",
+      "layout": "browser_limit",
+      "start_seconds_provisional": 34,
+      "end_seconds_provisional": 41,
+      "headline": "② 作業の見え方",
+      "on_screen_points": [
+        "Duet：現プレビュー",
+        "閲覧・引継ぎ不可"
+      ],
+      "source_ids": [
+        "S02"
+      ],
+      "visual_direction": "公式Helpのbrowser制限一文を引用。出典を表示し、未提供であることを日本語の大きい字幕で示す。",
+      "narration": "二つ目は作業の見え方。Duetは今、ブラウザーを見たり、操作を引き継いだりできません。",
+      "status": "draft_pending_assets_and_measured_speech"
+    },
+    {
+      "id": "C08",
+      "kind": "source",
+      "layout": "takeover",
+      "start_seconds_provisional": 41,
+      "end_seconds_provisional": 45,
+      "headline": "dotsは引き継げる",
+      "on_screen_points": [
+        "人が操作",
+        "制御を戻して再開"
+      ],
+      "source_ids": [
+        "S03",
+        "S04"
+      ],
+      "visual_direction": "公式Meet dotsのTake over周辺だけを必要最小限で引用。DMVサイト本文やURL、関係のない画面を含めない。",
+      "narration": "dotsは開いて、操作を引き継げます。",
+      "status": "draft_pending_assets_and_measured_speech"
+    },
+    {
+      "id": "C09",
+      "kind": "comparison",
+      "layout": "workspace",
+      "start_seconds_provisional": 45,
+      "end_seconds_provisional": 52,
+      "headline": "手元のPCも使う",
+      "on_screen_points": [
+        "dots → Codex",
+        "PCはオンライン"
+      ],
+      "source_ids": [
+        "S04"
+      ],
+      "visual_direction": "クラウドと手元PCを別枠にし、許可ゲートを通った線だけを動かす。ChatGPTアプリを開く条件も字幕に反映。",
+      "narration": "dotsは許可した手元のPCで、Codexの作業も進められます。この場合は、PCをオンラインに。",
+      "status": "draft_pending_assets_and_measured_speech"
+    },
+    {
+      "id": "C10",
+      "kind": "presenter",
+      "layout": "midpoint",
+      "start_seconds_provisional": 52,
+      "end_seconds_provisional": 56,
+      "headline": "③ 利用枠も確認",
+      "on_screen_points": [
+        "使う枠が違う"
+      ],
+      "source_ids": [
+        "S02",
+        "S03"
+      ],
+      "visual_direction": "森川遥のMiniMaxひらめき部分。小さくうなずき片手を開く。『契約枠も見る』の短い吹き出し。",
+      "narration": "三つ目は利用枠。",
+      "status": "draft_pending_assets_and_measured_speech"
+    },
+    {
+      "id": "C11",
+      "kind": "comparison",
+      "layout": "availability",
+      "start_seconds_provisional": 56,
+      "end_seconds_provisional": 62,
+      "headline": "Duetは共通枠",
+      "on_screen_points": [
+        "Claudeと共通",
+        "背景の確認も消費"
+      ],
+      "source_ids": [
+        "S02"
+      ],
+      "visual_direction": "Claude全体の1つの利用枠へ会話と背景確認の2本の線が入る。具体的残量・料金は描かない。",
+      "narration": "Duetは裏で動く分もClaudeと共通枠。",
+      "status": "draft_pending_assets_and_measured_speech"
+    },
+    {
+      "id": "C12",
+      "kind": "comparison",
+      "layout": "availability",
+      "start_seconds_provisional": 62,
+      "end_seconds_provisional": 68,
+      "headline": "dotsの会話",
+      "on_screen_points": [
+        "ChatGPT枠の対象外"
+      ],
+      "source_ids": [
+        "S03"
+      ],
+      "visual_direction": "dots会話カードを独立枠に表示。無限マークや無料表示を使わない。",
+      "narration": "dotsの会話はChatGPT枠を使いませんが、",
+      "status": "draft_pending_assets_and_measured_speech"
+    },
+    {
+      "id": "C13",
+      "kind": "comparison",
+      "layout": "availability",
+      "start_seconds_provisional": 68,
+      "end_seconds_provisional": 75,
+      "headline": "実作業は各製品の枠",
+      "on_screen_points": [
+        "Workの作業",
+        "Codexの作業"
+      ],
+      "source_ids": [
+        "S03"
+      ],
+      "visual_direction": "Work/Codexそれぞれの利用枠を別表示。会話枠から無限に仕事が出る表現にしない。",
+      "narration": "WorkやCodexの作業はそれぞれの枠を使います。",
+      "status": "draft_pending_assets_and_measured_speech"
+    },
+    {
+      "id": "C14",
+      "kind": "presenter",
+      "layout": "closing",
+      "start_seconds_provisional": 75,
+      "end_seconds_provisional": 82,
+      "headline": "使いたい流れで選ぶ",
+      "on_screen_points": [
+        "朝の確認",
+        "途中の引き継ぎ"
+      ],
+      "source_ids": [
+        "S01",
+        "S04"
+      ],
+      "visual_direction": "森川遥が納得する表情。最後3秒は『速度・品質の優劣は未検証』を読み切れる大きさで表示。人物動画が短い場合は同じ時間を静止画扱いで延長せず別の自作まとめへ切替。",
+      "narration": "速さや品質の優劣は未検証。朝の確認、途中の引き継ぎ。使いたい流れで比べましょう。",
+      "status": "draft_pending_assets_and_measured_speech"
+    }
+  ]
+}

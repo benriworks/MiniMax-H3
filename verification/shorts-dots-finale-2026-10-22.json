@@ -1,0 +1,1028 @@
+{
+  "schema_version": 1,
+  "series": "SERIES_20261022_dots_finale",
+  "checked_at": "2026-10-22T10:58:13.019010+00:00",
+  "status": "verified_candidate_awaiting_user_review",
+  "technical_status": "verified",
+  "method": "Independent hash, ZIP readback, current ffprobe, AAC packet comparison, and evidence audit",
+  "episodes": [
+    {
+      "episode": 5,
+      "title": "【ChatGPT】毎回の説明を減らす！dotsの「記憶」はどこまで？",
+      "state": {
+        "path": "productions/SERIES_20261022_dots_finale/05/state.json",
+        "bytes": 737,
+        "sha256": "966B603669C52A3B43468E957271C97AA7B7726A5FAF81FC4273756B1A1A817D"
+      },
+      "delivery": {
+        "path": "productions/SERIES_20261022_dots_finale/05/delivery.json",
+        "bytes": 2066,
+        "sha256": "4C6A192A6C517C702A08315C57109D0C98B00864A43500A03A2482F78AC0060C"
+      },
+      "video": {
+        "path": "outputs/productions/SHORT_20261022_dots_05_editorial/20261022T103126394377Z/release/dots-05-memory-official.mp4",
+        "bytes": 2846325,
+        "sha256": "E6358052EBEAC704723FA71F00CF78A6698FC352B4304EC23A5ACE491FD50031"
+      },
+      "archive": {
+        "path": "outputs/productions/SHORT_20261022_dots_05_editorial/20261022T103126394377Z/dots-05-memory-official.zip",
+        "bytes": 3440700,
+        "sha256": "1A5E94059DBC9373D208D788600367D092630ED626D746BE7F3CB2CE0C8C5DA0"
+      },
+      "cover": {
+        "path": "outputs/productions/SHORT_20261022_dots_05_editorial/20261022T103126394377Z/release/cover.png",
+        "bytes": 633687,
+        "sha256": "2A143134C79A139AECC4EFDFA44FCE4C5A9931170D978726CF48FB39237A7DE8"
+      },
+      "release": "outputs/productions/SHORT_20261022_dots_05_editorial/20261022T103126394377Z/release",
+      "verification": {
+        "path": "outputs/productions/SHORT_20261022_dots_05_editorial/20261022T103126394377Z/verification.json",
+        "bytes": 17656,
+        "sha256": "F4900C81E818FB08192D674F4C182B0DA5A2CFAD49DA60EE689EF2EC4B31EB0F"
+      },
+      "zip_members": 10,
+      "duration_seconds": 30,
+      "frames": 720,
+      "speech_segments": 7,
+      "speech_fits_scene_windows": true,
+      "official_captures": [
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_05_editorial/captures/official-memory.json",
+          "bytes": 1230,
+          "sha256": "E6601C07910D02A78AB7D69F56B1E7290028A456C7DBE83243C3D740C2F74000"
+        }
+      ],
+      "presenter": {
+        "path": "outputs/characters/dots-guide-20261022/guide.png",
+        "bytes": 1890886,
+        "sha256": "1C2542CEEBB889226CC4C8058A2B9AC8976CEC819BEBAAAA3E50E1A8D81F47C8"
+      },
+      "presenter_scenes": [
+        0,
+        6
+      ],
+      "independent_audio_packet_hash": "SHA256=89618efa7f823e689868e3323915976f805cb55a77047d577ee925cbd9ce5deb",
+      "previous_audio_identical": true,
+      "visual_revision_additional_tts_requests": 0,
+      "visual_revision_additional_tts_characters": 0,
+      "verified_speech_requests": 7,
+      "unknown_previous_requests": 0,
+      "submission_records": [
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_05_editorial/voice-generations/20261022T100741Z-02e22520/scene-00/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        },
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_05_editorial/voice-generations/20261022T100741Z-02e22520/scene-01/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        },
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_05_editorial/voice-generations/20261022T100741Z-02e22520/scene-02/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        },
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_05_editorial/voice-generations/20261022T100741Z-02e22520/scene-03/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        },
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_05_editorial/voice-generations/20261022T100741Z-02e22520/scene-04/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        },
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_05_editorial/voice-generations/20261022T100741Z-02e22520/scene-05/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        },
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_05_editorial/voice-generations/20261022T100741Z-02e22520/scene-06/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        }
+      ],
+      "loudness_lufs": -16.04,
+      "true_peak_dbfs": -3.69,
+      "preserved_original_videos": [
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/01/dots-01.mp4",
+          "bytes": 9261302,
+          "sha256": "22FD6152C04941714AFFAF4792CF44AAB8195B59F67EEECD1B88E684BB297958"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/02/dots-02.mp4",
+          "bytes": 10545851,
+          "sha256": "9B74979491A377577940840C5AD6110A9C54A50C28E2A6DD5B301D2BBEDF874A"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/03/dots-03.mp4",
+          "bytes": 9859460,
+          "sha256": "5D6B760BA10AE2DCAAF56FA5672865639FFC3CDB2BB40E587E752348B69CDB72"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/04/dots-04.mp4",
+          "bytes": 11162226,
+          "sha256": "2A23AD72E1BCCB7657216EE8FFE85804C7FD9B3273B94FF6E65F41259FA641A7"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/05/dots-05.mp4",
+          "bytes": 10350231,
+          "sha256": "B2C5A2EFEBCC68AAB33B8838E2508E405CC4A85DF3973151F159FE35CF3EF9AA"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/06/dots-06.mp4",
+          "bytes": 10560294,
+          "sha256": "3B0432F5D085D681A5FEDA47C5845CC566F9B5C884C94620CE0E9745374B9D0C"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/07/dots-07.mp4",
+          "bytes": 10696788,
+          "sha256": "81DDC24CC28E427A138849CDE351040382D812C15EF7365D823DF2AFB58AC992"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/08/dots-08.mp4",
+          "bytes": 10582976,
+          "sha256": "738C5A0AE4D5B639701A23556EE1C6BE712EC775F5B3B2AE6575856AEC300807"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/09/dots-09.mp4",
+          "bytes": 10896196,
+          "sha256": "0914418829BD46CEE5D3590D8E2442D5B7A5AFC48DD099E5257CC38648962FDC"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261021_dots_cloud_benefits/20261021T094421120681Z/release/dots-02-extra-cloud-benefits.mp4",
+          "bytes": 12027437,
+          "sha256": "548648347329D3F06026D820A300F5229EF104A44ECE62641F351CC737442969"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_03_aoede/20261022T075051150042Z/release/dots-03-apps-aoede.mp4",
+          "bytes": 10472141,
+          "sha256": "138BEEB59C865FE521507B3CF0AF929AE9B40DC6F04BD5F457FED309DA273F30"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_04_editorial/20261022T084349480702Z/release/dots-04-parallel-official.mp4",
+          "bytes": 2249770,
+          "sha256": "F3290B7CAB3A357F13AB287074E004DE853D7C44DF962B00C2EC0644F51565F8"
+        }
+      ],
+      "preserved_previous_revision_files": [
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_05_editorial/20261022T101209198046Z/shorts-creator.mp4",
+          "bytes": 2399552,
+          "sha256": "9D13C4DBE4545C3EF81D9AC5C23533FF850965D261A9F973E5861C6AF81651DA"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_05_editorial/20261022T101209198046Z/release/dots-05-memory-official.mp4",
+          "bytes": 2399552,
+          "sha256": "9D13C4DBE4545C3EF81D9AC5C23533FF850965D261A9F973E5861C6AF81651DA"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_05_editorial/20261022T101209198046Z/dots-05-memory-official.zip",
+          "bytes": 2536712,
+          "sha256": "23DCD8A5A940F6BBB6754ACAA27601E8CF8AC6794E787E4002C8EE62B9F19C60"
+        }
+      ]
+    },
+    {
+      "episode": 6,
+      "title": "【ChatGPT】声でも頼める！dotsは通話を切った後も仕事が続く",
+      "state": {
+        "path": "productions/SERIES_20261022_dots_finale/06/state.json",
+        "bytes": 737,
+        "sha256": "D4C85E91F525B8B7561878A5546AD19D556D4C9DA7F97C98932657D004319A1E"
+      },
+      "delivery": {
+        "path": "productions/SERIES_20261022_dots_finale/06/delivery.json",
+        "bytes": 2070,
+        "sha256": "1F16AE8AC11D79A09BC80A8D1231663A6C86EC97F997DC1C87629A0840DDA3C1"
+      },
+      "video": {
+        "path": "outputs/productions/SHORT_20261022_dots_06_editorial/20261022T103127763041Z/release/dots-06-channels-official.mp4",
+        "bytes": 2906260,
+        "sha256": "A6E21C06AE37A28BBE4E2F65B2C7E80D8A202C30584A49B5DB6D83E69DA555FF"
+      },
+      "archive": {
+        "path": "outputs/productions/SHORT_20261022_dots_06_editorial/20261022T103127763041Z/dots-06-channels-official.zip",
+        "bytes": 3484081,
+        "sha256": "8C275F0BFABBA03FA79085259287292C9B418DE8F265F05484635699C0E13F09"
+      },
+      "cover": {
+        "path": "outputs/productions/SHORT_20261022_dots_06_editorial/20261022T103127763041Z/release/cover.png",
+        "bytes": 619155,
+        "sha256": "64EF0E268C5BB76559C867A1DD01E1F346996A13B6CEBF548E51418C0E87ADA9"
+      },
+      "release": "outputs/productions/SHORT_20261022_dots_06_editorial/20261022T103127763041Z/release",
+      "verification": {
+        "path": "outputs/productions/SHORT_20261022_dots_06_editorial/20261022T103127763041Z/verification.json",
+        "bytes": 17635,
+        "sha256": "0A853BA4F06738FAA0C68F383E195ECBD38E967342486878D461E5EDAFDC3406"
+      },
+      "zip_members": 10,
+      "duration_seconds": 30,
+      "frames": 720,
+      "speech_segments": 7,
+      "speech_fits_scene_windows": true,
+      "official_captures": [
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_06_editorial/captures/official-call.json",
+          "bytes": 1211,
+          "sha256": "09A3B56CF23720ED0E46D72A008620981164DEF5899DA586A965D74EF1D6F4E3"
+        }
+      ],
+      "presenter": {
+        "path": "outputs/characters/dots-guide-20261022/guide.png",
+        "bytes": 1890886,
+        "sha256": "1C2542CEEBB889226CC4C8058A2B9AC8976CEC819BEBAAAA3E50E1A8D81F47C8"
+      },
+      "presenter_scenes": [
+        0,
+        6
+      ],
+      "independent_audio_packet_hash": "SHA256=3228a5d0814c70d004f789b3102f22fd35ac8122a676324b8e1fbfdbb21ba68e",
+      "previous_audio_identical": true,
+      "visual_revision_additional_tts_requests": 0,
+      "visual_revision_additional_tts_characters": 0,
+      "verified_speech_requests": 7,
+      "unknown_previous_requests": 0,
+      "submission_records": [
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_06_editorial/voice-generations/20261022T100957Z-c253f395/scene-00/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        },
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_06_editorial/voice-generations/20261022T100957Z-c253f395/scene-01/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        },
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_06_editorial/voice-generations/20261022T100957Z-c253f395/scene-02/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        },
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_06_editorial/voice-generations/20261022T100957Z-c253f395/scene-03/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        },
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_06_editorial/voice-generations/20261022T100957Z-c253f395/scene-04/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        },
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_06_editorial/voice-generations/20261022T100957Z-c253f395/scene-05/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        },
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_06_editorial/voice-generations/20261022T100957Z-c253f395/scene-06/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        }
+      ],
+      "loudness_lufs": -16.02,
+      "true_peak_dbfs": -2.69,
+      "preserved_original_videos": [
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/01/dots-01.mp4",
+          "bytes": 9261302,
+          "sha256": "22FD6152C04941714AFFAF4792CF44AAB8195B59F67EEECD1B88E684BB297958"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/02/dots-02.mp4",
+          "bytes": 10545851,
+          "sha256": "9B74979491A377577940840C5AD6110A9C54A50C28E2A6DD5B301D2BBEDF874A"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/03/dots-03.mp4",
+          "bytes": 9859460,
+          "sha256": "5D6B760BA10AE2DCAAF56FA5672865639FFC3CDB2BB40E587E752348B69CDB72"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/04/dots-04.mp4",
+          "bytes": 11162226,
+          "sha256": "2A23AD72E1BCCB7657216EE8FFE85804C7FD9B3273B94FF6E65F41259FA641A7"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/05/dots-05.mp4",
+          "bytes": 10350231,
+          "sha256": "B2C5A2EFEBCC68AAB33B8838E2508E405CC4A85DF3973151F159FE35CF3EF9AA"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/06/dots-06.mp4",
+          "bytes": 10560294,
+          "sha256": "3B0432F5D085D681A5FEDA47C5845CC566F9B5C884C94620CE0E9745374B9D0C"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/07/dots-07.mp4",
+          "bytes": 10696788,
+          "sha256": "81DDC24CC28E427A138849CDE351040382D812C15EF7365D823DF2AFB58AC992"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/08/dots-08.mp4",
+          "bytes": 10582976,
+          "sha256": "738C5A0AE4D5B639701A23556EE1C6BE712EC775F5B3B2AE6575856AEC300807"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/09/dots-09.mp4",
+          "bytes": 10896196,
+          "sha256": "0914418829BD46CEE5D3590D8E2442D5B7A5AFC48DD099E5257CC38648962FDC"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261021_dots_cloud_benefits/20261021T094421120681Z/release/dots-02-extra-cloud-benefits.mp4",
+          "bytes": 12027437,
+          "sha256": "548648347329D3F06026D820A300F5229EF104A44ECE62641F351CC737442969"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_03_aoede/20261022T075051150042Z/release/dots-03-apps-aoede.mp4",
+          "bytes": 10472141,
+          "sha256": "138BEEB59C865FE521507B3CF0AF929AE9B40DC6F04BD5F457FED309DA273F30"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_04_editorial/20261022T084349480702Z/release/dots-04-parallel-official.mp4",
+          "bytes": 2249770,
+          "sha256": "F3290B7CAB3A357F13AB287074E004DE853D7C44DF962B00C2EC0644F51565F8"
+        }
+      ],
+      "preserved_previous_revision_files": [
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_06_editorial/20261022T101320804234Z/shorts-creator.mp4",
+          "bytes": 2530891,
+          "sha256": "4578EA5045ED03269A73F047EB3E12C2CDCFE16D32DB392789C8D77D2F4B707D"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_06_editorial/20261022T101320804234Z/release/dots-06-channels-official.mp4",
+          "bytes": 2530891,
+          "sha256": "4578EA5045ED03269A73F047EB3E12C2CDCFE16D32DB392789C8D77D2F4B707D"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_06_editorial/20261022T101320804234Z/dots-06-channels-official.zip",
+          "bytes": 2683415,
+          "sha256": "241EFB8423AE4B09572D989D4B0FB3AAB63266B228F7CBA4ADBB017820267CCB"
+        }
+      ]
+    },
+    {
+      "episode": 7,
+      "title": "【ChatGPT】毎朝の確認を任せる！dotsの定期実行は「保存」が大事",
+      "state": {
+        "path": "productions/SERIES_20261022_dots_finale/07/state.json",
+        "bytes": 737,
+        "sha256": "58C81AE1340880E35C7368D4C04191A13E0176B0478CD287140F26014B3FADF0"
+      },
+      "delivery": {
+        "path": "productions/SERIES_20261022_dots_finale/07/delivery.json",
+        "bytes": 2070,
+        "sha256": "027C374790D24CEE6FCB079D3A8CC001232AF43A6697997ACABD3B99EEF2012F"
+      },
+      "video": {
+        "path": "outputs/productions/SHORT_20261022_dots_07_editorial/20261022T103129069029Z/release/dots-07-schedule-official.mp4",
+        "bytes": 2833608,
+        "sha256": "63F10EB6B19C66074C3EFE9C784FF7DD10A015A145E8C835ED0F16C0198964C4"
+      },
+      "archive": {
+        "path": "outputs/productions/SHORT_20261022_dots_07_editorial/20261022T103129069029Z/dots-07-schedule-official.zip",
+        "bytes": 3434361,
+        "sha256": "C0160DABBC7627828F12F56AB690875A1EE73F62B99F3FB45203DC179C04BAEF"
+      },
+      "cover": {
+        "path": "outputs/productions/SHORT_20261022_dots_07_editorial/20261022T103129069029Z/release/cover.png",
+        "bytes": 640906,
+        "sha256": "3C7816A01366A83DB4595D65DBFDBCEA88A3E459B4D27AF61A139ABFA5F1B72A"
+      },
+      "release": "outputs/productions/SHORT_20261022_dots_07_editorial/20261022T103129069029Z/release",
+      "verification": {
+        "path": "outputs/productions/SHORT_20261022_dots_07_editorial/20261022T103129069029Z/verification.json",
+        "bytes": 17672,
+        "sha256": "42BC6639C368127CE9CD982A16E613DE7577DC08AEE985E7C4B6FE9699617448"
+      },
+      "zip_members": 10,
+      "duration_seconds": 30,
+      "frames": 720,
+      "speech_segments": 7,
+      "speech_fits_scene_windows": true,
+      "official_captures": [
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_07_editorial/captures/official-recurring.json",
+          "bytes": 1234,
+          "sha256": "9D785636B11C191323F6A8EAAB46679175FD9DC87333DE37F58B2E9A8DF5AA35"
+        }
+      ],
+      "presenter": {
+        "path": "outputs/characters/dots-guide-20261022/guide.png",
+        "bytes": 1890886,
+        "sha256": "1C2542CEEBB889226CC4C8058A2B9AC8976CEC819BEBAAAA3E50E1A8D81F47C8"
+      },
+      "presenter_scenes": [
+        0,
+        6
+      ],
+      "independent_audio_packet_hash": "SHA256=07d1e5bf4a715d6751d38a1289d558a69f496ee1704b65e3585f94863dff2460",
+      "previous_audio_identical": true,
+      "visual_revision_additional_tts_requests": 0,
+      "visual_revision_additional_tts_characters": 0,
+      "verified_speech_requests": 7,
+      "unknown_previous_requests": 0,
+      "submission_records": [
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_07_editorial/voice-generations/20261022T101230Z-4834bbad/scene-00/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        },
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_07_editorial/voice-generations/20261022T101230Z-4834bbad/scene-01/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        },
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_07_editorial/voice-generations/20261022T101230Z-4834bbad/scene-02/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        },
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_07_editorial/voice-generations/20261022T101230Z-4834bbad/scene-03/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        },
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_07_editorial/voice-generations/20261022T101230Z-4834bbad/scene-04/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        },
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_07_editorial/voice-generations/20261022T101230Z-4834bbad/scene-05/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        },
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_07_editorial/voice-generations/20261022T101230Z-4834bbad/scene-06/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        }
+      ],
+      "loudness_lufs": -16.02,
+      "true_peak_dbfs": -2.48,
+      "preserved_original_videos": [
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/01/dots-01.mp4",
+          "bytes": 9261302,
+          "sha256": "22FD6152C04941714AFFAF4792CF44AAB8195B59F67EEECD1B88E684BB297958"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/02/dots-02.mp4",
+          "bytes": 10545851,
+          "sha256": "9B74979491A377577940840C5AD6110A9C54A50C28E2A6DD5B301D2BBEDF874A"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/03/dots-03.mp4",
+          "bytes": 9859460,
+          "sha256": "5D6B760BA10AE2DCAAF56FA5672865639FFC3CDB2BB40E587E752348B69CDB72"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/04/dots-04.mp4",
+          "bytes": 11162226,
+          "sha256": "2A23AD72E1BCCB7657216EE8FFE85804C7FD9B3273B94FF6E65F41259FA641A7"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/05/dots-05.mp4",
+          "bytes": 10350231,
+          "sha256": "B2C5A2EFEBCC68AAB33B8838E2508E405CC4A85DF3973151F159FE35CF3EF9AA"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/06/dots-06.mp4",
+          "bytes": 10560294,
+          "sha256": "3B0432F5D085D681A5FEDA47C5845CC566F9B5C884C94620CE0E9745374B9D0C"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/07/dots-07.mp4",
+          "bytes": 10696788,
+          "sha256": "81DDC24CC28E427A138849CDE351040382D812C15EF7365D823DF2AFB58AC992"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/08/dots-08.mp4",
+          "bytes": 10582976,
+          "sha256": "738C5A0AE4D5B639701A23556EE1C6BE712EC775F5B3B2AE6575856AEC300807"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/09/dots-09.mp4",
+          "bytes": 10896196,
+          "sha256": "0914418829BD46CEE5D3590D8E2442D5B7A5AFC48DD099E5257CC38648962FDC"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261021_dots_cloud_benefits/20261021T094421120681Z/release/dots-02-extra-cloud-benefits.mp4",
+          "bytes": 12027437,
+          "sha256": "548648347329D3F06026D820A300F5229EF104A44ECE62641F351CC737442969"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_03_aoede/20261022T075051150042Z/release/dots-03-apps-aoede.mp4",
+          "bytes": 10472141,
+          "sha256": "138BEEB59C865FE521507B3CF0AF929AE9B40DC6F04BD5F457FED309DA273F30"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_04_editorial/20261022T084349480702Z/release/dots-04-parallel-official.mp4",
+          "bytes": 2249770,
+          "sha256": "F3290B7CAB3A357F13AB287074E004DE853D7C44DF962B00C2EC0644F51565F8"
+        }
+      ],
+      "preserved_previous_revision_files": [
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_07_editorial/20261022T101556336799Z/shorts-creator.mp4",
+          "bytes": 2389652,
+          "sha256": "E7CBD999BCBEA245286CBA4033B329394BDAE756FD95B926E23FD5FE3F93F7BD"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_07_editorial/20261022T101556336799Z/release/dots-07-schedule-official.mp4",
+          "bytes": 2389652,
+          "sha256": "E7CBD999BCBEA245286CBA4033B329394BDAE756FD95B926E23FD5FE3F93F7BD"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_07_editorial/20261022T101556336799Z/dots-07-schedule-official.zip",
+          "bytes": 2518182,
+          "sha256": "D48F457222CD9B3C6E8AAE7C39DE0B346882D5A1895CD1A2C5AFCCFBED01D122"
+        }
+      ]
+    },
+    {
+      "episode": 8,
+      "title": "【ChatGPT】頼む前に気づく？dotsの「先回り調査」でできること",
+      "state": {
+        "path": "productions/SERIES_20261022_dots_finale/08/state.json",
+        "bytes": 737,
+        "sha256": "0614F57EE2F64D00C5B6F5AD0AEA87C7A6C59370AD2065F8CCDBE9C227F8D94B"
+      },
+      "delivery": {
+        "path": "productions/SERIES_20261022_dots_finale/08/delivery.json",
+        "bytes": 2070,
+        "sha256": "D8C05FA4F1C6337E809E9107D20D29D1FEBEBEFE54A03356FF137D772054C1D6"
+      },
+      "video": {
+        "path": "outputs/productions/SHORT_20261022_dots_08_editorial/20261022T103131453250Z/release/dots-08-research-official.mp4",
+        "bytes": 2927513,
+        "sha256": "A5CBB18270009EB375F73E70BC287F6AF729C7451BA3C1941BF5B23646F795E8"
+      },
+      "archive": {
+        "path": "outputs/productions/SHORT_20261022_dots_08_editorial/20261022T103131453250Z/dots-08-research-official.zip",
+        "bytes": 3524759,
+        "sha256": "1C6D1228A174E9317145C7E40FA625E8F16376241B4EBB9D39E5AC9FD778DE0B"
+      },
+      "cover": {
+        "path": "outputs/productions/SHORT_20261022_dots_08_editorial/20261022T103131453250Z/release/cover.png",
+        "bytes": 638842,
+        "sha256": "0035C6F540F1FC92CF02CFC1D130E4A302C8D5C86AE9083049A44F3DF279BC84"
+      },
+      "release": "outputs/productions/SHORT_20261022_dots_08_editorial/20261022T103131453250Z/release",
+      "verification": {
+        "path": "outputs/productions/SHORT_20261022_dots_08_editorial/20261022T103131453250Z/verification.json",
+        "bytes": 17628,
+        "sha256": "A0A07B4F0178DF7424690ADB1A5A05405F7FC8A12B2EBA51FDFB936E87098F08"
+      },
+      "zip_members": 10,
+      "duration_seconds": 30,
+      "frames": 720,
+      "speech_segments": 7,
+      "speech_fits_scene_windows": true,
+      "official_captures": [
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_08_editorial/captures/official-research.json",
+          "bytes": 1236,
+          "sha256": "C0F3EC82F236FFB2A5055E0B2D5CB28B9FED1E23E49D05BBB1F06219A955BAEF"
+        }
+      ],
+      "presenter": {
+        "path": "outputs/characters/dots-guide-20261022/guide.png",
+        "bytes": 1890886,
+        "sha256": "1C2542CEEBB889226CC4C8058A2B9AC8976CEC819BEBAAAA3E50E1A8D81F47C8"
+      },
+      "presenter_scenes": [
+        0,
+        6
+      ],
+      "independent_audio_packet_hash": "SHA256=6c994e05e2caed159e5e78197319a8803f046660cf25ab8dd1a5fb0d9e5a0172",
+      "previous_audio_identical": true,
+      "visual_revision_additional_tts_requests": 0,
+      "visual_revision_additional_tts_characters": 0,
+      "verified_speech_requests": 7,
+      "unknown_previous_requests": 0,
+      "submission_records": [
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_08_editorial/voice-generations/20261022T101504Z-ab0b3bf8/scene-00/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        },
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_08_editorial/voice-generations/20261022T101504Z-ab0b3bf8/scene-01/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        },
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_08_editorial/voice-generations/20261022T101504Z-ab0b3bf8/scene-02/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        },
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_08_editorial/voice-generations/20261022T101504Z-ab0b3bf8/scene-03/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        },
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_08_editorial/voice-generations/20261022T101504Z-ab0b3bf8/scene-04/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        },
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_08_editorial/voice-generations/20261022T101504Z-ab0b3bf8/scene-05/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        },
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_08_editorial/voice-generations/20261022T101504Z-ab0b3bf8/scene-06/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        }
+      ],
+      "loudness_lufs": -16.02,
+      "true_peak_dbfs": -3.51,
+      "preserved_original_videos": [
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/01/dots-01.mp4",
+          "bytes": 9261302,
+          "sha256": "22FD6152C04941714AFFAF4792CF44AAB8195B59F67EEECD1B88E684BB297958"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/02/dots-02.mp4",
+          "bytes": 10545851,
+          "sha256": "9B74979491A377577940840C5AD6110A9C54A50C28E2A6DD5B301D2BBEDF874A"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/03/dots-03.mp4",
+          "bytes": 9859460,
+          "sha256": "5D6B760BA10AE2DCAAF56FA5672865639FFC3CDB2BB40E587E752348B69CDB72"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/04/dots-04.mp4",
+          "bytes": 11162226,
+          "sha256": "2A23AD72E1BCCB7657216EE8FFE85804C7FD9B3273B94FF6E65F41259FA641A7"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/05/dots-05.mp4",
+          "bytes": 10350231,
+          "sha256": "B2C5A2EFEBCC68AAB33B8838E2508E405CC4A85DF3973151F159FE35CF3EF9AA"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/06/dots-06.mp4",
+          "bytes": 10560294,
+          "sha256": "3B0432F5D085D681A5FEDA47C5845CC566F9B5C884C94620CE0E9745374B9D0C"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/07/dots-07.mp4",
+          "bytes": 10696788,
+          "sha256": "81DDC24CC28E427A138849CDE351040382D812C15EF7365D823DF2AFB58AC992"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/08/dots-08.mp4",
+          "bytes": 10582976,
+          "sha256": "738C5A0AE4D5B639701A23556EE1C6BE712EC775F5B3B2AE6575856AEC300807"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/09/dots-09.mp4",
+          "bytes": 10896196,
+          "sha256": "0914418829BD46CEE5D3590D8E2442D5B7A5AFC48DD099E5257CC38648962FDC"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261021_dots_cloud_benefits/20261021T094421120681Z/release/dots-02-extra-cloud-benefits.mp4",
+          "bytes": 12027437,
+          "sha256": "548648347329D3F06026D820A300F5229EF104A44ECE62641F351CC737442969"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_03_aoede/20261022T075051150042Z/release/dots-03-apps-aoede.mp4",
+          "bytes": 10472141,
+          "sha256": "138BEEB59C865FE521507B3CF0AF929AE9B40DC6F04BD5F457FED309DA273F30"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_04_editorial/20261022T084349480702Z/release/dots-04-parallel-official.mp4",
+          "bytes": 2249770,
+          "sha256": "F3290B7CAB3A357F13AB287074E004DE853D7C44DF962B00C2EC0644F51565F8"
+        }
+      ],
+      "preserved_previous_revision_files": [
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_08_editorial/20261022T102109043626Z/shorts-creator.mp4",
+          "bytes": 2506534,
+          "sha256": "C189DEC02433B6DFFB862C9108271A9BDDD79B9DB21E363A556038227ED64957"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_08_editorial/20261022T102109043626Z/release/dots-08-research-official.mp4",
+          "bytes": 2506534,
+          "sha256": "C189DEC02433B6DFFB862C9108271A9BDDD79B9DB21E363A556038227ED64957"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_08_editorial/20261022T102109043626Z/dots-08-research-official.zip",
+          "bytes": 2647002,
+          "sha256": "1B5F346742B4BD59D4DA4A85CB44E2F130022327CF3FEE44C3E556B400AEAD33"
+        }
+      ]
+    },
+    {
+      "episode": 9,
+      "title": "【ChatGPT】任せる前に知りたい！dotsの権限と「止め方」3つ",
+      "state": {
+        "path": "productions/SERIES_20261022_dots_finale/09/state.json",
+        "bytes": 737,
+        "sha256": "6A8782A0789A171C0AA4212AA8541E4009F98A63D154F2F37670BAC39DD09485"
+      },
+      "delivery": {
+        "path": "productions/SERIES_20261022_dots_finale/09/delivery.json",
+        "bytes": 2071,
+        "sha256": "3891E9DE280944D0889F12E0F5C6923FBF68CE1730AB106AD6CFD015A1FD3EAD"
+      },
+      "video": {
+        "path": "outputs/productions/SHORT_20261022_dots_09_editorial/20261022T103133769493Z/release/dots-09-controls-official.mp4",
+        "bytes": 2999175,
+        "sha256": "A508DF9F613D22CDA7E22B862D1F162361A234E8BB04878ADD4036F6453259B7"
+      },
+      "archive": {
+        "path": "outputs/productions/SHORT_20261022_dots_09_editorial/20261022T103133769493Z/dots-09-controls-official.zip",
+        "bytes": 3603837,
+        "sha256": "A85052EB515474CB262C92AD248E72747CF04864956DF78F007C3A153AF1EB49"
+      },
+      "cover": {
+        "path": "outputs/productions/SHORT_20261022_dots_09_editorial/20261022T103133769493Z/release/cover.png",
+        "bytes": 643849,
+        "sha256": "5200630A0391E00D622882FA1A0B7BFB6D20D772E4C784DAE2B32FB4B7D43D09"
+      },
+      "release": "outputs/productions/SHORT_20261022_dots_09_editorial/20261022T103133769493Z/release",
+      "verification": {
+        "path": "outputs/productions/SHORT_20261022_dots_09_editorial/20261022T103133769493Z/verification.json",
+        "bytes": 20487,
+        "sha256": "559F6E066E35C6EADF0E1BC780EB1EB2BD579D5E06D786409256962F554D4B0F"
+      },
+      "zip_members": 10,
+      "duration_seconds": 30,
+      "frames": 720,
+      "speech_segments": 7,
+      "speech_fits_scene_windows": true,
+      "official_captures": [
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_09_editorial/captures/official-rules.json",
+          "bytes": 1227,
+          "sha256": "053802F2AAADC20A1FE410FFB043DDC67D32BA450865C7ACAFA16CBC128B3A02"
+        }
+      ],
+      "presenter": {
+        "path": "outputs/characters/dots-guide-20261022/guide.png",
+        "bytes": 1890886,
+        "sha256": "1C2542CEEBB889226CC4C8058A2B9AC8976CEC819BEBAAAA3E50E1A8D81F47C8"
+      },
+      "presenter_scenes": [
+        0,
+        6
+      ],
+      "independent_audio_packet_hash": "SHA256=f1d16463887c7f922f845ee6941b1c983f0cc4b3b007c9345f2b690af03e1570",
+      "previous_audio_identical": false,
+      "visual_revision_additional_tts_requests": 0,
+      "visual_revision_additional_tts_characters": 0,
+      "verified_speech_requests": 7,
+      "unknown_previous_requests": 1,
+      "submission_records": [
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_09_editorial/voice-generations/20261022T101743Z-e90d314c/scene-00/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        },
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_09_editorial/voice-generations/20261022T101743Z-e90d314c/scene-01/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        },
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_09_editorial/voice-generations/20261022T101743Z-e90d314c/scene-01/Aoede-unknown-attempt-01/submission.json",
+            "bytes": 58,
+            "sha256": "6BBCA8BE3D1D3E66C95D6AC11B03DDF05E1F53F0313E887035BE1CC022D580A4"
+          },
+          "status": "unknown"
+        },
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_09_editorial/voice-generations/20261022T101743Z-e90d314c/scene-02/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        },
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_09_editorial/voice-generations/20261022T101743Z-e90d314c/scene-03/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        },
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_09_editorial/voice-generations/20261022T101743Z-e90d314c/scene-04/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        },
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_09_editorial/voice-generations/20261022T101743Z-e90d314c/scene-05/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        },
+        {
+          "record": {
+            "path": "outputs/productions/SHORT_20261022_dots_09_editorial/voice-generations/20261022T101743Z-e90d314c/scene-06/Aoede/submission.json",
+            "bytes": 72,
+            "sha256": "F7CC339009585B937F9F1D41747A194D7191CCF263D3C03B5DEB02483738BF88"
+          },
+          "status": "received_and_verified"
+        }
+      ],
+      "loudness_lufs": -16.14,
+      "true_peak_dbfs": -1.49,
+      "preserved_original_videos": [
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/01/dots-01.mp4",
+          "bytes": 9261302,
+          "sha256": "22FD6152C04941714AFFAF4792CF44AAB8195B59F67EEECD1B88E684BB297958"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/02/dots-02.mp4",
+          "bytes": 10545851,
+          "sha256": "9B74979491A377577940840C5AD6110A9C54A50C28E2A6DD5B301D2BBEDF874A"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/03/dots-03.mp4",
+          "bytes": 9859460,
+          "sha256": "5D6B760BA10AE2DCAAF56FA5672865639FFC3CDB2BB40E587E752348B69CDB72"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/04/dots-04.mp4",
+          "bytes": 11162226,
+          "sha256": "2A23AD72E1BCCB7657216EE8FFE85804C7FD9B3273B94FF6E65F41259FA641A7"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/05/dots-05.mp4",
+          "bytes": 10350231,
+          "sha256": "B2C5A2EFEBCC68AAB33B8838E2508E405CC4A85DF3973151F159FE35CF3EF9AA"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/06/dots-06.mp4",
+          "bytes": 10560294,
+          "sha256": "3B0432F5D085D681A5FEDA47C5845CC566F9B5C884C94620CE0E9745374B9D0C"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/07/dots-07.mp4",
+          "bytes": 10696788,
+          "sha256": "81DDC24CC28E427A138849CDE351040382D812C15EF7365D823DF2AFB58AC992"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/08/dots-08.mp4",
+          "bytes": 10582976,
+          "sha256": "738C5A0AE4D5B639701A23556EE1C6BE712EC775F5B3B2AE6575856AEC300807"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/09/dots-09.mp4",
+          "bytes": 10896196,
+          "sha256": "0914418829BD46CEE5D3590D8E2442D5B7A5AFC48DD099E5257CC38648962FDC"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261021_dots_cloud_benefits/20261021T094421120681Z/release/dots-02-extra-cloud-benefits.mp4",
+          "bytes": 12027437,
+          "sha256": "548648347329D3F06026D820A300F5229EF104A44ECE62641F351CC737442969"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_03_aoede/20261022T075051150042Z/release/dots-03-apps-aoede.mp4",
+          "bytes": 10472141,
+          "sha256": "138BEEB59C865FE521507B3CF0AF929AE9B40DC6F04BD5F457FED309DA273F30"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_04_editorial/20261022T084349480702Z/release/dots-04-parallel-official.mp4",
+          "bytes": 2249770,
+          "sha256": "F3290B7CAB3A357F13AB287074E004DE853D7C44DF962B00C2EC0644F51565F8"
+        }
+      ],
+      "preserved_previous_revision_files": []
+    }
+  ],
+  "totals": {
+    "episodes": 5,
+    "seconds": 150,
+    "frames": 3600,
+    "scene_reviews": 35,
+    "official_capture_proofs": 5,
+    "presenter_opening_closing_pairs": 5,
+    "verified_speech_requests": 35,
+    "unknown_previous_requests": 1,
+    "total_speech_requests": 36,
+    "visual_revision_additional_tts_requests": 0,
+    "visual_revision_additional_tts_characters": 0,
+    "previous_aac_streams_identical": 4,
+    "protected_original_videos": 12,
+    "preserved_previous_revision_artifacts": 12
+  },
+  "actual_billing_known": false,
+  "user_approved": false,
+  "final_listening_review": "pending",
+  "youtube_uploaded": false,
+  "s3_sharing": "Recorded separately; signed URLs are not persisted here"
+}

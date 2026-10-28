@@ -1,0 +1,12 @@
+{
+  "voice_source": {
+    "path": "outputs/productions/SHORT_20261023_claude_docs_blog/voice-generations/pilot-v01/voice-source.json",
+    "bytes": 4527,
+    "sha256": "D01C8EABB4F0D7835ACDFE84B77248BC94362AECD064ECD7E675E2626FAFC69E"
+  },
+  "video": {
+    "path": "outputs/productions/SHORT_20261023_claude_docs_blog/20261023T003812418273Z/shorts-creator.mp4",
+    "bytes": 8897315,
+    "sha256": "2BEE36F099470B6514B64D58E2D15F43873D11767BBC6CCAC1938D734E7426F4"
+  }
+}

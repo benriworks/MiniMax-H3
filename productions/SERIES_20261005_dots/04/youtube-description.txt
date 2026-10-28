@@ -1,0 +1,14 @@
+dotsの機能を30秒ずつ紹介する全9本シリーズ、第4回「並行作業」。
+
+dotは必要に応じて作業の一部をバックグラウンドのエージェントへ委任し、複数の仕事を並行して進められます。常にすべての仕事が同時実行される、無制限に実行できる、という保証ではありません。新しい作業には必要な文脈が渡され、会話全体が自動的にすべて共有されるわけではありません。Activityと実際の成果物を確認してください。
+
+情報確認日：2026年10月5日。機能・対象プラン・提供地域は変更されることがあります。
+OpenAI公式資料をもとにした非公式の紹介動画です。画面は独自のモーショングラフィックスで、実機操作の録画ではありません。登場人物は架空のキャラクターです。
+
+出典（OpenAI公式）
+OpenAI — Controls
+https://learn.chatgpt.com/docs/dots/controls
+OpenAI — Tasks and memory
+https://learn.chatgpt.com/docs/dots/tasks-and-memory
+
+#dots #ChatGPT #OpenAI #AI活用 #Shorts

@@ -1,0 +1,218 @@
+{
+  "schema_version": 1,
+  "verified_at": "2026-09-19T11:06:45.633325+00:00",
+  "generation_context": "generated_for_this_revision",
+  "production_id": "CATCH_20260919_claude_acquired_5s",
+  "profile": "official_q4",
+  "runtime_mode": "dynamic_vram",
+  "mode": "T2VA",
+  "execution": {
+    "prompt_id": "ab4ced50-607d-4e38-b65b-618f56b75d4c",
+    "elapsed_seconds": 1501.551,
+    "success": true
+  },
+  "settings": {
+    "seed": 2026091907,
+    "steps": 20,
+    "sampler": "res_multistep",
+    "scheduler": "simple",
+    "width": 768,
+    "height": 1376,
+    "requested_duration_seconds": 5,
+    "turbo": false,
+    "save_crf": 14
+  },
+  "visual_direction": "User-selected game-style rare-item acquisition",
+  "inputs": [
+    {
+      "path": "outputs/claude-acquired-20260919/graph.json",
+      "bytes": 5550,
+      "sha256": "36B70CA07449026A95F987720025236CFDFB5B3E36CE05B9DC4B1FDC94617CC2"
+    },
+    {
+      "path": "outputs/claude-acquired-20260919/submission.json",
+      "bytes": 210,
+      "sha256": "C68E47447BC33B08862FB131001B6FD9A74BAAD5C682BBAE68CC6311B075632A"
+    },
+    {
+      "path": "outputs/claude-acquired-20260919/history.json",
+      "bytes": 8094,
+      "sha256": "B6551971CD60A9329806DBED47EABE129196D605B6A8DB7B7608507BDCE5EAE5"
+    },
+    {
+      "path": "productions/CATCH_20260919_claude_acquired_5s/prompts/PROGRAMMER_H3.md",
+      "bytes": 2265,
+      "sha256": "FCC73DEEA0D89180C54D6475433CFF56C30F36E8DA04CB64241E4530A6F89BED"
+    }
+  ],
+  "artifact": {
+    "path": "outputs/claude-acquired-20260919/MiniMax_H3_Claude_Acquired_00001_.mp4",
+    "bytes": 3692345,
+    "sha256": "CFCD30CA02B1C8A40DB3E4EE6C46773308559409A2CC237A5C507108BBFCCB4C",
+    "full_decode_verified": true,
+    "probe": {
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "h264",
+          "codec_long_name": "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10",
+          "profile": "High",
+          "codec_type": "video",
+          "codec_tag_string": "avc1",
+          "codec_tag": "0x31637661",
+          "mime_codec_string": "avc1.640020",
+          "width": 768,
+          "height": 1376,
+          "coded_width": 768,
+          "coded_height": 1376,
+          "has_b_frames": 2,
+          "pix_fmt": "yuv420p",
+          "level": 32,
+          "chroma_location": "left",
+          "field_order": "progressive",
+          "is_avc": "true",
+          "nal_length_size": "4",
+          "id": "0x1",
+          "r_frame_rate": "24/1",
+          "avg_frame_rate": "24/1",
+          "time_base": "1/12288",
+          "start_pts": 0,
+          "start_time": "0.000000",
+          "duration_ts": 63488,
+          "duration": "5.166667",
+          "bit_rate": "5573823",
+          "bits_per_raw_sample": "8",
+          "nb_frames": "124",
+          "extradata_size": 46,
+          "disposition": {
+            "default": 1,
+            "dub": 0,
+            "original": 0,
+            "comment": 0,
+            "lyrics": 0,
+            "karaoke": 0,
+            "forced": 0,
+            "hearing_impaired": 0,
+            "visual_impaired": 0,
+            "clean_effects": 0,
+            "attached_pic": 0,
+            "timed_thumbnails": 0,
+            "non_diegetic": 0,
+            "captions": 0,
+            "descriptions": 0,
+            "metadata": 0,
+            "dependent": 0,
+            "still_image": 0,
+            "multilayer": 0
+          },
+          "tags": {
+            "language": "und",
+            "handler_name": "VideoHandler"
+          }
+        },
+        {
+          "index": 1,
+          "codec_name": "aac",
+          "codec_long_name": "AAC (Advanced Audio Coding)",
+          "profile": "LC",
+          "codec_type": "audio",
+          "codec_tag_string": "mp4a",
+          "codec_tag": "0x6134706d",
+          "mime_codec_string": "mp4a.40.2",
+          "sample_fmt": "fltp",
+          "sample_rate": "32000",
+          "channels": 2,
+          "channel_layout": "stereo",
+          "bits_per_sample": 0,
+          "initial_padding": 0,
+          "id": "0x2",
+          "r_frame_rate": "0/0",
+          "avg_frame_rate": "0/0",
+          "time_base": "1/32000",
+          "start_pts": 0,
+          "start_time": "0.000000",
+          "duration_ts": 165344,
+          "duration": "5.167000",
+          "bit_rate": "127307",
+          "nb_frames": "163",
+          "extradata_size": 5,
+          "disposition": {
+            "default": 1,
+            "dub": 0,
+            "original": 0,
+            "comment": 0,
+            "lyrics": 0,
+            "karaoke": 0,
+            "forced": 0,
+            "hearing_impaired": 0,
+            "visual_impaired": 0,
+            "clean_effects": 0,
+            "attached_pic": 0,
+            "timed_thumbnails": 0,
+            "non_diegetic": 0,
+            "captions": 0,
+            "descriptions": 0,
+            "metadata": 0,
+            "dependent": 0,
+            "still_image": 0,
+            "multilayer": 0
+          },
+          "tags": {
+            "language": "und",
+            "handler_name": "SoundHandler"
+          }
+        }
+      ],
+      "format": {
+        "filename": "C:\\Users\\mono_\\MiniMaxH3\\outputs\\claude-acquired-20260919\\MiniMax_H3_Claude_Acquired_00001_.mp4",
+        "nb_streams": 2,
+        "nb_programs": 0,
+        "nb_stream_groups": 0,
+        "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+        "format_long_name": "QuickTime / MOV",
+        "start_time": "0.000000",
+        "duration": "5.167000",
+        "size": "3692345",
+        "bit_rate": "5716810",
+        "probe_score": 100,
+        "tags": {
+          "major_brand": "isom",
+          "minor_version": "512",
+          "compatible_brands": "isomiso2avc1mp41",
+          "prompt": "{\"92\": {\"class_type\": \"SaveVideo\", \"inputs\": {\"filename_prefix\": \"claude-acquired-20260919/MiniMax_H3_Claude_Acquired\", \"format\": \"mp4\", \"codec\": \"h264\", \"codec.encoding\": \"re-encode\", \"codec.encoding.crf\": 14.0, \"video\": [\"105:91\", 0]}}, \"105:6\": {\"class_type\": \"UNETLoader\", \"inputs\": {\"unet_name\": \"minimax_h3_fl2va_pruned_int8_convrot.safetensors\", \"weight_dtype\": \"default\"}}, \"105:9\": {\"class_type\": \"BasicScheduler\", \"inputs\": {\"scheduler\": \"simple\", \"steps\": 20, \"denoise\": 1.0, \"model\": [\"105:6\", 0]}}, \"105:10\": {\"class_type\": \"VAEDecode\", \"inputs\": {\"samples\": [\"105:14\", 0], \"vae\": [\"105:11\", 0]}}, \"105:11\": {\"class_type\": \"VAELoader\", \"inputs\": {\"vae_name\": \"minimax_h3_video_vae_fp16.safetensors\"}}, \"105:13\": {\"class_type\": \"CLIPLoaderGGUF\", \"inputs\": {\"clip_name\": \"qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf\", \"type\": \"minimax\"}}, \"105:14\": {\"class_type\": \"SamplerCustomAdvanced\", \"inputs\": {\"noise\": [\"105:15\", 0], \"guider\": [\"105:16\", 0], \"sampler\": [\"105:17\", 0], \"sigmas\": [\"105:9\", 0], \"latent_image\": [\"105:104\", 1]}}, \"105:15\": {\"class_type\": \"RandomNoise\", \"inputs\": {\"noise_seed\": 2026091907}}, \"105:16\": {\"class_type\": \"BasicGuider\", \"inputs\": {\"model\": [\"105:6\", 0], \"conditioning\": [\"105:104\", 0]}}, \"105:17\": {\"class_type\": \"KSamplerSelect\", \"inputs\": {\"sampler_name\": \"res_multistep\"}}, \"105:23\": {\"class_type\": \"VAEDecodeAudio\", \"inputs\": {\"samples\": [\"105:14\", 0], \"vae\": [\"105:24\", 0]}}, \"105:24\": {\"class_type\": \"VAELoader\", \"inputs\": {\"vae_name\": \"minimax_h3_audio_vae_fp32.safetensors\"}}, \"105:91\": {\"class_type\": \"CreateVideo\", \"inputs\": {\"fps\": 24.0, \"bit_depth\": 8, \"images\": [\"105:10\", 0], \"audio\": [\"105:23\", 0]}}, \"105:104\": {\"class_type\": \"MiniMaxH3ImageToVideo\", \"inputs\": {\"prompt\": \"integrated_multimodal_description: [Shot 1] High-end stylized 3D videogame cinematic, playful JRPG rare-item acquisition scene, vertical 9:16, one continuous five-second medium-wide shot. A single fictional adult Japanese male programmer with short spiky black hair, expressive dark eyes and a charcoal hoodie over a blue shirt sits at a compact gaming-style programming desk. His full head and upper body stay visible around the middle of the frame. An unbranded open laptop sits on the desk in the lower foreground, screen facing him. At the start he leans toward its warm glowing screen with an astonished smile. From 00:00.300 to 00:01.300, one brilliant faceted amber crystal rises from the laptop and hovers just to the right of his face at shoulder height, framed by a rotating golden ring and a burst of small sparkling particles. From 00:01.000 to 00:02.300 he rocks back in delighted surprise, raises his right fist beside his head in one large triumphant fist pump, and brings his left fist close to his chest. From 00:02.300 to 00:05.000 he holds the victory pose, grinning broadly at the glowing item with a buoyant celebratory expression. Keep both hands as simple coherent closed fists, exactly two arms, and the same adult face and clothing throughout. Golden rays expand softly behind him and a few colorful square confetti pieces drift down, like a legendary item reward. The crystal stays separate from his hands and never blocks his face. Rich amber, indigo and cyan game lighting, polished 3D materials, crisp edges, expressive but adult proportions, dramatic joyful game reward spectacle. The camera pushes in with small amplitude at moderate speed and settles by the last second. Leave the top 15 percent as uncluttered dark blue background for a game reward badge and the bottom 25 percent for a large acquisition message added later. No cuts, no additional characters, no speech, no generated text or letters, no logos, no watermarks, no rapid strobing, no explosions, no extra limbs, no close-up fingers.\\n\\noverall_soundscape: A soft keyboard click at the start, a rising magical whoosh as the crystal appears, and a crisp glittering reward chime as the programmer raises his fist. No speech or other vocalization.\\n\\nnon_diegetic_music: N/A\", \"width\": 768, \"height\": 1376, \"length\": [\"105:107\", 1], \"clip\": [\"105:13\", 0], \"vae\": [\"105:11\", 0]}}, \"105:107\": {\"class_type\": \"ComfyMathExpression\", \"inputs\": {\"expression\": \"max(5, round(a * 24)) + (5 - (max(5, round(a * 24)) % 17)) % 17\", \"values.a\": [\"105:111\", 0]}}, \"105:111\": {\"class_type\": \"PrimitiveFloat\", \"inputs\": {\"value\": 5.0}}}",
+          "encoder": "Lavf62.12.102"
+        }
+      }
+    }
+  },
+  "review_status": "visual_review_passed",
+  "paid_api_calls": 0,
+  "visual_review": {
+    "reviewed_at": "2026-09-19T11:07:51.862271+00:00",
+    "method": "20-frame contact sheet at 4 fps and full-resolution frames at 2 and 4 seconds",
+    "observations": [
+      "One consistent stylized adult programmer at a laptop, with two coherent arms.",
+      "Amber crystal rises on the right; the character smiles and raises a fist.",
+      "Golden rays and confetti support the game reward concept.",
+      "Badge moved upward for clearance from the raised fist."
+    ],
+    "evidence": [
+      {
+        "path": "outputs/claude-acquired-20260919/contact-sheet.png",
+        "bytes": 1381092,
+        "sha256": "82B4D794EB33D0FE364FD974BEB5FB2EDB5B4444E67BD9BDCBDA7ED1E3AF54C6"
+      },
+      {
+        "path": "outputs/claude-acquired-20260919/raw-2.png",
+        "bytes": 542654,
+        "sha256": "DC5D486A2DB6FA4E46619E906DDED18D4538AA769B6C0A1B7B8899BE97475330"
+      },
+      {
+        "path": "outputs/claude-acquired-20260919/raw-4.png",
+        "bytes": 684827,
+        "sha256": "D1859AAC87664CB2AD0031EC5A628246B8874E533A08F21D65663A5FB9813FE3"
+      }
+    ],
+    "user_approved": false
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "reported_at": "2026-10-24T06:41:53Z",
+  "source": "direct_user_report",
+  "user_message": "ChatGPTはすべてアップ完了しました。",
+  "series": "ChatGPT (dots) introduction",
+  "series_episodes": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "youtube_uploaded": true,
+  "publication_status": "uploaded_as_reported_by_user",
+  "youtube_visibility": "not_provided",
+  "youtube_urls_verified": false,
+  "scope_note": "シリーズ全体のアップロード完了との申告。直前に提示した第5〜9回は下記の最新版。公開範囲、公開日時、URLや最終試聴を推測しない。",
+  "latest_episodes_5_to_9": [
+    {
+      "episode": 5,
+      "title": "【ChatGPT】dotsは前の話を引き継ぐ？記憶とコンテキストの違い",
+      "video": {
+        "path": "outputs/productions/SERIES_20261023_dots_final_delivery/05/dots-05-gemini-aoede.mp4",
+        "bytes": 6058783,
+        "sha256": "66E3B2BA8EA30D29A202755B67B6E4203F15753FF00BFC8DCB0E251DD662FA70"
+      },
+      "youtube_uploaded": true,
+      "evidence": "direct_user_report",
+      "youtube_url": null
+    },
+    {
+      "episode": 6,
+      "title": "【ChatGPT】声でも頼める！dotsは通話を切った後も仕事が続く",
+      "video": {
+        "path": "outputs/productions/SERIES_20261023_dots_final_delivery/06/dots-06-gemini-aoede.mp4",
+        "bytes": 6410219,
+        "sha256": "9736A2F417951A7653905B005AB0D82326164106400747A1B6508A729389FC85"
+      },
+      "youtube_uploaded": true,
+      "evidence": "direct_user_report",
+      "youtube_url": null
+    },
+    {
+      "episode": 7,
+      "title": "【ChatGPT】dotsに「毎朝9時に教えて」！定期実行の設定・確認・解除",
+      "video": {
+        "path": "outputs/productions/SERIES_20261023_editorial_revision/dots-07-v02/shorts-creator.mp4",
+        "bytes": 8421173,
+        "sha256": "2A9AFC6963001F238855AE7E89E00F9555A149A8F832CC863A74F4C82A376CA8"
+      },
+      "youtube_uploaded": true,
+      "evidence": "direct_user_report",
+      "youtube_url": null
+    },
+    {
+      "episode": 8,
+      "title": "【ChatGPT】頼む前に次の一手！dotsの「先回り提案」",
+      "video": {
+        "path": "outputs/productions/SERIES_20261023_editorial_revision/dots-08-v02/shorts-creator.mp4",
+        "bytes": 6185036,
+        "sha256": "A36A1BE1EB5BF0AD7EB2C3B1DE1D30F3910A37634B57681890095541FF5E9C3E"
+      },
+      "youtube_uploaded": true,
+      "evidence": "direct_user_report",
+      "youtube_url": null
+    },
+    {
+      "episode": 9,
+      "title": "【ChatGPT】dotsに任せても、決めるのはあなた！実行前の確認と判断",
+      "video": {
+        "path": "outputs/productions/SERIES_20261023_editorial_revision/dots-09-v02/shorts-creator.mp4",
+        "bytes": 6418361,
+        "sha256": "C9BB4CEC49423073B8640DF9313A6CA295FCBB92D06699BA9BA62141F7FC4E30"
+      },
+      "youtube_uploaded": true,
+      "evidence": "direct_user_report",
+      "youtube_url": null
+    }
+  ]
+}

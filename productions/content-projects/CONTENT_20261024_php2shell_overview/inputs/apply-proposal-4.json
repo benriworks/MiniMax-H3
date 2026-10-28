@@ -1,0 +1,20 @@
+{
+  "operation_id": "op_php_proposal_4",
+  "expected_revision": 4,
+  "data": {
+    "proposal_id": "proposal_php_overview_v01",
+    "count_reason": "ユーザー指定の1本。2件を別動画にすると対策が重複するため、概要と取るべき行動を1本にまとめる。詳細な条件と設定はブログの候補へ分ける。",
+    "episodes": [
+      {
+        "episode_id": "php2shell_overview",
+        "title": "【PHP】PHP2Shellとは？サイト運営者が確認したい脆弱性と対策",
+        "overview": "PHPとは何かを一言で示し、2件の脆弱性による影響と、管理担当・提供元へ確認すること、更新と侵害調査を約50秒で紹介する。",
+        "intended_message": "PHP本体の問題として自分のサイトの対応状況を確認し、提供元の最新案内に沿って更新・調査につなげる。",
+        "duration_seconds": 50,
+        "demo_idea": "実際のPHP公式告知・修正リリース行と日本語の注意喚起を引用し、架空サイトの運用担当者と自作の単純な概念図で解説する。",
+        "article_role": "CVEごとの概要、影響・修正版の表、提供元でのバックポート確認、10月23日の追加注意喚起、ログ確認の限界と公式出典を詳しく整理する。記事の執筆・公開は別工程。",
+        "capture_inspection_id": "php-official-preflight"
+      }
+    ]
+  }
+}

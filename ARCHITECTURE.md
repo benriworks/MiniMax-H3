@@ -1,5 +1,211 @@
 # Architecture
 
+## dots第5〜9回の仕上げ改訂（2026-10-23）
+
+`productions/SERIES_20261023_dots_final_delivery/produce.py`は第5回の文脈保持と第7回の定期実行の使い方を独立IDで改訂する。既存原稿に一致するGemini Aoede発話だけを再利用し、変更分を既存TTSアダプターで生成して共通Shorts処理へ渡す。旧dotsのMiniMax人物動画・公式引用証跡を保ち、第6・8・9回の検証済み動画と合わせて独立フォルダーへ集約する。Driveへの共有は接続ツールによる個別操作。UI・API・DB・実schedule登録経路は追加しない。詳細は[専用アーキテクチャ](productions/SERIES_20261023_dots_final_delivery/ARCHITECTURE.md)。
+
+## チャットで進める動画・記事制作の共通処理（2026-10-23）
+
+`tools/studio/content_projects.py` は共通案件JSONから公開用画像を照合し、`outputs/content-projects/<id>/blog-handoff/<version>/` へ選択した画像、素材台帳、MDXのFigure記述を出力する。CLIは `validate` と `export-blog`。UI・HTTP API・DB migration・自動公開は追加していない。ユーザーは当面チャットを窓口にし、制作中の改善を共通処理へ反映する。
+
+画像はworkspace内の相対パス、種類、hash、bytes、寸法、AI補助のプライバシー確認、alt、captionを検証する。実演は架空素材だけ、公式画像は出典と日付付きの記事用途確認を要求する。`private`／`_private`、外部パス、画像外形式、改変済み素材を拒否する。撮影proofは複製せず、ユーザー採用と公開承認を昇格させない。既存の受け渡し版は上書きしない。
+
+最初の実案件は `productions/content-projects/CONTENT_20261023_claude_docs_reuse/`。7場面の動画は既存Aoede音声6件と既存MiniMax人物動画を再利用し、ブログ案内の締めだけを新規生成する専用ドライバーを用意した。元シリーズの台本・音声・納品ポインターは変更しない。記事は別ブログの独立ブランチで `draft: true` とする。
+
+レビュー配信はGoogle Drive優先。コネクターによるアップロードとメタデータreadbackを今回確認したが、Studio内にDrive連携を実装したものではない。ローカル受領記録に版・Drive ID・サイズ・確認範囲を残し、モバイル実再生とユーザー最終試聴は別の状態とする。S3はDrive不使用時または会社への持ち込み用途で指定された場合に使う。
+
+## 自分用の動画・ブログ共通制作層の設計（2026-10-23）
+
+ユーザーは「まず自分用に磨く」「解説動画から詳細ブログへ誘導」「動画の決定事項と素材を記事にも利用」の方向を示した。現状はStudio／制作スクリプトの動画生成と、別リポジトリ `benriworks/blog` のMDX・画像掲載が別の経路として存在する。共通の画像受け渡しCLIを追加した。共通案件管理やブログ転送のAPI・DB・UIは未追加。
+
+[VIDEO_TO_BLOG_WORKFLOW_JA.md](docs/video-production/VIDEO_TO_BLOG_WORKFLOW_JA.md) は、共通 `content_project_id` から企画、確認した事実と出典、人物、原素材を参照し、動画と記事へ分ける設計を定める。[content-project.example.json](docs/video-production/templates/content-project.example.json) は契約の記載例で、既存DB migrationではない。動画のproduction ID・既存素材パスは維持する。
+
+素材は出自・版・hash・親素材と、動画／ブログ別のレビュー状態を持つ設計とする。公開用切り出しだけを記事用に受け渡し、原撮影や秘密情報入りproofは自動複製しない。字幕前の画像を共用し、媒体別の構図と読みやすさを確認する。公式画像は記事での利用条件・出典・説明文脈を再確認する。生成イメージと実画面の証拠を区別する。
+
+ブログ側は `Figure`、alt、caption、寸法と `public/images/articles/<slug>/` を既存機能として使える。記事原稿と画像は別途draft PRで確認し、mainへのマージを公開操作として扱う。YouTubeショートの説明欄URLがクリックできない制約から、プロフィールのリンクを介した公開記事への経路を想定する。記事一覧の新しい入口・動画埋め込み・自動同期は未実装。
+
+今回のローカル検討例は `outputs/content-projects/CONTENT_20261023_claude_docs_reuse/blog-handoff/v01/`。既存素材のコピー照合と用途の棚卸しであり、新しい記事・画面撮影・画像の掲載許可・ユーザー採用を完了したという意味ではない。
+
+## 制作運用・ナレーション引き継ぎの文書層（2026-10-23）
+
+`docs/video-production/README.md` を制作運用の入口とし、`VIDEO_PRODUCTION_HANDOFF_JA.md` に人物の初期ユーザー確認、MiniMaxでの動画化、シリーズの物語、公式引用と実演、保存、レビュー、納品、GitHub同期の責務を定める。音声の担当者向けには `NARRATION_HANDOFF_JA.md` を独立させ、現行Gemini TTSの生成・実尺測定・音声再利用・配置・最終試聴と手動編集を記す。
+
+撮影担当者向けの `SCREEN_CAPTURE_AND_QUOTES_JA.md` は、Windowsの実画面取得・録画、元画面の倍率、公式製品画像と画面引用の区別、原本と公開用切り出し、人物の全面表示と根拠画面への切り替えを定める。文書の追加で新しい画面収録APIや権利判断の自動化を実装したわけではない。
+
+`AGENTS.md` は人物確認と文書更新、GitHub保管範囲を作業ルールへ接続する。ひな形は制作記録・人物設定・レビュー依頼・素材索引を提供するが、アプリやCLIによる承認状態の自動強制機能を追加したものではない。技術検証、AI補助の画面確認、最終試聴、ユーザー採用、公開は別状態とする。
+
+制作ルール・台本・プロンプト・改善理由・検証要約は軽量なGit管理対象。動画・音声・納品ZIPはローカルまたは共有ストレージで保持し、ID・相対パス・bytes・hashから参照する。`.gitignore` は新しい動画等の誤追加を防ぐ補助で、既存のupstreamデモを削除・追跡解除するものではない。署名付きURLや個人情報入り原本は公開文書へ入れない。ユーザーが示した方向性と未決条件は `DIRECTION_REVIEW_JA.md` に分けて記録する。
+
+## 人物動画を全面に使う演出（2026-10-23）
+
+利用者の指定により、`EditorialScene` の `editorial` かつ実MP4媒体を持つ場面は `FullscreenPresenterEditorial` で表示する。business配色のClaudeと既存dots男女の両方が対象。人物映像を1080×1920全体へcover表示し、わずかな寄りと下部の暗いグラデーションを加える。上半分の顔を空け、本文はy940、見出しはy1015、短い要点はy1210に置く。複数の要点は順に切り替え、既存の字幕と全フレームの安全域検査を維持する。公式引用や実演画像の場面は元の専用表示を保つ。
+
+改訂は既存MP4の上書きではなく、新しい準備・描画・検証・共有記録として保存する。人物の元画像、MiniMax動画、場面尺、台詞、音声素材を再利用し、映像レイアウト変更のための生成API要求を増やさない。dotsの改訂では旧AACのpacket hash一致も検証する。静止画の見やすさ、完成MP4、聴感、利用者採用はそれぞれ区別する。
+
+人物素材より場面が長い場合は、prepareが実probeから `mediaPlayFrames` と `mediaDurationInFrames` を設定する。1秒以上の実映像を必須とし、素材終了前から短いまとめ表示へ移る。末尾フレームの静止延長やループ、ナレーションの切断は行わない。editorial以外の既存動画場面は従来どおり全場面を覆う素材尺を要求する。
+
+`CreatorShortComposition` の字幕は66pxを維持して33px上へ配置する。2行・上下padding・border・冒頭12pxの動きを含めて下端1490px以内へ収める。実際の2frame描画で検出した旧下端1508.6pxの失敗を修正するもので、独立比較compositionの字幕配置は変更しない。
+
+dotsの全面表示改訂は `reprepare_fullframe.py` で旧state・納品物と音声を保持し、`preview_fullframe.mjs` で冒頭・締め・字幕の出現時を確認する。`finalize_fullframe_videos.py` は新しい出力を監査し、旧人物動画版とは別の納品記録へ確定する。Claudeは `renderer-revisions/` で前後の出力を結び、`finalize.py` が5本のZIP全メンバー、35音声区間、公式5場面と実演20場面、人物10場面、既存26動画の不変性を再照合する。共有担当は制作stateを書き換えず、S3専用receiptに署名URLを除いた検証結果を保存する。
+
+共通変更の検証ではTypeScript検査と、素材の実尺境界・公式引用と実演の区別・供給済み音声の12テストを通過した。字幕は修正後の実2frame描画と2行字幕の出現時の描画に加え、完成動画の全frame安全域検査で確認する。部分描画の合格だけを完成動画の合格として扱わない。
+
+## 60〜90秒の比較動画（2026-10-22）
+
+`comparisonEntry.tsx` は独立した `ProductComparison` を登録する。専用props検査・公式引用・上下比較図・opening/insight/closing人物動画を使い、旧CreatorShortの60秒上限や既存動画の描画を変更しない。productionでは実MP4と区間尺を必須にし、素材未取得はfixtureとして明記する。字幕は62pxで2行を1490px以内に収め、固定フォント読み込み後に各frameの文字矩形を検査する。来歴proof・実音声の配分・最終納品検証は外側の制作処理の責任。詳細と独立した構成図は `productions/COMPARE_20261022_duet_dots/ARCHITECTURE.md` と `ARCHITECTURE_DIAGRAM.md` を参照。
+
+比較の実制作は専用 `produce.py` と `studio/comparison-render.mjs` が担当する。Aoede14区間の元PCM68.113秒を無加工で75秒へ配置し、公式3画像の親確認・画素一致と新MiniMax人物の124frameを照合する。人物は思考／ひらめき／締めに重複なく区間分割し、残尺は自作まとめへ切り替える。音声付き元動画の音は使わず、最終mixはAoedeと自作音だけ。技術検証・目視・聴感・利用者採用を分離し、公開ZIPはprivate素材を除外して各memberのSHA-256を再照合する。
+
+## Claude業務編と出典・実演の区別（2026-10-22）
+
+`productions/SERIES_20261022_claude_work/produce.py` は5本・各30秒7場面の独立ドライバー。dots完結編の実装を専用のPythonモジュールへ読み込み、音声生成・検証済みキャッシュ・22秒間隔・不明送信で停止する処理を再利用する。元のdotsドライバー、原稿、音声世代を変更しない。Claude固有のID、公開用ファイル名、公式引用と実演の事前確認、納品メタデータだけを追加する。`preflight` は読取りのみで、公式資料1件以上、実演の入力前と出力後、確認済みMiniMax人物映像を要求する。音声を送信するのは明示的な `generate` のみであり、素材が欠けた状態から自動生成へ進まない。
+
+共通 `source` 場面は従来のorigin未指定dots引用に加え、`scene.visual_style: business` を指定した新しい引用を扱う。`capture.origin: official` はHTTPSの `learn.chatgpt.com/docs/dots/`、`support.claude.com/en|ja/articles/`、`claude.com/resources/articles/` の限定パスだけを許可する。認証情報、任意ポート、queryは付けない。`demonstration` は `product`（Claude／Codex／ChatGPT）と `phase`（before／first-output／revision／after／export）で実際の撮影段階を表し、アカウント固有URLをcapture・proof・描画propsへ持ち込まない。公式説明の引用を、その機能の実操作成功として扱わない。
+
+新しい撮影proofはoriginとタイムゾーン付き `captured_at` を照合する。実演は製品名・段階の一致に加え、`fictional_materials_only: true`、`personal_information_excluded: true`、目視確認済み状態を必須とする。公式は出典URL・タイトルを照合する。どちらも従来どおり画像と元画面のhash、PNG寸法、切出し座標と元画面内の包含を確認し、同梱画像は `capture-NN.png` とする。撮影原本とprivate文脈は公開ZIPへ含めない。旧origin未指定の許可URL・検査・props構造は維持する。
+
+実演の切出しは `prepare_demonstrations.py` が明示した矩形計画だけを処理する。原本PNG・撮影日時JSONを保全し、画素が完全一致するcropを `demonstration/` へ保存する。拡大、ぼかし、画像補完、画面の再作図は行わない。見出し・箇条書き・目的文の前後比較は同一矩形を使い、実際の依頼と確認事実を `operations.json`、各画像・原本・metadataのhashをproofとmanifestへ記録する。担当エージェントの画像確認、親担当の確認、最終動画の可読性、利用者承認を分ける。別アプリで開いた書き出し結果は `external_viewer` と書き出しファイルhashを併記し、Claude画面と混同しない。
+
+撮影原本の拡張子がPNGでも実体JPEGの場合は元bytesを維持し、デコード後の全画素が同一のPNGをprivateの `decoded-png/` へ別保存する。共通検査のPNG要件は緩めず、このPNGを `context`、元JPEGを `raw_capture` として双方のhashと変換方式をproofへ記録する。公開crop、撮影日時、個別目視結果を変更せず、旧proofも別履歴に保全する。
+
+`verify_docx_exports.py` は指定された初回・修正版のDOCXを読取り専用で検査し、ZIP CRC、本文XML、650円・3万円・期間・時間・未定項目、見出しと太字・箇条書きの保持を確認する。XML検証だけではWordの見た目を確認済みと扱わない。実際のWord保護ビューで開いた画面は別のexport段階の撮影証拠として保存する。書き出しメニューの存在、ファイル取得、本文検査、外部アプリでの表示はそれぞれ別の実施事実として記録する。
+
+businessレイアウトは `editorial`／`source` 場面だけで選択する。見出しは2行・各10全角相当まで、引用場面の中央を説明用の文言で覆わない。人物は元のPNGとオフィス用I2VAキー画像に結び付けたMiniMax動画を冒頭hook／締めclosingへ配置し、静止PNGのpresenterは併用しない。2026-10-23の改訂以降、人物動画は上記の全面表示を使う。dotsは既存配色を保ち、人物以外の引用・図解の構図を維持する。モデルや生成ツールの出所は制作証跡へ残し、動画内へツール名のクレジットを追加しない。
+
+## dots既存男女の人物動画改訂（2026-10-22）
+
+`productions/SERIES_20261022_dots_finale/character_video_revision.py` は音声生成コマンドを持たない独立改訂経路。元男性の確認済みフレームと2026年9月30日の女性キー画像から新規生成したMiniMax動画を受け取り、元原稿の冒頭と締めへ `media`／`mediaStart` だけを加える。公式引用・中盤・台詞・字幕・音声署名の一致と、元のカット尺を動画が覆えることを確認する。最新の静止人物版も含め、旧MP4・ZIP・state・deliveryのhashを保存し、旧出力先は上書きしない。
+
+映像準備は最新の完成MP4を `reuse_audio` へ渡し、合成では旧AACを再圧縮せずコピーする。新しい確認と梱包後にだけ納品ポインターを更新する。改訂receiptは元原稿、新原稿、媒体proof、元人物画像、I2VAキー画像、旧納品物を結び付け、追加TTS要求・追加発話文字数はいずれも0と記録する。描画後の実画面確認、最終試聴、利用者承認、YouTube投稿は別状態で管理する。
+
+人物素材の台帳は `productions/characters/motion-registry-20261022.json` に集約する。`productions/CHARACTERS_20261022_explainer_motion/register_completed.py` は完成した5素材のMP4、生成proof、元人物画像、I2VAキー画像、寸法、fps、フレーム数、利用開始フレームと目視状態をhashで結び、既存男女と業務用人物の台帳にも参照を追加する。人物素材の確認を利用者承認と同一視せず、ナレーターAoedeと無音の人物映像を区別する。改訂の準備後は素材proofを書き換えない。
+
+`inspect_character_motion.py` は完成MP4から冒頭と締めの各3時点を抽出し、6枚の画像、一覧画像、元MP4のhashを `motion-evidence.json` へ保存する。実際に画像を確認した記録は別の `motion-visual-review.json` とする。`finalize_character_videos.py` は5本の全35場面と30動作サンプル、公式引用、原稿・字幕・見出し・概要・出典の不変性、旧AACとのpacket hash一致、公開ZIP全メンバー、保護対象12動画を照合する。旧静止人物版の監査を上書きせず、新しい `character-video-delivery.json` と `verification/shorts-dots-character-video-2026-10-23.json` に結果を確定する。
+
+親担当の画面確認は独立した `root-review.json` に、AIによる確認と利用者承認・試聴を分けて保存する。S3共有は検証済みMP4だけを既存AllowedRoots内の一意なフォルダーへコピーし、hashを再確認してから再生用と添付用を別々にdry-runする。各送信の終了コード0と `Status=verified` を要求し、署名URLを除いた共有結果だけを別receiptへ残す。制作時点の監査や旧共有記録は保持し、署名URLは納品返信だけに返す。
+
+## 人物案内役と音声を固定した映像改訂（2026-10-22）
+
+完結編の `revise-visuals` は、音声生成時に固定した原稿を変更せず、各回の `visual-revisions/<識別子>/creator-story.json` へ人物の表示指定だけを追加する。冒頭と締めの `editorial` 場面に限り、`presenter` の `path`・`proof`・`role`（`hook`／`recap`）を受け付ける。公式の `source` 場面には重ねない。台詞・字幕・声・発音・尺・BGM・場面種別・効果音の項目数を含む音声署名の一致と、人物指定を除いた全原稿の一致を確認する。
+
+人物は `outputs/characters/dots-guide-20261022/guide.png` の透過PNG。共通準備処理は、画像のhashに結び付いた `guide.json` の `visual_review_passed`・`generated_humanoid`・透過確認を必要とし、画像と証跡を準備入力へ含める。画像を `presenter-NN.png` としてローカルへ同梱し、描画側へは同梱名と役割だけを渡す。`EditorialScene` は人物を使う専用構図へ分岐し、見出しと字幕の可読性を維持する。画像生成の出所は制作証跡に保持するが、動画内へ生成ツール名のクレジットを足さない。
+
+完成済みの第5〜8回は旧出力を上書きせず、既存 `reuse_audio` 経路でWAV・カット時刻・字幕・BGM・効果音の一致を確認して新しい映像を描く。合成時は旧MP4のAACを再圧縮せずコピーし、完成後に音声ストリームのSHA-256一致を必須とする。初回映像作成前の第9回は保存済みの検証済みAoede音声を使う。人物追加のためのTTS呼び出しは行わない。改訂記録は元と新しい原稿、人物と証跡、旧state、旧MP4／ZIP、新出力、音声の再利用方法と追加TTS 0件を結び付け、旧納品物を再検証する。準備後の `state.json` は新出力を指し、`delivery.json` は新しい確認・梱包が完了してから更新する。
+
+音声計数では当初の各回7件・合計35件の計画を保持する。第9回の結果不明1件を調査して明示的に1件置換した場合、元の不明記録と `manual-recovery.json` を残し、検証済み7件・以前の不明1件・合計8件を区別する。全体は検証済み35件と不明1件の計36件となる。復旧記録は計数用であり、自動再送を許可する仕組みではない。プロバイダーでの不明要求の処理・課金は不明のまま扱う。
+
+## dots完結編の連続制作（2026-10-22）
+
+`productions/SERIES_20261022_dots_finale/produce.py`は第5〜9弾を各30秒で仕上げるファイルベースの共通ドライバー。各番号フォルダーの原稿・出典・見出し・説明欄を読み、独立した`SHORT_20261022_dots_NN_editorial`の音声世代と描画フォルダーへ保存する。従来9本・補足・Aoede第3弾・公式引用第4弾の計12動画はhashを保持し、納品時に再照合する。YouTubeへの投稿はこの経路では行わない。
+
+生成前に選択した全原稿を検証し、各原稿をhashで固定する。Aoedeと`gemini-2.5-flash-preview-tts`を維持し、場面ごとの実WAVと送信証跡を保存。共有の送信時刻と排他ファイルで22秒以上の間隔を守る。再開時は検証済みWAVだけを再利用し、途中の送信や失敗記録を自動再送しない。原稿・APIキー・外部応答の扱いは既存音声ヘルパーに従い、キーを引数や記録へ出さない。
+
+編集レイアウトにmemory・channels・calendar・research・permissions・contrast・statement・recapの8種を追加する。メモ、音声波形、カレンダー、情報の関連づけ、停止の区別などを別の配色と構図で描く。これらは解説図であり、製品の実際の操作画面を模した実証ではない。狭い列には7全角相当以内の文字制限を加え、最小54pxと全frame安全域検査を継続する。引用画像は828×390以内に縦横比を保って収め、引用場面で出典を表示する。
+
+Playwrightで実際の公式ページから必要最小限の見出し・通話UI例・ルールの選択肢を撮影する。元画面、座標、日時、出典、寸法、hashを保存し、目視確認したPNGのみを各回へ同梱する。公開ZIPは動画・字幕・カバー・見出し・説明欄・出典・検証概要・再生ページ・ナレーション・manifestの10ファイルで、撮影原本やAPI記録は除く。全decode・音量・文字配置・最終画面・ZIP CRC/全メンバーhashを検証した後、既存S3upの再生用と添付用の共有経路を使う。署名URLは永続ファイルへ保存しない。
+
+## 公式画面の引用と編集演出の追加（2026-10-22）
+
+`SHORT_20261022_dots_04_editorial`は第3弾まで公開済みという利用者申告を受け、次の並行作業編を7場面で作り直す独立案件。人物素材を使わず、大きな導入、公式資料の画面引用、架空の並行作業、会話中の優先順位変更、公式の進行欄と成果物欄、次回予告へ切り替える。基本音声はAoede、BGMは既存112 BPM。公式ページの実機操作実証とは区別する。
+
+共通CLIに`source`と`editorial`を追加する。`source`は固定の公式dotsドメイン、限定したPNG/JSON保存先、出典タイトル、撮影証跡を必要とする。Playwrightで公式ページを実際に開き、拡大して必要部分だけ撮影する。元画面・切出し座標・撮影日時・URL・PNG寸法・hashを照合し、検査済みの画像だけを`capture-NN.png`として同梱する。引用画面の英文やUIは書き換えず、出典表示と日本語の解説を別の表示層に置く。原画面は非公開の制作記録として保持し、公開ZIPには入れない。
+
+`EditorialScene.tsx`は導入・並行作業・追加指示・結びの4つの閉じたレイアウトと、出典付き画像表示を担当する。引用画像はローカルファイルのみ読み、動画描画中に公式サイトへ接続しない。既存部品の文字54px・安全域・字幕・全frame検査を継続し、画像と新しいソースも描画前後のhashへ含める。証跡不足や元画面外の切出しは、既定の音声生成へ進む前に拒否する。前版の9本・補足編・公開済みAoede版のMP4を保持する。原稿・音声・描画・完成画像・最終試聴・利用者の採用・YouTube投稿は別の状態として記録する。
+
+## dots第3話のAoede音声差替え（2026-10-22）
+
+`productions/SHORT_20261022_dots_03_aoede`は、公開済みのクラウドPC補足編に続く「アプリ連携」を30秒で仕上げる独立改訂版。公式資料を再確認し、接続したGmail・Drive・GitHubと権限の説明を残す。今回の資料で確認できないエコシステムの数値は使わない。利用者が選んだAoedeを既存と同じGemini 2.5 Flash TTSで8場面別に生成し、発音辞書・要求・送信前記録・実WAV・usageとhashを保存する。短い場面に限り0.2〜40秒を許可し、従来の試聴は2〜40秒を維持する。連続要求は22秒以上離し、不明・拒否応答は自動再送しない。キーは実行環境から認証ヘッダーへだけ渡す。
+
+共通`shorts_creator.prepare`の`narration_source`は既に生成された音声記録を読み込むだけで、APIへは送信しない。指定モデル・声、台本・発音辞書・原稿順、全ファイルhash、各発話の生成証跡と原稿、24kHz mono PCMのsample数、結合音声と元sampleの一致を検査してから描画へ進む。前版AACの再利用とは併用しない。従来のSAPI既定経路を維持する。
+
+実WAVの長さから30秒内の場面とフレーズ字幕を再配置し、従来の文字54px以上・全frame安全域検査で映像を再描画する。明るい112 BPMのBGMと効果音を発話に合わせて減音し、完成AACの音量・peak・全decodeを検査する。旧9本と公開済み補足編はhashを照合して保持する。公開用MP4・カバー・字幕・見出し・説明欄・出典・検証結果を別日時フォルダーとZIPへ保存し、CRCと全member hashを確認する。利用者が報告した公開状況、試聴でのAoede選択、完成版の試聴・採用、YouTube投稿はそれぞれ別に記録する。
+
+## Geminiナレーションの少量試聴（2026-10-22更新）
+
+`productions/SHORT_20261021_dots_cloud_benefits/gemini_voice_trial.py`は既存のWindows SAPI版を保持し、冒頭3場面と同じ短い台本をGeminiで試す独立CLI。`prepare`は発音辞書を反映した台本、Kore/Aoedeの2候補、SAPI比較音声を日時・UUID別フォルダーに保存する。この段階ではGeminiへ生成を送らない。`generate --output`だけが`gemini-2.5-flash-preview-tts`の音声専用要求を各声につき1回送る。
+
+キーは既存の`GEMINI_API_KEY`または`GOOGLE_API_KEY`から読み、固定HTTPS先のヘッダーにのみ使用する。キー、ヘッダー、プロバイダーの生エラー本文は記録しない。300文字・40秒・12MiBの試聴上限、24kHz mono PCM、完了応答、全decodeを検査する。送信前の記録とhash照合により、成否不明時の自動再送・改変原稿への旧音声の流用を防ぐ。接続キー無効は実音声生成の成功と区別する。声の自然さ・発音・採用、既存ショートへの組込みは実生成後の試聴で確認する。
+
+2026年10月22日、Windowsのユーザー環境変数を読み直したキーで認証とKore/Aoedeの実生成が成功した。`package_voice_trial.py`は検証済み原稿・音声hashを読み、Windows Sayaka→Kore→Aoedeの順に、BGMなしで音量を調整した720×1280の比較MP4を作る。各行を個別に配置し、最小36pxで表示する。原音、正規化WAV、形式・全decode・音量・hashの検証と360px幅の確認画像を版別に保持する。比較の修正は保存済みWAVだけで行い、APIへ再送しない。S3再生用には指定されたMP4だけを既存S3up経路で検証して共有し、署名URLを制作ファイルへ保存しない。利用者の試聴・採用と45秒版への反映は別の段階とする。
+
+## dotsクラウドPC補足編とBGM選択（2026-10-21）
+
+`productions/SHORT_20261021_dots_cloud_benefits`は既存第2話を保持した45秒の補足編。公式資料の確認日と場面別出典を管理し、比較対象を手元のPCで動くAI作業に限定する。クラウド内の作業継続・状態保持・スマホからの依頼と確認を説明し、ローカル作業の接続条件、独立したログイン、自動移行しないタスクを説明欄にも残す。
+
+共通CLIの台本は閉じた`music_preset`を選べる。省略時は既存と同じ`electro_pop_v1`（120 BPM）。`bright_groove_v1`は112 BPMの明るいプラック、柔らかいベース、シェーカーをローカルで合成する。切り替え効果音、発話時の減音と完成AACの音量検査を継続する。実効プリセットを音声再利用署名と`preparation.json`へ含め、曲の変更時に旧AACを再利用しない。既定曲と効果音のPCM互換、別曲の再現性、ステレオ、発話時減音を検査する。任意の音声パス・外部曲のダウンロード・音楽生成APIは追加しない。完成品、BGM単体、カバー、字幕、見出し、説明欄、出典、検証結果は日時別に保存する。
+
+## 公式情報から機能別ショートを制作（2026-10-06）
+
+`productions/SERIES_20261005_dots`はOpenAI公式資料を2026年10月5日に確認した9本の30秒シリーズ。場面別の`source_ids`と提供条件を台本に保持し、公開用の説明欄と出典資料へ渡す。発表日と段階提供を分け、提供予定の機能を公開済みとして扱わない。一次資料の内部スナップショットと、配布用の要約・リンクを分離する。
+
+共通Shorts Creatorに`diagram`と`stat`を追加。`FeatureDiagram.tsx`が決められた10種のアイコン、接続線、機能ラベルと日付・数値をアニメーション表示する。JSONの種類・ラベル長をPythonとTypeScriptで検査し、描画時には従来の実DOM安全域検査を全フレームで行う。任意SVGやHTMLを台本から受け付けない。既存の6種類の場面・男女素材・最低54pxの文字・音声実測と音量基準を継続する。
+
+シリーズの`produce.py`は準備、最大3本までの並行描画、実画像確認後のレビュー記録、公開用一式の梱包を担当する。共通rendererは新しい図部品もhashへ含め、描画前後の一致を検査する。完成品は1080×1920、24fps、30秒、720frames、H.264/AACを確認する。動画・カバー・字幕・タイトル・説明欄・出典・検証結果を相対リンクのギャラリーとZIPにまとめ、CRCと各ファイルのhashを読み戻して確認する。目視確認と利用者の採用、YouTubeへの公開状態は別に保存する。
+
+## 注釈の除去と女性キャラクターの体格改訂（2026-09-30）
+
+`CreatorShortComposition.tsx`は「図解イメージ」の画面表示を行わない。JSONの`illustration`は制作上の分類として保持し、作品の内容説明は制作記録へ残す。`CATCH_20260930_claude_acquired_female_silhouette_5s`は明るい服装版の始点画像を組込み画像生成で編集し、顔・髪型・配色を維持しながら肩・腕・胴回り・座り姿勢を調整する。新しい始点をローカルH3のI2VAへ渡し、旧素材を保持した別UUID・別保存先で生成する。原本の形式・全decode・体格と手の目視検査を通した生成記録だけを30秒版へ接続する。
+
+共通CLIの`prepare`／`make --reuse-audio <前版の出力先>`は同一制作の検証済みMP4を使用する。台本・声・速度・発音・字幕・場面種別・効果音の項目数を照合し、場面時刻と再構成した音声素材のhashが一致する場合だけ前版のAACをstream copyする。完成品でAAC packetのSHA-256一致を検査するため、視覚だけの改訂で発話・音楽・音量が変わらない。アーキテクチャ図は独立した[ARCHITECTURE_DIAGRAM.md](ARCHITECTURE_DIAGRAM.md)に保持する。
+
+## ショート動画の演出共通化（2026-09-30）
+
+`studio/src/remotion/shortsMotion.ts`が安全域・文字サイズ・決定的なカメラ／見出しの動きを定義し、`ShortsMotionPrimitives.tsx`をStudio timelineと案件向け`CreatorShortComposition.tsx`で共有する。Studioの`shorts_creator_ja_v1`は既存の告知recipe保存・再実行経路へ接続し、10〜30秒、3場面、ハードカット、冒頭からの見出しを既存Detailed payloadへcompileする。旧presetのフェード・尺・保存内容は保持する。新しい任意CSS・URL・実行コードをAPIへ追加しない。
+
+`shorts_creator_v1`見出しは3行／各行14文字相当までに制限する。Pythonの検証とNode描画workerの両方で同じpreset・文字量を許可する。rendererは共通部品と日本語フォントをtool identityへ含め、文字の動きやフォントの変更で古いcacheを再利用しない。`shorts_ja_phrase_v1`字幕は測定済みSRT発話区間を10文字相当以内のフレーズへ配分し、ASS上の96px、右180px・下470pxの余白と短い出入りを適用する。Yu Gothic UIのASS字形はCSSより小さく見えるため、共通図解のCSS字幕66pxとは指定値を分ける。これは語ごとの音声アラインメントではない。
+
+StudioのPOSTが処理前のセッション拒否（403・固定のerror code/message）を返した場合に限り、同一originのトップページをGETしてHttpOnly cookieを再取得し、同じ要求を一度だけ再送する。応答消失・他の拒否・サーバーエラーは自動再送しない。サーバーのorigin検証とセッション検証は変更しない。
+
+`tools/studio/shorts_creator.py`は複数の意味単位から制作する共通ローカルCLI。JSON台本を検証し、SAPI音声を一度生成して実WAV sample数から場面を配置する。音声の切捨て・無条件の早回しは行わず、尺超過を検出する。図解6種と既存人物映像を組み、オリジナルBGM・効果音・発話時の減音を合成する。`studio/creator-render.mjs`が同じ共通描画部品を使い、PNG中間frame／H.264 CRF14へ書き出す。描画中は重要な文字の実DOM領域と横方向のはみ出しも検査する。
+
+音声はstereoを保って2-pass loudnormへ渡し、AAC化した完成品で-18〜-14 LUFS、true peak -1.0 dBFS以下を必須とする。形式、全decode、素材／ソースhash、30秒サンプルの全720frames、目視後のZIP読戻しを検査する。旧版比較・安全域表示を備えたローカル再生ページを併納する。日時別の出力先を使用し、既存の納品物を上書きしない。生成ツール名のテロップは付けない。仕様・使い方と参考資料は[SHORTS_CREATOR_JA.md](SHORTS_CREATOR_JA.md)。
+
+## Claude Code紹介ショート（2026-09-26）
+
+`productions/SHORT_20260926_claude_code_wow_30s`は既存の男女キャラクター映像を冒頭・結末に再利用し、中盤4場面をRemotionの独自図解として描画する30秒の案件専用経路。既存H3原本と生成記録のhashを照合し、新規生成の来歴と区別する。`story.json`を台本と字幕の共通入力とし、Windows SAPI速度1の音声を各5秒枠へ配置する。数式による独自BGM・切り替え音を合成し、発話区間の音楽を下げる。最低54pxの日本語フォントを同梱して720framesを描画し、映像を再圧縮せずAAC音声を合わせる。形式・全decode・音声peakと目視を確認し、公開操作から分離したローカル候補を保存する。
+
+2026-09-29の利用者指定により、以後の完成動画とカバーには「MiniMaxで作成」などの生成ツール名を示すテロップを入れない。生成元の情報は制作記録に保持する。当該旧版では中盤に「図解イメージ」を残していたが、その後の利用者指定に従い、現行制作では表示しない。公式出典案内は引用場面に表示する。視覚だけの改訂では`prepare --reuse-audio <前版>`が台本・声・速度・発音・音楽設定と既存音声成果物のhashを照合する。新しい映像へ検証済み前版のAACをstream copyし、完成後に音声packetのSHA-256一致を確認する。前版を保持し、新しい日時フォルダーへ映像・カバー・検証記録・納品ZIPを保存する。
+
+## 女性版の衣装差分（2026-09-21）
+
+`CATCH_20260921_claude_acquired_female_bright_5s`は前回の女性始点画像をCodex組込み画像生成で編集し、アイボリーのパーカーと水色のインナーを新しいキー画像として保存する。既存女性版の素材・prompt・制作コードを上書きせず、別制作の`LoadImage → MiniMaxH3ImageToVideo.first_frame`へ接続する。ローカルComfyUIは最初から`--reserve-vram 1.5`で起動し、今回のUUID・graph・history・原本を独立して記録する。男性版の検証済み音声とチャイムは従来と同じ照合で再利用し、完成品を前回の服装と比較する。キャラクター台帳では衣装候補と利用者の採用を分離する。
+
+## 参照画像から女性キャラクター版を作る経路（2026-09-20）
+
+利用者が基本に選んだ男性キャラクターの冒頭画像を、Codex組込み画像生成で女性版へ編集し、保存した画像をローカルComfyUIの`LoadImage`から`MiniMaxH3ImageToVideo.first_frame`へ渡す。既存Q4 text/vision encoderとofficial INT8モデルでI2VAを行う案件専用経路で、Studioの標準T2VA UI／APIは変更しない。`productions/characters/programmer-duo`は共通の外観、採用済み男性版と試作女性版の区別、参照画像のpath／hashを記録する。
+
+女性版`generate.py`は送信前にgraph・request UUIDを保存し、送信成功後は同一UUIDのhistoryだけを再照合する。graphと実historyの一致、キー画像・prompt・原本のhashと全decodeを記録し、原本を目視してから描画する。`produce.py prepare`は男性版の声・速度・発音・台詞・開始時刻と既存成果物hashを照合して、ナレーション4成果物とチャイムを再利用する。文字は同じ最低54pxのデザインを使用。始点画像の生成元とローカル動画の生成元を区別して記録する。
+
+8GB VRAMのI2VA試行では、今回用ComfyUIを`--reserve-vram 1.5`で起動し、他の設定を保ってGPUメモリの余裕を増やす。旧IDを対象指定で中断し空queueを確認してから、自分が起動したComfyUIだけを再起動する。旧historyは保存し、新IDの生成記録から参照する。`generate.py --headroom`は試行別の保存先と記録を選び、OSや他アプリの設定を変更しない。
+
+## ゲーム風の5秒キャッチ制作（2026-09-19）
+
+`productions/CATCH_20260919_claude_acquired_5s`は、利用者が指定した「日本人プログラマーがClaudeを手に入れた」というゲーム風の独立した挿入候補を作る。既存30秒動画の経路は維持する。英語promptを固定T2VA graphへ入れ、ローカルMiniMax H3／official INT8 ConvRot + Q4／768×1376／20 stepsで生成し、graph・送信ID・history・原本をhashで結び付ける。原本の目視確認を通過した記録だけを案件rendererへ渡す。
+
+案件用`produce.py prepare`は共通SAPI workerで1.7秒開始の短い発話を作り、実WAVが4.9秒以内に終わるか確認する。獲得音は外部素材を使わず、固定音階と減衰包絡からPCMで合成する。`Catch.tsx`は生成素材を無音表示し、最低54pxのゲーム風バッジと日本語メッセージを加える。`render.mjs`は入力hashを描画前後に照合して1080×1920／24fps／120frames／CRF 12へ出力する。`produce.py finish`は同じ映像packetへ、声と効果音または効果音のみをAAC 48kHzでmuxする。全decode、5秒、媒体形式、音声peak、両版の映像packet一致と360px幅の目視確認を行う。これは案件別制作で、StudioのUI・API・DB・標準workerの変更は含まない。
+
+## 冒頭の画質を上げる制作経路（2026-09-18）
+
+案件の`delivery_profile: hq_direct_v1`は、768px以上の幅・1344px以上の高さで生成したアイキャッチを要求する。画質比較では同じ夜景prompt・seed・20 steps・5秒を保ち、480×864から768×1376へ生成サイズを上げる。単なる最終MP4のサイズ変更とは区別し、原本のffprobe値と生成graphを検証記録に残す。冒頭の生成映像ラベルは下部の出典案内へ統合し、ビル群の中央を覆わない配置にする。
+
+HQ経路のRemotion中間映像はCRF 12。案件用`produce.py`が既存Studioの字幕生成関数と80px presetを再利用し、字幕付き映像を中間映像から直接CRF 14／slowで1回だけ圧縮する。字幕なし版は映像をstream copyする。これにより、標準assemblyのclean→captionedという2回のCRF 18再圧縮を避ける。通常Studioのworkerと既存の標準経路は変更しない。
+
+音声は`prepare --reuse-audio <前版>`で台本・速度・発音・音声4成果物と前版の検証記録／完成MP4を照合し、前版のAAC packetを両完成版へcopyする。完成後に音声streamのSHA-256一致を必須とし、30秒／720frames／1080×1920／24fps／全decode／ZIP読戻しの既存検査も実施する。映像再利用時の比較対象に`delivery_profile`を追加し、圧縮設定を取り違えないようにする。
+
+## 明るい夜景への差し替え（2026-09-18）
+
+Claudeモデル進化動画のアイキャッチを、案件用の英語promptからローカルMiniMax H3で作る経路を追加した。既存の固定API graphを使用し、official INT8 ConvRot + Q4 text encoder／Dynamic VRAM／20 steps／縦0.4MP／5秒で実行する。元の夕景と前版成果物は保持する。`prompts/NIGHT_CITY_H3.md`に照明・反射・構図・カメラ移動を記録し、生成graph・送信ID・完了history・原本MP4のhashを検証記録へ結び付ける。
+
+rendererは従来の原本と生成記録の照合に加えて、記録に含まれる入力ファイルも照合する。`generation_context`で今回用の新規生成と過去素材の再利用を区別し、その区別を成果物へ引き継ぐ。冒頭だけ暗幕を弱め、文字の影と出典案内の半透明背景で読みやすさを補う。素材に`brightness(1.14) saturate(1.12)`を適用する。以降の図解・最低54px・既存ナレーションの再利用を維持する。音声だけの後続改訂でも、映像再利用記録から文字サイズと生成経緯を引き継ぐ。
+
+## 読みやすさとMiniMaxアイキャッチ（2026-09-17）
+
+Claudeモデル進化の案件用`Evolution.tsx`は、全描画文字の下限を54pxへ変更した（1080px幅、360px表示時18px相当）。長い補足を整理し、日付・グラフ軸・出典案内も同じ下限を守る。`Hero`の実行時検査とrendererの文字サイズ定義検査を行い、完成画像を360px幅で目視する。ナレーション字幕は従来の80px presetを維持する。
+
+冒頭5秒だけ`OffthreadVideo`で既存MiniMax H3生成の都市映像を無音表示する。`story.json.eyecatch`に原本path／bytes／SHA-256、生成検証JSONのpath／hash、120frames／audio=falseを保存。rendererは原本と生成記録の対応・媒体形式・全decodeを確認し、固定名でpublicへ配置して描画する。既存生成物の再利用であり、新規H3推論、課金API、Claude Code実画面収録ではない。
+
+`produce.py prepare --reuse-audio <前版>`はvoice／rate／pronunciations／全segmentsが一致する場合に、検証済みナレーション4成果物を参照する。前版の記録と実ファイルのhashを検査し、実WAVと字幕の時刻を保ったまま映像を作り直す。新しい視覚入力を古い映像へ誤適用しないよう、映像再利用時の比較対象へ`visual_style`と`eyecatch`も含める。成果物は新しい出力フォルダーに保存する。[制作記録](productions/SHORT_20260916_claude_code_evolution_30s/README.md)。
+
 ## Claudeモデル進化の30秒初稿（2026-09-16）
 
 `productions/SHORT_20260916_claude_code_evolution_30s/`は、公式出典から作る年表・比較図解の案件用制作経路。`SOURCES_JA.md`が根拠、`story.json`が字幕・発音辞書・モデル名・発表日・比較値の正本。`produce.py prepare`は既存Windows SAPIで6発話を生成し、実WAVの尺が各5秒枠へ収まることを検査する。`render.mjs`と`Evolution.tsx`は同梱フォントを読み込み、30秒の独自図解を描画する。`produce.py finish`は既存assembly workerで字幕あり／なしMP4を合成し、形式・全decode・ZIP読戻しを検査する。
@@ -656,6 +862,11 @@ Run契約修正後の再受入では、run `run_c0745a922f814b67b1c45f7fbac8fd80
 
 この受入はWeb viewport収録の証拠です。Windowsデスクトップ／ネイティブアプリ、system audio、microphone、既存ログインsession、外部Webサイト、複数page／popup、30秒超の収録は対象外です。収録MP4は既存timelineのvideo artifact候補として利用できますが、screen captureだけのRunでnarration／assemblyまで自動完走することは保証しません。
 
+
+## 2026-10-23 Docs共同編集とdotsメッセージ改訂
+
+案件用ドライバーは `productions/SERIES_20261023_editorial_revision/` に分離した。既存の音声生成ロック、完全一致PCM再利用、prepare/render/finishを使用し、Studio共通処理の仕様は変更していない。詳細は同フォルダーの独立したARCHITECTURE.mdに記録する。Docsの実演と公式説明を区別し、動画と記事PDFを版付きDriveレビューへ渡す。
+
 ## 2026-10-24 調査から始める動画・記事の共通企画
 
 `tools/studio/content_workspace.py` が機能1〜5（調査・企画、撮影計画、根拠、素材、人物・絵コンテ）の共通サービスとCLIを提供する。`StudioService.content_workspace`、`/api/content-projects`、`ContentWorkspacePanel` が同じ正本へ接続する。Web調査・自然文解釈・Computer Useはチャット側で実行し、結果を共通処理へ記録する。ローカルStudioへ外部アカウント権限を複製したり、自律検索・生成・送信を追加したものではない。
@@ -721,3 +932,10 @@ Shortsのgraphic列挙に `web-services` と `web-flow` を追加し、`WebRunti
 詳細転記動画v04は、冒頭の短い見出し・説明欄の改行・金額を読む静止説明の3区間だけを置換。数字やUIを描き直さず、元録画の入力完了時の実フレームを選び、確認画面と呼び替えない。採用済みv03のAACをそのままコピーし、全体hash一致を検証する。尺248.125秒・5955フレームを維持し、追加TTS・MiniMax・画像生成APIは0回。
 
 関連54テスト、全decode、変更境界を含む18確認画像、変更外3時点の画素差、旧3版の不変を確認。記事草稿も読める入力画像に合わせ、確認画像を外した根拠9点と出典・ZIP hashを保存する。共通台帳revision 48に準備上のblocker・warningなし。旧採用版と新レビュー候補、入力画面と確認画面、人の採用と公開を分ける。個別の独立設計とMermaid図、改訂理由は `productions/LONG_20261026_dots_transfer_detail/` を参照する。
+
+
+## 制作資産のmain統合と保存境界（2026-10-28）
+
+制作コード・台本・出典・プロンプト・ペルソナ・検証要約は個人forkで管理する。実メディア・私的キャプチャ・共有受領・API生応答・描画bundleはローカル／指定共有ストレージで保持する。Gitのmain統合、生成・撮影・人の採用、媒体公開は独立した状態である。統合記録は `docs/video-production/GITHUB_SYNC_20261028_JA.md`。
+
+画像の安全性テストは架空PNGと証明レコード、TTSの拒否・再送防止テストは独立一時フォルダーとモックを利用し、非公開の撮影素材や既存outputsを初回テストの前提にしない。ファイル差し替え検知のテストは同一サイズを保ったまま更新時刻を明示して検査する。

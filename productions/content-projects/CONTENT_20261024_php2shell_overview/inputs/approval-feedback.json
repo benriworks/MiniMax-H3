@@ -1,0 +1,11 @@
+{
+  "operation_id": "php_v01_feedback",
+  "expected_revision": 14,
+  "data": {
+    "feedback_id": "feedback_php_concept_character_accept",
+    "proposal_id": "proposal_php_overview_v01",
+    "kind": "acceptance",
+    "text": "この構成・人物で進める",
+    "interpretation": "提示済み約50秒構成と三浦航v01参照画像を採用。本番のMiniMax人物動画とAoede音声の制作へ進む。最終動画の試聴・公開は別。"
+  }
+}

@@ -1,0 +1,225 @@
+{
+  "operation_id": "php_storyboard_v04",
+  "expected_revision": 36,
+  "data": {
+    "episode_id": "php2shell_overview",
+    "scenes": [
+      {
+        "asset_ids": [
+          "miura-wataru-reference",
+          "miura-concerned-chin-v04"
+        ],
+        "beat": "problem",
+        "character_action": "軽い困り顔。緩く握った右手を顎の下へそっと添えて考える。目・眼鏡・口と字幕を分離。",
+        "character_ids": [
+          "miura_wataru"
+        ],
+        "claim_ids": [
+          "php_services"
+        ],
+        "duration_seconds": 3.7916666666666665,
+        "face_caption_separated": true,
+        "narration": "WordPressのサイトも、他人事ではありません。",
+        "presenter_layout": "fullscreen",
+        "purpose": "WordPressも・他人事ではない",
+        "scene_id": "php_v03_scene_00",
+        "source_ids": [
+          "wordpress_php_v03"
+        ],
+        "visual": "新規MiniMax人物動画を全面表示。初期の元画像の笑顔を避けて使用区間を選ぶ。"
+      },
+      {
+        "asset_ids": [],
+        "beat": "evidence",
+        "character_ids": [],
+        "claim_ids": [
+          "japan_usage"
+        ],
+        "duration_seconds": 6.291666666666667,
+        "narration": "日本国内のサーバーでは、言語を判別できたサイトの9割以上がPHPです。",
+        "purpose": "日本国内サーバーの・PHP利用率",
+        "scene_id": "php_v03_scene_01",
+        "source_ids": [
+          "w3techs_japan_v03",
+          "w3techs_method_v03"
+        ],
+        "visual": "出典付きの統計表示"
+      },
+      {
+        "asset_ids": [
+          "php-services-v03"
+        ],
+        "beat": "insight",
+        "character_ids": [],
+        "claim_ids": [
+          "php_services"
+        ],
+        "duration_seconds": 6.0,
+        "narration": "PHPは、WordPressやフォーム、買い物の仕組みを動かす言語です。",
+        "purpose": "WordPressも・PHPで動く",
+        "scene_id": "php_v03_scene_02",
+        "source_ids": [
+          "wordpress_php_v03",
+          "php_intro_v03"
+        ],
+        "visual": "PHPで使うサービス・利用者・サーバー・応答の自作イラスト"
+      },
+      {
+        "asset_ids": [
+          "php-request-response-v03"
+        ],
+        "beat": "insight",
+        "character_ids": [],
+        "claim_ids": [
+          "php_request_response"
+        ],
+        "duration_seconds": 4.875,
+        "narration": "アクセスを受けると、サーバーで処理し、結果を画面に返します。",
+        "purpose": "人がアクセス・サーバーで処理",
+        "scene_id": "php_v03_scene_03",
+        "source_ids": [
+          "php_intro_v03"
+        ],
+        "visual": "PHPで使うサービス・利用者・サーバー・応答の自作イラスト"
+      },
+      {
+        "asset_ids": [
+          "php-public-quote-v01"
+        ],
+        "beat": "evidence",
+        "character_ids": [],
+        "claim_ids": [
+          "identity"
+        ],
+        "duration_seconds": 6.291666666666667,
+        "narration": "サイトの裏側を動かすPHPに、2件の重大な脆弱性が公表されました。",
+        "purpose": "10月21日・PHPに重大な不具合",
+        "scene_id": "php_v03_scene_04",
+        "source_ids": [
+          "php_oct21"
+        ],
+        "visual": "公式画面の引用"
+      },
+      {
+        "asset_ids": [],
+        "beat": "insight",
+        "character_ids": [],
+        "claim_ids": [
+          "impact"
+        ],
+        "duration_seconds": 4.458333333333333,
+        "narration": "通称、PHPツーシェル。条件がそろうと、",
+        "purpose": "通称PHP2Shell・2件の重大な不具合",
+        "scene_id": "php_v03_scene_05",
+        "source_ids": [
+          "php_oom",
+          "php_state"
+        ],
+        "visual": "自作の説明と確認項目"
+      },
+      {
+        "asset_ids": [],
+        "beat": "insight",
+        "character_ids": [],
+        "claim_ids": [
+          "impact"
+        ],
+        "duration_seconds": 4.625,
+        "narration": "ログインせずにサーバーでプログラムを実行される恐れがあります。",
+        "purpose": "ログインなしで・不正な処理の恐れ",
+        "scene_id": "php_v03_scene_06",
+        "source_ids": [
+          "php_oom",
+          "php_state"
+        ],
+        "visual": "自作の説明と確認項目"
+      },
+      {
+        "asset_ids": [],
+        "beat": "action",
+        "character_ids": [],
+        "claim_ids": [
+          "response"
+        ],
+        "duration_seconds": 5.666666666666667,
+        "narration": "管理担当やホスティング会社に、利用中のPHPを確認。",
+        "purpose": "誰に、何を聞く？",
+        "scene_id": "php_v03_scene_07",
+        "source_ids": [
+          "jpcert_oct22"
+        ],
+        "visual": "自作の説明と確認項目"
+      },
+      {
+        "asset_ids": [],
+        "beat": "action",
+        "character_ids": [],
+        "claim_ids": [
+          "fixes",
+          "response"
+        ],
+        "duration_seconds": 5.208333333333333,
+        "narration": "対策済みかも聞き、修正版への更新と動作確認を。",
+        "purpose": "修正版へ更新・動作も確認",
+        "scene_id": "php_v03_scene_08",
+        "source_ids": [
+          "php_oct21",
+          "jpcert_oct22"
+        ],
+        "visual": "自作の説明と確認項目"
+      },
+      {
+        "asset_ids": [],
+        "beat": "action",
+        "character_ids": [],
+        "claim_ids": [
+          "response"
+        ],
+        "duration_seconds": 3.25,
+        "narration": "不審なログの調査も忘れずに。",
+        "purpose": "更新したら・ログも調べる",
+        "scene_id": "php_v03_scene_09",
+        "source_ids": [
+          "jpcert_oct22"
+        ],
+        "visual": "自作の説明と確認項目"
+      },
+      {
+        "asset_ids": [
+          "php-followup-public-quote-v01"
+        ],
+        "beat": "evidence",
+        "character_ids": [],
+        "claim_ids": [
+          "followup"
+        ],
+        "duration_seconds": 6.208333333333333,
+        "narration": "10月23日には、別の条件に関する追加注意喚起も出ています。",
+        "purpose": "10月23日にも・追加の注意喚起",
+        "scene_id": "php_v03_scene_10",
+        "source_ids": [
+          "php_oct23"
+        ],
+        "visual": "公式画面の引用"
+      },
+      {
+        "asset_ids": [],
+        "beat": "action",
+        "character_ids": [],
+        "claim_ids": [
+          "followup",
+          "response"
+        ],
+        "duration_seconds": 3.3333333333333335,
+        "narration": "最新の公式案内まで確認を。",
+        "purpose": "最新の公式案内まで・確認しましょう",
+        "scene_id": "php_v03_scene_11",
+        "source_ids": [
+          "php_oct23",
+          "jpcert_oct22"
+        ],
+        "visual": "自作の説明と確認項目"
+      }
+    ]
+  }
+}

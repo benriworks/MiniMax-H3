@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "episode": 1,
+  "status": "root_review_required",
+  "text_layout_validation": "passed",
+  "common_story_validation": "passed",
+  "narration_characters": 161,
+  "source_proposal": {
+    "path": "productions/SERIES_20261022_claude_work/scripts-draft.json",
+    "bytes": 33343,
+    "sha256": "41063E1E4B7BA048FF1490C488AC98210208B02E03651AF48B3A277AD3B01D3D"
+  },
+  "change_note": "中央4実演枠を依頼の価格/予算→初回予算欄→修正依頼→修正後予算欄へ絞った。目的・日程など画面にない項目の確認を完了と断定しない。",
+  "scenes": [
+    {
+      "scene": 1,
+      "original_scene_id": "01-hook",
+      "status": "asset_reviewed_root_story_review_pending",
+      "asset": {
+        "path": "outputs/characters/explainer-motion-20261022/claude-shiori/MiniMax_H3_claude_shiori_00001_.mp4",
+        "proof": "outputs/characters/explainer-motion-20261022/claude-shiori/verification.json"
+      }
+    },
+    {
+      "scene": 2,
+      "original_scene_id": "02-source",
+      "status": "capture_reviewed_root_story_review_pending",
+      "capture_id": "docs-create",
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_01_work/captures/docs-create.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_01_work/captures/docs-create.json",
+        "origin": "official",
+        "title": "Create a doc",
+        "source_url": "https://support.claude.com/en/articles/16923645-get-started-with-claude-docs"
+      },
+      "capture_quality": "official_crop_reviewed"
+    },
+    {
+      "scene": 3,
+      "original_scene_id": "03-request",
+      "status": "capture_reviewed_root_story_review_pending",
+      "capture_id": "01-input-numbers-native",
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_01_work/captures/01-input-numbers-native.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_01_work/captures/01-input-numbers-native.json",
+        "origin": "demonstration",
+        "title": "価格と予算のメモ",
+        "product": "Claude",
+        "phase": "before"
+      },
+      "capture_quality": "native_png_ready_for_scene_review"
+    },
+    {
+      "scene": 4,
+      "original_scene_id": "04-first",
+      "status": "capture_reviewed_root_story_review_pending",
+      "capture_id": "01-budget-first-history-native",
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_01_work/captures/01-budget-first-history-native.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_01_work/captures/01-budget-first-history-native-821e5d74e853.json",
+        "origin": "demonstration",
+        "title": "初回の予算欄",
+        "product": "Claude",
+        "phase": "first-output"
+      },
+      "capture_quality": "native_png_ready_for_scene_review"
+    },
+    {
+      "scene": 5,
+      "original_scene_id": "05-revise",
+      "status": "capture_reviewed_root_story_review_pending",
+      "capture_id": "01-revision-budget-heading-native",
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_01_work/captures/01-revision-budget-heading-native.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_01_work/captures/01-revision-budget-heading-native.json",
+        "origin": "demonstration",
+        "title": "見出しの修正依頼",
+        "product": "Claude",
+        "phase": "revision"
+      },
+      "capture_quality": "native_png_ready_for_scene_review"
+    },
+    {
+      "scene": 6,
+      "original_scene_id": "06-check",
+      "status": "capture_reviewed_root_story_review_pending",
+      "capture_id": "01-budget-revised-history-native",
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_01_work/captures/01-budget-revised-history-native.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_01_work/captures/01-budget-revised-history-native-85cfab7cee8c.json",
+        "origin": "demonstration",
+        "title": "修正後の予算欄",
+        "product": "Claude",
+        "phase": "after"
+      },
+      "capture_quality": "native_png_ready_for_scene_review"
+    },
+    {
+      "scene": 7,
+      "original_scene_id": "07-close",
+      "status": "asset_reviewed_root_story_review_pending",
+      "asset": {
+        "path": "outputs/characters/explainer-motion-20261022/claude-shiori/MiniMax_H3_claude_shiori_00001_.mp4",
+        "proof": "outputs/characters/explainer-motion-20261022/claude-shiori/verification.json"
+      }
+    }
+  ],
+  "paid_requests_submitted": 0,
+  "production_story_written": false,
+  "actual_30_seconds_verified": false,
+  "ready_for_tts": false,
+  "remaining": [
+    "親による実素材・文意レビュー",
+    "最終構成の確認",
+    "動画内の文字・前後比較の可読性確認",
+    "ナレーション確定後の音声生成と実尺測定"
+  ],
+  "native_recapture_required_scenes": []
+}

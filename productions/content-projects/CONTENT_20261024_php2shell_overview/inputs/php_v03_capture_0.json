@@ -1,0 +1,16 @@
+{
+  "operation_id": "php_v03_capture_0",
+  "expected_revision": 27,
+  "data": {
+    "asset_id": "php_v03_research_capture_0",
+    "kind": "official_capture",
+    "path": "outputs/content-projects/CONTENT_20261024_php2shell_overview/captures/revision-v03/w3techs-original.jpg",
+    "visibility": "private",
+    "privacy_review": "passed",
+    "source_url": "https://w3techs.com/technologies/breakdown/pl-php/server_location",
+    "source_checked_at": "2026-10-25",
+    "caption": "Japan 92.4%; server-side language known, server location Japan; data date 2026-10-24",
+    "blog_usage_review": "pending",
+    "user_approved_for_blog": false
+  }
+}

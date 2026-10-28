@@ -1,0 +1,155 @@
+{
+  "schema_version": 1,
+  "id": "SHORT_20261022_claude_02_work",
+  "title": "【Claude】同じ企画を5枚に！Slidesで会議資料を作る",
+  "voice": "Aoede",
+  "rate": 1,
+  "duration_seconds": 30,
+  "music_preset": "bright_groove_v1",
+  "pronunciations": [
+    {
+      "source": "Claude",
+      "target": "クロード"
+    },
+    {
+      "source": "Docs",
+      "target": "ドックス"
+    },
+    {
+      "source": "Slides",
+      "target": "スライド"
+    },
+    {
+      "source": "Design",
+      "target": "デザイン"
+    },
+    {
+      "source": "栞",
+      "target": "しおり"
+    }
+  ],
+  "scenes": [
+    {
+      "kind": "editorial",
+      "visual_style": "business",
+      "headline": "企画書を、\n会議で伝える。",
+      "eyebrow": "CLAUDE 02 / Slides",
+      "narration": "栞さんの次の仕事は、企画を短く伝える資料づくり。",
+      "captions": [
+        "栞さんの次の仕事は、",
+        "企画を短く伝える\n資料づくり。"
+      ],
+      "source_ids": [],
+      "editorial_layout": "hook",
+      "body": "企画担当の栞さん",
+      "action": "架空の業務例"
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "Slidesで\nプレゼン資料へ",
+      "eyebrow": "CLAUDE 02 / Slides",
+      "narration": "公式のスライド機能では、会話の内容から資料を作れます。",
+      "captions": [
+        "公式のスライド機能では、",
+        "会話の内容から\n資料を作れます。"
+      ],
+      "source_ids": [
+        "claude_artifacts"
+      ],
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_02_work/captures/artifacts-slides.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_02_work/captures/artifacts-slides.json",
+        "origin": "official",
+        "title": "Slides",
+        "source_url": "https://support.claude.com/en/articles/17153992-what-are-artifacts-and-how-do-i-use-them"
+      }
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "枚数と流れを\n先に伝える",
+      "eyebrow": "CLAUDE 02 / Slides",
+      "narration": "五枚にして、目的、内容、日程などの流れを指定します。",
+      "captions": [
+        "五枚にして、",
+        "目的、内容、日程などの\n流れを指定します。"
+      ],
+      "source_ids": [
+        "claude_artifacts"
+      ],
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_02_work/captures/02-slides-request-five.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_02_work/captures/02-slides-request-five.json",
+        "origin": "demonstration",
+        "title": "日本語で5枚を依頼",
+        "product": "Claude",
+        "phase": "before"
+      }
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "一覧で\n全体を確認",
+      "eyebrow": "CLAUDE 02 / Slides",
+      "narration": "まず一覧で、話の順番と文字の量を確認。",
+      "captions": [
+        "まず一覧で、",
+        "話の順番と\n文字の量を確認。"
+      ],
+      "source_ids": [
+        "claude_artifacts"
+      ],
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_02_work/captures/02-slides-five-thumbnails.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_02_work/captures/02-slides-five-thumbnails.json",
+        "origin": "demonstration",
+        "title": "初回出力の5枚",
+        "product": "Claude",
+        "phase": "first-output"
+      }
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "気になる一枚を\nもう少し見やすく",
+      "eyebrow": "CLAUDE 02 / Slides",
+      "narration": "気になる一枚を、もう少し見やすく整えるよう頼みます。",
+      "captions": [
+        "気になる一枚を、",
+        "もう少し見やすく\n整えるよう頼みます。"
+      ],
+      "source_ids": [
+        "claude_artifacts"
+      ]
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "見やすさと\n数字を確かめる",
+      "eyebrow": "CLAUDE 02 / Slides",
+      "narration": "見やすさに加えて、価格や日付も元の企画と照合。",
+      "captions": [
+        "見やすさに加えて、",
+        "価格や日付も\n元の企画と照合。"
+      ],
+      "source_ids": []
+    },
+    {
+      "kind": "editorial",
+      "visual_style": "business",
+      "headline": "伝える資料へ。\n次は告知デザイン",
+      "eyebrow": "CLAUDE 02 / Slides",
+      "narration": "栞さんは、伝わるかを確かめます。次は告知デザインです。",
+      "captions": [
+        "栞さんは、\n伝わるかを確かめます。",
+        "次は告知デザインです。"
+      ],
+      "source_ids": [],
+      "editorial_layout": "closing",
+      "body": "作って、見て、直す",
+      "action": "内容は自分で確認"
+    }
+  ],
+  "draft_status": "root_review_required_do_not_generate"
+}

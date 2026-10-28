@@ -29,7 +29,11 @@ def finalize():
         return
     receipt = read(OUT / 'drive-readback-v01.json')
     drive = {f['id']: f for f in receipt['files']}
-    ids = ['1RJdmBqTwyyAmZ1Fazf9oASEwkrS9FAhM', '1gkcNhApb0gdynWmGEXHxqdqfuDgeCFRS', '1u1Ru8SEGMjNx-8fzEifiArHVG4Xra8yX']
+    # Private file/folder identifiers stay with local upload readback records.
+    bindings = read(OUT / 'drive-review-bindings-v01.json')
+    ids = bindings['video_file_ids']
+    folder_id = bindings['folder_id']
+    article_id = bindings['article_file_id']
     deliveries = []
     for episode, file_id in enumerate(ids, 1):
         destination = ROOT / read(OUT / f'render-state-{episode:02d}-v01.json')['output']
@@ -37,7 +41,7 @@ def finalize():
         video = check(proof['delivery'])
         assert proof['full_decode_verified'] and not proof['user_approved']
         assert int(drive[file_id]['size']) == video.stat().st_size
-        assert drive[file_id]['parent_ids'] == ['1yFT-FQWrg4jiV84VEubw7WGzW74LLB-K']
+        assert drive[file_id]['parent_ids'] == [folder_id]
         assert drive[file_id]['mime_type'] == 'video/mp4'
         for source in proof['sources']:
             check(source)
@@ -83,10 +87,10 @@ def finalize():
         source_copy_matches_preservation_record=True, case_gui_comparison_record_matches=True,
         case_records=3, total_yen=250000, root_operator_reperformed_all_cloud_gui_steps=False))
     pdf = OUT / 'blog-handoff/v02/dots-cloud-desktop-article-v03.pdf'
-    assert int(drive['13tq8Qo6jzie4fFBNniN2rIHHbYqnMCcR']['size']) == pdf.stat().st_size
+    assert int(drive[article_id]['size']) == pdf.stat().st_size
     write(OUT / 'delivery-v01.json', dict(content_project_id=HERE.name, finalized_at=datetime.now(timezone.utc).isoformat(),
-        review_folder='https://drive.google.com/drive/folders/1yFT-FQWrg4jiV84VEubw7WGzW74LLB-K',
-        videos=deliveries, article_pdf=record(pdf), article_pdf_drive_url=drive['13tq8Qo6jzie4fFBNniN2rIHHbYqnMCcR']['url'],
+        review_folder='https://drive.google.com/drive/folders/' + folder_id,
+        videos=deliveries, article_pdf=record(pdf), article_pdf_drive_url=drive[article_id]['url'],
         article_pdf_pages=8, article_pdf_ai_layout_review='passed', article_handoff_version=2,
         workspace_revision=53, s3_uploaded=False, human_reviewed=False, user_approved=False, published=False))
     print('3 candidates finalized; 59 cloud members verified; human review and publication remain pending')

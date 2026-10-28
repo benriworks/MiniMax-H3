@@ -17,3 +17,6 @@
 人物は既存dots編の男女を引き継ぐ方針。新キャラを作らない。参照は `productions/characters/programmer-duo/` と `productions/characters/motion-registry-20261022.json`。既存生成物の `user_approved:false` は維持し、顔・衣装の継続と完成クリップの採用を混同しない。人物は完成物を見た気づき・次の行動に短く使い、冒頭の成果物表示を人物の挨拶で遅らせない。Aoedeを継続し、制作都合の注釈を入れない。
 
 案件出力は `outputs/content-projects/CONTENT_20261025_dots_shared_desktop_pilot/`。撮影原本、公開候補、記事受け渡し、CLI入力・結果を版付きで保存する。文書は個人fork、動画・音声・ZIP・非公開原本はローカルと必要な共有先に置く。
+
+
+2026-10-28 Git統合時の整理：`finalize_review.py` の私的なDriveファイルID・フォルダーIDは、ローカルの `outputs/content-projects/CONTENT_20261025_dots_shared_desktop_pilot/drive-review-bindings-v01.json` から読む。項目は `video_file_ids`（回順の3件）、`folder_id`、`article_file_id`。この設定とアップロード受領記録はGit対象外とし、再実行時は両者を揃える。既存の納品記録があれば保持する動作は変えない。

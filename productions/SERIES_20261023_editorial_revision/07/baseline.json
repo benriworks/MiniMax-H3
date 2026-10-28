@@ -1,0 +1,12 @@
+{
+  "voice_source": {
+    "path": "outputs/productions/SHORT_20261023_dots_07_final/voice-generations/v01/voice-source.json",
+    "bytes": 6444,
+    "sha256": "C75158357BFF2D73787887225C20F332E47EBFD65AE9AF856BAF5D2520B7988F"
+  },
+  "video": {
+    "path": "outputs/productions/SHORT_20261023_dots_07_final/20261023T063917453201Z/shorts-creator.mp4",
+    "bytes": 8421423,
+    "sha256": "D42C2CA56C18A8B00DA2861262EF7CA1156B3401971780F9C0345F36AA14A2E5"
+  }
+}

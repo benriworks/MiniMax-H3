@@ -1,0 +1,15 @@
+{
+  "operation_id": "op_php_asset_12",
+  "expected_revision": 12,
+  "data": {
+    "asset_id": "miura-wataru-reference",
+    "kind": "generated_still",
+    "path": "outputs/content-projects/CONTENT_20261024_php2shell_overview/characters/miura-wataru/v01/reference.png",
+    "visibility": "public",
+    "privacy_review": "passed",
+    "alt": "紺のジャケットと眼鏡の架空のWeb運用担当者、三浦航の人物候補",
+    "caption": "架空の成人。人物の採用確認用参照画像v01。",
+    "user_approved_for_blog": false,
+    "generation_record": "outputs/content-projects/CONTENT_20261024_php2shell_overview/characters/miura-wataru/v01/generation-record.json"
+  }
+}

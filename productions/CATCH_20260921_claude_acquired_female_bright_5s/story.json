@@ -1,0 +1,23 @@
+{
+  "title": "Claudeを手に入れた！ 女性プログラマー・明るい服装版",
+  "duration_ms": 5000,
+  "fps": 24,
+  "width": 1080,
+  "height": 1920,
+  "minimum_font_px": 54,
+  "voice": "Microsoft Sayaka",
+  "rate": 1,
+  "narration": "Claudeを、手に入れた！",
+  "narration_start_ms": 1700,
+  "pronunciations": [
+    {
+      "source": "Claude",
+      "target": "クロード"
+    }
+  ],
+  "visual_direction": "Same adult female programmer with a black bob, warm ivory hoodie, light sky-blue shirt and blue jeans, in the same anime-style 3D game reward scene.",
+  "generated_source_audio": false,
+  "source_generation_record": "verification/claude-acquired-female-bright-2026-09-21.json",
+  "audio_source_folder": "outputs/productions/CATCH_20260919_claude_acquired_5s/20260919T104749422759Z",
+  "character_guide": "productions/characters/programmer-duo/README.md"
+}

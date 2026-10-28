@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch,Mock
 from urllib.error import HTTPError
-from tools.studio.dialogue_narration import ROOT,payload,synthesize
+from tools.studio.dialogue_narration import payload,synthesize
 
 
 class DialogueSafetyTests(unittest.TestCase):
@@ -34,8 +34,8 @@ class DialogueSafetyTests(unittest.TestCase):
     def test_a_definite_rejection_is_not_submitted_again(self):
         error=HTTPError('https://example.invalid',400,'Bad request',{},io.BytesIO(json.dumps({'error':{'status':'INVALID_ARGUMENT','message':'Expected audio'}}).encode()))
         opener=Mock();opener.open.side_effect=error
-        with tempfile.TemporaryDirectory(dir=ROOT/'outputs',prefix='dialogue-safety-') as directory:
-            target=Path(directory)/'turn'
+        with tempfile.TemporaryDirectory(prefix='dialogue-safety-') as directory, patch('tools.studio.dialogue_narration.ROOT',Path(directory)):
+            target=Path(directory)/'outputs'/'turn'
             with patch.dict(os.environ,{'GEMINI_API_KEY':'fake-unit-test-key'}),patch('urllib.request.build_opener',return_value=opener):
                 with self.assertRaisesRegex(RuntimeError,'rejected'):synthesize(target,'確認します','female')
                 with self.assertRaisesRegex(RuntimeError,'incomplete'):synthesize(target,'確認します','female')
@@ -44,8 +44,8 @@ class DialogueSafetyTests(unittest.TestCase):
 
     def test_an_unknown_outcome_also_blocks_automatic_resubmission(self):
         opener=Mock();opener.open.side_effect=TimeoutError()
-        with tempfile.TemporaryDirectory(dir=ROOT/'outputs',prefix='dialogue-safety-') as directory:
-            target=Path(directory)/'turn'
+        with tempfile.TemporaryDirectory(prefix='dialogue-safety-') as directory, patch('tools.studio.dialogue_narration.ROOT',Path(directory)):
+            target=Path(directory)/'outputs'/'turn'
             with patch.dict(os.environ,{'GEMINI_API_KEY':'fake-unit-test-key'}),patch('urllib.request.build_opener',return_value=opener):
                 with self.assertRaisesRegex(RuntimeError,'unknown'):synthesize(target,'確認します','female')
                 with self.assertRaisesRegex(RuntimeError,'incomplete'):synthesize(target,'確認します','female')

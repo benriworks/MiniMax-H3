@@ -1,0 +1,242 @@
+{
+  "schema_version": 1,
+  "id": "SHORT_20261005_dots_09",
+  "title": "dotsに任せる前に｜権限・確認・停止のポイント",
+  "duration_seconds": 30,
+  "voice": "Microsoft Sayaka",
+  "rate": 1,
+  "pronunciations": [
+    {
+      "source": "dots",
+      "target": "ドッツ"
+    },
+    {
+      "source": "dot",
+      "target": "ドット"
+    },
+    {
+      "source": "ChatGPT",
+      "target": "チャットジーピーティー"
+    },
+    {
+      "source": "GPT-6 Astra",
+      "target": "ジーピーティーシックス、アストラ"
+    },
+    {
+      "source": "OpenAI",
+      "target": "オープンエーアイ"
+    },
+    {
+      "source": "Business Premium",
+      "target": "ビジネスプレミアム"
+    },
+    {
+      "source": "Enterprise",
+      "target": "エンタープライズ"
+    },
+    {
+      "source": "Pro",
+      "target": "プロ"
+    },
+    {
+      "source": "PC",
+      "target": "ピーシー"
+    },
+    {
+      "source": "Gmail",
+      "target": "ジーメール"
+    },
+    {
+      "source": "Drive",
+      "target": "ドライブ"
+    },
+    {
+      "source": "GitHub",
+      "target": "ギットハブ"
+    },
+    {
+      "source": "Slack",
+      "target": "スラック"
+    },
+    {
+      "source": "Teams",
+      "target": "チームズ"
+    },
+    {
+      "source": "Activity",
+      "target": "アクティビティ"
+    },
+    {
+      "source": "Scheduled",
+      "target": "スケジュールド"
+    },
+    {
+      "source": "SMS",
+      "target": "エスエムエス"
+    }
+  ],
+  "scenes": [
+    {
+      "kind": "hero",
+      "headline": "任せる範囲は、\n自分で決める。",
+      "narration": "dotsに任せる範囲を、決めよう。",
+      "captions": [
+        "dotsに任せる範囲を、",
+        "決めよう。"
+      ],
+      "source_ids": [
+        "controls"
+      ],
+      "body": "dots / 権限と停止",
+      "media": {
+        "path": "outputs/claude-acquired-20260919/MiniMax_H3_Claude_Acquired_00001_.mp4",
+        "proof": "verification/claude-acquired-2026-09-19.json"
+      },
+      "eyebrow": "DOTS 09 / 09"
+    },
+    {
+      "kind": "diagram",
+      "headline": "接続するアプリと、\n操作の権限。",
+      "narration": "アプリ権限と、安全確認。",
+      "captions": [
+        "アプリ権限と、安全確認。"
+      ],
+      "source_ids": [
+        "controls"
+      ],
+      "graphic": "control",
+      "items": [
+        {
+          "label": "読む"
+        },
+        {
+          "label": "編集"
+        },
+        {
+          "label": "送信"
+        }
+      ],
+      "eyebrow": "DOTS 09 / 09"
+    },
+    {
+      "kind": "quote",
+      "headline": "境界を、\n具体的に伝える。",
+      "narration": "返信は下書きまで。送信前に確認。",
+      "captions": [
+        "返信は下書きまで。",
+        "送信前に確認。"
+      ],
+      "source_ids": [
+        "controls"
+      ],
+      "body": "返信は下書きまで。\n送信前に確認。",
+      "tone": "light",
+      "eyebrow": "DOTS 09 / 09"
+    },
+    {
+      "kind": "steps",
+      "headline": "Activityで\n作業を確認。",
+      "narration": "Activityで確認。",
+      "captions": [
+        "Activityで確認。"
+      ],
+      "source_ids": [
+        "controls"
+      ],
+      "items": [
+        {
+          "label": "進み具合を見る"
+        },
+        {
+          "label": "確認待ちに答える"
+        }
+      ],
+      "eyebrow": "DOTS 09 / 09"
+    },
+    {
+      "kind": "diagram",
+      "headline": "会話の停止と、\n作業の停止は別。",
+      "narration": "会話を止めても、別の作業は続くことも。",
+      "captions": [
+        "会話を止めても、",
+        "別の作業は続くことも。"
+      ],
+      "source_ids": [
+        "controls"
+      ],
+      "graphic": "parallel",
+      "items": [],
+      "body": "委任した仕事も確認",
+      "tone": "light",
+      "eyebrow": "DOTS 09 / 09"
+    },
+    {
+      "kind": "steps",
+      "headline": "委任した仕事も、\n停止を確認。",
+      "narration": "委任した仕事も、個別に停止。",
+      "captions": [
+        "委任した仕事も、",
+        "個別に停止。"
+      ],
+      "source_ids": [
+        "controls"
+      ],
+      "items": [
+        {
+          "label": "Activityを開く"
+        },
+        {
+          "label": "個別の作業を止める"
+        }
+      ],
+      "eyebrow": "DOTS 09 / 09"
+    },
+    {
+      "kind": "diagram",
+      "headline": "定期実行は、\n予定もキャンセル。",
+      "narration": "定期実行の予定も、キャンセル。",
+      "captions": [
+        "定期実行の予定も、",
+        "キャンセル。"
+      ],
+      "source_ids": [
+        "controls",
+        "tasks"
+      ],
+      "graphic": "schedule",
+      "items": [],
+      "body": "Scheduledで確認",
+      "tone": "light",
+      "eyebrow": "DOTS 09 / 09"
+    },
+    {
+      "kind": "hero",
+      "headline": "任せる。確かめる。\n上手に付き合う。",
+      "narration": "止めても、済んだ操作は戻りません。",
+      "captions": [
+        "止めても、",
+        "済んだ操作は戻りません。"
+      ],
+      "source_ids": [
+        "controls"
+      ],
+      "body": "結果まで確認しよう。",
+      "media": {
+        "path": "outputs/claude-acquired-female-silhouette-20260930/MiniMax_H3_Claude_Acquired_Female_Silhouette_00001_.mp4",
+        "proof": "verification/claude-acquired-female-silhouette-2026-09-30.json"
+      },
+      "eyebrow": "DOTS 09 / 09"
+    }
+  ],
+  "editorial": {
+    "checked_date": "2026-10-05",
+    "series_episode": 9,
+    "official_source_ids": [
+      "controls",
+      "tasks"
+    ],
+    "visuals": "Original motion graphics and reused fictional programmer characters; not recorded product UI.",
+    "availability_note": "既存のアプリ権限、安全対策、自動レビューに加えて、必要ならカスタムルールを指定できます。下書き依頼だけで送信まで許可したことにはなりません。一方、すべての操作で毎回人の承認が必須という説明でもありません。主タスクの停止、委任した作業の停止、保存された予定のキャンセルは別々に確認します。停止は実行済みの操作を元に戻しません。",
+    "user_approved": false
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "voice_source": {
+    "path": "outputs/productions/SHORT_20261022_dots_05_editorial/voice-generations/20261022T100741Z-02e22520/voice-source.json",
+    "bytes": 5722,
+    "sha256": "EBD76EF0846D3F4B3906ADD6F78290DA92E0A10CF266AB4B211AF8C4F63B119F"
+  },
+  "video": {
+    "path": "outputs/productions/SHORT_20261022_dots_05_editorial/20261022T191606931634Z/release/dots-05-memory-official.mp4",
+    "bytes": 6477630,
+    "sha256": "294693BD5F1F97C1B54E8F5F09F701C6F1DC165278F64225917A23212929F6B4"
+  }
+}

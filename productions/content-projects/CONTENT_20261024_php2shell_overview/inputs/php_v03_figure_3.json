@@ -1,0 +1,17 @@
+{
+  "operation_id": "php_v03_figure_3",
+  "expected_revision": 32,
+  "data": {
+    "asset_id": "php-request-response-v03",
+    "kind": "original",
+    "path": "outputs/content-projects/CONTENT_20261024_php2shell_overview/blog-assets/v03/php-request-response.png",
+    "visibility": "public",
+    "privacy_review": "passed",
+    "alt": "アクセスを受けたサーバー内のPHPが処理し、結果をブラウザーへ返す流れ",
+    "caption": "自作のコード図解。製品の実画面や公式のスクリーンショットではない。",
+    "source_type": "original_code_diagram",
+    "provenance": "outputs/content-projects/CONTENT_20261024_php2shell_overview/blog-assets/v03/figure-provenance.json",
+    "blog_usage_review": "pending",
+    "user_approved_for_blog": false
+  }
+}

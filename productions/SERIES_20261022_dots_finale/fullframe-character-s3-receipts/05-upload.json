@@ -1,0 +1,116 @@
+{
+  "episode": 5,
+  "mode": "upload",
+  "title": "【ChatGPT】毎回の説明を減らす！dotsの「記憶」はどこまで？",
+  "exit_code": 0,
+  "checked_at": "2026-10-22T20:06:42.2340109+00:00",
+  "signed_urls_persisted": false,
+  "Status": "verified",
+  "ArtifactId": "8821be8d07234bfd91efa7234a4002c0",
+  "FileName": "dots-05-memory-official.mp4",
+  "SizeBytes": 6477630,
+  "Sha256": "294693BD5F1F97C1B54E8F5F09F701C6F1DC165278F64225917A23212929F6B4",
+  "ObjectKey": "s3up-share/dots-shorts/2026/10/22/8821be8d07234bfd91efa7234a4002c0/dots-05-memory-official.mp4",
+  "ExpiresAtUtc": "2026-10-24T05:06:41+09:00",
+  "ExpiresAtJst": "2026-10-24 05:06:41 JST",
+  "CostEstimate": {
+    "Status": "estimate",
+    "Currency": "USD",
+    "Region": "ap-northeast-1",
+    "StorageClass": "S3 Standard",
+    "RatesVerifiedOn": "2026-10-03",
+    "BillingBytesPerGB": 1073741824,
+    "Rates": {
+      "SchemaVersion": 1,
+      "VerifiedOn": "2026-10-03",
+      "Currency": "USD",
+      "Region": "ap-northeast-1",
+      "StorageClass": "S3 Standard",
+      "BillingBytesPerGB": 1073741824,
+      "StorageMonthDays": 30,
+      "UploadUsdPerGB": 0,
+      "InternetEgressUsdPerGB": 0.114,
+      "PutUsdPerRequest": 4.7E-06,
+      "GetHeadUsdPerRequest": 3.7E-07,
+      "StorageUsdPerGBMonth": 0.025,
+      "SharedMonthlyFreeEgressGB": 100,
+      "S3PriceListVersion": "20260928230416",
+      "DataTransferPriceListVersion": "20260916132208",
+      "Skus": {
+        "Put": "XAKHUSC46NWC9PPM",
+        "GetHead": "9C7873KU3ZQBD6BJ",
+        "Storage": "CCBFTMENTDWZHXHX",
+        "InternetEgress": "9ESU2G5WSY6FMZR3"
+      },
+      "InternetEgressSelection": {
+        "FromRegionCode": "ap-northeast-1",
+        "ToLocation": "External",
+        "TransferType": "AWS Outbound",
+        "Operation": "",
+        "UsageType": "APN1-DataTransfer-Out-Bytes",
+        "PaidTierGB": "0-10240"
+      },
+      "Sources": [
+        "https://aws.amazon.com/s3/pricing/",
+        "https://aws.amazon.com/s3/faqs/",
+        "https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/useconsolidatedbilling-effective.html",
+        "https://docs.aws.amazon.com/AmazonS3/latest/userguide/UsingServerSideEncryption.html",
+        "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonS3/current/ap-northeast-1/index.json",
+        "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AWSDataTransfer/current/index.json"
+      ]
+    },
+    "SizeBytes": 6477630,
+    "SizeGB": 0.006032763049006462,
+    "RetentionDays": 7,
+    "Operation": "upload",
+    "RequestedTransfer": {
+      "UploadBytes": 6477630,
+      "RecipientDownloadBytes": 6477630,
+      "UploadUsd": 0.0,
+      "RecipientDownloadUsd": 0.0006877349875867366,
+      "PutRequests": 1,
+      "RecipientGetRequests": 1,
+      "PutRequestsUsd": 4.7E-06,
+      "RecipientGetRequestsUsd": 3.7E-07,
+      "TotalUsd": 0.0006928049875867367
+    },
+    "AdditionalVerification": {
+      "DownloadBytes": 6477630,
+      "DownloadUsd": 0.0006877349875867366,
+      "HeadRequests": 1,
+      "GetRequests": 1,
+      "RequestsUsd": 7.4E-07,
+      "TotalUsd": 0.0006884749875867367
+    },
+    "Storage": {
+      "Days": 7,
+      "MonthDays": 30,
+      "TotalUsd": 3.519111778587103E-05,
+      "SeparateFromTransfer": true
+    },
+    "TotalNetworkBytes": 19432890,
+    "PaidEgressScenario": {
+      "TransferAndRequestsUsd": 0.0013812799751734735,
+      "StorageUsd": 3.519111778587103E-05,
+      "TotalUsd": 0.0014164710929593443
+    },
+    "FreeEgressScenario": {
+      "EligibleIf": "AWS共通100 GB/月の無料転送枠に、この2回分のGETが収まる場合",
+      "TransferAndRequestsUsd": 5.81E-06,
+      "StorageUsd": 3.519111778587103E-05,
+      "TotalUsd": 4.100111778587103E-05
+    },
+    "FreeAllowanceRemaining": "unknown",
+    "ActualBillingKnown": false,
+    "Assumptions": [
+      "アップロード1回、利用者による全体ダウンロード1回を想定。linkは再アップロードなし。",
+      "S3upは別途HEAD1回と全体検証GET1回を実施。利用者のGETとは別の通信。",
+      "Internet egressは無料100 GB/月の適用前、課金帯の最初10 TiBの単価。月間消費・後続割引帯は不明。",
+      "S3 Standard保存は最初50 TiBの単価、1か月30日換算の概算。ライフサイクル削除の遅れは含めない。",
+      "保存費用は元の保持期間全体の参考値。linkによる再発行で保存期限を延長したり同じ保存分を追加請求したりする想定ではない。",
+      "SSE-S3、単一PUT。KMS・multipartの料金は想定しない。",
+      "税、為替、クレジット、組織割引、再試行、再発行追加GET、CloudTrail等の別サービス料金は含めない。",
+      "表示は見積りであり、請求額の照会・確定料金ではない。"
+    ]
+  }
+}

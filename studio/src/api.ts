@@ -423,6 +423,7 @@ export interface NormalizedAssemblyInput {
 }
 
 export const LOCAL_ASSEMBLY_CAPTION_STYLE_PRESETS = [
+  'shorts_ja_phrase_v1',
   'studio_default_v1',
   'shorts_ja_large_v1',
 ] as const satisfies readonly LocalAssemblyCaptionStylePreset[];
@@ -678,7 +679,7 @@ export interface RemotionTimelinePayload {
       start_ms: number;
       end_ms: number;
       position: LocalRemotionTimelineOverlayPosition;
-      style_preset: 'shorts_ja_large_v1';
+      style_preset: LocalRemotionTimelineOverlay['stylePreset'];
     };
   }>;
 }
@@ -719,7 +720,7 @@ const normalizeRemotionOverlay = (value: unknown): LocalRemotionTimelineOverlay 
     startMs: remotionInteger(pick(record, ['startMs', 'start_ms'])),
     endMs: remotionInteger(pick(record, ['endMs', 'end_ms'])),
     position: text(pick(record, ['position']), '') as LocalRemotionTimelineOverlayPosition,
-    stylePreset: text(pick(record, ['stylePreset', 'style_preset']), '') as 'shorts_ja_large_v1',
+    stylePreset: text(pick(record, ['stylePreset', 'style_preset']), '') as LocalRemotionTimelineOverlay['stylePreset'],
   };
 };
 
@@ -911,8 +912,11 @@ export const normalizeRemotionTimelineInput = (value: unknown): NormalizedRemoti
       if (!['top', 'center', 'bottom'].includes(overlay.position)) {
         errors.push(`${label}のテロップ位置はtop、center、bottomから選択してください。`);
       }
-      if (overlay.stylePreset !== 'shorts_ja_large_v1') {
-        errors.push(`${label}のテロップstyle presetはshorts_ja_large_v1を指定してください。`);
+      if (!['shorts_ja_large_v1','shorts_creator_v1'].includes(overlay.stylePreset)) {
+        errors.push(`${label}のテロップstyle presetはshorts_ja_large_v1またはshorts_creator_v1を指定してください。`);
+      }
+      if (overlay.stylePreset === 'shorts_creator_v1' && (overlay.text.split('\n').length > 3 || overlay.text.split('\n').some(line => [...line].reduce((n,c)=>n+(/[\x20-\x7e\uff61-\uff9f]/.test(c)?.54:1),0)>14))) {
+        errors.push(`${label}の演出見出しは3行以内・1行14文字相当までにしてください。`);
       }
     }
   });
@@ -1600,7 +1604,7 @@ export const normalizeDetailedTestVideoInput = (value: unknown): NormalizedDetai
     ...narration.errors,
     ...pronunciationResult.errors,
   ];
-  if (includeCaptioned && captionStylePreset === 'shorts_ja_large_v1') {
+  if (includeCaptioned && ['shorts_ja_large_v1','shorts_ja_phrase_v1'].includes(captionStylePreset)) {
     errors.push(...detailedTestVideoShortsCaptionErrors(narration.segments));
   }
   if (rawSchemaVersion !== undefined && rawSchemaVersion !== DETAILED_TEST_VIDEO_SCHEMA_VERSION) {
@@ -1796,7 +1800,8 @@ export const normalizeAnnouncementVideoInput = (value: unknown): NormalizedAnnou
   const source = asRecord(value);
   const templateValue = pick(source, ['templatePreset', 'template_preset']);
   const screenExplainer = templateValue === 'screen_explainer_ja_v1';
-  const templatePreset = screenExplainer ? 'screen_explainer_ja_v1' : ANNOUNCEMENT_VIDEO_TEMPLATE_PRESET;
+  const creator = templateValue === 'shorts_creator_ja_v1';
+  const templatePreset = creator ? 'shorts_creator_ja_v1' : screenExplainer ? 'screen_explainer_ja_v1' : ANNOUNCEMENT_VIDEO_TEMPLATE_PRESET;
   const rawScenes = list(pick(source, ['scenes']));
   const errors: string[] = [];
   const screenTheme = pickIncludingNull(source, ['screenTheme', 'screen_theme']);
@@ -1850,7 +1855,7 @@ export const normalizeAnnouncementVideoInput = (value: unknown): NormalizedAnnou
 
   const schemaValue = pickIncludingNull(source, ['schemaVersion', 'schema_version']);
   if (schemaValue !== ANNOUNCEMENT_VIDEO_SCHEMA_VERSION) errors.push('schema_versionは1を指定してください。');
-  if (templateValue !== ANNOUNCEMENT_VIDEO_TEMPLATE_PRESET && !screenExplainer) errors.push('template_presetが不正です。');
+  if (templateValue !== ANNOUNCEMENT_VIDEO_TEMPLATE_PRESET && !screenExplainer && !creator) errors.push('template_presetが不正です。');
   const name = text(pick(source, ['name']), '').trim();
   if (!name || name.length > 120 || /[\r\n]/.test(name)) errors.push('recipe名は改行なしの1〜120文字で入力してください。');
   const rateValue = pickIncludingNull(source, ['rate']);
@@ -1898,13 +1903,13 @@ export const normalizeAnnouncementVideoInput = (value: unknown): NormalizedAnnou
     ...(screenExplainer ? { layoutPreset: 'screen_explainer_v1' as const } : {}),
     ...(screenTheme !== undefined ? { screenTheme: screenTheme as AnnouncementVideoRecipe['screenTheme'] } : {}),
     ...(scene.focusRegion !== undefined ? { focusRegion: scene.focusRegion } : {}),
-    transitionToNext: screenExplainer || index === 2 ? null : { type: 'fade', durationMs: ANNOUNCEMENT_VIDEO_TRANSITION_MS },
+    transitionToNext: screenExplainer || creator || index === 2 ? null : { type: 'fade', durationMs: ANNOUNCEMENT_VIDEO_TRANSITION_MS },
     overlay: {
       text: scene.headline,
-      startMs: 125,
+      startMs: creator ? 0 : 125,
       endMs: Math.max(126, scene.endMs - scene.startMs - 125),
-      position: screenExplainer || scene.role === 'message' ? 'top' : 'center',
-      stylePreset: 'shorts_ja_large_v1',
+      position: screenExplainer || creator || scene.role === 'message' ? 'top' : 'center',
+      stylePreset: creator ? 'shorts_creator_v1' : 'shorts_ja_large_v1',
     },
   }));
   const detailed = normalizeDetailedTestVideoInput({
@@ -1922,7 +1927,7 @@ export const normalizeAnnouncementVideoInput = (value: unknown): NormalizedAnnou
   errors.push(...detailed.errors);
   if (screenExplainer) {
     if (detailed.outputDurationMs < 15_000 || detailed.outputDurationMs > 30_000) errors.push('画面解説の完成尺は15〜30秒にしてください。');
-  } else if (detailed.outputDurationMs < 10_000 || detailed.outputDurationMs > 20_000) errors.push('完成尺は10〜20秒にしてください（推奨15秒）。');
+  } else if (detailed.outputDurationMs < 10_000 || detailed.outputDurationMs > (creator ? 30_000 : 20_000)) errors.push(creator ? '演出ショートの完成尺は10〜30秒にしてください。' : '完成尺は10〜20秒にしてください（推奨15秒）。');
 
   const recipe: AnnouncementVideoRecipe = {
     schemaVersion: ANNOUNCEMENT_VIDEO_SCHEMA_VERSION,
@@ -4024,7 +4029,7 @@ const parseError = async (response: Response): Promise<ParsedApiError> => {
   }
 };
 
-const request = async <T>(path: string, init?: RequestInit, expectedStatus?: number): Promise<T> => {
+const request = async <T>(path: string, init?: RequestInit, expectedStatus?: number, sessionRefreshed = false): Promise<T> => {
   let response: Response;
   try {
     response = await fetch(path, {
@@ -4039,6 +4044,20 @@ const request = async <T>(path: string, init?: RequestInit, expectedStatus?: num
   }
   if (!response.ok) {
     const parsed = await parseError(response);
+    // A cross-site entry or server restart can leave the HttpOnly cookie absent
+    // or stale. Only a definitive pre-mutation session rejection permits this
+    // single retry; never retry a lost response or a different authorization error.
+    if (!sessionRefreshed && path.startsWith('/api/') && init?.method === 'POST'
+      && response.status === 403 && parsed.code === 'forbidden'
+      && parsed.message === 'A valid Studio session is required.') {
+      let refreshed = false;
+      try {
+        const page = await fetch('/', { credentials: 'same-origin', cache: 'no-store', signal: init.signal });
+        refreshed = page.ok;
+        await page.text();
+      } catch { /* Keep the original, definite rejection if refresh fails. */ }
+      if (refreshed) return request<T>(path, init, expectedStatus, true);
+    }
     throw new StudioApiError(parsed.message, response.status, parsed.code);
   }
   if (expectedStatus !== undefined && response.status !== expectedStatus) {

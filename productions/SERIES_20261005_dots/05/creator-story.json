@@ -1,0 +1,238 @@
+{
+  "schema_version": 1,
+  "id": "SHORT_20261005_dots_05",
+  "title": "好みを覚える相棒｜dotsの記憶はどこまで？",
+  "duration_seconds": 30,
+  "voice": "Microsoft Sayaka",
+  "rate": 1,
+  "pronunciations": [
+    {
+      "source": "dots",
+      "target": "ドッツ"
+    },
+    {
+      "source": "dot",
+      "target": "ドット"
+    },
+    {
+      "source": "ChatGPT",
+      "target": "チャットジーピーティー"
+    },
+    {
+      "source": "GPT-6 Astra",
+      "target": "ジーピーティーシックス、アストラ"
+    },
+    {
+      "source": "OpenAI",
+      "target": "オープンエーアイ"
+    },
+    {
+      "source": "Business Premium",
+      "target": "ビジネスプレミアム"
+    },
+    {
+      "source": "Enterprise",
+      "target": "エンタープライズ"
+    },
+    {
+      "source": "Pro",
+      "target": "プロ"
+    },
+    {
+      "source": "PC",
+      "target": "ピーシー"
+    },
+    {
+      "source": "Gmail",
+      "target": "ジーメール"
+    },
+    {
+      "source": "Drive",
+      "target": "ドライブ"
+    },
+    {
+      "source": "GitHub",
+      "target": "ギットハブ"
+    },
+    {
+      "source": "Slack",
+      "target": "スラック"
+    },
+    {
+      "source": "Teams",
+      "target": "チームズ"
+    },
+    {
+      "source": "Activity",
+      "target": "アクティビティ"
+    },
+    {
+      "source": "Scheduled",
+      "target": "スケジュールド"
+    },
+    {
+      "source": "SMS",
+      "target": "エスエムエス"
+    }
+  ],
+  "scenes": [
+    {
+      "kind": "hero",
+      "headline": "好みを覚える、\nあなたの相棒。",
+      "narration": "dotsが、好みを覚えていく。",
+      "captions": [
+        "dotsが、",
+        "好みを覚えていく。"
+      ],
+      "source_ids": [
+        "tasks"
+      ],
+      "body": "dots / 記憶と好み",
+      "media": {
+        "path": "outputs/claude-acquired-20260919/MiniMax_H3_Claude_Acquired_00001_.mp4",
+        "proof": "verification/claude-acquired-2026-09-19.json"
+      },
+      "eyebrow": "DOTS 05 / 09"
+    },
+    {
+      "kind": "diagram",
+      "headline": "好み・決定・仕事を、\nメモに。",
+      "narration": "好みや決定、仕事をメモ。",
+      "captions": [
+        "好みや決定、仕事をメモ。"
+      ],
+      "source_ids": [
+        "tasks"
+      ],
+      "graphic": "memory",
+      "items": [
+        {
+          "label": "好み"
+        },
+        {
+          "label": "決定"
+        },
+        {
+          "label": "仕事"
+        }
+      ],
+      "eyebrow": "DOTS 05 / 09"
+    },
+    {
+      "kind": "cards",
+      "headline": "ChatGPTの記憶も、\n必要に応じて。",
+      "narration": "ChatGPTの記憶も、活用。",
+      "captions": [
+        "ChatGPTの記憶も、",
+        "活用。"
+      ],
+      "source_ids": [
+        "tasks"
+      ],
+      "items": [
+        {
+          "label": "記憶",
+          "detail": "関連する情報を参照"
+        }
+      ],
+      "tone": "light",
+      "eyebrow": "DOTS 05 / 09"
+    },
+    {
+      "kind": "quote",
+      "headline": "覚えてほしいことを、\n言葉にしよう。",
+      "narration": "例えば、報告は短く、結論から。",
+      "captions": [
+        "例えば、報告は短く、",
+        "結論から。"
+      ],
+      "source_ids": [
+        "tasks"
+      ],
+      "body": "報告は短く、\n結論から。",
+      "tone": "light",
+      "eyebrow": "DOTS 05 / 09"
+    },
+    {
+      "kind": "diagram",
+      "headline": "少しずつ、\n好みに合わせる。",
+      "narration": "フィードバックで、好みを伝える。",
+      "captions": [
+        "フィードバックで、",
+        "好みを伝える。"
+      ],
+      "source_ids": [
+        "tasks"
+      ],
+      "graphic": "chat",
+      "items": [],
+      "body": "伝える → 次の仕事へ",
+      "eyebrow": "DOTS 05 / 09"
+    },
+    {
+      "kind": "cards",
+      "headline": "会話を全部、\n保存する仕組み？",
+      "narration": "全会話の、丸ごと保存ではありません。",
+      "captions": [
+        "全会話の、",
+        "丸ごと保存では",
+        "ありません。"
+      ],
+      "source_ids": [
+        "tasks"
+      ],
+      "items": [
+        {
+          "label": "メモ",
+          "detail": "要点や継続中の情報"
+        }
+      ],
+      "tone": "light",
+      "eyebrow": "DOTS 05 / 09"
+    },
+    {
+      "kind": "diagram",
+      "headline": "読める情報でも、\n共有の許可は別。",
+      "narration": "情報を読む許可と、共有する許可は別。",
+      "captions": [
+        "情報を読む許可と、",
+        "共有する許可は別。"
+      ],
+      "source_ids": [
+        "tasks"
+      ],
+      "graphic": "control",
+      "items": [],
+      "body": "アクセスと共有を分ける",
+      "eyebrow": "DOTS 05 / 09"
+    },
+    {
+      "kind": "hero",
+      "headline": "覚えてもらって、\n育てる相棒。",
+      "narration": "好みを伝えて、相棒を育てよう。",
+      "captions": [
+        "好みを伝えて、",
+        "相棒を育てよう。"
+      ],
+      "source_ids": [
+        "tasks"
+      ],
+      "body": "次は、会話と通話。",
+      "media": {
+        "path": "outputs/claude-acquired-female-silhouette-20260930/MiniMax_H3_Claude_Acquired_Female_Silhouette_00001_.mp4",
+        "proof": "verification/claude-acquired-female-silhouette-2026-09-30.json"
+      },
+      "eyebrow": "DOTS 05 / 09"
+    }
+  ],
+  "editorial": {
+    "checked_date": "2026-10-05",
+    "series_episode": 5,
+    "official_source_ids": [
+      "tasks"
+    ],
+    "visuals": "Original motion graphics and reused fictional programmer characters; not recorded product UI.",
+    "availability_note": "dotは現在の会話、関連するChatGPTの保存メモリ、自分用のメモを利用します。dotのメモはChatGPTの保存メモリとは別で、全会話の完全な書き起こしではありません。動画内の依頼文は説明用の例です。私的な情報へアクセスできることは、その情報を別の場所で共有してよいことを意味しません。",
+    "user_approved": false
+  }
+}

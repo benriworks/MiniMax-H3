@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "episode": 5,
+  "status": "root_review_required",
+  "text_layout_validation": "passed",
+  "common_story_validation": "not_run_missing_capture",
+  "narration_characters": 172,
+  "source_proposal": {
+    "path": "productions/SERIES_20261022_claude_work/scripts-draft.json",
+    "bytes": 33343,
+    "sha256": "41063E1E4B7BA048FF1490C488AC98210208B02E03651AF48B3A277AD3B01D3D"
+  },
+  "change_note": "ファイルの保存・閲覧が未完成のため手順案に留める。取得した実ファイルを開いた証拠が揃うまで制作を止める。",
+  "scenes": [
+    {
+      "scene": 1,
+      "original_scene_id": "01-hook",
+      "status": "pending_character_video",
+      "required": "新しいClaude栞のMiniMax動画と検証proof"
+    },
+    {
+      "scene": 2,
+      "original_scene_id": "02-source",
+      "status": "capture_reviewed_root_story_review_pending",
+      "capture_id": "docs-export",
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_05_work/captures/docs-export.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_05_work/captures/docs-export.json",
+        "origin": "official",
+        "title": "Export a doc",
+        "source_url": "https://support.claude.com/en/articles/16923645-get-started-with-claude-docs"
+      },
+      "capture_quality": "official_crop_reviewed"
+    },
+    {
+      "scene": 3,
+      "original_scene_id": "03-word",
+      "status": "capture_reviewed_root_story_review_pending",
+      "capture_id": "05-word-export-before",
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_05_work/captures/05-word-export-before.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_05_work/captures/05-word-export-before.json",
+        "origin": "demonstration",
+        "title": "Wordの書き出し項目",
+        "product": "Claude",
+        "phase": "before"
+      },
+      "capture_quality": "native_recapture_required"
+    },
+    {
+      "scene": 4,
+      "original_scene_id": "04-ppt",
+      "status": "pending_capture",
+      "requested_capture_id": null,
+      "required": "実際のSlidesのPPTX出力と、対応ビューアで開いた画面。"
+    },
+    {
+      "scene": 5,
+      "original_scene_id": "05-check",
+      "status": "capture_reviewed_root_story_review_pending",
+      "capture_id": "05-word-budget-native",
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_05_work/captures/05-word-budget-native.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_05_work/captures/05-word-budget-native.json",
+        "origin": "demonstration",
+        "title": "Wordで予算を確認",
+        "product": "Claude",
+        "phase": "export"
+      },
+      "capture_quality": "native_png_ready_for_scene_review"
+    },
+    {
+      "scene": 6,
+      "original_scene_id": "06-numbers",
+      "status": "capture_reviewed_root_story_review_pending",
+      "capture_id": "05-word-date-native-v3",
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_05_work/captures/05-word-date-native-v3.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_05_work/captures/05-word-date-native-v3.json",
+        "origin": "demonstration",
+        "title": "Wordで日付と時間を確認",
+        "product": "Claude",
+        "phase": "export"
+      },
+      "capture_quality": "native_png_ready_for_scene_review"
+    },
+    {
+      "scene": 7,
+      "original_scene_id": "07-close",
+      "status": "pending_character_video",
+      "required": "新しいClaude栞のMiniMax動画と検証proof"
+    }
+  ],
+  "paid_requests_submitted": 0,
+  "production_story_written": false,
+  "actual_30_seconds_verified": false,
+  "ready_for_tts": false,
+  "remaining": [
+    "親による実素材・文意レビュー",
+    "人物MiniMax動画の確認",
+    "不足する実演画面の撮影",
+    "ナレーション確定後の音声生成と実尺測定"
+  ],
+  "native_recapture_required_scenes": [
+    3
+  ]
+}

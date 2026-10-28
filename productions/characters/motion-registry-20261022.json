@@ -1,0 +1,172 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-10-22T15:57:05.415718+00:00",
+  "clips": {
+    "dots-male": {
+      "provider": "minimax",
+      "mode": "local_h3_i2va",
+      "generation_context": "generated_for_this_revision",
+      "video": {
+        "path": "outputs/characters/explainer-motion-20261022/dots-male/MiniMax_H3_dots_male_00001_.mp4",
+        "bytes": 1724186,
+        "sha256": "5F64D452AEF589F55421931F69627F33CFE86DD9187C726A946D2A58B9B8AB36"
+      },
+      "proof": {
+        "path": "outputs/characters/explainer-motion-20261022/dots-male/verification.json",
+        "bytes": 11831,
+        "sha256": "7FB18FE84E5505237B973F817E5A2704E9BD1676F006F49666D0C6EDDF46375C"
+      },
+      "source_presenter": {
+        "path": "outputs/claude-acquired-20260919/raw-0.png",
+        "bytes": 337314,
+        "sha256": "57031CECC619F6894BCD176C05198541067CF978B1ADFB58AEA085217CF2B78C"
+      },
+      "source_keyframe": {
+        "path": "runtime/ComfyUI/input/explainer-motion-20261022/dots-male/keyframe.png",
+        "bytes": 337314,
+        "sha256": "57031CECC619F6894BCD176C05198541067CF978B1ADFB58AEA085217CF2B78C"
+      },
+      "width": 768,
+      "height": 1376,
+      "fps": 24,
+      "frames": 124,
+      "start_frame": 0,
+      "review_status": "visual_review_passed",
+      "user_approved": false,
+      "usage": "Muted visual character segment; Aoede is the single narrator"
+    },
+    "dots-female": {
+      "provider": "minimax",
+      "mode": "local_h3_i2va",
+      "generation_context": "generated_for_this_revision",
+      "video": {
+        "path": "outputs/characters/explainer-motion-20261022/dots-female/MiniMax_H3_dots_female_00001_.mp4",
+        "bytes": 2240397,
+        "sha256": "6DEDFC5577A05547C0525A97FCADC34F4767CA5F8BEF3212CB48C813E6B1320C"
+      },
+      "proof": {
+        "path": "outputs/characters/explainer-motion-20261022/dots-female/verification.json",
+        "bytes": 12087,
+        "sha256": "F893CBECA6A6EB3FC1481859DAEC32D165E6A950AA4AABC95C71F22C91FAB22A"
+      },
+      "source_presenter": {
+        "path": "outputs/claude-acquired-female-silhouette-20260930/female-keyframe.png",
+        "bytes": 1419256,
+        "sha256": "04157FF085802B1EF8EB0D4ABCB2391C1FE5E28483ED7010A8D31AD19DF19A41"
+      },
+      "source_keyframe": {
+        "path": "runtime/ComfyUI/input/explainer-motion-20261022/dots-female/keyframe.png",
+        "bytes": 1419256,
+        "sha256": "04157FF085802B1EF8EB0D4ABCB2391C1FE5E28483ED7010A8D31AD19DF19A41"
+      },
+      "width": 768,
+      "height": 1376,
+      "fps": 24,
+      "frames": 124,
+      "start_frame": 0,
+      "review_status": "visual_review_passed",
+      "user_approved": false,
+      "usage": "Muted visual character segment; Aoede is the single narrator"
+    },
+    "claude-shiori": {
+      "provider": "minimax",
+      "mode": "local_h3_i2va",
+      "generation_context": "generated_for_this_revision",
+      "video": {
+        "path": "outputs/characters/explainer-motion-20261022/claude-shiori/MiniMax_H3_claude_shiori_00001_.mp4",
+        "bytes": 3712263,
+        "sha256": "E8D9E4FB84CFC47D12ABA49EDC9E1500C1A9F4451B1031782AD79C8A640D299C"
+      },
+      "proof": {
+        "path": "outputs/characters/explainer-motion-20261022/claude-shiori/verification.json",
+        "bytes": 12249,
+        "sha256": "DFC5A1A6C2F212B0B8B59F9E9053E95D2628892BF74E769B31D30D12F68614FA"
+      },
+      "source_presenter": {
+        "path": "outputs/characters/business-guides-20261022/claude-shiori.png",
+        "bytes": 1431982,
+        "sha256": "7587600091631730A74E11B32055E5E05F7F3D938A913379493FDB0BF949A727"
+      },
+      "source_keyframe": {
+        "path": "runtime/ComfyUI/input/explainer-motion-20261022/claude-shiori/keyframe.png",
+        "bytes": 2094652,
+        "sha256": "8D2FEA85E201A289333714BE6C2224E154A17D123B4C6BFA00F7A7AB4AA5B65D"
+      },
+      "width": 768,
+      "height": 1376,
+      "fps": 24,
+      "frames": 124,
+      "start_frame": 0,
+      "review_status": "visual_review_passed",
+      "user_approved": false,
+      "usage": "Muted visual character segment; Aoede is the single narrator"
+    },
+    "codex-makoto": {
+      "provider": "minimax",
+      "mode": "local_h3_i2va",
+      "generation_context": "generated_for_this_revision",
+      "video": {
+        "path": "outputs/characters/explainer-motion-20261022/codex-makoto/MiniMax_H3_codex_makoto_00001_.mp4",
+        "bytes": 3897106,
+        "sha256": "5E14603FB60ACA42B2DE605FE3975227D1C151576E88914FE4ACE44708C7AF42"
+      },
+      "proof": {
+        "path": "outputs/characters/explainer-motion-20261022/codex-makoto/verification.json",
+        "bytes": 12164,
+        "sha256": "F45094E3F2C8BB1E04D2DB5A61ABD5145FD35B71C27736268E2C145753508EF0"
+      },
+      "source_presenter": {
+        "path": "outputs/characters/business-guides-20261022/codex-makoto.png",
+        "bytes": 1555958,
+        "sha256": "A6EFABE8821E961FF0BF3321E18C419D461A5DDEE1D9D220BEB7D47623D04837"
+      },
+      "source_keyframe": {
+        "path": "runtime/ComfyUI/input/explainer-motion-20261022/codex-makoto/keyframe.png",
+        "bytes": 2191246,
+        "sha256": "483DC926CCE7F62EF78E87FC81EFB50E06B90EB709D48F7BBE8C18088016DC37"
+      },
+      "width": 768,
+      "height": 1376,
+      "fps": 24,
+      "frames": 124,
+      "start_frame": 0,
+      "review_status": "visual_review_passed",
+      "user_approved": false,
+      "usage": "Muted visual character segment; Aoede is the single narrator"
+    },
+    "duet-dots-haruka": {
+      "provider": "minimax",
+      "mode": "local_h3_i2va",
+      "generation_context": "generated_for_this_revision",
+      "video": {
+        "path": "outputs/characters/explainer-motion-20261022/duet-dots-haruka/MiniMax_H3_duet_dots_haruka_00001_.mp4",
+        "bytes": 2710383,
+        "sha256": "30098449EEAD38D15371CBD412EB91C419032EB2898995D4A59569953E158CB4"
+      },
+      "proof": {
+        "path": "outputs/characters/explainer-motion-20261022/duet-dots-haruka/verification.json",
+        "bytes": 12621,
+        "sha256": "9A5BB0AE182E39A2B8B0615A08B1C39656188B6F16D3E7E8FC9ACB99E8C79AE6"
+      },
+      "source_presenter": {
+        "path": "outputs/characters/duet-dots-haruka-20261022/haruka-office-keyframe.png",
+        "bytes": 1863092,
+        "sha256": "EE721660028DB5BA8B9ACEE860E46DB1B8259B177B39D11AACDB021BFD69EE9B"
+      },
+      "source_keyframe": {
+        "path": "runtime/ComfyUI/input/explainer-motion-20261022/duet-dots-haruka/keyframe.png",
+        "bytes": 1863092,
+        "sha256": "EE721660028DB5BA8B9ACEE860E46DB1B8259B177B39D11AACDB021BFD69EE9B"
+      },
+      "width": 768,
+      "height": 1376,
+      "fps": 24,
+      "frames": 124,
+      "start_frame": 0,
+      "review_status": "visual_review_passed",
+      "user_approved": false,
+      "usage": "Muted visual character segment; Aoede is the single narrator"
+    }
+  },
+  "status_note": "AI visual and technical verification complete; user acceptance remains separate."
+}

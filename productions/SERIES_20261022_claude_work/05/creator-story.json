@@ -1,0 +1,182 @@
+{
+  "schema_version": 1,
+  "id": "SHORT_20261022_claude_05_work",
+  "title": "【Claude】作った資料を持ち出す！Word・PowerPointに書き出す",
+  "voice": "Aoede",
+  "rate": 1,
+  "duration_seconds": 30,
+  "music_preset": "bright_groove_v1",
+  "pronunciations": [
+    {
+      "source": "Claude",
+      "target": "クロード"
+    },
+    {
+      "source": "Docs",
+      "target": "ドックス"
+    },
+    {
+      "source": "Slides",
+      "target": "スライド"
+    },
+    {
+      "source": "Design",
+      "target": "デザイン"
+    },
+    {
+      "source": "栞",
+      "target": "しおり"
+    }
+  ],
+  "scenes": [
+    {
+      "kind": "editorial",
+      "visual_style": "business",
+      "headline": "渡す前に、\nファイルでも確認。",
+      "eyebrow": "CLAUDE 05 / 書き出し",
+      "narration": "栞さん、資料を渡す前に、ファイルでも確認します。",
+      "captions": [
+        "栞さん、資料を渡す前に、",
+        "ファイルでも確認します。"
+      ],
+      "source_ids": [],
+      "editorial_layout": "hook",
+      "body": "企画担当の栞さん",
+      "action": "架空の業務例",
+      "media": {
+        "path": "outputs/characters/explainer-motion-20261022/claude-shiori/MiniMax_H3_claude_shiori_00001_.mp4",
+        "proof": "outputs/characters/explainer-motion-20261022/claude-shiori/verification.json"
+      },
+      "mediaStart": 0
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "文書はWord、\nスライドはPPTXへ",
+      "eyebrow": "CLAUDE 05 / 書き出し",
+      "narration": "公式の書き出しは、文書ならワード、スライドならパワーポイント。",
+      "captions": [
+        "公式の書き出しは、",
+        "文書ならワード、",
+        "スライドなら\nパワーポイント。"
+      ],
+      "source_ids": [
+        "claude_docs",
+        "claude_artifacts"
+      ],
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_05_work/captures/docs-export.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_05_work/captures/docs-export.json",
+        "origin": "official",
+        "title": "Export a doc",
+        "source_url": "https://support.claude.com/en/articles/16923645-get-started-with-claude-docs"
+      }
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "形式を選んで\n書き出す",
+      "eyebrow": "CLAUDE 05 / 書き出し",
+      "narration": "今回は、パワーポイントの形式を選びます。",
+      "captions": [
+        "今回は、",
+        "パワーポイントの形式を\n選びます。"
+      ],
+      "source_ids": [
+        "claude_docs"
+      ],
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_05_work/captures/05-ppt-export-before-native.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_05_work/captures/05-ppt-export-before-native.json",
+        "origin": "demonstration",
+        "title": "PowerPointを選ぶ",
+        "product": "Claude",
+        "phase": "before"
+      }
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "保存したPPTXで\n価格を確かめる",
+      "eyebrow": "CLAUDE 05 / 書き出し",
+      "narration": "保存したファイルを開き、価格の数字を確認。",
+      "captions": [
+        "保存したファイルを開き、",
+        "価格の数字を確認。"
+      ],
+      "source_ids": [
+        "claude_artifacts"
+      ],
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_05_work/captures/05-ppt-price-export-native.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_05_work/captures/05-ppt-price-export-native.json",
+        "origin": "demonstration",
+        "title": "PPTXの価格を確認",
+        "product": "Claude",
+        "phase": "export"
+      }
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "Wordで\n予算を確認",
+      "eyebrow": "CLAUDE 05 / 書き出し",
+      "narration": "ワードで開いて、予算の数字と文字を確認。",
+      "captions": [
+        "ワードで開いて、",
+        "予算の数字と\n文字を確認。"
+      ],
+      "source_ids": [],
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_05_work/captures/05-word-budget-native.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_05_work/captures/05-word-budget-native.json",
+        "origin": "demonstration",
+        "title": "Wordで予算を確認",
+        "product": "Claude",
+        "phase": "export"
+      }
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "日付と書体も\n一度確認",
+      "eyebrow": "CLAUDE 05 / 書き出し",
+      "narration": "日付も照合。書体が変わる場合もあるので、見た目も確かめます。",
+      "captions": [
+        "日付も照合。",
+        "書体が変わる\n場合もあるので、",
+        "見た目も確かめます。"
+      ],
+      "source_ids": [],
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_05_work/captures/05-word-date-native-v3.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_05_work/captures/05-word-date-native-v3.json",
+        "origin": "demonstration",
+        "title": "Wordで日付と時間を確認",
+        "product": "Claude",
+        "phase": "export"
+      }
+    },
+    {
+      "kind": "editorial",
+      "visual_style": "business",
+      "headline": "作る・直す・\n確かめる。",
+      "eyebrow": "CLAUDE 05 / 書き出し",
+      "narration": "作る、直す、確かめる。クロードと進める資料づくりでした。",
+      "captions": [
+        "作る、直す、確かめる。",
+        "クロードと進める\n資料づくりでした。"
+      ],
+      "source_ids": [],
+      "editorial_layout": "closing",
+      "body": "作って、見て、直す",
+      "action": "内容は自分で確認",
+      "media": {
+        "path": "outputs/characters/explainer-motion-20261022/claude-shiori/MiniMax_H3_claude_shiori_00001_.mp4",
+        "proof": "outputs/characters/explainer-motion-20261022/claude-shiori/verification.json"
+      },
+      "mediaStart": 0
+    }
+  ],
+  "draft_status": "root_review_required_do_not_generate"
+}

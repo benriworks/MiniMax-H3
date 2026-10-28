@@ -1,0 +1,1001 @@
+{
+  "schema_version": 1,
+  "series": "SERIES_20261022_dots_finale",
+  "revision": "original_pair_new_minimax_motion",
+  "checked_at": "2026-10-22T16:09:47.647299+00:00",
+  "status": "verified_candidate_awaiting_user_review",
+  "technical_status": "verified",
+  "episodes": [
+    {
+      "episode": 5,
+      "title": "【ChatGPT】毎回の説明を減らす！dotsの「記憶」はどこまで？",
+      "video": {
+        "path": "outputs/productions/SHORT_20261022_dots_05_editorial/20261022T155706331707Z/release/dots-05-memory-official.mp4",
+        "bytes": 3307100,
+        "sha256": "22C7F4FD28E99F9318C0333434EC3CF6B85D819AE1C85FD8C2E13FB9F5D90305"
+      },
+      "archive": {
+        "path": "outputs/productions/SHORT_20261022_dots_05_editorial/20261022T155706331707Z/dots-05-memory-official.zip",
+        "bytes": 3690011,
+        "sha256": "C9C262C77D9329DDAFF98D3BA512881BBE8CD966583253101970B47D9C43BD81"
+      },
+      "release": "outputs/productions/SHORT_20261022_dots_05_editorial/20261022T155706331707Z/release",
+      "cover": {
+        "path": "outputs/productions/SHORT_20261022_dots_05_editorial/20261022T155706331707Z/release/cover.png",
+        "bytes": 419486,
+        "sha256": "B220B1D512A4A6E0091BA9E74A74A6FA58F5CC0E0DF9EC369D8A8B3025276191"
+      },
+      "verification": {
+        "path": "outputs/productions/SHORT_20261022_dots_05_editorial/20261022T155706331707Z/verification.json",
+        "bytes": 18034,
+        "sha256": "ACB4EA09336631382FE5A21471A05BB6F756AB36C33165BA6CC4CB2DB510AA77"
+      },
+      "contact_sheet": {
+        "path": "outputs/productions/SHORT_20261022_dots_05_editorial/20261022T155706331707Z/contact-sheet.png",
+        "bytes": 543505,
+        "sha256": "4984815BF156F6FAD9C62061516E79CBBA55E007788D77E712C2594DF3C7FF93"
+      },
+      "motion_evidence": {
+        "path": "outputs/productions/SHORT_20261022_dots_05_editorial/20261022T155706331707Z/motion-evidence.json",
+        "bytes": 2655,
+        "sha256": "F5ACA976560B298D530A1DE3DB65BE8C6334AD626C5AA5FB6AF6361921AA9BE2"
+      },
+      "motion_contact_sheet": {
+        "path": "outputs/productions/SHORT_20261022_dots_05_editorial/20261022T155706331707Z/motion-contact-sheet.png",
+        "bytes": 372953,
+        "sha256": "183ACFCD8DA83B9BEB077814D11042614C859C21C48BD1FBDDF9D8F458E9A656"
+      },
+      "motion_review": {
+        "path": "outputs/productions/SHORT_20261022_dots_05_editorial/20261022T155706331707Z/motion-visual-review.json",
+        "bytes": 630,
+        "sha256": "7CADA6BC2D19B8C98CCD826A675D0C38D5E7F23D994533544982DA589E7954D3"
+      },
+      "audio_packet_hash": "SHA256=89618efa7f823e689868e3323915976f805cb55a77047d577ee925cbd9ce5deb",
+      "previous_audio_identical": true,
+      "narration_bytes_unchanged": true,
+      "additional_tts_requests": 0,
+      "official_captures": [
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_05_editorial/captures/official-memory.json",
+          "bytes": 1230,
+          "sha256": "E6601C07910D02A78AB7D69F56B1E7290028A456C7DBE83243C3D740C2F74000"
+        }
+      ],
+      "loudness_lufs": -16.04,
+      "true_peak_dbfs": -3.69,
+      "protected_original_videos": [
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/01/dots-01.mp4",
+          "bytes": 9261302,
+          "sha256": "22FD6152C04941714AFFAF4792CF44AAB8195B59F67EEECD1B88E684BB297958"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/02/dots-02.mp4",
+          "bytes": 10545851,
+          "sha256": "9B74979491A377577940840C5AD6110A9C54A50C28E2A6DD5B301D2BBEDF874A"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/03/dots-03.mp4",
+          "bytes": 9859460,
+          "sha256": "5D6B760BA10AE2DCAAF56FA5672865639FFC3CDB2BB40E587E752348B69CDB72"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/04/dots-04.mp4",
+          "bytes": 11162226,
+          "sha256": "2A23AD72E1BCCB7657216EE8FFE85804C7FD9B3273B94FF6E65F41259FA641A7"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/05/dots-05.mp4",
+          "bytes": 10350231,
+          "sha256": "B2C5A2EFEBCC68AAB33B8838E2508E405CC4A85DF3973151F159FE35CF3EF9AA"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/06/dots-06.mp4",
+          "bytes": 10560294,
+          "sha256": "3B0432F5D085D681A5FEDA47C5845CC566F9B5C884C94620CE0E9745374B9D0C"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/07/dots-07.mp4",
+          "bytes": 10696788,
+          "sha256": "81DDC24CC28E427A138849CDE351040382D812C15EF7365D823DF2AFB58AC992"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/08/dots-08.mp4",
+          "bytes": 10582976,
+          "sha256": "738C5A0AE4D5B639701A23556EE1C6BE712EC775F5B3B2AE6575856AEC300807"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/09/dots-09.mp4",
+          "bytes": 10896196,
+          "sha256": "0914418829BD46CEE5D3590D8E2442D5B7A5AFC48DD099E5257CC38648962FDC"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261021_dots_cloud_benefits/20261021T094421120681Z/release/dots-02-extra-cloud-benefits.mp4",
+          "bytes": 12027437,
+          "sha256": "548648347329D3F06026D820A300F5229EF104A44ECE62641F351CC737442969"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_03_aoede/20261022T075051150042Z/release/dots-03-apps-aoede.mp4",
+          "bytes": 10472141,
+          "sha256": "138BEEB59C865FE521507B3CF0AF929AE9B40DC6F04BD5F457FED309DA273F30"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_04_editorial/20261022T084349480702Z/release/dots-04-parallel-official.mp4",
+          "bytes": 2249770,
+          "sha256": "F3290B7CAB3A357F13AB287074E004DE853D7C44DF962B00C2EC0644F51565F8"
+        }
+      ],
+      "preserved_previous_files": [
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_05_editorial/20261022T103126394377Z/shorts-creator.mp4",
+          "bytes": 2846325,
+          "sha256": "E6358052EBEAC704723FA71F00CF78A6698FC352B4304EC23A5ACE491FD50031"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_05_editorial/20261022T103126394377Z/release/dots-05-memory-official.mp4",
+          "bytes": 2846325,
+          "sha256": "E6358052EBEAC704723FA71F00CF78A6698FC352B4304EC23A5ACE491FD50031"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_05_editorial/20261022T103126394377Z/dots-05-memory-official.zip",
+          "bytes": 3440700,
+          "sha256": "1A5E94059DBC9373D208D788600367D092630ED626D746BE7F3CB2CE0C8C5DA0"
+        }
+      ],
+      "clips": [
+        {
+          "media": {
+            "path": "outputs/characters/explainer-motion-20261022/dots-male/MiniMax_H3_dots_male_00001_.mp4",
+            "proof": "outputs/characters/explainer-motion-20261022/dots-male/verification.json"
+          },
+          "start": 0,
+          "artifact": {
+            "path": "outputs/characters/explainer-motion-20261022/dots-male/MiniMax_H3_dots_male_00001_.mp4",
+            "bytes": 1724186,
+            "sha256": "5F64D452AEF589F55421931F69627F33CFE86DD9187C726A946D2A58B9B8AB36"
+          },
+          "proof": {
+            "path": "outputs/characters/explainer-motion-20261022/dots-male/verification.json",
+            "bytes": 11831,
+            "sha256": "7FB18FE84E5505237B973F817E5A2704E9BD1676F006F49666D0C6EDDF46375C"
+          },
+          "presenter": {
+            "path": "outputs/claude-acquired-20260919/raw-0.png",
+            "bytes": 337314,
+            "sha256": "57031CECC619F6894BCD176C05198541067CF978B1ADFB58AEA085217CF2B78C"
+          },
+          "keyframe": {
+            "path": "runtime/ComfyUI/input/explainer-motion-20261022/dots-male/keyframe.png",
+            "bytes": 337314,
+            "sha256": "57031CECC619F6894BCD176C05198541067CF978B1ADFB58AEA085217CF2B78C"
+          },
+          "character": "male"
+        },
+        {
+          "media": {
+            "path": "outputs/characters/explainer-motion-20261022/dots-female/MiniMax_H3_dots_female_00001_.mp4",
+            "proof": "outputs/characters/explainer-motion-20261022/dots-female/verification.json"
+          },
+          "start": 0,
+          "artifact": {
+            "path": "outputs/characters/explainer-motion-20261022/dots-female/MiniMax_H3_dots_female_00001_.mp4",
+            "bytes": 2240397,
+            "sha256": "6DEDFC5577A05547C0525A97FCADC34F4767CA5F8BEF3212CB48C813E6B1320C"
+          },
+          "proof": {
+            "path": "outputs/characters/explainer-motion-20261022/dots-female/verification.json",
+            "bytes": 12087,
+            "sha256": "F893CBECA6A6EB3FC1481859DAEC32D165E6A950AA4AABC95C71F22C91FAB22A"
+          },
+          "presenter": {
+            "path": "outputs/claude-acquired-female-silhouette-20260930/female-keyframe.png",
+            "bytes": 1419256,
+            "sha256": "04157FF085802B1EF8EB0D4ABCB2391C1FE5E28483ED7010A8D31AD19DF19A41"
+          },
+          "keyframe": {
+            "path": "runtime/ComfyUI/input/explainer-motion-20261022/dots-female/keyframe.png",
+            "bytes": 1419256,
+            "sha256": "04157FF085802B1EF8EB0D4ABCB2391C1FE5E28483ED7010A8D31AD19DF19A41"
+          },
+          "character": "female"
+        }
+      ]
+    },
+    {
+      "episode": 6,
+      "title": "【ChatGPT】声でも頼める！dotsは通話を切った後も仕事が続く",
+      "video": {
+        "path": "outputs/productions/SHORT_20261022_dots_06_editorial/20261022T155708236478Z/release/dots-06-channels-official.mp4",
+        "bytes": 3374371,
+        "sha256": "A68BA99691AF5B39DD33FC6D24C0DF65E3738CA70A4C8947F29AAFB256A79BE0"
+      },
+      "archive": {
+        "path": "outputs/productions/SHORT_20261022_dots_06_editorial/20261022T155708236478Z/dots-06-channels-official.zip",
+        "bytes": 3742814,
+        "sha256": "D8A61D8FBA8A1F78D7CB98D0DED957CD651AE816BF4CA774DE3FC8B053C31CB8"
+      },
+      "release": "outputs/productions/SHORT_20261022_dots_06_editorial/20261022T155708236478Z/release",
+      "cover": {
+        "path": "outputs/productions/SHORT_20261022_dots_06_editorial/20261022T155708236478Z/release/cover.png",
+        "bytes": 406486,
+        "sha256": "84A17379F6DFF0D8C27F690E1F40F9D5FA61AE2D96C09C1A68C20256517CDC63"
+      },
+      "verification": {
+        "path": "outputs/productions/SHORT_20261022_dots_06_editorial/20261022T155708236478Z/verification.json",
+        "bytes": 17989,
+        "sha256": "0DD8C02616F84B082DE844CC892C59B3E1A5FE63AB2547E67DD41115F148B5B2"
+      },
+      "contact_sheet": {
+        "path": "outputs/productions/SHORT_20261022_dots_06_editorial/20261022T155708236478Z/contact-sheet.png",
+        "bytes": 581892,
+        "sha256": "FD54185C23B44D50E7D0C18C58EA90661050BD99AA4D10BC0E5C3518F8295A3E"
+      },
+      "motion_evidence": {
+        "path": "outputs/productions/SHORT_20261022_dots_06_editorial/20261022T155708236478Z/motion-evidence.json",
+        "bytes": 2655,
+        "sha256": "06C61849080F457412CE1C81CDE4FC5CD9D53C73F06AEDB6F85F7554DAF3E3A2"
+      },
+      "motion_contact_sheet": {
+        "path": "outputs/productions/SHORT_20261022_dots_06_editorial/20261022T155708236478Z/motion-contact-sheet.png",
+        "bytes": 363390,
+        "sha256": "D2FF4FE917A44711A823BA2CF5CA3D65076E9881D438C3745F72DABB2CE21E6B"
+      },
+      "motion_review": {
+        "path": "outputs/productions/SHORT_20261022_dots_06_editorial/20261022T155708236478Z/motion-visual-review.json",
+        "bytes": 588,
+        "sha256": "821E0A549651D0738CA9B93DDF8BCA818329466068C9B31B5B4D9F77E4CB835C"
+      },
+      "audio_packet_hash": "SHA256=3228a5d0814c70d004f789b3102f22fd35ac8122a676324b8e1fbfdbb21ba68e",
+      "previous_audio_identical": true,
+      "narration_bytes_unchanged": true,
+      "additional_tts_requests": 0,
+      "official_captures": [
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_06_editorial/captures/official-call.json",
+          "bytes": 1211,
+          "sha256": "09A3B56CF23720ED0E46D72A008620981164DEF5899DA586A965D74EF1D6F4E3"
+        }
+      ],
+      "loudness_lufs": -16.02,
+      "true_peak_dbfs": -2.69,
+      "protected_original_videos": [
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/01/dots-01.mp4",
+          "bytes": 9261302,
+          "sha256": "22FD6152C04941714AFFAF4792CF44AAB8195B59F67EEECD1B88E684BB297958"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/02/dots-02.mp4",
+          "bytes": 10545851,
+          "sha256": "9B74979491A377577940840C5AD6110A9C54A50C28E2A6DD5B301D2BBEDF874A"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/03/dots-03.mp4",
+          "bytes": 9859460,
+          "sha256": "5D6B760BA10AE2DCAAF56FA5672865639FFC3CDB2BB40E587E752348B69CDB72"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/04/dots-04.mp4",
+          "bytes": 11162226,
+          "sha256": "2A23AD72E1BCCB7657216EE8FFE85804C7FD9B3273B94FF6E65F41259FA641A7"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/05/dots-05.mp4",
+          "bytes": 10350231,
+          "sha256": "B2C5A2EFEBCC68AAB33B8838E2508E405CC4A85DF3973151F159FE35CF3EF9AA"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/06/dots-06.mp4",
+          "bytes": 10560294,
+          "sha256": "3B0432F5D085D681A5FEDA47C5845CC566F9B5C884C94620CE0E9745374B9D0C"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/07/dots-07.mp4",
+          "bytes": 10696788,
+          "sha256": "81DDC24CC28E427A138849CDE351040382D812C15EF7365D823DF2AFB58AC992"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/08/dots-08.mp4",
+          "bytes": 10582976,
+          "sha256": "738C5A0AE4D5B639701A23556EE1C6BE712EC775F5B3B2AE6575856AEC300807"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/09/dots-09.mp4",
+          "bytes": 10896196,
+          "sha256": "0914418829BD46CEE5D3590D8E2442D5B7A5AFC48DD099E5257CC38648962FDC"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261021_dots_cloud_benefits/20261021T094421120681Z/release/dots-02-extra-cloud-benefits.mp4",
+          "bytes": 12027437,
+          "sha256": "548648347329D3F06026D820A300F5229EF104A44ECE62641F351CC737442969"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_03_aoede/20261022T075051150042Z/release/dots-03-apps-aoede.mp4",
+          "bytes": 10472141,
+          "sha256": "138BEEB59C865FE521507B3CF0AF929AE9B40DC6F04BD5F457FED309DA273F30"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_04_editorial/20261022T084349480702Z/release/dots-04-parallel-official.mp4",
+          "bytes": 2249770,
+          "sha256": "F3290B7CAB3A357F13AB287074E004DE853D7C44DF962B00C2EC0644F51565F8"
+        }
+      ],
+      "preserved_previous_files": [
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_06_editorial/20261022T103127763041Z/shorts-creator.mp4",
+          "bytes": 2906260,
+          "sha256": "A6E21C06AE37A28BBE4E2F65B2C7E80D8A202C30584A49B5DB6D83E69DA555FF"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_06_editorial/20261022T103127763041Z/release/dots-06-channels-official.mp4",
+          "bytes": 2906260,
+          "sha256": "A6E21C06AE37A28BBE4E2F65B2C7E80D8A202C30584A49B5DB6D83E69DA555FF"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_06_editorial/20261022T103127763041Z/dots-06-channels-official.zip",
+          "bytes": 3484081,
+          "sha256": "8C275F0BFABBA03FA79085259287292C9B418DE8F265F05484635699C0E13F09"
+        }
+      ],
+      "clips": [
+        {
+          "media": {
+            "path": "outputs/characters/explainer-motion-20261022/dots-male/MiniMax_H3_dots_male_00001_.mp4",
+            "proof": "outputs/characters/explainer-motion-20261022/dots-male/verification.json"
+          },
+          "start": 0,
+          "artifact": {
+            "path": "outputs/characters/explainer-motion-20261022/dots-male/MiniMax_H3_dots_male_00001_.mp4",
+            "bytes": 1724186,
+            "sha256": "5F64D452AEF589F55421931F69627F33CFE86DD9187C726A946D2A58B9B8AB36"
+          },
+          "proof": {
+            "path": "outputs/characters/explainer-motion-20261022/dots-male/verification.json",
+            "bytes": 11831,
+            "sha256": "7FB18FE84E5505237B973F817E5A2704E9BD1676F006F49666D0C6EDDF46375C"
+          },
+          "presenter": {
+            "path": "outputs/claude-acquired-20260919/raw-0.png",
+            "bytes": 337314,
+            "sha256": "57031CECC619F6894BCD176C05198541067CF978B1ADFB58AEA085217CF2B78C"
+          },
+          "keyframe": {
+            "path": "runtime/ComfyUI/input/explainer-motion-20261022/dots-male/keyframe.png",
+            "bytes": 337314,
+            "sha256": "57031CECC619F6894BCD176C05198541067CF978B1ADFB58AEA085217CF2B78C"
+          },
+          "character": "male"
+        },
+        {
+          "media": {
+            "path": "outputs/characters/explainer-motion-20261022/dots-female/MiniMax_H3_dots_female_00001_.mp4",
+            "proof": "outputs/characters/explainer-motion-20261022/dots-female/verification.json"
+          },
+          "start": 0,
+          "artifact": {
+            "path": "outputs/characters/explainer-motion-20261022/dots-female/MiniMax_H3_dots_female_00001_.mp4",
+            "bytes": 2240397,
+            "sha256": "6DEDFC5577A05547C0525A97FCADC34F4767CA5F8BEF3212CB48C813E6B1320C"
+          },
+          "proof": {
+            "path": "outputs/characters/explainer-motion-20261022/dots-female/verification.json",
+            "bytes": 12087,
+            "sha256": "F893CBECA6A6EB3FC1481859DAEC32D165E6A950AA4AABC95C71F22C91FAB22A"
+          },
+          "presenter": {
+            "path": "outputs/claude-acquired-female-silhouette-20260930/female-keyframe.png",
+            "bytes": 1419256,
+            "sha256": "04157FF085802B1EF8EB0D4ABCB2391C1FE5E28483ED7010A8D31AD19DF19A41"
+          },
+          "keyframe": {
+            "path": "runtime/ComfyUI/input/explainer-motion-20261022/dots-female/keyframe.png",
+            "bytes": 1419256,
+            "sha256": "04157FF085802B1EF8EB0D4ABCB2391C1FE5E28483ED7010A8D31AD19DF19A41"
+          },
+          "character": "female"
+        }
+      ]
+    },
+    {
+      "episode": 7,
+      "title": "【ChatGPT】毎朝の確認を任せる！dotsの定期実行は「保存」が大事",
+      "video": {
+        "path": "outputs/productions/SHORT_20261022_dots_07_editorial/20261022T155711318602Z/release/dots-07-schedule-official.mp4",
+        "bytes": 3325027,
+        "sha256": "CD31FE1066BA713C6492A23C234C6FE5885310F1CB97AA324359AEA16009DAED"
+      },
+      "archive": {
+        "path": "outputs/productions/SHORT_20261022_dots_07_editorial/20261022T155711318602Z/dots-07-schedule-official.zip",
+        "bytes": 3714153,
+        "sha256": "F9C01D6DBC703D26E14DDFDA77F3CFE252BD4DF5F77E64F88B526FB382475C6C"
+      },
+      "release": "outputs/productions/SHORT_20261022_dots_07_editorial/20261022T155711318602Z/release",
+      "cover": {
+        "path": "outputs/productions/SHORT_20261022_dots_07_editorial/20261022T155711318602Z/release/cover.png",
+        "bytes": 428058,
+        "sha256": "CDCC02051E13516CA3805F555A7F6F4DAA3734C8F1BCA475198391AD6D516888"
+      },
+      "verification": {
+        "path": "outputs/productions/SHORT_20261022_dots_07_editorial/20261022T155711318602Z/verification.json",
+        "bytes": 18027,
+        "sha256": "74DAA451FD648420F9F6EFD81520AC2C1F19DB06B5AEE0259390AEEC7ACC6439"
+      },
+      "contact_sheet": {
+        "path": "outputs/productions/SHORT_20261022_dots_07_editorial/20261022T155711318602Z/contact-sheet.png",
+        "bytes": 595417,
+        "sha256": "507756469D29CDDE05DAA181B5DFA0472D788C76E5D575E087ACA4AB868BDBB3"
+      },
+      "motion_evidence": {
+        "path": "outputs/productions/SHORT_20261022_dots_07_editorial/20261022T155711318602Z/motion-evidence.json",
+        "bytes": 2655,
+        "sha256": "B712FD677EAD095E2045C95049E369C1BD6FC2F6DFC76F8229BBC9F0ED4CF27D"
+      },
+      "motion_contact_sheet": {
+        "path": "outputs/productions/SHORT_20261022_dots_07_editorial/20261022T155711318602Z/motion-contact-sheet.png",
+        "bytes": 383119,
+        "sha256": "170CBBAA298C9D1D7508B6EE3FED351282226CED9D354AFD53C18E3783E2D665"
+      },
+      "motion_review": {
+        "path": "outputs/productions/SHORT_20261022_dots_07_editorial/20261022T155711318602Z/motion-visual-review.json",
+        "bytes": 690,
+        "sha256": "9010CAC118ED55B1BE792E9A032A420DC4C2B5C0BF1A615385E5DBBC81DBCCA5"
+      },
+      "audio_packet_hash": "SHA256=07d1e5bf4a715d6751d38a1289d558a69f496ee1704b65e3585f94863dff2460",
+      "previous_audio_identical": true,
+      "narration_bytes_unchanged": true,
+      "additional_tts_requests": 0,
+      "official_captures": [
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_07_editorial/captures/official-recurring.json",
+          "bytes": 1234,
+          "sha256": "9D785636B11C191323F6A8EAAB46679175FD9DC87333DE37F58B2E9A8DF5AA35"
+        }
+      ],
+      "loudness_lufs": -16.02,
+      "true_peak_dbfs": -2.48,
+      "protected_original_videos": [
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/01/dots-01.mp4",
+          "bytes": 9261302,
+          "sha256": "22FD6152C04941714AFFAF4792CF44AAB8195B59F67EEECD1B88E684BB297958"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/02/dots-02.mp4",
+          "bytes": 10545851,
+          "sha256": "9B74979491A377577940840C5AD6110A9C54A50C28E2A6DD5B301D2BBEDF874A"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/03/dots-03.mp4",
+          "bytes": 9859460,
+          "sha256": "5D6B760BA10AE2DCAAF56FA5672865639FFC3CDB2BB40E587E752348B69CDB72"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/04/dots-04.mp4",
+          "bytes": 11162226,
+          "sha256": "2A23AD72E1BCCB7657216EE8FFE85804C7FD9B3273B94FF6E65F41259FA641A7"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/05/dots-05.mp4",
+          "bytes": 10350231,
+          "sha256": "B2C5A2EFEBCC68AAB33B8838E2508E405CC4A85DF3973151F159FE35CF3EF9AA"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/06/dots-06.mp4",
+          "bytes": 10560294,
+          "sha256": "3B0432F5D085D681A5FEDA47C5845CC566F9B5C884C94620CE0E9745374B9D0C"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/07/dots-07.mp4",
+          "bytes": 10696788,
+          "sha256": "81DDC24CC28E427A138849CDE351040382D812C15EF7365D823DF2AFB58AC992"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/08/dots-08.mp4",
+          "bytes": 10582976,
+          "sha256": "738C5A0AE4D5B639701A23556EE1C6BE712EC775F5B3B2AE6575856AEC300807"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/09/dots-09.mp4",
+          "bytes": 10896196,
+          "sha256": "0914418829BD46CEE5D3590D8E2442D5B7A5AFC48DD099E5257CC38648962FDC"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261021_dots_cloud_benefits/20261021T094421120681Z/release/dots-02-extra-cloud-benefits.mp4",
+          "bytes": 12027437,
+          "sha256": "548648347329D3F06026D820A300F5229EF104A44ECE62641F351CC737442969"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_03_aoede/20261022T075051150042Z/release/dots-03-apps-aoede.mp4",
+          "bytes": 10472141,
+          "sha256": "138BEEB59C865FE521507B3CF0AF929AE9B40DC6F04BD5F457FED309DA273F30"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_04_editorial/20261022T084349480702Z/release/dots-04-parallel-official.mp4",
+          "bytes": 2249770,
+          "sha256": "F3290B7CAB3A357F13AB287074E004DE853D7C44DF962B00C2EC0644F51565F8"
+        }
+      ],
+      "preserved_previous_files": [
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_07_editorial/20261022T103129069029Z/shorts-creator.mp4",
+          "bytes": 2833608,
+          "sha256": "63F10EB6B19C66074C3EFE9C784FF7DD10A015A145E8C835ED0F16C0198964C4"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_07_editorial/20261022T103129069029Z/release/dots-07-schedule-official.mp4",
+          "bytes": 2833608,
+          "sha256": "63F10EB6B19C66074C3EFE9C784FF7DD10A015A145E8C835ED0F16C0198964C4"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_07_editorial/20261022T103129069029Z/dots-07-schedule-official.zip",
+          "bytes": 3434361,
+          "sha256": "C0160DABBC7627828F12F56AB690875A1EE73F62B99F3FB45203DC179C04BAEF"
+        }
+      ],
+      "clips": [
+        {
+          "media": {
+            "path": "outputs/characters/explainer-motion-20261022/dots-male/MiniMax_H3_dots_male_00001_.mp4",
+            "proof": "outputs/characters/explainer-motion-20261022/dots-male/verification.json"
+          },
+          "start": 0,
+          "artifact": {
+            "path": "outputs/characters/explainer-motion-20261022/dots-male/MiniMax_H3_dots_male_00001_.mp4",
+            "bytes": 1724186,
+            "sha256": "5F64D452AEF589F55421931F69627F33CFE86DD9187C726A946D2A58B9B8AB36"
+          },
+          "proof": {
+            "path": "outputs/characters/explainer-motion-20261022/dots-male/verification.json",
+            "bytes": 11831,
+            "sha256": "7FB18FE84E5505237B973F817E5A2704E9BD1676F006F49666D0C6EDDF46375C"
+          },
+          "presenter": {
+            "path": "outputs/claude-acquired-20260919/raw-0.png",
+            "bytes": 337314,
+            "sha256": "57031CECC619F6894BCD176C05198541067CF978B1ADFB58AEA085217CF2B78C"
+          },
+          "keyframe": {
+            "path": "runtime/ComfyUI/input/explainer-motion-20261022/dots-male/keyframe.png",
+            "bytes": 337314,
+            "sha256": "57031CECC619F6894BCD176C05198541067CF978B1ADFB58AEA085217CF2B78C"
+          },
+          "character": "male"
+        },
+        {
+          "media": {
+            "path": "outputs/characters/explainer-motion-20261022/dots-female/MiniMax_H3_dots_female_00001_.mp4",
+            "proof": "outputs/characters/explainer-motion-20261022/dots-female/verification.json"
+          },
+          "start": 0,
+          "artifact": {
+            "path": "outputs/characters/explainer-motion-20261022/dots-female/MiniMax_H3_dots_female_00001_.mp4",
+            "bytes": 2240397,
+            "sha256": "6DEDFC5577A05547C0525A97FCADC34F4767CA5F8BEF3212CB48C813E6B1320C"
+          },
+          "proof": {
+            "path": "outputs/characters/explainer-motion-20261022/dots-female/verification.json",
+            "bytes": 12087,
+            "sha256": "F893CBECA6A6EB3FC1481859DAEC32D165E6A950AA4AABC95C71F22C91FAB22A"
+          },
+          "presenter": {
+            "path": "outputs/claude-acquired-female-silhouette-20260930/female-keyframe.png",
+            "bytes": 1419256,
+            "sha256": "04157FF085802B1EF8EB0D4ABCB2391C1FE5E28483ED7010A8D31AD19DF19A41"
+          },
+          "keyframe": {
+            "path": "runtime/ComfyUI/input/explainer-motion-20261022/dots-female/keyframe.png",
+            "bytes": 1419256,
+            "sha256": "04157FF085802B1EF8EB0D4ABCB2391C1FE5E28483ED7010A8D31AD19DF19A41"
+          },
+          "character": "female"
+        }
+      ]
+    },
+    {
+      "episode": 8,
+      "title": "【ChatGPT】頼む前に気づく？dotsの「先回り調査」でできること",
+      "video": {
+        "path": "outputs/productions/SHORT_20261022_dots_08_editorial/20261022T155714225968Z/release/dots-08-research-official.mp4",
+        "bytes": 3427278,
+        "sha256": "5457B39C4E8DAD17A28DB274F65C17D14051F2DFBA0210EDE123A9A2FA4536D0"
+      },
+      "archive": {
+        "path": "outputs/productions/SHORT_20261022_dots_08_editorial/20261022T155714225968Z/dots-08-research-official.zip",
+        "bytes": 3814769,
+        "sha256": "A0FECC535055416E992806C4E50AB06B5321E47544243AD00DF103A4050F9B54"
+      },
+      "release": "outputs/productions/SHORT_20261022_dots_08_editorial/20261022T155714225968Z/release",
+      "cover": {
+        "path": "outputs/productions/SHORT_20261022_dots_08_editorial/20261022T155714225968Z/release/cover.png",
+        "bytes": 427347,
+        "sha256": "21118C80025093EA2687F1B348A32E7B84ACBBE23CB4D898354C7DDF0136ED5D"
+      },
+      "verification": {
+        "path": "outputs/productions/SHORT_20261022_dots_08_editorial/20261022T155714225968Z/verification.json",
+        "bytes": 18046,
+        "sha256": "7C88174E340E5B2AC47A070C47ADE706A7428360DE283F93C53D81598F451860"
+      },
+      "contact_sheet": {
+        "path": "outputs/productions/SHORT_20261022_dots_08_editorial/20261022T155714225968Z/contact-sheet.png",
+        "bytes": 613913,
+        "sha256": "5A17F39396B794CF8F9B6F197F479F1EBBED36912A3156CE332392E14AEB6D6C"
+      },
+      "motion_evidence": {
+        "path": "outputs/productions/SHORT_20261022_dots_08_editorial/20261022T155714225968Z/motion-evidence.json",
+        "bytes": 2655,
+        "sha256": "0201D7AE2A104373B8F44B2A97E1D6B93D5E398F38C5245816E84D540B993B24"
+      },
+      "motion_contact_sheet": {
+        "path": "outputs/productions/SHORT_20261022_dots_08_editorial/20261022T155714225968Z/motion-contact-sheet.png",
+        "bytes": 383768,
+        "sha256": "E5712103E8B5704B876A4DF744CD08E48A69FDBC2A00BADF400E6994EB65871E"
+      },
+      "motion_review": {
+        "path": "outputs/productions/SHORT_20261022_dots_08_editorial/20261022T155714225968Z/motion-visual-review.json",
+        "bytes": 645,
+        "sha256": "9820595C49829F7B4C9D225871445EE99382FFB53C321553E6A2C05F0E25DC2F"
+      },
+      "audio_packet_hash": "SHA256=6c994e05e2caed159e5e78197319a8803f046660cf25ab8dd1a5fb0d9e5a0172",
+      "previous_audio_identical": true,
+      "narration_bytes_unchanged": true,
+      "additional_tts_requests": 0,
+      "official_captures": [
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_08_editorial/captures/official-research.json",
+          "bytes": 1236,
+          "sha256": "C0F3EC82F236FFB2A5055E0B2D5CB28B9FED1E23E49D05BBB1F06219A955BAEF"
+        }
+      ],
+      "loudness_lufs": -16.02,
+      "true_peak_dbfs": -3.51,
+      "protected_original_videos": [
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/01/dots-01.mp4",
+          "bytes": 9261302,
+          "sha256": "22FD6152C04941714AFFAF4792CF44AAB8195B59F67EEECD1B88E684BB297958"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/02/dots-02.mp4",
+          "bytes": 10545851,
+          "sha256": "9B74979491A377577940840C5AD6110A9C54A50C28E2A6DD5B301D2BBEDF874A"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/03/dots-03.mp4",
+          "bytes": 9859460,
+          "sha256": "5D6B760BA10AE2DCAAF56FA5672865639FFC3CDB2BB40E587E752348B69CDB72"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/04/dots-04.mp4",
+          "bytes": 11162226,
+          "sha256": "2A23AD72E1BCCB7657216EE8FFE85804C7FD9B3273B94FF6E65F41259FA641A7"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/05/dots-05.mp4",
+          "bytes": 10350231,
+          "sha256": "B2C5A2EFEBCC68AAB33B8838E2508E405CC4A85DF3973151F159FE35CF3EF9AA"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/06/dots-06.mp4",
+          "bytes": 10560294,
+          "sha256": "3B0432F5D085D681A5FEDA47C5845CC566F9B5C884C94620CE0E9745374B9D0C"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/07/dots-07.mp4",
+          "bytes": 10696788,
+          "sha256": "81DDC24CC28E427A138849CDE351040382D812C15EF7365D823DF2AFB58AC992"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/08/dots-08.mp4",
+          "bytes": 10582976,
+          "sha256": "738C5A0AE4D5B639701A23556EE1C6BE712EC775F5B3B2AE6575856AEC300807"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/09/dots-09.mp4",
+          "bytes": 10896196,
+          "sha256": "0914418829BD46CEE5D3590D8E2442D5B7A5AFC48DD099E5257CC38648962FDC"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261021_dots_cloud_benefits/20261021T094421120681Z/release/dots-02-extra-cloud-benefits.mp4",
+          "bytes": 12027437,
+          "sha256": "548648347329D3F06026D820A300F5229EF104A44ECE62641F351CC737442969"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_03_aoede/20261022T075051150042Z/release/dots-03-apps-aoede.mp4",
+          "bytes": 10472141,
+          "sha256": "138BEEB59C865FE521507B3CF0AF929AE9B40DC6F04BD5F457FED309DA273F30"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_04_editorial/20261022T084349480702Z/release/dots-04-parallel-official.mp4",
+          "bytes": 2249770,
+          "sha256": "F3290B7CAB3A357F13AB287074E004DE853D7C44DF962B00C2EC0644F51565F8"
+        }
+      ],
+      "preserved_previous_files": [
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_08_editorial/20261022T103131453250Z/shorts-creator.mp4",
+          "bytes": 2927513,
+          "sha256": "A5CBB18270009EB375F73E70BC287F6AF729C7451BA3C1941BF5B23646F795E8"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_08_editorial/20261022T103131453250Z/release/dots-08-research-official.mp4",
+          "bytes": 2927513,
+          "sha256": "A5CBB18270009EB375F73E70BC287F6AF729C7451BA3C1941BF5B23646F795E8"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_08_editorial/20261022T103131453250Z/dots-08-research-official.zip",
+          "bytes": 3524759,
+          "sha256": "1C6D1228A174E9317145C7E40FA625E8F16376241B4EBB9D39E5AC9FD778DE0B"
+        }
+      ],
+      "clips": [
+        {
+          "media": {
+            "path": "outputs/characters/explainer-motion-20261022/dots-male/MiniMax_H3_dots_male_00001_.mp4",
+            "proof": "outputs/characters/explainer-motion-20261022/dots-male/verification.json"
+          },
+          "start": 0,
+          "artifact": {
+            "path": "outputs/characters/explainer-motion-20261022/dots-male/MiniMax_H3_dots_male_00001_.mp4",
+            "bytes": 1724186,
+            "sha256": "5F64D452AEF589F55421931F69627F33CFE86DD9187C726A946D2A58B9B8AB36"
+          },
+          "proof": {
+            "path": "outputs/characters/explainer-motion-20261022/dots-male/verification.json",
+            "bytes": 11831,
+            "sha256": "7FB18FE84E5505237B973F817E5A2704E9BD1676F006F49666D0C6EDDF46375C"
+          },
+          "presenter": {
+            "path": "outputs/claude-acquired-20260919/raw-0.png",
+            "bytes": 337314,
+            "sha256": "57031CECC619F6894BCD176C05198541067CF978B1ADFB58AEA085217CF2B78C"
+          },
+          "keyframe": {
+            "path": "runtime/ComfyUI/input/explainer-motion-20261022/dots-male/keyframe.png",
+            "bytes": 337314,
+            "sha256": "57031CECC619F6894BCD176C05198541067CF978B1ADFB58AEA085217CF2B78C"
+          },
+          "character": "male"
+        },
+        {
+          "media": {
+            "path": "outputs/characters/explainer-motion-20261022/dots-female/MiniMax_H3_dots_female_00001_.mp4",
+            "proof": "outputs/characters/explainer-motion-20261022/dots-female/verification.json"
+          },
+          "start": 0,
+          "artifact": {
+            "path": "outputs/characters/explainer-motion-20261022/dots-female/MiniMax_H3_dots_female_00001_.mp4",
+            "bytes": 2240397,
+            "sha256": "6DEDFC5577A05547C0525A97FCADC34F4767CA5F8BEF3212CB48C813E6B1320C"
+          },
+          "proof": {
+            "path": "outputs/characters/explainer-motion-20261022/dots-female/verification.json",
+            "bytes": 12087,
+            "sha256": "F893CBECA6A6EB3FC1481859DAEC32D165E6A950AA4AABC95C71F22C91FAB22A"
+          },
+          "presenter": {
+            "path": "outputs/claude-acquired-female-silhouette-20260930/female-keyframe.png",
+            "bytes": 1419256,
+            "sha256": "04157FF085802B1EF8EB0D4ABCB2391C1FE5E28483ED7010A8D31AD19DF19A41"
+          },
+          "keyframe": {
+            "path": "runtime/ComfyUI/input/explainer-motion-20261022/dots-female/keyframe.png",
+            "bytes": 1419256,
+            "sha256": "04157FF085802B1EF8EB0D4ABCB2391C1FE5E28483ED7010A8D31AD19DF19A41"
+          },
+          "character": "female"
+        }
+      ]
+    },
+    {
+      "episode": 9,
+      "title": "【ChatGPT】任せる前に知りたい！dotsの権限と「止め方」3つ",
+      "video": {
+        "path": "outputs/productions/SHORT_20261022_dots_09_editorial/20261022T155717091107Z/release/dots-09-controls-official.mp4",
+        "bytes": 3475733,
+        "sha256": "2C2D2EF7697B7143C97C13FA6F3592D83F6433872F6137BB8D4FD4DA1143FE1E"
+      },
+      "archive": {
+        "path": "outputs/productions/SHORT_20261022_dots_09_editorial/20261022T155717091107Z/dots-09-controls-official.zip",
+        "bytes": 3868641,
+        "sha256": "DD702ECCCA7EB7678DB84125DA161615052F2E9865F99F6534EF0FA83374DE05"
+      },
+      "release": "outputs/productions/SHORT_20261022_dots_09_editorial/20261022T155717091107Z/release",
+      "cover": {
+        "path": "outputs/productions/SHORT_20261022_dots_09_editorial/20261022T155717091107Z/release/cover.png",
+        "bytes": 430369,
+        "sha256": "DCC5C6D7071D22138E74F1B35AE73AA3A3A33D81DD901B49A0047AC96EDED937"
+      },
+      "verification": {
+        "path": "outputs/productions/SHORT_20261022_dots_09_editorial/20261022T155717091107Z/verification.json",
+        "bytes": 18023,
+        "sha256": "CFDFF8723CC59B7B518FF0403EADBF9801EFB9ACD91F6546D49B6B25433998BD"
+      },
+      "contact_sheet": {
+        "path": "outputs/productions/SHORT_20261022_dots_09_editorial/20261022T155717091107Z/contact-sheet.png",
+        "bytes": 563533,
+        "sha256": "967EFD70157A63B59CE8EBD1D974A8FD7BE276494388DB4E5754D353872E5001"
+      },
+      "motion_evidence": {
+        "path": "outputs/productions/SHORT_20261022_dots_09_editorial/20261022T155717091107Z/motion-evidence.json",
+        "bytes": 2657,
+        "sha256": "C18B5991147E80FBAD2D1C55169218CE2B8F1E3C300CD2EDDE76CBFBFB5E7929"
+      },
+      "motion_contact_sheet": {
+        "path": "outputs/productions/SHORT_20261022_dots_09_editorial/20261022T155717091107Z/motion-contact-sheet.png",
+        "bytes": 416650,
+        "sha256": "2C22ECD1325A57372DCBB75C55DF86A0662B7221D221E2135172C530B3C75D0D"
+      },
+      "motion_review": {
+        "path": "outputs/productions/SHORT_20261022_dots_09_editorial/20261022T155717091107Z/motion-visual-review.json",
+        "bytes": 687,
+        "sha256": "A5A2C73E03B98D90DCAE661710A6E757A37BE0D85FB5E201DFC4E19D4C600D7A"
+      },
+      "audio_packet_hash": "SHA256=f1d16463887c7f922f845ee6941b1c983f0cc4b3b007c9345f2b690af03e1570",
+      "previous_audio_identical": true,
+      "narration_bytes_unchanged": true,
+      "additional_tts_requests": 0,
+      "official_captures": [
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_09_editorial/captures/official-rules.json",
+          "bytes": 1227,
+          "sha256": "053802F2AAADC20A1FE410FFB043DDC67D32BA450865C7ACAFA16CBC128B3A02"
+        }
+      ],
+      "loudness_lufs": -16.14,
+      "true_peak_dbfs": -1.49,
+      "protected_original_videos": [
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/01/dots-01.mp4",
+          "bytes": 9261302,
+          "sha256": "22FD6152C04941714AFFAF4792CF44AAB8195B59F67EEECD1B88E684BB297958"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/02/dots-02.mp4",
+          "bytes": 10545851,
+          "sha256": "9B74979491A377577940840C5AD6110A9C54A50C28E2A6DD5B301D2BBEDF874A"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/03/dots-03.mp4",
+          "bytes": 9859460,
+          "sha256": "5D6B760BA10AE2DCAAF56FA5672865639FFC3CDB2BB40E587E752348B69CDB72"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/04/dots-04.mp4",
+          "bytes": 11162226,
+          "sha256": "2A23AD72E1BCCB7657216EE8FFE85804C7FD9B3273B94FF6E65F41259FA641A7"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/05/dots-05.mp4",
+          "bytes": 10350231,
+          "sha256": "B2C5A2EFEBCC68AAB33B8838E2508E405CC4A85DF3973151F159FE35CF3EF9AA"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/06/dots-06.mp4",
+          "bytes": 10560294,
+          "sha256": "3B0432F5D085D681A5FEDA47C5845CC566F9B5C884C94620CE0E9745374B9D0C"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/07/dots-07.mp4",
+          "bytes": 10696788,
+          "sha256": "81DDC24CC28E427A138849CDE351040382D812C15EF7365D823DF2AFB58AC992"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/08/dots-08.mp4",
+          "bytes": 10582976,
+          "sha256": "738C5A0AE4D5B639701A23556EE1C6BE712EC775F5B3B2AE6575856AEC300807"
+        },
+        {
+          "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/09/dots-09.mp4",
+          "bytes": 10896196,
+          "sha256": "0914418829BD46CEE5D3590D8E2442D5B7A5AFC48DD099E5257CC38648962FDC"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261021_dots_cloud_benefits/20261021T094421120681Z/release/dots-02-extra-cloud-benefits.mp4",
+          "bytes": 12027437,
+          "sha256": "548648347329D3F06026D820A300F5229EF104A44ECE62641F351CC737442969"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_03_aoede/20261022T075051150042Z/release/dots-03-apps-aoede.mp4",
+          "bytes": 10472141,
+          "sha256": "138BEEB59C865FE521507B3CF0AF929AE9B40DC6F04BD5F457FED309DA273F30"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_04_editorial/20261022T084349480702Z/release/dots-04-parallel-official.mp4",
+          "bytes": 2249770,
+          "sha256": "F3290B7CAB3A357F13AB287074E004DE853D7C44DF962B00C2EC0644F51565F8"
+        }
+      ],
+      "preserved_previous_files": [
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_09_editorial/20261022T103133769493Z/shorts-creator.mp4",
+          "bytes": 2999175,
+          "sha256": "A508DF9F613D22CDA7E22B862D1F162361A234E8BB04878ADD4036F6453259B7"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_09_editorial/20261022T103133769493Z/release/dots-09-controls-official.mp4",
+          "bytes": 2999175,
+          "sha256": "A508DF9F613D22CDA7E22B862D1F162361A234E8BB04878ADD4036F6453259B7"
+        },
+        {
+          "path": "outputs/productions/SHORT_20261022_dots_09_editorial/20261022T103133769493Z/dots-09-controls-official.zip",
+          "bytes": 3603837,
+          "sha256": "A85052EB515474CB262C92AD248E72747CF04864956DF78F007C3A153AF1EB49"
+        }
+      ],
+      "clips": [
+        {
+          "media": {
+            "path": "outputs/characters/explainer-motion-20261022/dots-male/MiniMax_H3_dots_male_00001_.mp4",
+            "proof": "outputs/characters/explainer-motion-20261022/dots-male/verification.json"
+          },
+          "start": 0,
+          "artifact": {
+            "path": "outputs/characters/explainer-motion-20261022/dots-male/MiniMax_H3_dots_male_00001_.mp4",
+            "bytes": 1724186,
+            "sha256": "5F64D452AEF589F55421931F69627F33CFE86DD9187C726A946D2A58B9B8AB36"
+          },
+          "proof": {
+            "path": "outputs/characters/explainer-motion-20261022/dots-male/verification.json",
+            "bytes": 11831,
+            "sha256": "7FB18FE84E5505237B973F817E5A2704E9BD1676F006F49666D0C6EDDF46375C"
+          },
+          "presenter": {
+            "path": "outputs/claude-acquired-20260919/raw-0.png",
+            "bytes": 337314,
+            "sha256": "57031CECC619F6894BCD176C05198541067CF978B1ADFB58AEA085217CF2B78C"
+          },
+          "keyframe": {
+            "path": "runtime/ComfyUI/input/explainer-motion-20261022/dots-male/keyframe.png",
+            "bytes": 337314,
+            "sha256": "57031CECC619F6894BCD176C05198541067CF978B1ADFB58AEA085217CF2B78C"
+          },
+          "character": "male"
+        },
+        {
+          "media": {
+            "path": "outputs/characters/explainer-motion-20261022/dots-female/MiniMax_H3_dots_female_00001_.mp4",
+            "proof": "outputs/characters/explainer-motion-20261022/dots-female/verification.json"
+          },
+          "start": 0,
+          "artifact": {
+            "path": "outputs/characters/explainer-motion-20261022/dots-female/MiniMax_H3_dots_female_00001_.mp4",
+            "bytes": 2240397,
+            "sha256": "6DEDFC5577A05547C0525A97FCADC34F4767CA5F8BEF3212CB48C813E6B1320C"
+          },
+          "proof": {
+            "path": "outputs/characters/explainer-motion-20261022/dots-female/verification.json",
+            "bytes": 12087,
+            "sha256": "F893CBECA6A6EB3FC1481859DAEC32D165E6A950AA4AABC95C71F22C91FAB22A"
+          },
+          "presenter": {
+            "path": "outputs/claude-acquired-female-silhouette-20260930/female-keyframe.png",
+            "bytes": 1419256,
+            "sha256": "04157FF085802B1EF8EB0D4ABCB2391C1FE5E28483ED7010A8D31AD19DF19A41"
+          },
+          "keyframe": {
+            "path": "runtime/ComfyUI/input/explainer-motion-20261022/dots-female/keyframe.png",
+            "bytes": 1419256,
+            "sha256": "04157FF085802B1EF8EB0D4ABCB2391C1FE5E28483ED7010A8D31AD19DF19A41"
+          },
+          "character": "female"
+        }
+      ]
+    }
+  ],
+  "totals": {
+    "episodes": 5,
+    "seconds": 150,
+    "frames": 3600,
+    "scene_reviews": 35,
+    "motion_review_samples": 30,
+    "official_capture_proofs": 5,
+    "previous_aac_streams_identical": 5,
+    "additional_tts_requests": 0,
+    "additional_tts_characters": 0,
+    "protected_original_videos": 12
+  },
+  "user_approved": false,
+  "final_listening_review": "pending",
+  "youtube_uploaded": false,
+  "s3_uploaded_for_this_revision": false
+}

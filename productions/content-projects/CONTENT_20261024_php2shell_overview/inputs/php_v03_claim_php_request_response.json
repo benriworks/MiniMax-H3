@@ -1,0 +1,14 @@
+{
+  "operation_id": "php_v03_claim_php_request_response",
+  "expected_revision": 26,
+  "data": {
+    "claim_id": "php_request_response",
+    "text": "PHPはサーバー側で実行され、アクセスに応じた処理の結果をブラウザーへ返す。ブラウザーがサーバー側PHPコードを実行する図にはしない。",
+    "basis": "official",
+    "source_ids": [
+      "php_intro_v03"
+    ],
+    "checked_at": "2026-10-25",
+    "asset_ids": []
+  }
+}

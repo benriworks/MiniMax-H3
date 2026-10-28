@@ -1,0 +1,48 @@
+{
+  "id": "SERIES_20261022_dots_finale",
+  "title": "dots入門 完結編 第5〜9弾",
+  "checked_date": "2026-10-22",
+  "episodes": [
+    {
+      "number": 5,
+      "topic": "記憶と好み",
+      "id": "SHORT_20261022_dots_05_editorial",
+      "slug": "memory",
+      "title": "【ChatGPT】毎回の説明を減らす！dotsの「記憶」はどこまで？",
+      "story": "productions/SERIES_20261022_dots_finale/05/creator-story.json"
+    },
+    {
+      "number": 6,
+      "topic": "会話と通話",
+      "id": "SHORT_20261022_dots_06_editorial",
+      "slug": "channels",
+      "title": "【ChatGPT】声でも頼める！dotsは通話を切った後も仕事が続く",
+      "story": "productions/SERIES_20261022_dots_finale/06/creator-story.json"
+    },
+    {
+      "number": 7,
+      "topic": "定期実行",
+      "id": "SHORT_20261022_dots_07_editorial",
+      "slug": "schedule",
+      "title": "【ChatGPT】毎朝の確認を任せる！dotsの定期実行は「保存」が大事",
+      "story": "productions/SERIES_20261022_dots_finale/07/creator-story.json"
+    },
+    {
+      "number": 8,
+      "topic": "先回り調査",
+      "id": "SHORT_20261022_dots_08_editorial",
+      "slug": "research",
+      "title": "【ChatGPT】頼む前に気づく？dotsの「先回り調査」でできること",
+      "story": "productions/SERIES_20261022_dots_finale/08/creator-story.json"
+    },
+    {
+      "number": 9,
+      "topic": "権限と停止",
+      "id": "SHORT_20261022_dots_09_editorial",
+      "slug": "controls",
+      "title": "【ChatGPT】任せる前に知りたい！dotsの権限と「止め方」3つ",
+      "story": "productions/SERIES_20261022_dots_finale/09/creator-story.json"
+    }
+  ],
+  "youtube_uploaded": false
+}

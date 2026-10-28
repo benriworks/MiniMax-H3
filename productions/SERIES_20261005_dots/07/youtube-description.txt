@@ -1,0 +1,14 @@
+dotsの機能を30秒ずつ紹介する全9本シリーズ、第7回「定期実行」。
+
+決まった時刻の定期実行には、保存されたスケジュールが必要です。会話で話しただけで設定済みと思わず、保存を確認し、Scheduledで管理します。内容・時刻・タイムゾーン・期間・通知条件・通知先を指定してください。イベント監視は連携先が対応している場合に利用でき、接続しただけでは始まりません。動画の依頼は説明用の例です。
+
+情報確認日：2026年10月5日。機能・対象プラン・提供地域は変更されることがあります。
+OpenAI公式資料をもとにした非公式の紹介動画です。画面は独自のモーショングラフィックスで、実機操作の録画ではありません。登場人物は架空のキャラクターです。
+
+出典（OpenAI公式）
+OpenAI — Controls
+https://learn.chatgpt.com/docs/dots/controls
+OpenAI — Tasks and memory
+https://learn.chatgpt.com/docs/dots/tasks-and-memory
+
+#dots #ChatGPT #OpenAI #AI活用 #Shorts

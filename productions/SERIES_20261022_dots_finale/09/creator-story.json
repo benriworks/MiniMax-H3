@@ -1,0 +1,265 @@
+{
+  "schema_version": 1,
+  "voice": "Aoede",
+  "rate": 1,
+  "pronunciations": [
+    {
+      "source": "dots",
+      "target": "ドッツ"
+    },
+    {
+      "source": "dot",
+      "target": "ドット"
+    },
+    {
+      "source": "ChatGPT",
+      "target": "チャットジーピーティー"
+    },
+    {
+      "source": "GPT-6 Astra",
+      "target": "ジーピーティーシックス、アストラ"
+    },
+    {
+      "source": "OpenAI",
+      "target": "オープンエーアイ"
+    },
+    {
+      "source": "Business Premium",
+      "target": "ビジネスプレミアム"
+    },
+    {
+      "source": "Enterprise",
+      "target": "エンタープライズ"
+    },
+    {
+      "source": "Pro",
+      "target": "プロ"
+    },
+    {
+      "source": "PC",
+      "target": "ピーシー"
+    },
+    {
+      "source": "Gmail",
+      "target": "ジーメール"
+    },
+    {
+      "source": "Drive",
+      "target": "ドライブ"
+    },
+    {
+      "source": "GitHub",
+      "target": "ギットハブ"
+    },
+    {
+      "source": "Slack",
+      "target": "スラック"
+    },
+    {
+      "source": "Teams",
+      "target": "チームズ"
+    },
+    {
+      "source": "Activity",
+      "target": "アクティビティ"
+    },
+    {
+      "source": "Scheduled",
+      "target": "スケジュールド"
+    },
+    {
+      "source": "SMS",
+      "target": "エスエムエス"
+    }
+  ],
+  "duration_seconds": 30,
+  "music_preset": "bright_groove_v1",
+  "id": "SHORT_20261022_dots_09_editorial",
+  "title": "【ChatGPT】任せる前に知りたい！dotsの権限と「止め方」3つ",
+  "scenes": [
+    {
+      "kind": "editorial",
+      "editorial_layout": "permissions",
+      "headline": "任せる範囲と、\n止め方を知ろう。",
+      "narration": "便利だからこそ、任せる範囲を決めましょう。",
+      "captions": [
+        "便利だからこそ、",
+        "任せる範囲を",
+        "決めましょう。"
+      ],
+      "body": "任せる前の確認",
+      "items": [
+        {
+          "label": "調査と下書き",
+          "detail": "依頼の範囲で",
+          "done": true
+        },
+        {
+          "label": "送信や変更",
+          "detail": "権限を確認",
+          "done": false
+        }
+      ],
+      "eyebrow": "DOTS 09 / 権限と停止",
+      "source_ids": [
+        "controls"
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "contrast",
+      "headline": "下書きの依頼は、\n送信の許可ではない。",
+      "narration": "下書きを作って、だけでは送信の許可になりません。",
+      "captions": [
+        "下書きを作って、",
+        "だけでは送信の",
+        "許可になりません。"
+      ],
+      "body": "依頼の範囲",
+      "items": [
+        {
+          "label": "依頼したこと",
+          "detail": "下書きを作る"
+        },
+        {
+          "label": "別に判断すること",
+          "detail": "実際に送信する"
+        }
+      ],
+      "eyebrow": "DOTS 09 / 権限と停止",
+      "source_ids": [
+        "controls"
+      ]
+    },
+    {
+      "kind": "source",
+      "headline": "確認する境界を、\nルールに。",
+      "narration": "公式には、実行前に確認するルールもあります。",
+      "captions": [
+        "公式には、",
+        "実行前に確認する",
+        "ルールもあります。"
+      ],
+      "capture": {
+        "title": "Control your dot",
+        "path": "outputs/productions/SHORT_20261022_dots_09_editorial/captures/official-rules.png",
+        "proof": "outputs/productions/SHORT_20261022_dots_09_editorial/captures/official-rules.json",
+        "source_url": "https://learn.chatgpt.com/docs/dots/controls"
+      },
+      "eyebrow": "DOTS 09 / 権限と停止",
+      "source_ids": [
+        "controls"
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "statement",
+      "headline": "ルールを加えても、\n権限は飛び越えない。",
+      "narration": "追加ルールも、アプリの権限や安全要件は変えません。",
+      "captions": [
+        "追加ルールも、",
+        "アプリの権限や",
+        "安全要件は変えません。"
+      ],
+      "body": "許可の範囲で\n任せる。",
+      "action": "アプリの権限も確認",
+      "eyebrow": "DOTS 09 / 権限と停止",
+      "source_ids": [
+        "controls"
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "permissions",
+      "headline": "今の作業と、\n委任した作業。",
+      "narration": "今の作業は一時停止。委任した作業は個別に停止。",
+      "captions": [
+        "今の作業は一時停止。",
+        "委任した作業は",
+        "個別に停止。"
+      ],
+      "body": "止め方を使い分ける",
+      "items": [
+        {
+          "label": "現在の主作業",
+          "detail": "Pause",
+          "done": false
+        },
+        {
+          "label": "委任した作業",
+          "detail": "Activityから",
+          "done": false
+        }
+      ],
+      "eyebrow": "DOTS 09 / 権限と停止",
+      "source_ids": [
+        "controls"
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "calendar",
+      "headline": "定期実行も、\n別に解除する。",
+      "narration": "定期実行は、予約の無効化や削除が必要です。",
+      "captions": [
+        "定期実行は、",
+        "予約の無効化や",
+        "削除が必要です。"
+      ],
+      "stat": "停止",
+      "body": "Scheduledで確認",
+      "items": [
+        {
+          "label": "今後の予約",
+          "detail": "無効化・削除"
+        }
+      ],
+      "action": "実行済みの操作は戻らない",
+      "eyebrow": "DOTS 09 / 権限と停止",
+      "source_ids": [
+        "controls"
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "recap",
+      "headline": "小さな仕事から、\n任せてみよう。",
+      "narration": "任せる範囲を決め、結果を確認。dots入門、完結です。",
+      "captions": [
+        "任せる範囲を決め、",
+        "結果を確認。",
+        "dots入門、完結です。"
+      ],
+      "body": "dots入門 全9回",
+      "items": [
+        {
+          "label": "依頼",
+          "detail": "範囲を決める"
+        },
+        {
+          "label": "結果",
+          "detail": "中身を確認"
+        },
+        {
+          "label": "停止",
+          "detail": "作業と予約を確認"
+        }
+      ],
+      "action": "ご視聴ありがとう",
+      "eyebrow": "DOTS 09 / 権限と停止",
+      "source_ids": [
+        "controls"
+      ]
+    }
+  ],
+  "editorial": {
+    "checked_date": "2026-10-22",
+    "series_episode": 9,
+    "official_source_ids": [
+      "controls"
+    ],
+    "availability_note": "カスタムルールは追加の境界で、既存アプリ権限や組み込みの安全要件を上書きしません。Pauseは現在の主作業、Activityから委任作業、Scheduledから定期実行をそれぞれ停止・解除します。停止はすでに完了した操作を取り消しません。これらは公式解説を要約したもので、動画撮影中にユーザーのアカウント設定は変更していません。",
+    "user_approved": false,
+    "visuals": "One short excerpt captured from official documentation plus original editorial explanatory graphics; fictional examples are labelled. Not a live product test."
+  }
+}

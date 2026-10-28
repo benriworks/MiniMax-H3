@@ -1,0 +1,16 @@
+{
+  "operation_id": "php_register_motion_v01",
+  "expected_revision": 20,
+  "data": {
+    "asset_id": "miura-minimax-motion-v01",
+    "kind": "generated_video",
+    "path": "outputs/content-projects/CONTENT_20261024_php2shell_overview/motion/v01/miura-insight-v02/MiniMax_H3_miura_insight_v02_00001_.mp4",
+    "visibility": "private",
+    "privacy_review": "passed",
+    "character_id": "miura_wataru",
+    "character_version": 1,
+    "provider": "minimax",
+    "generation_record": "outputs/content-projects/CONTENT_20261024_php2shell_overview/motion/v01/miura-insight-v02/visual-review.json",
+    "caption": "採用画像から新規生成。技術検証とAIフレーム確認済み。人の試聴と公開は別。"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "provider": "built-in image_gen",
+  "source_type": "generated_humanoid",
+  "fictional": true,
+  "transparent": true,
+  "artifact": {
+    "path": "outputs/characters/business-guides-20261022/codex-makoto.png",
+    "bytes": 1555958,
+    "sha256": "A6EFABE8821E961FF0BF3321E18C419D461A5DDEE1D9D220BEB7D47623D04837"
+  },
+  "keyframe": {
+    "path": "outputs/characters/business-guides-20261022/codex-makoto-office-keyframe.png",
+    "bytes": 2191246,
+    "sha256": "483DC926CCE7F62EF78E87FC81EFB50E06B90EB709D48F7BBE8C18088016DC37"
+  },
+  "review_status": "visual_review_passed",
+  "review_method": "AI visual inspection of both generated images",
+  "review_notes": [
+    "Understated adult professional appearance",
+    "Portrait and office keyframe preserve face, hair and clothing",
+    "No visible text or logo",
+    "Keyframe uses an opaque neutral office background"
+  ],
+  "user_approved": false,
+  "reviewed_at": "2026-10-22T12:13:56.270907+00:00"
+}

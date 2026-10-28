@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "character": {
+    "id": "morikawa-haruka",
+    "name": "森川 遥",
+    "age": 36,
+    "fictional": true,
+    "role": "業務整理の相談役",
+    "series": "Duetとdotsの比較"
+  },
+  "tool": "built-in image_gen",
+  "prompt": "Use case: photorealistic-natural.\nAsset type: first-frame character keyframe for a Japanese vertical technology explainer video, 9:16 portrait.\nCreate one entirely fictional Japanese woman, age 36, a thoughtful operations consultant named Haruka Morikawa. An understated, intelligent business professional with shoulder-length softly wavy dark brown hair tucked behind one ear, thin subtle dark eyeglasses, natural facial proportions, minimal makeup, an elegant muted plum blazer over a simple ivory crew-neck blouse. Distinct individual, not a celebrity or identifiable real person. Calm attentive expression, lips closed, looking slightly downward at her laptop as if thinking about how to organize work; not yet smiling broadly. Seated at a clean oak desk in a bright contemporary small office. Medium shot from waist up, both natural hands visible and resting separately on the desk, leaving room for a later small single-hand realization gesture. Laptop open at a three-quarter angle with only the unbranded back visible; small closed notebook, no other clutter. Soft warm daylight, realistic skin and cloth texture, polished editorial quality with restrained colors. Framing keeps her head and hands fully inside safe margins; top 18 percent of the vertical frame is simple softly blurred office background, bottom 16 percent is clean desk for editorial subtitles later. No text, letters, watermarks, logos, lightbulb icons, fantasy effects or fake product interfaces. No flashy poses, no glamour styling, no exaggerated eyes or sexualized outfit. This should be a natural believable starting frame for a gentle 'I have an idea!' action, with a steady camera and consistent lighting.",
+  "review": {
+    "ai_visual_review": "passed",
+    "notes": "知的で控えめな表情、上品なプラム色ジャケット、眼鏡。実生成は片手を顎に添える開始ポーズで、ひらめき動作へ適する。ロゴ・文字なし。",
+    "user_approved": false
+  }
+}

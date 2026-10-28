@@ -1,0 +1,12 @@
+{
+  "status": "submission_started",
+  "episode": 5,
+  "started_at": "2026-10-22T18:54:14.1918346+00:00",
+  "source": {
+    "path": "outputs/productions/SHORT_20261022_dots_05_editorial/20261022T155706331707Z/release/dots-05-memory-official.mp4",
+    "bytes": 3307100,
+    "sha256": "22C7F4FD28E99F9318C0333434EC3CF6B85D819AE1C85FD8C2E13FB9F5D90305"
+  },
+  "automatic_retry_allowed": false,
+  "mode": "upload"
+}

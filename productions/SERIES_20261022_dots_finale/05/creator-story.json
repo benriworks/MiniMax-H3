@@ -1,0 +1,264 @@
+{
+  "schema_version": 1,
+  "voice": "Aoede",
+  "rate": 1,
+  "pronunciations": [
+    {
+      "source": "dots",
+      "target": "ドッツ"
+    },
+    {
+      "source": "dot",
+      "target": "ドット"
+    },
+    {
+      "source": "ChatGPT",
+      "target": "チャットジーピーティー"
+    },
+    {
+      "source": "GPT-6 Astra",
+      "target": "ジーピーティーシックス、アストラ"
+    },
+    {
+      "source": "OpenAI",
+      "target": "オープンエーアイ"
+    },
+    {
+      "source": "Business Premium",
+      "target": "ビジネスプレミアム"
+    },
+    {
+      "source": "Enterprise",
+      "target": "エンタープライズ"
+    },
+    {
+      "source": "Pro",
+      "target": "プロ"
+    },
+    {
+      "source": "PC",
+      "target": "ピーシー"
+    },
+    {
+      "source": "Gmail",
+      "target": "ジーメール"
+    },
+    {
+      "source": "Drive",
+      "target": "ドライブ"
+    },
+    {
+      "source": "GitHub",
+      "target": "ギットハブ"
+    },
+    {
+      "source": "Slack",
+      "target": "スラック"
+    },
+    {
+      "source": "Teams",
+      "target": "チームズ"
+    },
+    {
+      "source": "Activity",
+      "target": "アクティビティ"
+    },
+    {
+      "source": "Scheduled",
+      "target": "スケジュールド"
+    },
+    {
+      "source": "SMS",
+      "target": "エスエムエス"
+    }
+  ],
+  "duration_seconds": 30,
+  "music_preset": "bright_groove_v1",
+  "id": "SHORT_20261022_dots_05_editorial",
+  "title": "【ChatGPT】毎回の説明を減らす！dotsの「記憶」はどこまで？",
+  "scenes": [
+    {
+      "kind": "editorial",
+      "editorial_layout": "contrast",
+      "headline": "その好み、\nまた説明してる？",
+      "narration": "毎回、好みを説明し直していませんか？",
+      "captions": [
+        "毎回、好みを",
+        "説明し直して",
+        "いませんか？"
+      ],
+      "body": "仕事の始め方",
+      "items": [
+        {
+          "label": "毎回説明",
+          "detail": "結論からお願い"
+        },
+        {
+          "label": "次の仕事へ",
+          "detail": "好みを生かす"
+        }
+      ],
+      "eyebrow": "DOTS 05 / 記憶と好み",
+      "source_ids": [
+        "tasks-and-memory"
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "memory",
+      "headline": "会話とメモを、\n次の仕事へ。",
+      "narration": "dotsは会話やメモを、次の仕事にも生かします。",
+      "captions": [
+        "dotsは会話やメモを、",
+        "次の仕事にも",
+        "生かします。"
+      ],
+      "body": "引き継ぐ手がかり",
+      "items": [
+        {
+          "label": "好み",
+          "detail": "文章の調子"
+        },
+        {
+          "label": "決めたこと",
+          "detail": "方針と優先順位"
+        },
+        {
+          "label": "進めている仕事",
+          "detail": "次にやること"
+        }
+      ],
+      "eyebrow": "DOTS 05 / 記憶と好み",
+      "source_ids": [
+        "tasks-and-memory"
+      ]
+    },
+    {
+      "kind": "source",
+      "headline": "メモリとノートは、\n別のしくみ。",
+      "narration": "公式では、ChatGPTのメモリと、dot自身のノートを区別。",
+      "captions": [
+        "公式では、",
+        "ChatGPTのメモリと、",
+        "dot自身のノートを区別。"
+      ],
+      "capture": {
+        "title": "Tasks and memory",
+        "path": "outputs/productions/SHORT_20261022_dots_05_editorial/captures/official-memory.png",
+        "proof": "outputs/productions/SHORT_20261022_dots_05_editorial/captures/official-memory.json",
+        "source_url": "https://learn.chatgpt.com/docs/dots/tasks-and-memory"
+      },
+      "eyebrow": "DOTS 05 / 記憶と好み",
+      "source_ids": [
+        "tasks-and-memory"
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "statement",
+      "headline": "好みは、\n具体的に伝える。",
+      "narration": "たとえば、要点は三つ、結論から。",
+      "captions": [
+        "たとえば、",
+        "要点は三つ、",
+        "結論から。"
+      ],
+      "body": "要点は3つ。\n結論から。",
+      "action": "依頼の例",
+      "eyebrow": "DOTS 05 / 記憶と好み",
+      "source_ids": [
+        "tasks-and-memory"
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "contrast",
+      "headline": "何もかも、\n覚えるわけではない。",
+      "narration": "ただし、全会話を丸ごと覚えるわけではありません。",
+      "captions": [
+        "ただし、全会話を",
+        "丸ごと覚える",
+        "わけではありません。"
+      ],
+      "body": "記憶の範囲",
+      "items": [
+        {
+          "label": "使う情報",
+          "detail": "好み・決定・作業"
+        },
+        {
+          "label": "保証されない",
+          "detail": "全会話の完全保存"
+        }
+      ],
+      "eyebrow": "DOTS 05 / 記憶と好み",
+      "source_ids": [
+        "tasks-and-memory"
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "memory",
+      "headline": "好みが変わったら、\nその場で伝える。",
+      "narration": "変えたい好みは、その都度伝えましょう。",
+      "captions": [
+        "変えたい好みは、",
+        "その都度",
+        "伝えましょう。"
+      ],
+      "body": "方針を更新",
+      "items": [
+        {
+          "label": "これまで",
+          "detail": "詳しく説明"
+        },
+        {
+          "label": "これから",
+          "detail": "短く要点だけ"
+        }
+      ],
+      "action": "変更を言葉にする",
+      "eyebrow": "DOTS 05 / 記憶と好み",
+      "source_ids": [
+        "tasks-and-memory"
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "recap",
+      "headline": "伝えるほど、\n任せやすく。",
+      "narration": "好みを伝えて、仕事をスムーズに。次は通話。",
+      "captions": [
+        "好みを伝えて、",
+        "仕事をスムーズに。",
+        "次は通話。"
+      ],
+      "body": "好み・方針・進行中",
+      "items": [
+        {
+          "label": "好み",
+          "detail": "具体的に伝える"
+        },
+        {
+          "label": "変更",
+          "detail": "その都度伝える"
+        }
+      ],
+      "action": "次回：会話と通話",
+      "eyebrow": "DOTS 05 / 記憶と好み",
+      "source_ids": [
+        "tasks-and-memory"
+      ]
+    }
+  ],
+  "editorial": {
+    "checked_date": "2026-10-22",
+    "series_episode": 5,
+    "official_source_ids": [
+      "tasks-and-memory"
+    ],
+    "availability_note": "ChatGPTのメモリとdot自身のノートは別。全会話の完全な記録ではありません。設定の変更がdotの既存ノートにも必ず反映されるとは説明していません。好みの例は架空の依頼例です。",
+    "user_approved": false,
+    "visuals": "One short excerpt captured from official documentation plus original editorial explanatory graphics; fictional examples are labelled. Not a live product test."
+  }
+}

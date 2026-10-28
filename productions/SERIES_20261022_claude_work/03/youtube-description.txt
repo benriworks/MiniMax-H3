@@ -1,0 +1,11 @@
+架空の店内告知をDesignで作り、文字や余白を確認しながら直す流れを紹介します。
+
+登場人物の佐伯栞、店舗「灯台珈琲」、企画・資料は説明用の架空設定です。
+Anthropicの公式・公認動画ではありません。公式資料の引用と、こちらで記録した実演を区別しています。
+画面・機能の確認日：2026年10月22日。プランや設定、更新によって表示・利用条件が変わる場合があります。
+
+出典
+Get started with Claude Design
+https://support.claude.com/en/articles/14604416-get-started-with-claude-design
+
+#Claude #仕事効率化 #Shorts

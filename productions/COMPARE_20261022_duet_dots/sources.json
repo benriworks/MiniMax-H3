@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "checked_at": "2026-10-22T13:07:47Z",
+  "sources": [
+    {
+      "id": "S01",
+      "title": "Introducing Claude Duet",
+      "publisher": "Anthropic",
+      "url": "https://claude.com/resources/articles/claude-duet",
+      "publication_date": "2026-10-21",
+      "checked_date": "2026-10-22",
+      "read_scope": "Main article body including preview access and limits; site navigation excluded.",
+      "quote_plan": [
+        "Introducing Claude Duet",
+        "October 21, 2026",
+        "A research preview is available by waitlist today, starting with US Pro and Max subscribers."
+      ],
+      "supports": [
+        "Duet announcement date",
+        "US Pro/Max waitlist",
+        "cloud VM and browser",
+        "morning brief and periodic checks",
+        "shared usage allowance"
+      ],
+      "planned_quote_words": 21,
+      "quote_budget_words": 25,
+      "source_type": "official_primary",
+      "page_screenshot_captured": false
+    },
+    {
+      "id": "S02",
+      "title": "Get started with Claude Duet",
+      "publisher": "Anthropic",
+      "url": "https://support.claude.com/en/articles/17631495-get-started-with-claude-duet",
+      "checked_date": "2026-10-22",
+      "read_scope": "Full help article body through feedback.",
+      "quote_plan": [
+        "Limitations",
+        "You can't watch Claude Duet work in its browser or take over the browser."
+      ],
+      "supports": [
+        "US-only Pro/Max invitation",
+        "no Team/Enterprise yet",
+        "browser cannot be viewed or taken over in current preview",
+        "no access to local computer files",
+        "five-hour and weekly shared usage including background work"
+      ],
+      "planned_quote_words": 15,
+      "quote_budget_words": 25,
+      "source_type": "official_primary",
+      "page_screenshot_captured": false
+    },
+    {
+      "id": "S03",
+      "title": "Meet dots",
+      "publisher": "OpenAI",
+      "url": "https://learn.chatgpt.com/docs/dots",
+      "checked_date": "2026-10-22",
+      "read_scope": "Full product article body from Meet dots through Access and Reference.",
+      "quote_plan": [
+        "Alfred has control",
+        "Take over"
+      ],
+      "supports": [
+        "cloud computer and self-initiated follow-up",
+        "official browser takeover UI example",
+        "rollout and eligibility",
+        "conversation allowance versus Work/Codex task limits"
+      ],
+      "planned_quote_words": 5,
+      "quote_budget_words": 25,
+      "source_type": "official_primary",
+      "page_screenshot_captured": false
+    },
+    {
+      "id": "S04",
+      "title": "Connect computers and apps to your dot",
+      "publisher": "OpenAI",
+      "url": "https://learn.chatgpt.com/docs/dots/computers-and-apps",
+      "checked_date": "2026-10-22",
+      "read_scope": "Full article body, cloud/browser/local connections and app permissions.",
+      "quote_plan": [
+        "Connect your computer"
+      ],
+      "supports": [
+        "browser inspection and Take over/Return control",
+        "one personal computer and permission",
+        "local Work/Codex and existing Codex tasks",
+        "online computer and open ChatGPT app required"
+      ],
+      "planned_quote_words": 3,
+      "quote_budget_words": 25,
+      "source_type": "official_primary",
+      "page_screenshot_captured": false
+    },
+    {
+      "id": "S05",
+      "title": "Tasks and memory",
+      "publisher": "OpenAI",
+      "url": "https://learn.chatgpt.com/docs/dots/tasks-and-memory",
+      "checked_date": "2026-10-22",
+      "read_scope": "Full article body, assigned work through proactive research.",
+      "quote_plan": [
+        "Assigned work",
+        "Recurring tasks"
+      ],
+      "supports": [
+        "self-decided follow-up separate from saved schedules",
+        "event monitoring requires support and explicit setup",
+        "proactive research is read-only; follow-up actions require permissions"
+      ],
+      "planned_quote_words": 4,
+      "quote_budget_words": 25,
+      "source_type": "official_primary",
+      "page_screenshot_captured": false
+    }
+  ],
+  "quote_policy": "公開動画全体の引用文字をsourceごとに合計25英語words以内。周辺UIや繰返し表示の別文言を追加したら再集計。",
+  "rights_status": "No blanket reuse licence established; specific image/publication decisions pending."
+}

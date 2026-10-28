@@ -1,0 +1,169 @@
+{
+  "operation_id": "php_storyboard_v01",
+  "expected_revision": 19,
+  "data": {
+    "episode_id": "php2shell_overview",
+    "scenes": [
+      {
+        "scene_id": "php_scene_00",
+        "purpose": "自分のサイトも？",
+        "narration": "Webサイトを運営しているなら確認を。",
+        "visual": "人物の全面導入。気づいて小さく頷く。顔と字幕を分ける。",
+        "duration_seconds": 4.541666666666667,
+        "beat": "problem",
+        "claim_ids": [
+          "identity"
+        ],
+        "source_ids": [
+          "php_oct21"
+        ],
+        "asset_ids": [
+          "miura-wataru-reference"
+        ],
+        "character_ids": [
+          "miura_wataru"
+        ],
+        "character_action": "採用参照画像をMiniMaxで動かし、手を少し開いて気づき、小さく頷く。",
+        "presenter_layout": "fullscreen",
+        "face_caption_separated": true
+      },
+      {
+        "scene_id": "php_scene_01",
+        "purpose": "PHPは・サイトの裏側",
+        "narration": "サイトの裏側を動かすPHPに、2件の重大な脆弱性が公表されました。",
+        "visual": "自作の動く説明・確認項目",
+        "duration_seconds": 7.083333333333333,
+        "beat": "insight",
+        "claim_ids": [
+          "identity"
+        ],
+        "source_ids": [
+          "php_oct21"
+        ],
+        "asset_ids": [],
+        "character_ids": []
+      },
+      {
+        "scene_id": "php_scene_02",
+        "purpose": "PHP2Shell・2件の重大な不具合",
+        "narration": "通称、PHPツーシェル。条件がそろうと、",
+        "visual": "公式画面の引用",
+        "duration_seconds": 5.25,
+        "beat": "evidence",
+        "claim_ids": [
+          "identity"
+        ],
+        "source_ids": [
+          "php_oct21"
+        ],
+        "asset_ids": [
+          "php-public-quote-v01"
+        ],
+        "character_ids": []
+      },
+      {
+        "scene_id": "php_scene_03",
+        "purpose": "ログインなしで・不正な処理の恐れ",
+        "narration": "ログインせずにサーバーでプログラムを実行される恐れがあります。",
+        "visual": "自作の動く説明・確認項目",
+        "duration_seconds": 5.416666666666667,
+        "beat": "insight",
+        "claim_ids": [
+          "impact"
+        ],
+        "source_ids": [
+          "php_oom",
+          "php_state"
+        ],
+        "asset_ids": [],
+        "character_ids": []
+      },
+      {
+        "scene_id": "php_scene_04",
+        "purpose": "誰に、何を聞く？",
+        "narration": "管理担当やホスティング会社に、利用中のPHPを確認。",
+        "visual": "自作の動く説明・確認項目",
+        "duration_seconds": 6.458333333333333,
+        "beat": "action",
+        "claim_ids": [
+          "response"
+        ],
+        "source_ids": [
+          "jpcert_oct22"
+        ],
+        "asset_ids": [],
+        "character_ids": []
+      },
+      {
+        "scene_id": "php_scene_05",
+        "purpose": "修正版へ更新・動作も確認",
+        "narration": "対策済みかも聞き、修正版への更新と動作確認を。",
+        "visual": "自作の動く説明・確認項目",
+        "duration_seconds": 6.041666666666667,
+        "beat": "action",
+        "claim_ids": [
+          "fixes",
+          "response"
+        ],
+        "source_ids": [
+          "php_oct21",
+          "jpcert_oct22"
+        ],
+        "asset_ids": [],
+        "character_ids": []
+      },
+      {
+        "scene_id": "php_scene_06",
+        "purpose": "更新したら・ログも調べる",
+        "narration": "不審なログの調査も忘れずに。",
+        "visual": "自作の動く説明・確認項目",
+        "duration_seconds": 4.083333333333333,
+        "beat": "action",
+        "claim_ids": [
+          "response"
+        ],
+        "source_ids": [
+          "jpcert_oct22"
+        ],
+        "asset_ids": [],
+        "character_ids": []
+      },
+      {
+        "scene_id": "php_scene_07",
+        "purpose": "10月23日にも・追加の注意喚起",
+        "narration": "10月23日には、別の条件に関する追加注意喚起も出ています。",
+        "visual": "公式画面の引用",
+        "duration_seconds": 7.0,
+        "beat": "evidence",
+        "claim_ids": [
+          "followup"
+        ],
+        "source_ids": [
+          "php_oct23"
+        ],
+        "asset_ids": [
+          "php-followup-public-quote-v01"
+        ],
+        "character_ids": []
+      },
+      {
+        "scene_id": "php_scene_08",
+        "purpose": "最新の公式案内まで・確認しましょう",
+        "narration": "最新の公式案内まで確認を。",
+        "visual": "自作の動く説明・確認項目",
+        "duration_seconds": 4.125,
+        "beat": "action",
+        "claim_ids": [
+          "followup",
+          "response"
+        ],
+        "source_ids": [
+          "php_oct23",
+          "jpcert_oct22"
+        ],
+        "asset_ids": [],
+        "character_ids": []
+      }
+    ]
+  }
+}

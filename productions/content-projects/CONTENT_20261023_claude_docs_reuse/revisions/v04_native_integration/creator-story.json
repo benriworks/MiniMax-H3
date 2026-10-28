@@ -1,0 +1,239 @@
+{
+  "schema_version": 1,
+  "id": "SHORT_20261023_claude_docs_collaboration_v02",
+  "title": "【Claude】メモからDocsへ！資料をつなぎ、人とAIで仕上げる",
+  "voice": "Aoede",
+  "rate": 1,
+  "duration_seconds": 45,
+  "music_preset": "bright_groove_v1",
+  "pronunciations": [
+    {
+      "source": "Claude",
+      "target": "クロード"
+    },
+    {
+      "source": "Docs",
+      "target": "ドックス"
+    },
+    {
+      "source": "Slides",
+      "target": "スライド"
+    },
+    {
+      "source": "Design",
+      "target": "デザイン"
+    },
+    {
+      "source": "栞",
+      "target": "しおり"
+    }
+  ],
+  "scenes": [
+    {
+      "kind": "editorial",
+      "editorial_layout": "hook",
+      "headline": "下書きの先まで、\nClaudeと。",
+      "narration": "栞さんの企画書。下書きの先まで、Claudeと進めます。",
+      "captions": [
+        "栞さんの企画書。",
+        "下書きの先まで、",
+        "Claudeと進めます。"
+      ],
+      "body": "同じ文書を仕上げる",
+      "eyebrow": "CLAUDE 01 / Docs",
+      "source_ids": [],
+      "visual_style": "business",
+      "media": {
+        "path": "outputs/characters/explainer-motion-20261022/claude-shiori/MiniMax_H3_claude_shiori_00001_.mp4",
+        "proof": "outputs/characters/explainer-motion-20261022/claude-shiori/verification.json"
+      },
+      "mediaStart": 0
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "会話の横で、\n文書を育てる。",
+      "eyebrow": "CLAUDE 01 / Docs",
+      "narration": "Docsは、人とClaudeが同じ文書に手を入れる作業場所。",
+      "captions": [
+        "Docsは、人とClaudeが",
+        "同じ文書に",
+        "手を入れる作業場所。"
+      ],
+      "source_ids": [
+        "claude_docs"
+      ],
+      "capture": {
+        "path": "outputs/productions/SHORT_20261023_claude_docs_native_v03/captures/native-overview.png",
+        "proof": "outputs/productions/SHORT_20261023_claude_docs_native_v03/captures/native-overview.json",
+        "origin": "demonstration",
+        "product": "Claude",
+        "phase": "after",
+        "title": "Docsの文書パネル"
+      }
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "research",
+      "headline": "メモも資料も、\n下書きの材料に。",
+      "narration": "ファイルや会話、接続した資料を、下書きに生かします。",
+      "captions": [
+        "ファイルや会話、",
+        "接続した資料を、",
+        "下書きに生かします。"
+      ],
+      "body": "参照元を具体的に",
+      "items": [
+        {
+          "label": "元メモ",
+          "detail": "目的・日程"
+        },
+        {
+          "label": "関連資料",
+          "detail": "決まっている条件"
+        }
+      ],
+      "action": "公式機能の解説",
+      "eyebrow": "CLAUDE 01 / Docs",
+      "source_ids": [],
+      "visual_style": "business"
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "見出しと表で、\n文書を見渡す。",
+      "eyebrow": "CLAUDE 01 / Docs",
+      "narration": "見出しや表で文書を見渡し、内容を確かめます。",
+      "captions": [
+        "見出しや表で",
+        "文書を見渡し、",
+        "内容を確かめます。"
+      ],
+      "source_ids": [
+        "claude_docs"
+      ],
+      "capture": {
+        "path": "outputs/productions/SHORT_20261023_claude_docs_native_v03/captures/native-structure.png",
+        "proof": "outputs/productions/SHORT_20261023_claude_docs_native_v03/captures/native-structure.json",
+        "origin": "demonstration",
+        "product": "Claude",
+        "phase": "after",
+        "title": "見出しと企画概要の表"
+      }
+    },
+    {
+      "kind": "source",
+      "headline": "自分で直す。\nClaudeに相談する。",
+      "narration": "細かな言葉は直接編集。考え直したい箇所は、コメントで相談できます。",
+      "captions": [
+        "細かな言葉は直接編集。",
+        "考え直したい箇所は、",
+        "コメントで相談できます。"
+      ],
+      "eyebrow": "CLAUDE 01 / Docs",
+      "source_ids": [],
+      "visual_style": "business",
+      "capture": {
+        "path": "outputs/productions/SHORT_20261023_claude_docs_native_v03/captures/native-selection.png",
+        "proof": "outputs/productions/SHORT_20261023_claude_docs_native_v03/captures/native-selection.json",
+        "origin": "demonstration",
+        "product": "Claude",
+        "phase": "revision",
+        "title": "文章選択と編集メニュー"
+      }
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "ここを、\nもっと読みやすく。",
+      "eyebrow": "CLAUDE 01 / Docs",
+      "narration": "今回の実演では、予算の見出しと書式を直すよう頼みました。",
+      "captions": [
+        "今回の実演では、",
+        "予算の見出しと書式を",
+        "直すよう頼みました。"
+      ],
+      "source_ids": [
+        "claude_docs"
+      ],
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_01_work/captures/01-revision-budget-heading-native-v2.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_01_work/captures/01-revision-budget-heading-native-v2.json",
+        "origin": "demonstration",
+        "title": "見出しの修正依頼",
+        "product": "Claude",
+        "phase": "revision"
+      }
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "依頼した修正を、\n文書で確認。",
+      "eyebrow": "CLAUDE 01 / Docs",
+      "narration": "修正が文書に反映。元の金額が変わっていないかも確認。",
+      "captions": [
+        "修正が文書に反映。",
+        "元の金額が",
+        "変わっていないかも確認。"
+      ],
+      "source_ids": [],
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_01_work/captures/01-budget-revised-history-native.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_01_work/captures/01-budget-revised-history-native-65f5ec978ffd.json",
+        "origin": "demonstration",
+        "title": "修正後の予算欄",
+        "product": "Claude",
+        "phase": "after"
+      }
+    },
+    {
+      "kind": "source",
+      "headline": "人の編集と相談を、\n同じ文書で。",
+      "narration": "人の編集とClaudeへの相談で、同じ文書を完成へ近づけます。",
+      "captions": [
+        "人の編集と\nClaudeへの相談で、",
+        "同じ文書を",
+        "完成へ近づけます。"
+      ],
+      "eyebrow": "CLAUDE 01 / Docs",
+      "source_ids": [],
+      "visual_style": "business",
+      "capture": {
+        "path": "outputs/productions/SHORT_20261023_claude_docs_native_v03/captures/native-comments.png",
+        "proof": "outputs/productions/SHORT_20261023_claude_docs_native_v03/captures/native-comments.json",
+        "origin": "demonstration",
+        "product": "Claude",
+        "phase": "after",
+        "title": "Docsとコメント欄"
+      }
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "closing",
+      "headline": "一緒に仕上げる、\nClaude Docs。",
+      "narration": "資料を集めて、直して、確かめる。詳しい手順は記事へ。",
+      "captions": [
+        "資料を集めて、",
+        "直して、確かめる。",
+        "詳しい手順は記事へ。"
+      ],
+      "body": "詳しい手順と入力例",
+      "action": "動画と記事で確認",
+      "eyebrow": "CLAUDE 01 / Docs",
+      "source_ids": [],
+      "visual_style": "business",
+      "media": {
+        "path": "outputs/characters/explainer-motion-20261022/claude-shiori/MiniMax_H3_claude_shiori_00001_.mp4",
+        "proof": "outputs/characters/explainer-motion-20261022/claude-shiori/verification.json"
+      },
+      "mediaStart": 0
+    }
+  ],
+  "draft_status": "paired_blog_review_draft",
+  "editorial": {
+    "checked_date": "2026-10-23",
+    "availability_note": "2026-10-23の実機キャプチャを4場面へ採用。保存済み文書・文章選択・Commentsを表示。直接入力・新規コメント送信・複数資料参照の追加実演は行っていない。初回と修正後の比較は2026-10-22の保存記録。",
+    "user_approved": false
+  },
+  "review_revision": "v03_native_screens"
+}

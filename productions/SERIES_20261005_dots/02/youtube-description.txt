@@ -1,0 +1,14 @@
+dotsの機能を30秒ずつ紹介する全9本シリーズ、第2回「専用クラウドPC」。
+
+dot専用のクラウドPCと、ユーザーのローカルPCへの接続は別機能です。クラウド側はユーザーのPCがオフでも作業を続けられます。ローカルPCを使う作業には、オンライン状態とChatGPTアプリの起動が必要です。クラウドブラウザーでは別途ログインが必要な場合があり、サイト側でアクセスが制限されることもあります。
+
+情報確認日：2026年10月5日。機能・対象プラン・提供地域は変更されることがあります。
+OpenAI公式資料をもとにした非公式の紹介動画です。画面は独自のモーショングラフィックスで、実機操作の録画ではありません。登場人物は架空のキャラクターです。
+
+出典（OpenAI公式）
+OpenAI — Computers and apps
+https://learn.chatgpt.com/docs/dots/computers-and-apps
+OpenAI — Meet dots
+https://learn.chatgpt.com/docs/dots
+
+#dots #ChatGPT #OpenAI #AI活用 #Shorts

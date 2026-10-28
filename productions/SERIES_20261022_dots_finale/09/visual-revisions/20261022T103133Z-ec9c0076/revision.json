@@ -1,0 +1,43 @@
+{
+  "original_story": {
+    "path": "productions/SERIES_20261022_dots_finale/09/creator-story.json",
+    "bytes": 7875,
+    "sha256": "C2DD206159EE8942D24B9A80F2D015E4C5416BAC311BDF1CB762B33483B89A7E"
+  },
+  "render_story": {
+    "path": "productions/SERIES_20261022_dots_finale/09/visual-revisions/20261022T103133Z-ec9c0076/creator-story.json",
+    "bytes": 8268,
+    "sha256": "B3FB19A110FC120F6C24A2A5C26A17FF9B75BA59EC2714D5A3FAD8DAEB465AB8"
+  },
+  "presenter": {
+    "path": "outputs/characters/dots-guide-20261022/guide.png",
+    "bytes": 1890886,
+    "sha256": "1C2542CEEBB889226CC4C8058A2B9AC8976CEC819BEBAAAA3E50E1A8D81F47C8"
+  },
+  "presenter_proof": {
+    "path": "outputs/characters/dots-guide-20261022/guide.json",
+    "bytes": 694,
+    "sha256": "54B9DEDF875FF3549163F0D4C1B268FA55B5DEFE9A623F4649DAB8DCA67D5FB2"
+  },
+  "previous_state": {
+    "path": "productions/SERIES_20261022_dots_finale/09/visual-revisions/20261022T103133Z-ec9c0076/previous-state.json",
+    "bytes": 155,
+    "sha256": "67661875D46EB52655E8EF14359732C991B273E9879FA82A519DC9C43C7C4F36"
+  },
+  "previous_output": null,
+  "preserved_files": [],
+  "output": "outputs/productions/SHORT_20261022_dots_09_editorial/20261022T103133769493Z",
+  "narration_source": {
+    "path": "outputs/productions/SHORT_20261022_dots_09_editorial/voice-generations/20261022T101743Z-e90d314c/voice-source.json",
+    "bytes": 6148,
+    "sha256": "A1C2BD4CEDBF20C98EAAACD1541EF9552A0F7BCEE237BE81A97E1A858D8484FD"
+  },
+  "narration_inputs_unchanged": true,
+  "audio_signature_unchanged": true,
+  "audio_method": "saved_verified_pcm_source",
+  "additional_tts_requests": 0,
+  "presenter_scenes": [
+    0,
+    6
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "operation_id": "php_revision_v03_research",
+  "expected_revision": 23,
+  "data": {
+    "research_id": "php_research_v03",
+    "checked_at": "2026-10-25",
+    "summary": "国内との関係、WordPress依存とサーバー側の動作を一次資料で追加確認。統計を被害率・日本全体の利用率として表さない。",
+    "sources": [
+      {
+        "source_id": "w3techs_japan_v03",
+        "title": "Usage of PHP broken down by server locations",
+        "url": "https://w3techs.com/technologies/breakdown/pl-php/server_location",
+        "kind": "official",
+        "publisher": "W3Techs / Q-Success",
+        "published_at": "2026-10-24",
+        "checked_at": "2026-10-25",
+        "summary": "日本にサーバーがあり、サーバー側言語を判別できたサイトの92.4%がPHP。日本の全サイトの割合や脆弱性の影響率ではない。"
+      },
+      {
+        "source_id": "w3techs_method_v03",
+        "title": "W3Techs methodology",
+        "url": "https://w3techs.com/technologies",
+        "kind": "official",
+        "publisher": "W3Techs / Q-Success",
+        "checked_at": "2026-10-25",
+        "summary": "有効な内容・機能を持つサイトを対象とし、ページ単位ではなくサイト単位。判別可能なサーバー側言語とサーバー所在地による限定した集計として扱う。"
+      },
+      {
+        "source_id": "wordpress_php_v03",
+        "title": "WordPress official requirements",
+        "url": "https://wordpress.org/about/requirements/",
+        "kind": "official",
+        "publisher": "WordPress.org",
+        "checked_at": "2026-10-25",
+        "summary": "WordPressはPHPとデータベースを利用する。一般的なPHP要件を今回の脆弱性に対する修正済み番号と混同しない。"
+      },
+      {
+        "source_id": "php_intro_v03",
+        "title": "PHP公式入門：PHPとはなんでしょう",
+        "url": "https://www.php.net/manual/ja/introduction.php",
+        "kind": "official",
+        "publisher": "The PHP Group",
+        "checked_at": "2026-10-25",
+        "summary": "PHPのコードはサーバー側で実行され、結果がクライアントへ送信される。フォーム処理や動的コンテンツ生成に使うことができる。"
+      }
+    ]
+  }
+}

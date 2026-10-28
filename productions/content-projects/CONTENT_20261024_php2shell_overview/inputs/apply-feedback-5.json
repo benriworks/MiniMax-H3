@@ -1,0 +1,12 @@
+{
+  "operation_id": "op_php_feedback_5",
+  "expected_revision": 5,
+  "data": {
+    "feedback_id": "feedback_php_angle",
+    "proposal_id": "proposal_php_overview_v01",
+    "kind": "comment",
+    "text": "概要と対策：何が危険で、何を確認・更新すべきか（おすすめ）",
+    "interpretation": "約50秒で概要と対策を伝える方向をユーザーが選択。詳細台本・人物画像・最終映像の採用を兼ねない。",
+    "question": "PHP2Shellのショートは約50秒を想定しています。いちばん伝えたい点はどれですか？"
+  }
+}

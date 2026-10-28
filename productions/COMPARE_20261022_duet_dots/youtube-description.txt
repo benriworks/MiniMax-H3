@@ -1,0 +1,29 @@
+Claude DuetとChatGPTのdotsを、2026年10月22日時点の公式資料から比較します。
+比べるのは「知らせ方」「作業の見え方と手元PC」「利用条件と利用枠」の3点です。
+
+Claude Duetは2026年10月21日発表の研究プレビュー。現在は米国のPro／Max利用者が待機リストから招待される方式で、日本は対象外です。Team／Enterpriseは未提供。公開前に最新の対象地域・条件を再確認してください。
+研究プレビュー中はPro／Maxへの追加料金はありませんが、朝の要点まとめや背景の確認も、Claudeの5時間・週の共通利用枠を使います。確認は一定間隔で、即時通知を保証するものではありません。
+
+dotsは順次提供中です。公式の対象はPro 100／200／500（18歳超、EEA・英国・スイス以外）、Business Premium、Enterprise。Enterpriseでは管理者による有効化が必要です。対象でもすぐ利用できるとは限りません。
+dotsとの会話はChatGPTの利用枠へ算入されませんが、Work／Codexで始める・管理する作業は各製品の枠を使います。deeper workの利用枠もあり、無制限とはしていません。
+手元のPCを使う場合は、明示した接続許可、オンライン状態、ChatGPTアプリの起動が必要です。
+
+灯台珈琲と森川遥は説明用の架空設定です。公式ページの画面例と自作の図解を用いた機能比較で、両製品を同条件で実行した性能テストではありません。速度・精度・成功率・実料金の優劣は未検証です。
+
+公式出典（確認日：2026年10月22日）
+Anthropic：Introducing Claude Duet
+https://claude.com/resources/articles/claude-duet
+
+Anthropic：Get started with Claude Duet
+https://support.claude.com/en/articles/17631495-get-started-with-claude-duet
+
+OpenAI：Meet dots
+https://learn.chatgpt.com/docs/dots
+
+OpenAI：Connect computers and apps to your dot
+https://learn.chatgpt.com/docs/dots/computers-and-apps
+
+OpenAI：Tasks and memory
+https://learn.chatgpt.com/docs/dots/tasks-and-memory
+
+#ChatGPT #Claude #dots #ClaudeDuet #AI活用

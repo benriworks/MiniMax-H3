@@ -1,0 +1,14 @@
+{
+  "operation_id": "op_php_claim_8",
+  "expected_revision": 8,
+  "data": {
+    "claim_id": "severity",
+    "text": "両件のPHP側の深刻度評価はCVSS v4.0 9.2（Critical）。版を省いて単に10点満点と断定しない。",
+    "basis": "official",
+    "checked_at": "2026-10-24",
+    "source_ids": [
+      "php_oom",
+      "php_state"
+    ]
+  }
+}

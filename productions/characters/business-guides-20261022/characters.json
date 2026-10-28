@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "characters": [
+    {
+      "id": "claude-shiori",
+      "series": "Claude",
+      "name": "佐伯 栞",
+      "role": "企画担当",
+      "fictional": true,
+      "portrait": {
+        "path": "outputs/characters/business-guides-20261022/claude-shiori.png",
+        "bytes": 1431982,
+        "sha256": "7587600091631730A74E11B32055E5E05F7F3D938A913379493FDB0BF949A727"
+      },
+      "office_keyframe": {
+        "path": "outputs/characters/business-guides-20261022/claude-shiori-office-keyframe.png",
+        "bytes": 2094652,
+        "sha256": "8D2FEA85E201A289333714BE6C2224E154A17D123B4C6BFA00F7A7AB4AA5B65D"
+      },
+      "motion_status": "visual_review_passed",
+      "user_approved": false,
+      "motion": {
+        "provider": "minimax",
+        "mode": "local_h3_i2va",
+        "generation_context": "generated_for_this_revision",
+        "video": {
+          "path": "outputs/characters/explainer-motion-20261022/claude-shiori/MiniMax_H3_claude_shiori_00001_.mp4",
+          "bytes": 3712263,
+          "sha256": "E8D9E4FB84CFC47D12ABA49EDC9E1500C1A9F4451B1031782AD79C8A640D299C"
+        },
+        "proof": {
+          "path": "outputs/characters/explainer-motion-20261022/claude-shiori/verification.json",
+          "bytes": 12249,
+          "sha256": "DFC5A1A6C2F212B0B8B59F9E9053E95D2628892BF74E769B31D30D12F68614FA"
+        },
+        "source_presenter": {
+          "path": "outputs/characters/business-guides-20261022/claude-shiori.png",
+          "bytes": 1431982,
+          "sha256": "7587600091631730A74E11B32055E5E05F7F3D938A913379493FDB0BF949A727"
+        },
+        "source_keyframe": {
+          "path": "runtime/ComfyUI/input/explainer-motion-20261022/claude-shiori/keyframe.png",
+          "bytes": 2094652,
+          "sha256": "8D2FEA85E201A289333714BE6C2224E154A17D123B4C6BFA00F7A7AB4AA5B65D"
+        },
+        "width": 768,
+        "height": 1376,
+        "fps": 24,
+        "frames": 124,
+        "start_frame": 0,
+        "review_status": "visual_review_passed",
+        "user_approved": false,
+        "usage": "Muted visual character segment; Aoede is the single narrator"
+      }
+    },
+    {
+      "id": "codex-makoto",
+      "series": "Codex",
+      "name": "高瀬 誠",
+      "role": "業務改善担当",
+      "fictional": true,
+      "portrait": {
+        "path": "outputs/characters/business-guides-20261022/codex-makoto.png",
+        "bytes": 1555958,
+        "sha256": "A6EFABE8821E961FF0BF3321E18C419D461A5DDEE1D9D220BEB7D47623D04837"
+      },
+      "office_keyframe": {
+        "path": "outputs/characters/business-guides-20261022/codex-makoto-office-keyframe.png",
+        "bytes": 2191246,
+        "sha256": "483DC926CCE7F62EF78E87FC81EFB50E06B90EB709D48F7BBE8C18088016DC37"
+      },
+      "motion_status": "visual_review_passed",
+      "user_approved": false,
+      "motion": {
+        "provider": "minimax",
+        "mode": "local_h3_i2va",
+        "generation_context": "generated_for_this_revision",
+        "video": {
+          "path": "outputs/characters/explainer-motion-20261022/codex-makoto/MiniMax_H3_codex_makoto_00001_.mp4",
+          "bytes": 3897106,
+          "sha256": "5E14603FB60ACA42B2DE605FE3975227D1C151576E88914FE4ACE44708C7AF42"
+        },
+        "proof": {
+          "path": "outputs/characters/explainer-motion-20261022/codex-makoto/verification.json",
+          "bytes": 12164,
+          "sha256": "F45094E3F2C8BB1E04D2DB5A61ABD5145FD35B71C27736268E2C145753508EF0"
+        },
+        "source_presenter": {
+          "path": "outputs/characters/business-guides-20261022/codex-makoto.png",
+          "bytes": 1555958,
+          "sha256": "A6EFABE8821E961FF0BF3321E18C419D461A5DDEE1D9D220BEB7D47623D04837"
+        },
+        "source_keyframe": {
+          "path": "runtime/ComfyUI/input/explainer-motion-20261022/codex-makoto/keyframe.png",
+          "bytes": 2191246,
+          "sha256": "483DC926CCE7F62EF78E87FC81EFB50E06B90EB709D48F7BBE8C18088016DC37"
+        },
+        "width": 768,
+        "height": 1376,
+        "fps": 24,
+        "frames": 124,
+        "start_frame": 0,
+        "review_status": "visual_review_passed",
+        "user_approved": false,
+        "usage": "Muted visual character segment; Aoede is the single narrator"
+      }
+    }
+  ],
+  "scope_note": "Claude and future Codex business series. dots episodes 5-9 retain the original episode-1 anime pair.",
+  "narration": "Single narrator Aoede; do not impersonate a two-person dialogue."
+}

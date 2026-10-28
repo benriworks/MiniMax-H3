@@ -1,0 +1,213 @@
+{
+  "schema_version": 1,
+  "id": "SHORT_20260930_claude_code_creator",
+  "title": "Claude Code、ここまでできる。",
+  "duration_seconds": 30,
+  "voice": "Microsoft Sayaka",
+  "rate": 1,
+  "pronunciations": [
+    {
+      "source": "Claude Code",
+      "target": "クロードコード"
+    }
+  ],
+  "scenes": [
+    {
+      "kind": "hero",
+      "eyebrow": "CLAUDE CODE",
+      "headline": "え、ここまで\nできる。",
+      "accent": "ここまで",
+      "body": "つくるを、次の段階へ。",
+      "narration": "Claude Code、ここまでできる。",
+      "captions": [
+        "Claude Code、",
+        "ここまでできる。"
+      ],
+      "media": {
+        "path": "outputs/claude-acquired-20260919/MiniMax_H3_Claude_Acquired_00001_.mp4",
+        "proof": "verification/claude-acquired-2026-09-19.json"
+      }
+    },
+    {
+      "kind": "quote",
+      "eyebrow": "01 / 伝える",
+      "headline": "日本語が、\nスタートボタン。",
+      "body": "やることリストを\n作って。",
+      "tone": "light",
+      "illustration": true,
+      "narration": "日本語で、つくりたいを伝える。",
+      "captions": [
+        "日本語で、",
+        "つくりたいを伝える。"
+      ]
+    },
+    {
+      "kind": "steps",
+      "eyebrow": "02 / 考える",
+      "headline": "まず、\n手順を整理。",
+      "accent": "手順",
+      "items": [
+        {
+          "label": "状況を読む"
+        },
+        {
+          "label": "計画を立てる"
+        },
+        {
+          "label": "実装に進む"
+        }
+      ],
+      "illustration": true,
+      "narration": "手順を考えて、",
+      "captions": [
+        "手順を考えて、"
+      ]
+    },
+    {
+      "kind": "cards",
+      "eyebrow": "03 / つくる",
+      "headline": "ファイルを越えて\nまとめて編集。",
+      "accent": "まとめて",
+      "items": [
+        {
+          "label": "画面",
+          "detail": "ボタンと一覧"
+        },
+        {
+          "label": "機能",
+          "detail": "完了数を数える"
+        },
+        {
+          "label": "見た目",
+          "detail": "色と余白を整える"
+        }
+      ],
+      "illustration": true,
+      "narration": "ファイルをまとめて編集。",
+      "captions": [
+        "ファイルを",
+        "まとめて編集。"
+      ]
+    },
+    {
+      "kind": "checklist",
+      "eyebrow": "IDEA → APP",
+      "headline": "画面も、機能も。\n動く形に。",
+      "body": "やることリスト",
+      "items": [
+        {
+          "label": "企画を考える",
+          "done": true
+        },
+        {
+          "label": "画面をつくる",
+          "done": false
+        },
+        {
+          "label": "動きを確認",
+          "done": false
+        }
+      ],
+      "tone": "light",
+      "illustration": true,
+      "narration": "画面も機能も、形に。",
+      "captions": [
+        "画面も機能も、",
+        "形に。"
+      ],
+      "action": "+ 追加する"
+    },
+    {
+      "kind": "compare",
+      "eyebrow": "04 / 直す",
+      "headline": "エラーで、\n終わらない。",
+      "accent": "終わらない",
+      "items": [
+        {
+          "label": "件数が変わらない"
+        },
+        {
+          "label": "更新処理を修正"
+        }
+      ],
+      "illustration": true,
+      "narration": "エラーを直して、",
+      "captions": [
+        "エラーを直して、"
+      ]
+    },
+    {
+      "kind": "checklist",
+      "eyebrow": "05 / 確かめる",
+      "headline": "テストまで、\nひとつの流れ。",
+      "accent": "テスト",
+      "body": "動作をチェック",
+      "items": [
+        {
+          "label": "追加できる"
+        },
+        {
+          "label": "完了にできる"
+        },
+        {
+          "label": "件数が合う"
+        }
+      ],
+      "illustration": true,
+      "narration": "テストまで確かめる。",
+      "captions": [
+        "テストまで",
+        "確かめる。"
+      ],
+      "action": "チェック完了"
+    },
+    {
+      "kind": "quote",
+      "eyebrow": "06 / 磨く",
+      "headline": "もう少し、も\n対話で。",
+      "body": "ボタンをもっと\n押しやすくして。",
+      "tone": "light",
+      "illustration": true,
+      "narration": "追加のお願いも、対話で。",
+      "captions": [
+        "追加のお願いも、",
+        "対話で。"
+      ]
+    },
+    {
+      "kind": "steps",
+      "eyebrow": "最後のチェック",
+      "headline": "最後は、\n自分で確認。",
+      "accent": "自分で確認",
+      "items": [
+        {
+          "label": "変更内容を見る"
+        },
+        {
+          "label": "実際に動かす"
+        }
+      ],
+      "narration": "最後は自分で確認。",
+      "captions": [
+        "最後は自分で確認。"
+      ]
+    },
+    {
+      "kind": "hero",
+      "eyebrow": "次は、あなたの番。",
+      "headline": "つくりたいを、\n動くカタチに。",
+      "accent": "動くカタチ",
+      "body": "まずは、小さなアプリ。",
+      "narration": "さあ、アイデアを動く形に。",
+      "captions": [
+        "さあ、アイデアを",
+        "動く形に。"
+      ],
+      "media": {
+        "path": "outputs/claude-acquired-female-silhouette-20260930/MiniMax_H3_Claude_Acquired_Female_Silhouette_00001_.mp4",
+        "proof": "verification/claude-acquired-female-silhouette-2026-09-30.json"
+      }
+    }
+  ],
+  "previous_video": "outputs/productions/SHORT_20260930_claude_code_creator/20260929T190107153171Z/shorts-creator.mp4"
+}

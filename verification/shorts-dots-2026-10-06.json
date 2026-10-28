@@ -1,0 +1,208 @@
+{
+  "checked_date": "2026-10-05",
+  "completed_at_jst": "2026-10-06",
+  "series": "SERIES_20261005_dots",
+  "status": "verified_candidate_awaiting_user_review",
+  "user_approved": false,
+  "youtube_uploaded": false,
+  "duration_seconds_each": 30,
+  "episodes": [
+    {
+      "number": 1,
+      "topic": "発表日と利用対象",
+      "duration_seconds": 30,
+      "frames": 720,
+      "size": "1080x1920",
+      "fps": 24,
+      "full_decode_verified": true,
+      "lufs": "-16.01",
+      "true_peak_dbfs": "-1.72",
+      "visual_reviewed": true,
+      "user_approved": false,
+      "mp4_sha256": "22FD6152C04941714AFFAF4792CF44AAB8195B59F67EEECD1B88E684BB297958"
+    },
+    {
+      "number": 2,
+      "topic": "専用クラウドPC",
+      "duration_seconds": 30,
+      "frames": 720,
+      "size": "1080x1920",
+      "fps": 24,
+      "full_decode_verified": true,
+      "lufs": "-16.02",
+      "true_peak_dbfs": "-1.81",
+      "visual_reviewed": true,
+      "user_approved": false,
+      "mp4_sha256": "9B74979491A377577940840C5AD6110A9C54A50C28E2A6DD5B301D2BBEDF874A"
+    },
+    {
+      "number": 3,
+      "topic": "アプリ連携",
+      "duration_seconds": 30,
+      "frames": 720,
+      "size": "1080x1920",
+      "fps": 24,
+      "full_decode_verified": true,
+      "lufs": "-16.01",
+      "true_peak_dbfs": "-2.07",
+      "visual_reviewed": true,
+      "user_approved": false,
+      "mp4_sha256": "5D6B760BA10AE2DCAAF56FA5672865639FFC3CDB2BB40E587E752348B69CDB72"
+    },
+    {
+      "number": 4,
+      "topic": "並行作業",
+      "duration_seconds": 30,
+      "frames": 720,
+      "size": "1080x1920",
+      "fps": 24,
+      "full_decode_verified": true,
+      "lufs": "-16.13",
+      "true_peak_dbfs": "-1.50",
+      "visual_reviewed": true,
+      "user_approved": false,
+      "mp4_sha256": "2A23AD72E1BCCB7657216EE8FFE85804C7FD9B3273B94FF6E65F41259FA641A7"
+    },
+    {
+      "number": 5,
+      "topic": "記憶と好み",
+      "duration_seconds": 30,
+      "frames": 720,
+      "size": "1080x1920",
+      "fps": 24,
+      "full_decode_verified": true,
+      "lufs": "-16.01",
+      "true_peak_dbfs": "-1.78",
+      "visual_reviewed": true,
+      "user_approved": false,
+      "mp4_sha256": "B2C5A2EFEBCC68AAB33B8838E2508E405CC4A85DF3973151F159FE35CF3EF9AA"
+    },
+    {
+      "number": 6,
+      "topic": "会話と通話",
+      "duration_seconds": 30,
+      "frames": 720,
+      "size": "1080x1920",
+      "fps": 24,
+      "full_decode_verified": true,
+      "lufs": "-16.01",
+      "true_peak_dbfs": "-1.51",
+      "visual_reviewed": true,
+      "user_approved": false,
+      "mp4_sha256": "3B0432F5D085D681A5FEDA47C5845CC566F9B5C884C94620CE0E9745374B9D0C"
+    },
+    {
+      "number": 7,
+      "topic": "定期実行",
+      "duration_seconds": 30,
+      "frames": 720,
+      "size": "1080x1920",
+      "fps": 24,
+      "full_decode_verified": true,
+      "lufs": "-16.00",
+      "true_peak_dbfs": "-1.50",
+      "visual_reviewed": true,
+      "user_approved": false,
+      "mp4_sha256": "81DDC24CC28E427A138849CDE351040382D812C15EF7365D823DF2AFB58AC992"
+    },
+    {
+      "number": 8,
+      "topic": "先回り調査",
+      "duration_seconds": 30,
+      "frames": 720,
+      "size": "1080x1920",
+      "fps": 24,
+      "full_decode_verified": true,
+      "lufs": "-16.11",
+      "true_peak_dbfs": "-1.51",
+      "visual_reviewed": true,
+      "user_approved": false,
+      "mp4_sha256": "738C5A0AE4D5B639701A23556EE1C6BE712EC775F5B3B2AE6575856AEC300807"
+    },
+    {
+      "number": 9,
+      "topic": "権限と停止",
+      "duration_seconds": 30,
+      "frames": 720,
+      "size": "1080x1920",
+      "fps": 24,
+      "full_decode_verified": true,
+      "lufs": "-15.94",
+      "true_peak_dbfs": "-1.57",
+      "visual_reviewed": true,
+      "user_approved": false,
+      "mp4_sha256": "0914418829BD46CEE5D3590D8E2442D5B7A5AFC48DD099E5257CC38648962FDC"
+    }
+  ],
+  "total_frames": 6480,
+  "total_seconds": 270,
+  "source_ledger": {
+    "path": "productions/SERIES_20261005_dots/SOURCES_JA.md",
+    "bytes": 15699,
+    "sha256": "73F76FC8BF4E8F6FD08C45F19B940278B7D22F7BD2CAFAA50023016755DE269B"
+  },
+  "official_research_manifest": {
+    "path": "outputs/research/dots-20261005/manifest.json",
+    "bytes": 1705,
+    "sha256": "67CE1FBDEC71648BC09B2485B214CE3FDE17EE8E334A3C8DE38586FF12601C14"
+  },
+  "package": {
+    "release": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release",
+    "archive": {
+      "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/dots-shorts-series.zip",
+      "bytes": 107804255,
+      "sha256": "023F1D389DC9AA772016B4B49C9747079B31ECA96B80DAAB08A9C4694B658F6C"
+    },
+    "gallery": {
+      "path": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/index.html",
+      "bytes": 18823,
+      "sha256": "85459E077D07D800E88221C11DDD4F3ECFEF26E6B3845A61CF67D3C410B0E1B2"
+    }
+  },
+  "static_gallery_links_verified": 56,
+  "archive_files": 62,
+  "zip_crc_and_hashes_verified": true,
+  "code_checks": {
+    "python": "8 tests passed: tests.test_shorts_creator",
+    "typescript": "npx tsc -b --pretty false passed"
+  },
+  "visual_evidence": "All 72 completed scene samples reviewed at 360px width; all 6480 rendered frames passed text-area guard.",
+  "listening_review": "User listening review pending; speech not truncated, duration, loudness and peak measured.",
+  "sources": [
+    {
+      "path": "tools/studio/shorts_creator.py",
+      "bytes": 27427,
+      "sha256": "5EBEB7EDCFC3B3B53618F495D543E45CEB68978C472B2BF26E4DE6B560AF287A"
+    },
+    {
+      "path": "studio/src/remotion/CreatorShortComposition.tsx",
+      "bytes": 9383,
+      "sha256": "026DB53FBEAD24031547BAEED1CF871C9B6D1C3A2289D57E9598B17D4163FA54"
+    },
+    {
+      "path": "studio/src/remotion/FeatureDiagram.tsx",
+      "bytes": 5289,
+      "sha256": "E0254C9DA4F04752FA79E5501E76C3C17C2F4E32BEA74255798A960B4E45A0C1"
+    },
+    {
+      "path": "studio/src/remotion/shortsMotion.ts",
+      "bytes": 3736,
+      "sha256": "62EA0BFF2C0B74671F610801A5263D42FDEF46E70E4BB1CF0203F89ABD0AE2B4"
+    },
+    {
+      "path": "studio/creator-render.mjs",
+      "bytes": 4105,
+      "sha256": "F65420905FA778D5B111367E6E9DB878ED791DE0CA9562810B61C89509732A94"
+    },
+    {
+      "path": "productions/SERIES_20261005_dots/produce.py",
+      "bytes": 11706,
+      "sha256": "2B020DBB2711145BFE24A8DA2B7B26D3B8879B6ABBF858C2A1169B41CA418189"
+    },
+    {
+      "path": "productions/SERIES_20261005_dots/generate_stories.py",
+      "bytes": 25527,
+      "sha256": "3D66D87E6F7B99AC57B062CAC69AB39411AB1A4688DC307AB9DBB305A2010E26"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "title": "Claudeを手に入れた！",
+  "duration_ms": 5000,
+  "fps": 24,
+  "width": 1080,
+  "height": 1920,
+  "minimum_font_px": 54,
+  "voice": "Microsoft Sayaka",
+  "rate": 1,
+  "narration": "Claudeを、手に入れた！",
+  "narration_start_ms": 1700,
+  "pronunciations": [{"source": "Claude", "target": "クロード"}],
+  "visual_direction": "User-selected game style: a fictional Japanese adult programmer celebrates an amber rare-item crystal with a triumphant fist pump.",
+  "generated_source_audio": false,
+  "source_generation_record": "verification/claude-acquired-2026-09-19.json",
+  "review_status": "candidate_in_production"
+}

@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "provider": "built-in image_gen",
+  "source_type": "generated_humanoid",
+  "fictional": true,
+  "transparent": true,
+  "artifact": {
+    "path": "outputs/characters/business-guides-20261022/claude-shiori.png",
+    "bytes": 1431982,
+    "sha256": "7587600091631730A74E11B32055E5E05F7F3D938A913379493FDB0BF949A727"
+  },
+  "keyframe": {
+    "path": "outputs/characters/business-guides-20261022/claude-shiori-office-keyframe.png",
+    "bytes": 2094652,
+    "sha256": "8D2FEA85E201A289333714BE6C2224E154A17D123B4C6BFA00F7A7AB4AA5B65D"
+  },
+  "review_status": "visual_review_passed",
+  "review_method": "AI visual inspection of both generated images",
+  "review_notes": [
+    "Understated adult professional appearance",
+    "Portrait and office keyframe preserve face, hair and clothing",
+    "No visible text or logo",
+    "Keyframe uses an opaque neutral office background"
+  ],
+  "user_approved": false,
+  "reviewed_at": "2026-10-22T12:13:56.251397+00:00"
+}

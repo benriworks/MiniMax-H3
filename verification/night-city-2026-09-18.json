@@ -1,0 +1,202 @@
+{
+  "schema_version": 1,
+  "verified_at": "2026-09-17T19:02:59.272486+00:00",
+  "generation_context": "generated_for_this_revision",
+  "production_id": "SHORT_20260916_claude_code_evolution_30s",
+  "profile": "official_q4",
+  "runtime_mode": "dynamic_vram",
+  "mode": "T2VA",
+  "execution": {
+    "prompt_id": "17f51634-ab20-47fa-ad3f-6163560591cc",
+    "elapsed_seconds": 369.984,
+    "success": true
+  },
+  "settings": {
+    "seed": 2026091801,
+    "steps": 20,
+    "sampler": "res_multistep",
+    "scheduler": "simple",
+    "width": 480,
+    "height": 864,
+    "requested_duration_seconds": 5,
+    "turbo": false
+  },
+  "inputs": [
+    {
+      "path": "outputs/night-city-20260918/graph.json",
+      "bytes": 4857,
+      "sha256": "F88D4727D2DEA90691CD8F76D96A2AA64FA0E6A01060F64C1155F491CC7FE4BD"
+    },
+    {
+      "path": "outputs/night-city-20260918/submission.json",
+      "bytes": 210,
+      "sha256": "7F4D6856691C48B0FDAF95FC3479AFAB1393D2BB99B97FDCD904D6AB145F274E"
+    },
+    {
+      "path": "outputs/night-city-20260918/history.json",
+      "bytes": 7477,
+      "sha256": "F42CB9E72F5252F3B8E7D53310AB64BF9E1ACC7C7AA0C0CE3BCC91F6124EF9F0"
+    },
+    {
+      "path": "productions/SHORT_20260916_claude_code_evolution_30s/prompts/NIGHT_CITY_H3.md",
+      "bytes": 1329,
+      "sha256": "7E27DC1F562AFCC00E8963F83F22D271E062B7471921F9F6E4702A85A41B68D0"
+    }
+  ],
+  "artifact": {
+    "path": "outputs/night-city-20260918/MiniMax_H3_Bright_Night_00001_.mp4",
+    "bytes": 1206287,
+    "sha256": "CE6DF63D43CF56F9782541581D78767EC6BD2C7348163BE1632B5D4FF7246311",
+    "full_decode_verified": true,
+    "probe": {
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "h264",
+          "codec_long_name": "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10",
+          "profile": "High",
+          "codec_type": "video",
+          "codec_tag_string": "avc1",
+          "codec_tag": "0x31637661",
+          "mime_codec_string": "avc1.64001e",
+          "width": 480,
+          "height": 864,
+          "coded_width": 480,
+          "coded_height": 864,
+          "has_b_frames": 2,
+          "pix_fmt": "yuv420p",
+          "level": 30,
+          "chroma_location": "left",
+          "field_order": "progressive",
+          "is_avc": "true",
+          "nal_length_size": "4",
+          "id": "0x1",
+          "r_frame_rate": "24/1",
+          "avg_frame_rate": "24/1",
+          "time_base": "1/12288",
+          "start_pts": 0,
+          "start_time": "0.000000",
+          "duration_ts": 63488,
+          "duration": "5.166667",
+          "bit_rate": "1724963",
+          "bits_per_raw_sample": "8",
+          "nb_frames": "124",
+          "extradata_size": 45,
+          "disposition": {
+            "default": 1,
+            "dub": 0,
+            "original": 0,
+            "comment": 0,
+            "lyrics": 0,
+            "karaoke": 0,
+            "forced": 0,
+            "hearing_impaired": 0,
+            "visual_impaired": 0,
+            "clean_effects": 0,
+            "attached_pic": 0,
+            "timed_thumbnails": 0,
+            "non_diegetic": 0,
+            "captions": 0,
+            "descriptions": 0,
+            "metadata": 0,
+            "dependent": 0,
+            "still_image": 0,
+            "multilayer": 0
+          },
+          "tags": {
+            "language": "und",
+            "handler_name": "VideoHandler"
+          }
+        },
+        {
+          "index": 1,
+          "codec_name": "aac",
+          "codec_long_name": "AAC (Advanced Audio Coding)",
+          "profile": "LC",
+          "codec_type": "audio",
+          "codec_tag_string": "mp4a",
+          "codec_tag": "0x6134706d",
+          "mime_codec_string": "mp4a.40.2",
+          "sample_fmt": "fltp",
+          "sample_rate": "32000",
+          "channels": 2,
+          "channel_layout": "stereo",
+          "bits_per_sample": 0,
+          "initial_padding": 0,
+          "id": "0x2",
+          "r_frame_rate": "0/0",
+          "avg_frame_rate": "0/0",
+          "time_base": "1/32000",
+          "start_pts": 0,
+          "start_time": "0.000000",
+          "duration_ts": 165344,
+          "duration": "5.167000",
+          "bit_rate": "128012",
+          "nb_frames": "163",
+          "extradata_size": 5,
+          "disposition": {
+            "default": 1,
+            "dub": 0,
+            "original": 0,
+            "comment": 0,
+            "lyrics": 0,
+            "karaoke": 0,
+            "forced": 0,
+            "hearing_impaired": 0,
+            "visual_impaired": 0,
+            "clean_effects": 0,
+            "attached_pic": 0,
+            "timed_thumbnails": 0,
+            "non_diegetic": 0,
+            "captions": 0,
+            "descriptions": 0,
+            "metadata": 0,
+            "dependent": 0,
+            "still_image": 0,
+            "multilayer": 0
+          },
+          "tags": {
+            "language": "und",
+            "handler_name": "SoundHandler"
+          }
+        }
+      ],
+      "format": {
+        "filename": "C:\\Users\\mono_\\MiniMaxH3\\outputs\\night-city-20260918\\MiniMax_H3_Bright_Night_00001_.mp4",
+        "nb_streams": 2,
+        "nb_programs": 0,
+        "nb_stream_groups": 0,
+        "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+        "format_long_name": "QuickTime / MOV",
+        "start_time": "0.000000",
+        "duration": "5.167000",
+        "size": "1206287",
+        "bit_rate": "1867678",
+        "probe_score": 100,
+        "tags": {
+          "major_brand": "isom",
+          "minor_version": "512",
+          "compatible_brands": "isomiso2avc1mp41",
+          "prompt": "{\"92\": {\"class_type\": \"SaveVideo\", \"inputs\": {\"filename_prefix\": \"night-city-20260918/MiniMax_H3_Bright_Night\", \"format\": \"mp4\", \"codec\": \"h264\", \"codec.encoding\": \"re-encode\", \"codec.encoding.crf\": 18.0, \"video\": [\"105:91\", 0]}}, \"115\": {\"class_type\": \"ResolutionSelector\", \"inputs\": {\"aspect_ratio\": \"9:16 (Portrait Widescreen)\", \"megapixels\": 0.4, \"multiple\": 32}}, \"105:6\": {\"class_type\": \"UNETLoader\", \"inputs\": {\"unet_name\": \"minimax_h3_fl2va_pruned_int8_convrot.safetensors\", \"weight_dtype\": \"default\"}}, \"105:9\": {\"class_type\": \"BasicScheduler\", \"inputs\": {\"scheduler\": \"simple\", \"steps\": 20, \"denoise\": 1.0, \"model\": [\"105:6\", 0]}}, \"105:10\": {\"class_type\": \"VAEDecode\", \"inputs\": {\"samples\": [\"105:14\", 0], \"vae\": [\"105:11\", 0]}}, \"105:11\": {\"class_type\": \"VAELoader\", \"inputs\": {\"vae_name\": \"minimax_h3_video_vae_fp16.safetensors\"}}, \"105:13\": {\"class_type\": \"CLIPLoaderGGUF\", \"inputs\": {\"clip_name\": \"qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf\", \"type\": \"minimax\"}}, \"105:14\": {\"class_type\": \"SamplerCustomAdvanced\", \"inputs\": {\"noise\": [\"105:15\", 0], \"guider\": [\"105:16\", 0], \"sampler\": [\"105:17\", 0], \"sigmas\": [\"105:9\", 0], \"latent_image\": [\"105:104\", 1]}}, \"105:15\": {\"class_type\": \"RandomNoise\", \"inputs\": {\"noise_seed\": 2026091801}}, \"105:16\": {\"class_type\": \"BasicGuider\", \"inputs\": {\"model\": [\"105:6\", 0], \"conditioning\": [\"105:104\", 0]}}, \"105:17\": {\"class_type\": \"KSamplerSelect\", \"inputs\": {\"sampler_name\": \"res_multistep\"}}, \"105:23\": {\"class_type\": \"VAEDecodeAudio\", \"inputs\": {\"samples\": [\"105:14\", 0], \"vae\": [\"105:24\", 0]}}, \"105:24\": {\"class_type\": \"VAELoader\", \"inputs\": {\"vae_name\": \"minimax_h3_audio_vae_fp32.safetensors\"}}, \"105:91\": {\"class_type\": \"CreateVideo\", \"inputs\": {\"fps\": 24.0, \"bit_depth\": 8, \"images\": [\"105:10\", 0], \"audio\": [\"105:23\", 0]}}, \"105:104\": {\"class_type\": \"MiniMaxH3ImageToVideo\", \"inputs\": {\"prompt\": \"integrated_multimodal_description: [Shot 1] Live-action, cinematic, a luminous modern waterfront metropolis at night fills a vertical 9:16 frame. Hundreds of warmly illuminated windows, white architectural accent lights, gold-lit towers, cyan and soft magenta building edges sparkle against a clean deep royal-blue night sky. The skyline sits in the middle third, with a broad river in the lower half reflecting long brilliant gold, white and blue ribbons of light. The city is brightly exposed and colorful, with visible building detail and gentle optical starbursts around the brightest lamps. The camera pushes in with small amplitude at slow speed from an elevated viewpoint for the entire five-second continuous shot. Tiny distant vehicles glide smoothly along a lit bridge; small river ripples make the reflections shimmer continuously. The upper left remains simple blue sky for an editorial headline added later. Preserve coherent straight architecture, steady lights and smooth motion. No people in the foreground, no logos, no readable signage, no captions, no cuts, no flashing strobes, no fireworks, no fog or dim silhouettes.\\n\\noverall_soundscape: A soft distant city traffic hum and gentle waterfront breeze remain steady throughout the shot, with faint rippling water. No voices or speech.\\n\\nnon_diegetic_music: N/A\", \"width\": [\"115\", 0], \"height\": [\"115\", 1], \"length\": [\"105:107\", 1], \"clip\": [\"105:13\", 0], \"vae\": [\"105:11\", 0]}}, \"105:107\": {\"class_type\": \"ComfyMathExpression\", \"inputs\": {\"expression\": \"max(5, round(a * 24)) + (5 - (max(5, round(a * 24)) % 17)) % 17\", \"values.a\": [\"105:111\", 0]}}, \"105:111\": {\"class_type\": \"PrimitiveFloat\", \"inputs\": {\"value\": 5.0}}}",
+          "encoder": "Lavf62.12.102"
+        }
+      }
+    }
+  },
+  "review_status": "source_visual_review_pass",
+  "paid_api_calls": 0,
+  "visual_review": {
+    "reviewer": "assistant",
+    "frame_seconds": [
+      0,
+      2,
+      4
+    ],
+    "observations": [
+      "bright gold and white building lights",
+      "blue and gold reflections on water",
+      "coherent skyline and continuous camera motion"
+    ],
+    "user_approved": false
+  }
+}

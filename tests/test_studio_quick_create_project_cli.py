@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -434,10 +435,10 @@ class QuickCreateProjectExecutionTests(unittest.TestCase):
             stream = kwargs["stream"]
             assert hasattr(stream, "read")
             stream.read()
-            source.touch()
-            # FAT-like coarse clocks can retain the same timestamp on touch.
-            if source.stat().st_mtime_ns == original_mtime:
-                source.write_bytes(b"other-video")
+            # Set a distinct timestamp explicitly: touch/write can retain the same
+            # coarse clock value while the imported file handle is still open.
+            metadata=source.stat()
+            os.utime(source,ns=(metadata.st_atime_ns,original_mtime+2_000_000_000))
             return import_response(0, source.stat().st_size)
 
         service.import_production_video.side_effect = mutate

@@ -1,0 +1,180 @@
+{
+  "recorded_on": "2026-09-30",
+  "male_status": "user_selected_visual_base",
+  "female_status": "verified_silhouette_candidate_awaiting_user_review",
+  "user_direction": "良いねこのキャラクターを基本にしたいね。これの女性バージョンも一旦作ってみて。",
+  "references": {
+    "female-keyframe.png": {
+      "path": "outputs/characters/programmer-duo-20260920/female-keyframe.png",
+      "bytes": 1346352,
+      "sha256": "5B83C5B76381B3C796938F2299351E2679F40BB6AD1F67E27B748A232C3F7D5C"
+    },
+    "male-base-start.png": {
+      "path": "outputs/characters/programmer-duo-20260920/male-base-start.png",
+      "bytes": 337314,
+      "sha256": "57031CECC619F6894BCD176C05198541067CF978B1ADFB58AEA085217CF2B78C"
+    },
+    "male-base-victory.png": {
+      "path": "outputs/characters/programmer-duo-20260920/male-base-victory.png",
+      "bytes": 684827,
+      "sha256": "D1859AAC87664CB2AD0031EC5A628246B8874E533A08F21D65663A5FB9813FE3"
+    },
+    "female-victory.png": {
+      "path": "outputs/characters/programmer-duo-20260920/female-victory.png",
+      "bytes": 876294,
+      "sha256": "7F9D1A51739CD8CBFCB787CF0FF8C4D00EBDB41833B7FC4B8CB2E857E412D377"
+    },
+    "female-bright-keyframe.png": {
+      "path": "outputs/characters/programmer-duo-20260921/female-bright-keyframe.png",
+      "bytes": 1447469,
+      "sha256": "D14AB3DD5D091945A05E7AB38BEE4BDC423C2FADE100620F19FEEF4CE487A915"
+    },
+    "female-bright-victory.png": {
+      "path": "outputs/characters/programmer-duo-20260921/female-bright-victory.png",
+      "bytes": 857960,
+      "sha256": "3A1411FE02F8906DAB59539282EB1EBEE56F13CE496C1EC0F4A3028C8AE25CE8"
+    },
+    "female-silhouette-keyframe.png": {
+      "path": "outputs/characters/programmer-duo-20260930/female-silhouette-keyframe.png",
+      "bytes": 1419256,
+      "sha256": "04157FF085802B1EF8EB0D4ABCB2391C1FE5E28483ED7010A8D31AD19DF19A41"
+    },
+    "female-silhouette-victory.png": {
+      "path": "outputs/characters/programmer-duo-20260930/female-silhouette-victory.png",
+      "bytes": 849269,
+      "sha256": "CF574FF9676EEE3867165A2F07E8DA1B1F3270E3C112DF11AFF71617D9E726EA"
+    }
+  },
+  "female_candidate_video": {
+    "path": "outputs/claude-acquired-female-silhouette-20260930/MiniMax_H3_Claude_Acquired_Female_Silhouette_00001_.mp4",
+    "bytes": 5125763,
+    "sha256": "6D464E60148A7A95D6449CB681DF9F4CDFF1FFCB3927B0ECDC7867DF4AB8FC59",
+    "kind": "raw_generation_reference",
+    "proof": {
+      "path": "verification/claude-acquired-female-silhouette-2026-09-30.json",
+      "bytes": 14033,
+      "sha256": "F7F9E4F6094121C7B35E4B728117DC776904AD79291793A87DED36441C1291B9"
+    }
+  },
+  "comparison_page": {
+    "path": "outputs/characters/programmer-duo-20260930/index.html",
+    "bytes": 1670,
+    "sha256": "6F8F7C8C455A2528B107DEFFE545B641D490959A438FF2F0E6CA85A8A611BD3A"
+  },
+  "female_history": [
+    {
+      "recorded_on": "2026-09-20",
+      "status": "verified_video_candidate_awaiting_user_review",
+      "video": {
+        "path": "outputs/productions/CATCH_20260920_claude_acquired_female_5s/20260920T052154805826Z/claude-acquired-female.mp4",
+        "bytes": 9458128,
+        "sha256": "7F33E4C345B6B9A62C2EA441443DE05DA8423F40FE809DF8AAFCAAC1B0BBC8D1"
+      },
+      "comparison_page": {
+        "path": "outputs/characters/programmer-duo-20260920/index.html",
+        "bytes": 2926,
+        "sha256": "B6309B2AE4F0A93536F15B342F083F964AC5F1E4A0A0B48523996BD6BE111C35"
+      },
+      "wardrobe": "charcoal hoodie / blue shirt"
+    },
+    {
+      "recorded_on": "2026-09-21",
+      "status": "verified_bright_wardrobe_candidate_awaiting_user_review",
+      "video": {
+        "path": "outputs/productions/CATCH_20260921_claude_acquired_female_bright_5s/20260920T171507703676Z/claude-acquired-female-bright.mp4",
+        "bytes": 9263687,
+        "sha256": "4A570C6A3066ABCB3200CE35CA85141FBAEC636B6F06575E384132AE99E1F66F"
+      },
+      "comparison_page": {
+        "path": "outputs/characters/programmer-duo-20260921/index.html",
+        "bytes": 2879,
+        "sha256": "34D6E4A42EC41A1EF0EE606B4CB9E0ECB24E739BD88977B204DBF96E761AE9AA"
+      },
+      "wardrobe": "warm ivory hoodie / light sky-blue inner"
+    }
+  ],
+  "wardrobe_user_direction": "女性版はファッションをもう少し明るいものに変えましょう。",
+  "female_candidate_palette": {
+    "hoodie": "warm ivory",
+    "inner": "light sky blue",
+    "user_approved": false
+  },
+  "female_current_reference": "female-silhouette-keyframe.png",
+  "body_user_direction": "女性キャラの体格が男性と全く同じなので、少し女性らしくして欲しい。",
+  "female_body_direction": {
+    "shoulders": "narrower, gently sloping",
+    "arms_and_sleeves": "slimmer, less bulky",
+    "torso": "gently tapered, natural adult proportions",
+    "seated_pose": "compact, knees comfortably close",
+    "face_hair_wardrobe": "preserved",
+    "user_approved": false
+  },
+  "motion_references_20261022": {
+    "male": {
+      "provider": "minimax",
+      "mode": "local_h3_i2va",
+      "generation_context": "generated_for_this_revision",
+      "video": {
+        "path": "outputs/characters/explainer-motion-20261022/dots-male/MiniMax_H3_dots_male_00001_.mp4",
+        "bytes": 1724186,
+        "sha256": "5F64D452AEF589F55421931F69627F33CFE86DD9187C726A946D2A58B9B8AB36"
+      },
+      "proof": {
+        "path": "outputs/characters/explainer-motion-20261022/dots-male/verification.json",
+        "bytes": 11831,
+        "sha256": "7FB18FE84E5505237B973F817E5A2704E9BD1676F006F49666D0C6EDDF46375C"
+      },
+      "source_presenter": {
+        "path": "outputs/claude-acquired-20260919/raw-0.png",
+        "bytes": 337314,
+        "sha256": "57031CECC619F6894BCD176C05198541067CF978B1ADFB58AEA085217CF2B78C"
+      },
+      "source_keyframe": {
+        "path": "runtime/ComfyUI/input/explainer-motion-20261022/dots-male/keyframe.png",
+        "bytes": 337314,
+        "sha256": "57031CECC619F6894BCD176C05198541067CF978B1ADFB58AEA085217CF2B78C"
+      },
+      "width": 768,
+      "height": 1376,
+      "fps": 24,
+      "frames": 124,
+      "start_frame": 0,
+      "review_status": "visual_review_passed",
+      "user_approved": false,
+      "usage": "Muted visual character segment; Aoede is the single narrator"
+    },
+    "female": {
+      "provider": "minimax",
+      "mode": "local_h3_i2va",
+      "generation_context": "generated_for_this_revision",
+      "video": {
+        "path": "outputs/characters/explainer-motion-20261022/dots-female/MiniMax_H3_dots_female_00001_.mp4",
+        "bytes": 2240397,
+        "sha256": "6DEDFC5577A05547C0525A97FCADC34F4767CA5F8BEF3212CB48C813E6B1320C"
+      },
+      "proof": {
+        "path": "outputs/characters/explainer-motion-20261022/dots-female/verification.json",
+        "bytes": 12087,
+        "sha256": "F893CBECA6A6EB3FC1481859DAEC32D165E6A950AA4AABC95C71F22C91FAB22A"
+      },
+      "source_presenter": {
+        "path": "outputs/claude-acquired-female-silhouette-20260930/female-keyframe.png",
+        "bytes": 1419256,
+        "sha256": "04157FF085802B1EF8EB0D4ABCB2391C1FE5E28483ED7010A8D31AD19DF19A41"
+      },
+      "source_keyframe": {
+        "path": "runtime/ComfyUI/input/explainer-motion-20261022/dots-female/keyframe.png",
+        "bytes": 1419256,
+        "sha256": "04157FF085802B1EF8EB0D4ABCB2391C1FE5E28483ED7010A8D31AD19DF19A41"
+      },
+      "width": 768,
+      "height": 1376,
+      "fps": 24,
+      "frames": 124,
+      "start_frame": 0,
+      "review_status": "visual_review_passed",
+      "user_approved": false,
+      "usage": "Muted visual character segment; Aoede is the single narrator"
+    }
+  }
+}

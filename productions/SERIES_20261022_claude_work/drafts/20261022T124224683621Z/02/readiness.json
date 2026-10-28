@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "episode": 2,
+  "status": "root_review_required",
+  "text_layout_validation": "passed",
+  "common_story_validation": "not_run_missing_capture",
+  "narration_characters": 172,
+  "source_proposal": {
+    "path": "productions/SERIES_20261022_claude_work/scripts-draft.json",
+    "bytes": 33343,
+    "sha256": "41063E1E4B7BA048FF1490C488AC98210208B02E03651AF48B3A277AD3B01D3D"
+  },
+  "change_note": "初回5枚は読みやすいとの親の実画面レビューを反映し「詰め込みすぎ」を削除。修正結果は未確認なので汎用表現のままpending。",
+  "scenes": [
+    {
+      "scene": 1,
+      "original_scene_id": "01-hook",
+      "status": "pending_character_video",
+      "required": "新しいClaude栞のMiniMax動画と検証proof"
+    },
+    {
+      "scene": 2,
+      "original_scene_id": "02-source",
+      "status": "capture_reviewed_root_story_review_pending",
+      "capture_id": "artifacts-slides",
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_02_work/captures/artifacts-slides.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_02_work/captures/artifacts-slides.json",
+        "origin": "official",
+        "title": "Slides",
+        "source_url": "https://support.claude.com/en/articles/17153992-what-are-artifacts-and-how-do-i-use-them"
+      }
+    },
+    {
+      "scene": 3,
+      "original_scene_id": "03-request",
+      "status": "capture_reviewed_root_story_review_pending",
+      "capture_id": "02-slides-request-five",
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_02_work/captures/02-slides-request-five.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_02_work/captures/02-slides-request-five.json",
+        "origin": "demonstration",
+        "title": "日本語で5枚を依頼",
+        "product": "Claude",
+        "phase": "before"
+      }
+    },
+    {
+      "scene": 4,
+      "original_scene_id": "04-first",
+      "status": "capture_reviewed_root_story_review_pending",
+      "capture_id": "02-slides-five-thumbnails",
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_02_work/captures/02-slides-five-thumbnails.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_02_work/captures/02-slides-five-thumbnails.json",
+        "origin": "demonstration",
+        "title": "初回出力の5枚",
+        "product": "Claude",
+        "phase": "first-output"
+      }
+    },
+    {
+      "scene": 5,
+      "original_scene_id": "05-revise",
+      "status": "pending_capture",
+      "requested_capture_id": null,
+      "required": "実際に文字量の多い1枚を選定。存在しなければ収録後に台本を『気になる一枚』へ修正。"
+    },
+    {
+      "scene": 6,
+      "original_scene_id": "06-check",
+      "status": "pending_capture",
+      "requested_capture_id": null,
+      "required": "修正スライドの拡大。3万円、650円、日程を元Docsと確認。"
+    },
+    {
+      "scene": 7,
+      "original_scene_id": "07-close",
+      "status": "pending_character_video",
+      "required": "新しいClaude栞のMiniMax動画と検証proof"
+    }
+  ],
+  "paid_requests_submitted": 0,
+  "production_story_written": false,
+  "actual_30_seconds_verified": false,
+  "ready_for_tts": false,
+  "remaining": [
+    "親による実素材・文意レビュー",
+    "人物MiniMax動画の確認",
+    "不足する実演画面の撮影",
+    "ナレーション確定後の音声生成と実尺測定"
+  ]
+}

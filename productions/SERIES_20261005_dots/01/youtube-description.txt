@@ -1,0 +1,20 @@
+dotsの機能を30秒ずつ紹介する全9本シリーズ、第1回「発表日と利用対象」。
+
+2026年9月29日はOpenAIの発表日で、対象ユーザーへの順次提供開始日です。全員が同日に使えるという意味ではありません。Pro 100・200・500は年齢条件（公式表記: users over 18）と地域条件があり、EEA・英国・スイスは対象外。Business Premiumは世界各地へ順次展開。Enterpriseは管理者による有効化が必要です。作成はデスクトップアプリ／PCブラウザーから。モバイルアプリは対応更新後に利用でき、モバイルWebには未対応です。
+
+情報確認日：2026年10月5日。機能・対象プラン・提供地域は変更されることがあります。
+OpenAI公式資料をもとにした非公式の紹介動画です。画面は独自のモーショングラフィックスで、実機操作の録画ではありません。登場人物は架空のキャラクターです。
+
+出典（OpenAI公式）
+OpenAI — Computers and apps
+https://learn.chatgpt.com/docs/dots/computers-and-apps
+OpenAI — Introducing dots
+https://openai.com/index/introducing-dots/
+OpenAI — Meet dots
+https://learn.chatgpt.com/docs/dots
+OpenAI — Get started with your dot
+https://learn.chatgpt.com/docs/dots/getting-started
+OpenAI — Tasks and memory
+https://learn.chatgpt.com/docs/dots/tasks-and-memory
+
+#dots #ChatGPT #OpenAI #AI活用 #Shorts

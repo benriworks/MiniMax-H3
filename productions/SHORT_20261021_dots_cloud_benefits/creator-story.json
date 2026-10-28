@@ -1,0 +1,255 @@
+{
+  "schema_version": 1,
+  "id": "SHORT_20261021_dots_cloud_benefits",
+  "title": "【ChatGPT】PCを閉じても仕事が進む？dotsクラウドPCの3つのメリット",
+  "duration_seconds": 45,
+  "voice": "Microsoft Sayaka",
+  "rate": 1,
+  "music_preset": "bright_groove_v1",
+  "pronunciations": [
+    {
+      "source": "dots",
+      "target": "ドッツ"
+    },
+    {
+      "source": "dot",
+      "target": "ドット"
+    },
+    {
+      "source": "PC",
+      "target": "ピーシー"
+    },
+    {
+      "source": "AI",
+      "target": "エーアイ"
+    },
+    {
+      "source": "ChatGPT",
+      "target": "チャットジーピーティー"
+    }
+  ],
+  "previous_video": "outputs/productions/SERIES_20261005_dots/20261005T153642158910Z/release/02/dots-02.mp4",
+  "scenes": [
+    {
+      "kind": "hero",
+      "headline": "AIのためのPC、\n何が便利？",
+      "narration": "クラウドPC、何が便利？",
+      "captions": [
+        "クラウドPC、",
+        "何が便利？"
+      ],
+      "body": "第2話の補足編",
+      "media": {
+        "path": "outputs/claude-acquired-female-silhouette-20260930/MiniMax_H3_Claude_Acquired_Female_Silhouette_00001_.mp4",
+        "proof": "verification/claude-acquired-female-silhouette-2026-09-30.json"
+      },
+      "source_ids": [
+        "computer"
+      ],
+      "eyebrow": "DOTS 02 / 補足"
+    },
+    {
+      "kind": "compare",
+      "headline": "手元で動くAIと、\n作業場所を比較。",
+      "narration": "手元で動くAIと、作業場所が違います。",
+      "captions": [
+        "手元で動くAIと、",
+        "作業場所が違います。"
+      ],
+      "items": [
+        {
+          "label": "手元PCで作業"
+        },
+        {
+          "label": "クラウドで作業"
+        }
+      ],
+      "source_ids": [
+        "computer"
+      ],
+      "tone": "light",
+      "eyebrow": "DOTS 02 / 補足"
+    },
+    {
+      "kind": "diagram",
+      "headline": "メリット1\nPCを切っても続く。",
+      "narration": "クラウドの作業は、PCを切っても続けられます。",
+      "captions": [
+        "クラウドの作業は、",
+        "PCを切っても",
+        "続けられます。"
+      ],
+      "graphic": "cloud",
+      "body": "クラウド内で行う作業",
+      "items": [],
+      "source_ids": [
+        "computer"
+      ],
+      "eyebrow": "DOTS 02 / 補足"
+    },
+    {
+      "kind": "steps",
+      "headline": "例えば、外出中に\n調査を進める。",
+      "narration": "外出中に調査。あとで確認。",
+      "captions": [
+        "外出中に調査。",
+        "あとで確認。"
+      ],
+      "items": [
+        {
+          "label": "調査を依頼"
+        },
+        {
+          "label": "外出中に進行"
+        },
+        {
+          "label": "結果を確認"
+        }
+      ],
+      "source_ids": [
+        "computer"
+      ],
+      "tone": "light",
+      "eyebrow": "DOTS 02 / 補足"
+    },
+    {
+      "kind": "steps",
+      "headline": "メリット2\n続きから取り組める。",
+      "narration": "ファイルやブラウザーの状態を保てます。",
+      "captions": [
+        "ファイルや",
+        "ブラウザーの状態を",
+        "保てます。"
+      ],
+      "items": [
+        {
+          "label": "専用ファイル"
+        },
+        {
+          "label": "作業状態を保持"
+        }
+      ],
+      "source_ids": [
+        "computer"
+      ],
+      "eyebrow": "DOTS 02 / 補足"
+    },
+    {
+      "kind": "diagram",
+      "headline": "メリット3\nスマホから依頼。",
+      "narration": "スマホから依頼。結果の確認や追加指示も。",
+      "captions": [
+        "スマホから依頼。",
+        "結果の確認や",
+        "追加指示も。"
+      ],
+      "graphic": "chat",
+      "body": "端末を変えてやり取り",
+      "items": [],
+      "source_ids": [
+        "computer",
+        "tasks"
+      ],
+      "tone": "light",
+      "eyebrow": "DOTS 02 / 補足"
+    },
+    {
+      "kind": "cards",
+      "headline": "自分は編集。\ndotは調査。",
+      "narration": "自分は編集、dotは調査。",
+      "captions": [
+        "自分は編集、",
+        "dotは調査。"
+      ],
+      "items": [
+        {
+          "label": "自分",
+          "detail": "手元で編集"
+        },
+        {
+          "label": "dot",
+          "detail": "クラウドで調査"
+        }
+      ],
+      "source_ids": [
+        "computer"
+      ],
+      "tone": "light",
+      "eyebrow": "DOTS 02 / 補足"
+    },
+    {
+      "kind": "diagram",
+      "headline": "手元PCの作業は、\n接続と起動が必要。",
+      "narration": "手元のPCを使う作業は、接続と起動が必要です。",
+      "captions": [
+        "手元のPCを使う作業は、",
+        "接続と起動が必要です。"
+      ],
+      "graphic": "laptop",
+      "body": "PCをオンラインに",
+      "items": [],
+      "source_ids": [
+        "computer",
+        "local"
+      ],
+      "eyebrow": "DOTS 02 / 補足"
+    },
+    {
+      "kind": "cards",
+      "headline": "ログインは別。\n必要なら自分で操作。",
+      "narration": "ログインは別。必要なら操作を引き取れます。",
+      "captions": [
+        "ログインは別。",
+        "必要なら操作を",
+        "引き取れます。"
+      ],
+      "items": [
+        {
+          "label": "ログイン",
+          "detail": "専用ブラウザー"
+        },
+        {
+          "label": "操作",
+          "detail": "自分に切り替え"
+        }
+      ],
+      "source_ids": [
+        "computer"
+      ],
+      "tone": "light",
+      "eyebrow": "DOTS 02 / 補足"
+    },
+    {
+      "kind": "hero",
+      "headline": "電源。続き。スマホ。\nこの3つが便利。",
+      "narration": "電源、続き、スマホが便利。",
+      "captions": [
+        "電源、続き、",
+        "スマホが便利。"
+      ],
+      "body": "クラウドを使い分ける",
+      "media": {
+        "path": "outputs/claude-acquired-20260919/MiniMax_H3_Claude_Acquired_00001_.mp4",
+        "proof": "verification/claude-acquired-2026-09-19.json"
+      },
+      "source_ids": [
+        "computer"
+      ],
+      "eyebrow": "DOTS 02 / 補足"
+    }
+  ],
+  "editorial": {
+    "checked_date": "2026-10-21",
+    "series_episode": "02-supplement",
+    "comparison_scope": "手元のPCで動くAI作業とdotのクラウドPCの比較。従来の全ChatGPT機能がローカル実行だったとは主張しない。",
+    "example_note": "外出前の調査依頼と、自分は編集・dotは調査は利用例であり実演結果ではない。",
+    "limits": [
+      "クラウドで完結する作業が対象。実行中のローカルタスクが自動でクラウドへ移動するわけではない。",
+      "手元PCを使う場合は接続許可、オンライン、ChatGPTアプリ起動が必要。",
+      "クラウドのログインは独立。セッション期限・サイト側制限があり、無期限の状態保持は保証しない。",
+      "承認が必要な処理では人の対応が必要。24時間無制限実行や処理速度向上をうたわない。"
+    ],
+    "visuals": "独自モーショングラフィックスと既存の架空キャラクター。実機録画ではない。",
+    "user_approved": false
+  }
+}

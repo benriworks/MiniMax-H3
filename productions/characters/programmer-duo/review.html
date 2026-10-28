@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ja">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>プログラマーのキャラクター比較</title>
+<style>
+  :root { color-scheme: dark; font-family: "Yu Gothic UI", "Meiryo", sans-serif; background: #0c1326; color: #faf3e5; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 40px 24px 60px; }
+  main { max-width: 920px; margin: auto; }
+  h1 { font-size: clamp(25px, 4vw, 36px); margin: 0 0 12px; }
+  .intro { color: #c5cad8; line-height: 1.8; margin-bottom: 28px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  article { background: #172139; border: 1px solid #38445e; border-radius: 16px; padding: 20px; }
+  h2 { margin: 0 0 7px; font-size: 24px; }
+  .status { color: #f6d792; margin: 0 0 18px; }
+  video { display: block; width: 100%; max-height: 660px; aspect-ratio: 9 / 16; object-fit: contain; border-radius: 9px; background: #070d1b; }
+  a { color: #ffdd93; text-underline-offset: 4px; }
+  .links { display: flex; flex-wrap: wrap; gap: 18px; line-height: 1.8; margin-top: 18px; }
+  .note { color: #c5cad8; line-height: 1.7; margin: 16px 0 0; font-size: 16px; }
+  footer { border-top: 1px solid #38445e; margin-top: 28px; padding-top: 18px; color: #c5cad8; line-height: 1.8; }
+  @media(max-width: 620px) { body { padding: 24px 16px; } .grid { grid-template-columns: 1fr; } }
+</style>
+<main>
+  <h1>プログラマーのキャラクター比較</h1>
+  <p class="intro">同じ服装・配色・ゲーム風の獲得演出で、男性版と女性版を比較できます。<br>どちらも縦型5秒。「Claudeを手に入れた！」のナレーションと獲得音付きです。</p>
+  <div class="grid">
+    <article>
+      <h2>男性プログラマー</h2>
+      <p class="status">今後の外観の基準</p>
+      <video controls playsinline preload="metadata" poster="male-preview.png" src="male.mp4"></video>
+      <div class="links"><a href="male.mp4" download>動画を保存</a><a href="male-base-start.png">冒頭の参照画像</a></div>
+      <p class="note">短い黒髪と青いインナー。成功を喜ぶガッツポーズ。</p>
+    </article>
+    <article>
+      <h2>女性プログラマー</h2>
+      <p class="status">同じ系列の試作候補</p>
+      <video controls playsinline preload="metadata" poster="female-preview.png" src="female.mp4"></video>
+      <div class="links"><a href="female.mp4" download>動画を保存</a><a href="female-keyframe.png">冒頭の参照画像</a></div>
+      <p class="note">黒髪のボブ。同じパーカーと青いインナーで統一。</p>
+    </article>
+  </div>
+  <footer>完成動画：1080×1920 / 24fps / 5秒。動画はMiniMax H3で生成し、文字と音声を編集で追加しています。女性版の始点画像は、男性版の画像をCodex画像生成で編集しています。</footer>
+</main>
+</html>

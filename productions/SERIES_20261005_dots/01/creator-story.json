@@ -1,0 +1,248 @@
+{
+  "schema_version": 1,
+  "id": "SHORT_20261005_dots_01",
+  "title": "ChatGPTに常駐する相棒「dots」が登場｜発表日と利用対象",
+  "duration_seconds": 30,
+  "voice": "Microsoft Sayaka",
+  "rate": 1,
+  "pronunciations": [
+    {
+      "source": "dots",
+      "target": "ドッツ"
+    },
+    {
+      "source": "dot",
+      "target": "ドット"
+    },
+    {
+      "source": "ChatGPT",
+      "target": "チャットジーピーティー"
+    },
+    {
+      "source": "GPT-6 Astra",
+      "target": "ジーピーティーシックス、アストラ"
+    },
+    {
+      "source": "OpenAI",
+      "target": "オープンエーアイ"
+    },
+    {
+      "source": "Business Premium",
+      "target": "ビジネスプレミアム"
+    },
+    {
+      "source": "Enterprise",
+      "target": "エンタープライズ"
+    },
+    {
+      "source": "Pro",
+      "target": "プロ"
+    },
+    {
+      "source": "PC",
+      "target": "ピーシー"
+    },
+    {
+      "source": "Gmail",
+      "target": "ジーメール"
+    },
+    {
+      "source": "Drive",
+      "target": "ドライブ"
+    },
+    {
+      "source": "GitHub",
+      "target": "ギットハブ"
+    },
+    {
+      "source": "Slack",
+      "target": "スラック"
+    },
+    {
+      "source": "Teams",
+      "target": "チームズ"
+    },
+    {
+      "source": "Activity",
+      "target": "アクティビティ"
+    },
+    {
+      "source": "Scheduled",
+      "target": "スケジュールド"
+    },
+    {
+      "source": "SMS",
+      "target": "エスエムエス"
+    }
+  ],
+  "scenes": [
+    {
+      "kind": "hero",
+      "headline": "ChatGPTに、\n相棒が来た。",
+      "narration": "常駐する相棒、dots。",
+      "captions": [
+        "常駐する相棒、dots。"
+      ],
+      "source_ids": [
+        "launch"
+      ],
+      "body": "dots / 30秒で紹介",
+      "media": {
+        "path": "outputs/claude-acquired-20260919/MiniMax_H3_Claude_Acquired_00001_.mp4",
+        "proof": "verification/claude-acquired-2026-09-19.json"
+      },
+      "eyebrow": "DOTS 01 / 09"
+    },
+    {
+      "kind": "stat",
+      "headline": "2026年、\n9月29日に発表。",
+      "narration": "9月29日、発表。",
+      "captions": [
+        "9月29日、発表。"
+      ],
+      "source_ids": [
+        "launch"
+      ],
+      "stat": "2026.09.29",
+      "body": "対象プランへ順次提供",
+      "tone": "light",
+      "eyebrow": "DOTS 01 / 09"
+    },
+    {
+      "kind": "diagram",
+      "headline": "会話の外でも、\n仕事を進める。",
+      "narration": "会話の外でも、仕事を進めます。",
+      "captions": [
+        "会話の外でも、",
+        "仕事を進めます。"
+      ],
+      "source_ids": [
+        "launch",
+        "tasks"
+      ],
+      "graphic": "parallel",
+      "items": [
+        {
+          "label": "調査"
+        },
+        {
+          "label": "整理"
+        },
+        {
+          "label": "開発"
+        }
+      ],
+      "eyebrow": "DOTS 01 / 09"
+    },
+    {
+      "kind": "steps",
+      "headline": "対象プランへ、\n順次スタート。",
+      "narration": "Proなどの対象プランへ、順次提供。",
+      "captions": [
+        "Proなどの対象プランへ、",
+        "順次提供。"
+      ],
+      "source_ids": [
+        "overview"
+      ],
+      "items": [
+        {
+          "label": "Pro"
+        },
+        {
+          "label": "Business Premium"
+        },
+        {
+          "label": "Enterprise"
+        }
+      ],
+      "eyebrow": "DOTS 01 / 09"
+    },
+    {
+      "kind": "cards",
+      "headline": "使える条件も、\n確認しよう。",
+      "narration": "年齢や地域、管理者設定も確認。",
+      "captions": [
+        "年齢や地域、",
+        "管理者設定も確認。"
+      ],
+      "source_ids": [
+        "overview"
+      ],
+      "items": [
+        {
+          "label": "Pro",
+          "detail": "年齢・地域条件あり"
+        },
+        {
+          "label": "企業",
+          "detail": "管理者設定も確認"
+        }
+      ],
+      "tone": "light",
+      "eyebrow": "DOTS 01 / 09"
+    },
+    {
+      "kind": "diagram",
+      "headline": "PCで作って、\n自分らしい相棒に。",
+      "narration": "PCで作って、名前や外見も選べる。",
+      "captions": [
+        "PCで作って、",
+        "名前や外見も選べる。"
+      ],
+      "source_ids": [
+        "start"
+      ],
+      "graphic": "laptop",
+      "items": [],
+      "body": "名前・色・見た目を選択",
+      "eyebrow": "DOTS 01 / 09"
+    },
+    {
+      "kind": "stat",
+      "headline": "頭脳は、\nGPT-6 Astra。",
+      "narration": "頭脳は、GPT-6 Astra。",
+      "captions": [
+        "頭脳は、GPT-6 Astra。"
+      ],
+      "source_ids": [
+        "launch"
+      ],
+      "stat": "GPT-6 Astra",
+      "body": "常駐するAIエージェント",
+      "tone": "light",
+      "eyebrow": "DOTS 01 / 09"
+    },
+    {
+      "kind": "hero",
+      "headline": "次は、\n専用のクラウドPC。",
+      "narration": "次は、クラウドPC。",
+      "captions": [
+        "次は、クラウドPC。"
+      ],
+      "source_ids": [
+        "computer"
+      ],
+      "body": "全9本で、ひとつずつ。",
+      "media": {
+        "path": "outputs/claude-acquired-female-silhouette-20260930/MiniMax_H3_Claude_Acquired_Female_Silhouette_00001_.mp4",
+        "proof": "verification/claude-acquired-female-silhouette-2026-09-30.json"
+      },
+      "eyebrow": "DOTS 01 / 09"
+    }
+  ],
+  "editorial": {
+    "checked_date": "2026-10-05",
+    "series_episode": 1,
+    "official_source_ids": [
+      "computer",
+      "launch",
+      "overview",
+      "start",
+      "tasks"
+    ],
+    "visuals": "Original motion graphics and reused fictional programmer characters; not recorded product UI.",
+    "availability_note": "2026年9月29日はOpenAIの発表日で、対象ユーザーへの順次提供開始日です。全員が同日に使えるという意味ではありません。Pro 100・200・500は年齢条件（公式表記: users over 18）と地域条件があり、EEA・英国・スイスは対象外。Business Premiumは世界各地へ順次展開。Enterpriseは管理者による有効化が必要です。作成はデスクトップアプリ／PCブラウザーから。モバイルアプリは対応更新後に利用でき、モバイルWebには未対応です。",
+    "user_approved": false
+  }
+}

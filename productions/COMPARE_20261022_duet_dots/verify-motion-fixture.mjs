@@ -1,0 +1,27 @@
+// Synthetic local motion is only a test input. It is never a generated person.
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {createRequire} from 'node:module';
+import {execFileSync} from 'node:child_process';
+const here=path.dirname(fileURLToPath(import.meta.url)),root=path.resolve(here,'../..'),studio=path.join(root,'studio');
+const out=path.join(root,'outputs/productions/COMPARE_20261022_duet_dots',process.argv[2]??'motion-fixture-01'),pub=path.join(out,'public');
+await fs.mkdir(path.join(pub,'template-assets'),{recursive:true});
+await fs.copyFile(path.join(studio,'public/template-assets/NotoSansJP-Variable.ttf'),path.join(pub,'template-assets/NotoSansJP-Variable.ttf'));
+execFileSync('ffmpeg',['-v','error','-f','lavfi','-i','testsrc2=size=384x688:rate=24','-frames:v','24','-c:v','libx264','-pix_fmt','yuv420p',path.join(pub,'media-00.mp4')],{windowsHide:true});
+const props=JSON.parse(await fs.readFile(path.join(root,'outputs/productions/COMPARE_20261022_duet_dots/fixture-03/props.json'),'utf8'));
+props.scenes.find(s=>s.id==='C04').panels[0].motion='close';props.scenes.find(s=>s.id==='C09').connection='local';
+const closing=props.scenes.at(-1);Object.assign(closing,{media:'media-00.mp4',mediaStart:0,mediaDurationInFrames:24,mediaPlayFrames:24});
+await fs.writeFile(path.join(out,'props.json'),JSON.stringify(props,null,2)+'\n',{flag:'wx'});
+const require=createRequire(path.join(studio,'package.json')),{bundle}=require('@remotion/bundler'),{selectComposition,renderStill,renderMedia}=require('@remotion/renderer'),{chromium}=require('playwright');
+const serveUrl=await bundle({entryPoint:path.join(studio,'src/remotion/comparisonEntry.tsx'),rootDir:studio,publicDir:pub,outDir:path.join(out,'bundle')});
+const browserExecutable=chromium.executablePath(),composition=await selectComposition({serveUrl,id:'ProductComparison',inputProps:props,browserExecutable});
+const frames=[0,...props.scenes.map(s=>s.from),...props.captions.map(c=>c.start),closing.from+23,closing.from+24,props.durationInFrames-1];
+for(const frame of [...new Set(frames)])await renderStill({composition,serveUrl,inputProps:props,browserExecutable,frame,output:path.join(out,`frame-${frame}.png`),imageFormat:'png',overwrite:false});
+const video=path.join(out,'synthetic-motion-check.mp4');
+await renderMedia({composition,serveUrl,inputProps:props,browserExecutable,frameRange:[closing.from,closing.from+47],outputLocation:video,codec:'h264',imageFormat:'png',muted:true,concurrency:1,overwrite:false});
+execFileSync('ffmpeg',['-v','error','-xerror','-i',video,'-f','null','-'],{windowsHide:true});
+const probe=JSON.parse(execFileSync('ffprobe',['-v','error','-show_entries','stream=nb_frames,width,height,avg_frame_rate','-of','json',video],{encoding:'utf8',windowsHide:true}));
+if(Number(probe.streams[0].nb_frames)!==48)throw Error('Expected 48 smoke frames');
+await fs.writeFile(path.join(out,'verification.json'),JSON.stringify({status:'synthetic_fixture_passed',checked_frames:[...new Set(frames)],probe,full_decode_passed:true,actual_character_video:false,tts_calls:0,public_delivery:false,remaining:'Real official screenshots, actual MiniMax person and measured Aoede audio require final review.'},null,2)+'\n',{flag:'wx'});
+console.log(JSON.stringify({output:out,frames:48,synthetic_only:true}));

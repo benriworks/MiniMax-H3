@@ -1,0 +1,252 @@
+{
+  "schema_version": 1,
+  "id": "SHORT_20261005_dots_02",
+  "title": "PCを閉じても仕事が進む？dotsの専用クラウドPC",
+  "duration_seconds": 30,
+  "voice": "Microsoft Sayaka",
+  "rate": 1,
+  "pronunciations": [
+    {
+      "source": "dots",
+      "target": "ドッツ"
+    },
+    {
+      "source": "dot",
+      "target": "ドット"
+    },
+    {
+      "source": "ChatGPT",
+      "target": "チャットジーピーティー"
+    },
+    {
+      "source": "GPT-6 Astra",
+      "target": "ジーピーティーシックス、アストラ"
+    },
+    {
+      "source": "OpenAI",
+      "target": "オープンエーアイ"
+    },
+    {
+      "source": "Business Premium",
+      "target": "ビジネスプレミアム"
+    },
+    {
+      "source": "Enterprise",
+      "target": "エンタープライズ"
+    },
+    {
+      "source": "Pro",
+      "target": "プロ"
+    },
+    {
+      "source": "PC",
+      "target": "ピーシー"
+    },
+    {
+      "source": "Gmail",
+      "target": "ジーメール"
+    },
+    {
+      "source": "Drive",
+      "target": "ドライブ"
+    },
+    {
+      "source": "GitHub",
+      "target": "ギットハブ"
+    },
+    {
+      "source": "Slack",
+      "target": "スラック"
+    },
+    {
+      "source": "Teams",
+      "target": "チームズ"
+    },
+    {
+      "source": "Activity",
+      "target": "アクティビティ"
+    },
+    {
+      "source": "Scheduled",
+      "target": "スケジュールド"
+    },
+    {
+      "source": "SMS",
+      "target": "エスエムエス"
+    }
+  ],
+  "scenes": [
+    {
+      "kind": "hero",
+      "headline": "PCを閉じても、\n仕事が進む。",
+      "narration": "PCを閉じても、仕事が進む。",
+      "captions": [
+        "PCを閉じても、",
+        "仕事が進む。"
+      ],
+      "source_ids": [
+        "overview",
+        "computer"
+      ],
+      "body": "dots / クラウドPC",
+      "media": {
+        "path": "outputs/claude-acquired-female-silhouette-20260930/MiniMax_H3_Claude_Acquired_Female_Silhouette_00001_.mp4",
+        "proof": "verification/claude-acquired-female-silhouette-2026-09-30.json"
+      },
+      "eyebrow": "DOTS 02 / 09"
+    },
+    {
+      "kind": "diagram",
+      "headline": "dot専用の\nPCとブラウザー。",
+      "narration": "専用のPCとブラウザーで、",
+      "captions": [
+        "専用のPCと",
+        "ブラウザーで、"
+      ],
+      "source_ids": [
+        "computer"
+      ],
+      "graphic": "cloud",
+      "items": [],
+      "body": "クラウドで作業",
+      "eyebrow": "DOTS 02 / 09"
+    },
+    {
+      "kind": "diagram",
+      "headline": "調べる。まとめる。\n分析する。",
+      "narration": "調査、資料づくり、データ分析。",
+      "captions": [
+        "調査、資料づくり、",
+        "データ分析。"
+      ],
+      "source_ids": [
+        "computer"
+      ],
+      "graphic": "parallel",
+      "items": [
+        {
+          "label": "調査"
+        },
+        {
+          "label": "資料作成"
+        },
+        {
+          "label": "分析"
+        }
+      ],
+      "tone": "light",
+      "eyebrow": "DOTS 02 / 09"
+    },
+    {
+      "kind": "steps",
+      "headline": "作業の状態も、\n引き継げる。",
+      "narration": "ファイルや作業の状態も保持。",
+      "captions": [
+        "ファイルや作業の",
+        "状態も保持。"
+      ],
+      "source_ids": [
+        "computer"
+      ],
+      "items": [
+        {
+          "label": "ファイルを保持"
+        },
+        {
+          "label": "続きから作業"
+        }
+      ],
+      "eyebrow": "DOTS 02 / 09"
+    },
+    {
+      "kind": "diagram",
+      "headline": "手元のPCは、\n別に接続。",
+      "narration": "手元のPCを使うなら、別に接続。",
+      "captions": [
+        "手元のPCを使うなら、",
+        "別に接続。"
+      ],
+      "source_ids": [
+        "computer"
+      ],
+      "graphic": "laptop",
+      "items": [],
+      "body": "ローカル作業の接続",
+      "eyebrow": "DOTS 02 / 09"
+    },
+    {
+      "kind": "cards",
+      "headline": "ローカル作業は、\nこの条件。",
+      "narration": "オンラインで、アプリを開いておきます。",
+      "captions": [
+        "オンラインで、",
+        "アプリを開いておきます。"
+      ],
+      "source_ids": [
+        "computer"
+      ],
+      "items": [
+        {
+          "label": "接続",
+          "detail": "オンライン"
+        },
+        {
+          "label": "アプリ",
+          "detail": "開いたまま"
+        }
+      ],
+      "tone": "light",
+      "eyebrow": "DOTS 02 / 09"
+    },
+    {
+      "kind": "steps",
+      "headline": "画面を見て、\n自分で操作も。",
+      "narration": "クラウドの画面を見て、操作を引き取ることも。",
+      "captions": [
+        "クラウドの画面を見て、",
+        "操作を引き取ることも。"
+      ],
+      "source_ids": [
+        "computer"
+      ],
+      "items": [
+        {
+          "label": "画面を確認"
+        },
+        {
+          "label": "操作を引き取る"
+        }
+      ],
+      "eyebrow": "DOTS 02 / 09"
+    },
+    {
+      "kind": "hero",
+      "headline": "使い分けて、\n仕事を進めよう。",
+      "narration": "クラウドと手元を、使い分けよう。",
+      "captions": [
+        "クラウドと手元を、",
+        "使い分けよう。"
+      ],
+      "source_ids": [
+        "computer"
+      ],
+      "body": "次は、アプリ連携。",
+      "media": {
+        "path": "outputs/claude-acquired-20260919/MiniMax_H3_Claude_Acquired_00001_.mp4",
+        "proof": "verification/claude-acquired-2026-09-19.json"
+      },
+      "eyebrow": "DOTS 02 / 09"
+    }
+  ],
+  "editorial": {
+    "checked_date": "2026-10-05",
+    "series_episode": 2,
+    "official_source_ids": [
+      "computer",
+      "overview"
+    ],
+    "visuals": "Original motion graphics and reused fictional programmer characters; not recorded product UI.",
+    "availability_note": "dot専用のクラウドPCと、ユーザーのローカルPCへの接続は別機能です。クラウド側はユーザーのPCがオフでも作業を続けられます。ローカルPCを使う作業には、オンライン状態とChatGPTアプリの起動が必要です。クラウドブラウザーでは別途ログインが必要な場合があり、サイト側でアクセスが制限されることもあります。",
+    "user_approved": false
+  }
+}

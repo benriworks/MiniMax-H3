@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "episode": 3,
+  "status": "root_review_required",
+  "text_layout_validation": "passed",
+  "common_story_validation": "passed",
+  "narration_characters": 164,
+  "source_proposal": {
+    "path": "productions/SERIES_20261022_claude_work/scripts-draft.json",
+    "bytes": 33343,
+    "sha256": "41063E1E4B7BA048FF1490C488AC98210208B02E03651AF48B3A277AD3B01D3D"
+  },
+  "change_note": "実際のDesign初回と修正後を55%表示でnative PNG撮影。同じ570px横幅から価格・時間の拡大を比較する。修正依頼の実文字「もう一段大きく」を引用する。日付の折り返し解消と入力外の一文の削除は実施されたが、現動画の前後比較は価格と時間に絞る。",
+  "scenes": [
+    {
+      "scene": 1,
+      "original_scene_id": "01-hook",
+      "status": "asset_reviewed_root_story_review_pending",
+      "asset": {
+        "path": "outputs/characters/explainer-motion-20261022/claude-shiori/MiniMax_H3_claude_shiori_00001_.mp4",
+        "proof": "outputs/characters/explainer-motion-20261022/claude-shiori/verification.json"
+      }
+    },
+    {
+      "scene": 2,
+      "original_scene_id": "02-source",
+      "status": "capture_reviewed_root_story_review_pending",
+      "capture_id": "design-refine",
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_03_work/captures/design-refine.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_03_work/captures/design-refine.json",
+        "origin": "official",
+        "title": "Refine your design",
+        "source_url": "https://support.claude.com/en/articles/14604416-get-started-with-claude-design"
+      },
+      "capture_quality": "official_crop_reviewed"
+    },
+    {
+      "scene": 3,
+      "original_scene_id": "03-request",
+      "status": "capture_reviewed_root_story_review_pending",
+      "capture_id": "03-design-request-native-excerpt-v3",
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_03_work/captures/03-design-request-native-excerpt-v3.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_03_work/captures/03-design-request-native-excerpt-v3.json",
+        "origin": "demonstration",
+        "title": "店内告知を依頼",
+        "product": "Claude",
+        "phase": "before"
+      },
+      "capture_quality": "native_png_ready_for_scene_review"
+    },
+    {
+      "scene": 4,
+      "original_scene_id": "04-first",
+      "status": "capture_reviewed_root_story_review_pending",
+      "capture_id": "03-design-first-price-hours-native",
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_03_work/captures/03-design-first-price-hours-native.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_03_work/captures/03-design-first-price-hours-native.json",
+        "origin": "demonstration",
+        "title": "初回の価格と時間",
+        "product": "Claude",
+        "phase": "first-output"
+      },
+      "capture_quality": "native_png_ready_for_scene_review"
+    },
+    {
+      "scene": 5,
+      "original_scene_id": "05-revise",
+      "status": "capture_reviewed_root_story_review_pending",
+      "capture_id": "03-design-revision-larger-native",
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_03_work/captures/03-design-revision-larger-native.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_03_work/captures/03-design-revision-larger-native.json",
+        "origin": "demonstration",
+        "title": "文字を大きくする依頼",
+        "product": "Claude",
+        "phase": "revision"
+      },
+      "capture_quality": "native_png_ready_for_scene_review"
+    },
+    {
+      "scene": 6,
+      "original_scene_id": "06-check",
+      "status": "capture_reviewed_root_story_review_pending",
+      "capture_id": "03-design-after-price-hours-native",
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_03_work/captures/03-design-after-price-hours-native.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_03_work/captures/03-design-after-price-hours-native.json",
+        "origin": "demonstration",
+        "title": "修正後の価格と時間",
+        "product": "Claude",
+        "phase": "after"
+      },
+      "capture_quality": "native_png_ready_for_scene_review"
+    },
+    {
+      "scene": 7,
+      "original_scene_id": "07-close",
+      "status": "asset_reviewed_root_story_review_pending",
+      "asset": {
+        "path": "outputs/characters/explainer-motion-20261022/claude-shiori/MiniMax_H3_claude_shiori_00001_.mp4",
+        "proof": "outputs/characters/explainer-motion-20261022/claude-shiori/verification.json"
+      }
+    }
+  ],
+  "paid_requests_submitted": 0,
+  "production_story_written": false,
+  "actual_30_seconds_verified": false,
+  "ready_for_tts": false,
+  "remaining": [
+    "親による実素材・文意レビュー",
+    "最終構成の確認",
+    "動画内の文字・前後比較の可読性確認",
+    "ナレーション確定後の音声生成と実尺測定"
+  ],
+  "native_recapture_required_scenes": []
+}

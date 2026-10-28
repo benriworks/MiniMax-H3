@@ -162,9 +162,16 @@ const validateInputProps = (inputProps) => {
         !isInteger(clip.overlay.endFrame, 1, 1440) ||
         clip.overlay.endFrame <= clip.overlay.startFrame ||
         !['top', 'center', 'bottom'].includes(clip.overlay.position) ||
-        clip.overlay.stylePreset !== 'shorts_ja_large_v1'
+        !['shorts_ja_large_v1', 'shorts_creator_v1'].includes(clip.overlay.stylePreset)
       ) {
         fail(`clips[${index}].overlay is invalid`);
+      }
+      if (clip.overlay.stylePreset === 'shorts_creator_v1') {
+        const lines = clip.overlay.text.split(/\r\n|[\n\r\u0085\u2028\u2029]/u);
+        const width = (line) => [...line].reduce((units, char) => units + (/[\x20-\x7e\uff61-\uff9f]/u.test(char) ? 0.54 : 1), 0);
+        if (lines.length > 3 || lines.some((line) => width(line) > 14)) {
+          fail(`clips[${index}].overlay exceeds the readable safe area`);
+        }
       }
       const expectedStartFrame = Math.min(
         clip.durationInFrames - 1,
@@ -306,7 +313,7 @@ for (const [index] of request.input_props.clips.entries()) {
     fail(`clips[${index}] source escapes the public directory`);
   }
 }
-const needsScreenFont = request.input_props.clips.some((clip) => clip.layoutPreset === 'screen_explainer_v1');
+const needsScreenFont = request.input_props.clips.some((clip) => clip.layoutPreset === 'screen_explainer_v1' || clip.overlay?.stylePreset === 'shorts_creator_v1');
 const publicNames = await readdir(expectedPublicDirectory);
 const expectedPublicNames = request.input_props.clips.map((_, index) => `clip-${String(index).padStart(2, '0')}.mp4`);
 if (needsScreenFont) expectedPublicNames.push('template-assets');

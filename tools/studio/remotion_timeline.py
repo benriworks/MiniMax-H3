@@ -111,6 +111,8 @@ _FIRST_PARTY_SOURCE_PATHS = {
     "types_source": "studio/src/types.ts",
     "screen_themes_source": "studio/src/remotion/screenThemes.ts",
     "screen_typography_source": "studio/src/remotion/ScreenTypography.tsx",
+    "shorts_motion_source": "studio/src/remotion/shortsMotion.ts",
+    "shorts_primitives_source": "studio/src/remotion/ShortsMotionPrimitives.tsx",
     "screen_font_asset": "studio/public/template-assets/NotoSansJP-Variable.ttf",
     "screen_font_license": "studio/public/template-assets/OFL-NotoSansJP.txt",
 }
@@ -370,7 +372,7 @@ def _complete_scratch_space_preflight(
         expected_names = {
             f"clip-{index:02d}.mp4" for index in range(int(audit["clip_count"]))
         }
-        has_screen = any(item.get("layout_preset") == "screen_explainer_v1" for item in audit["clips"])
+        has_screen = any(item.get("layout_preset") == "screen_explainer_v1" or (item.get("overlay") or {}).get("style_preset") == "shorts_creator_v1" for item in audit["clips"])
         if has_screen:
             expected_names.add("template-assets")
         children = list(staged_sources.iterdir())
@@ -1205,7 +1207,7 @@ def _stage_screen_font(
     workspace: Path, public_directory: Path, clips: Sequence[Mapping[str, Any]],
     tool_identity: Mapping[str, Mapping[str, str]],
 ) -> None:
-    if not any(item.get("layout_preset") == "screen_explainer_v1" for item in clips):
+    if not any(item.get("layout_preset") == "screen_explainer_v1" or (item.get("overlay") or {}).get("style_preset") == "shorts_creator_v1" for item in clips):
         return
     source = workspace / _FIRST_PARTY_SOURCE_PATHS["screen_font_asset"]
     destination = public_directory / _SCREEN_FONT_PUBLIC_PATH
@@ -1930,7 +1932,7 @@ def _generate_or_validate(
                 raise RemotionTimelineError(
                     "The Remotion runtime changed during rendering", code="tool_changed"
                 )
-        if any(item.get("layout_preset") == "screen_explainer_v1" for item in prepared):
+        if any(item.get("layout_preset") == "screen_explainer_v1" or (item.get("overlay") or {}).get("style_preset") == "shorts_creator_v1" for item in prepared):
             _assert_staged_screen_font(root, public_directory, tool_identity)
         for index, item in enumerate(prepared):
             _assert_source_unchanged(root, item, label=f"clips[{index}]")

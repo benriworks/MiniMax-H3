@@ -1,0 +1,134 @@
+{
+  "id": "SERIES_20261005_dots",
+  "title": "dotsを30秒ずつ。",
+  "checked_date": "2026-10-05",
+  "episodes": [
+    {
+      "number": 1,
+      "topic": "発表日と利用対象",
+      "title": "ChatGPTに常駐する相棒「dots」が登場｜発表日と利用対象",
+      "story": "productions/SERIES_20261005_dots/01/creator-story.json",
+      "source_ids": [
+        "computer",
+        "launch",
+        "overview",
+        "start",
+        "tasks"
+      ]
+    },
+    {
+      "number": 2,
+      "topic": "専用クラウドPC",
+      "title": "PCを閉じても仕事が進む？dotsの専用クラウドPC",
+      "story": "productions/SERIES_20261005_dots/02/creator-story.json",
+      "source_ids": [
+        "computer",
+        "overview"
+      ]
+    },
+    {
+      "number": 3,
+      "topic": "アプリ連携",
+      "title": "4,000以上のアプリとつながる仕組み｜dotsの連携機能",
+      "story": "productions/SERIES_20261005_dots/03/creator-story.json",
+      "source_ids": [
+        "computer",
+        "launch",
+        "start"
+      ]
+    },
+    {
+      "number": 4,
+      "topic": "並行作業",
+      "title": "ひとつの会話で複数の仕事へ｜dotsの並行作業",
+      "story": "productions/SERIES_20261005_dots/04/creator-story.json",
+      "source_ids": [
+        "controls",
+        "tasks"
+      ]
+    },
+    {
+      "number": 5,
+      "topic": "記憶と好み",
+      "title": "好みを覚える相棒｜dotsの記憶はどこまで？",
+      "story": "productions/SERIES_20261005_dots/05/creator-story.json",
+      "source_ids": [
+        "tasks"
+      ]
+    },
+    {
+      "number": 6,
+      "topic": "会話と通話",
+      "title": "ChatGPT・Slack・Teamsで同じ相棒と｜dotsの会話と通話",
+      "story": "productions/SERIES_20261005_dots/06/creator-story.json",
+      "source_ids": [
+        "channels",
+        "tasks"
+      ]
+    },
+    {
+      "number": 7,
+      "topic": "定期実行",
+      "title": "毎朝の確認を任せる｜dotsの定期実行とイベント監視",
+      "story": "productions/SERIES_20261005_dots/07/creator-story.json",
+      "source_ids": [
+        "controls",
+        "tasks"
+      ]
+    },
+    {
+      "number": 8,
+      "topic": "先回り調査",
+      "title": "頼む前に気づきを届ける？dotsの先回り調査",
+      "story": "productions/SERIES_20261005_dots/08/creator-story.json",
+      "source_ids": [
+        "controls",
+        "tasks"
+      ]
+    },
+    {
+      "number": 9,
+      "topic": "権限と停止",
+      "title": "dotsに任せる前に｜権限・確認・停止のポイント",
+      "story": "productions/SERIES_20261005_dots/09/creator-story.json",
+      "source_ids": [
+        "controls",
+        "tasks"
+      ]
+    }
+  ],
+  "sources": {
+    "launch": {
+      "title": "OpenAI — Introducing dots",
+      "url": "https://openai.com/index/introducing-dots/"
+    },
+    "overview": {
+      "title": "OpenAI — Meet dots",
+      "url": "https://learn.chatgpt.com/docs/dots"
+    },
+    "start": {
+      "title": "OpenAI — Get started with your dot",
+      "url": "https://learn.chatgpt.com/docs/dots/getting-started"
+    },
+    "computer": {
+      "title": "OpenAI — Computers and apps",
+      "url": "https://learn.chatgpt.com/docs/dots/computers-and-apps"
+    },
+    "tasks": {
+      "title": "OpenAI — Tasks and memory",
+      "url": "https://learn.chatgpt.com/docs/dots/tasks-and-memory"
+    },
+    "channels": {
+      "title": "OpenAI — Message your dot",
+      "url": "https://learn.chatgpt.com/docs/dots/channels"
+    },
+    "controls": {
+      "title": "OpenAI — Controls",
+      "url": "https://learn.chatgpt.com/docs/dots/controls"
+    }
+  },
+  "publication_status": "not_uploaded",
+  "user_approved": false,
+  "shared_google_link": "https://share.google/gymVxp9R6pxOhmeGv",
+  "shared_link_status": "HTTP 403; destination unverified; researched official OpenAI pages independently"
+}

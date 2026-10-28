@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "status": "review_only_no_generation",
+  "source_proposal": {
+    "path": "productions/SERIES_20261022_claude_work/scripts-draft.json",
+    "bytes": 33343,
+    "sha256": "41063E1E4B7BA048FF1490C488AC98210208B02E03651AF48B3A277AD3B01D3D"
+  },
+  "builder": {
+    "path": "productions/SERIES_20261022_claude_work/build_story_drafts.py",
+    "bytes": 21357,
+    "sha256": "225CB9C6F3EBB3C4B73A94A791A63C14BE3178ED78DF8E19255FBAB7415CEC45"
+  },
+  "paid_requests_submitted": 0,
+  "episodes": [
+    {
+      "episode": 1,
+      "story": {
+        "path": "productions/SERIES_20261022_claude_work/drafts/20261022T185721175072Z/01/creator-story.draft.json",
+        "bytes": 6573,
+        "sha256": "53976358239C8A5F8294A2657BA5B556CF4189B158CE649025429F12F33F464A"
+      },
+      "readiness": {
+        "path": "productions/SERIES_20261022_claude_work/drafts/20261022T185721175072Z/01/readiness.json",
+        "bytes": 5062,
+        "sha256": "AB1F46D041DE392A93950E1F55A94F14C4204DF00468ED2AC63AEC8D1B21A5B5"
+      },
+      "missing_capture_scenes": [],
+      "missing_character_scenes": []
+    },
+    {
+      "episode": 2,
+      "story": {
+        "path": "productions/SERIES_20261022_claude_work/drafts/20261022T185721175072Z/02/creator-story.draft.json",
+        "bytes": 6621,
+        "sha256": "F911591C84C72D4031E6EE8C8C1EE9BEA7EB8A96B0DCFA62FF6F4254BF863920"
+      },
+      "readiness": {
+        "path": "productions/SERIES_20261022_claude_work/drafts/20261022T185721175072Z/02/readiness.json",
+        "bytes": 5322,
+        "sha256": "8CDE9C3C0928350F02AD51DBFC459735F834373003D169DA0DC623C2CDDFA19A"
+      },
+      "missing_capture_scenes": [],
+      "missing_character_scenes": []
+    },
+    {
+      "episode": 3,
+      "story": {
+        "path": "productions/SERIES_20261022_claude_work/drafts/20261022T185721175072Z/03/creator-story.draft.json",
+        "bytes": 6637,
+        "sha256": "A9D1DE42DDC000CAF9DE57756C1AD0A4B9EB8C1273E1E567501B644243DE1C69"
+      },
+      "readiness": {
+        "path": "productions/SERIES_20261022_claude_work/drafts/20261022T185721175072Z/03/readiness.json",
+        "bytes": 5248,
+        "sha256": "6CA85397AC892FC7AF54783BFFD4078135E5198528FB6B54344963D9488E1AF5"
+      },
+      "missing_capture_scenes": [],
+      "missing_character_scenes": []
+    },
+    {
+      "episode": 4,
+      "story": {
+        "path": "productions/SERIES_20261022_claude_work/drafts/20261022T185721175072Z/04/creator-story.draft.json",
+        "bytes": 6595,
+        "sha256": "A44F3828A01364DA00BE745910914A016CE747ADE7EBF08F45BACE406236B0C4"
+      },
+      "readiness": {
+        "path": "productions/SERIES_20261022_claude_work/drafts/20261022T185721175072Z/04/readiness.json",
+        "bytes": 5055,
+        "sha256": "EF93B0EFEBA78CD6281F5DA81CBC11F6916F945A1B297629F03E9A515B0A5E89"
+      },
+      "missing_capture_scenes": [],
+      "missing_character_scenes": []
+    },
+    {
+      "episode": 5,
+      "story": {
+        "path": "productions/SERIES_20261022_claude_work/drafts/20261022T185721175072Z/05/creator-story.draft.json",
+        "bytes": 6167,
+        "sha256": "4A5A35FEAB46BBC41E2FFCC030363219BD6B6A4A40652487D99D82007CBEEE09"
+      },
+      "readiness": {
+        "path": "productions/SERIES_20261022_claude_work/drafts/20261022T185721175072Z/05/readiness.json",
+        "bytes": 4502,
+        "sha256": "8F3D417B72B3CDFB61889BD0071633814EA6C85A136F90609326674E76B4401F"
+      },
+      "missing_capture_scenes": [
+        4
+      ],
+      "missing_character_scenes": []
+    }
+  ]
+}
