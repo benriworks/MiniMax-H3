@@ -1,5 +1,28 @@
 # Architecture diagram
 
+## H3 APIとローカルの動作比較（2026-10-29）
+
+```mermaid
+flowchart TD
+    Suite[共通プロンプトと動作確認項目] --> Init[initで入力とhashを固定]
+    Init --> Ledger[比較manifestと排他ロック]
+    Ledger --> API[既存H3 APIクライアント]
+    API --> Durable[POST前の状態保存とtask ID再開]
+    Durable --> Remote[MiniMax H3 API]
+    Ledger --> Local[既存ComfyUIアダプター]
+    Local --> Guard[モデルとruntime検査と送信マーカー]
+    Guard --> GPU[ローカルComfyUI]
+    Remote --> Raw[生成原本と実測仕様とSHA256]
+    GPU --> Raw
+    Raw --> Compare[共通表示サイズの比較MP4と全デコード確認]
+    Raw --> Diagnostic[輝度差の診断値]
+    Compare --> HTML[原本と比較を確認するHTML]
+    Diagnostic --> HTML
+    HTML --> Review[原本hashに結び付く評価の追記]
+```
+
+APIは768P、ローカルは480×864のため条件差を表示する。動き量は品質順位へ変換しない。実請求、AI補助評価、人の試聴、ユーザー採用、公開を区別する。詳細は [比較手順](H3_MOTION_COMPARISON_JA.md)。
+
 ## Claudeモデル進化の図解制作（2026-09-16）
 
 ```mermaid
