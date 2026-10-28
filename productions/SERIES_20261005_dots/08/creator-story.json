@@ -1,0 +1,246 @@
+{
+  "schema_version": 1,
+  "id": "SHORT_20261005_dots_08",
+  "title": "頼む前に気づきを届ける？dotsの先回り調査",
+  "duration_seconds": 30,
+  "voice": "Microsoft Sayaka",
+  "rate": 1,
+  "pronunciations": [
+    {
+      "source": "dots",
+      "target": "ドッツ"
+    },
+    {
+      "source": "dot",
+      "target": "ドット"
+    },
+    {
+      "source": "ChatGPT",
+      "target": "チャットジーピーティー"
+    },
+    {
+      "source": "GPT-6 Astra",
+      "target": "ジーピーティーシックス、アストラ"
+    },
+    {
+      "source": "OpenAI",
+      "target": "オープンエーアイ"
+    },
+    {
+      "source": "Business Premium",
+      "target": "ビジネスプレミアム"
+    },
+    {
+      "source": "Enterprise",
+      "target": "エンタープライズ"
+    },
+    {
+      "source": "Pro",
+      "target": "プロ"
+    },
+    {
+      "source": "PC",
+      "target": "ピーシー"
+    },
+    {
+      "source": "Gmail",
+      "target": "ジーメール"
+    },
+    {
+      "source": "Drive",
+      "target": "ドライブ"
+    },
+    {
+      "source": "GitHub",
+      "target": "ギットハブ"
+    },
+    {
+      "source": "Slack",
+      "target": "スラック"
+    },
+    {
+      "source": "Teams",
+      "target": "チームズ"
+    },
+    {
+      "source": "Activity",
+      "target": "アクティビティ"
+    },
+    {
+      "source": "Scheduled",
+      "target": "スケジュールド"
+    },
+    {
+      "source": "SMS",
+      "target": "エスエムエス"
+    }
+  ],
+  "scenes": [
+    {
+      "kind": "hero",
+      "headline": "先回りして、\n調べてくれる。",
+      "narration": "dotsが、先回りして調べる。",
+      "captions": [
+        "dotsが、",
+        "先回りして調べる。"
+      ],
+      "source_ids": [
+        "tasks"
+      ],
+      "body": "dots / 先回り調査",
+      "media": {
+        "path": "outputs/claude-acquired-female-silhouette-20260930/MiniMax_H3_Claude_Acquired_Female_Silhouette_00001_.mp4",
+        "proof": "verification/claude-acquired-female-silhouette-2026-09-30.json"
+      },
+      "eyebrow": "DOTS 08 / 09"
+    },
+    {
+      "kind": "diagram",
+      "headline": "許可した情報から、\n役立つ手がかりを。",
+      "narration": "許可された情報を、調査。",
+      "captions": [
+        "許可された情報を、調査。"
+      ],
+      "source_ids": [
+        "tasks"
+      ],
+      "graphic": "research",
+      "items": [
+        {
+          "label": "資料"
+        },
+        {
+          "label": "メール"
+        },
+        {
+          "label": "メモ"
+        }
+      ],
+      "eyebrow": "DOTS 08 / 09"
+    },
+    {
+      "kind": "diagram",
+      "headline": "気づいたことは、\n自分用のメモに。",
+      "narration": "気づきを自分用のメモに。",
+      "captions": [
+        "気づきを自分用のメモに。"
+      ],
+      "source_ids": [
+        "tasks"
+      ],
+      "graphic": "memory",
+      "items": [],
+      "body": "次の提案につなげる",
+      "tone": "light",
+      "eyebrow": "DOTS 08 / 09"
+    },
+    {
+      "kind": "cards",
+      "headline": "次の一手を、\n提案する。",
+      "narration": "次の一手や、気になる点を知らせる。",
+      "captions": [
+        "次の一手や、",
+        "気になる点を知らせる。"
+      ],
+      "source_ids": [
+        "tasks"
+      ],
+      "items": [
+        {
+          "label": "提案",
+          "detail": "次に進めること"
+        },
+        {
+          "label": "気づき",
+          "detail": "確認したい点"
+        }
+      ],
+      "eyebrow": "DOTS 08 / 09"
+    },
+    {
+      "kind": "diagram",
+      "headline": "先回り調査は、\n読み取り中心。",
+      "narration": "この調査では、送信や変更はしません。",
+      "captions": [
+        "この調査では、",
+        "送信や変更はしません。"
+      ],
+      "source_ids": [
+        "tasks"
+      ],
+      "graphic": "control",
+      "items": [],
+      "body": "送信や更新はしない",
+      "tone": "light",
+      "eyebrow": "DOTS 08 / 09"
+    },
+    {
+      "kind": "diagram",
+      "headline": "ブラウザーを、\n勝手に操作しない。",
+      "narration": "ブラウザーやPCも、操作しません。",
+      "captions": [
+        "ブラウザーやPCも、",
+        "操作しません。"
+      ],
+      "source_ids": [
+        "tasks"
+      ],
+      "graphic": "laptop",
+      "items": [],
+      "body": "先回り調査の範囲",
+      "eyebrow": "DOTS 08 / 09"
+    },
+    {
+      "kind": "steps",
+      "headline": "提案の先は、\n通常の権限で。",
+      "narration": "実行するときは、通常の権限と承認で。",
+      "captions": [
+        "実行するときは、",
+        "通常の権限と承認で。"
+      ],
+      "source_ids": [
+        "tasks",
+        "controls"
+      ],
+      "items": [
+        {
+          "label": "提案を確認"
+        },
+        {
+          "label": "必要な作業を依頼"
+        }
+      ],
+      "tone": "light",
+      "eyebrow": "DOTS 08 / 09"
+    },
+    {
+      "kind": "hero",
+      "headline": "気づきをもらって、\n次の一歩へ。",
+      "narration": "提案を確かめて、次の一歩へ。",
+      "captions": [
+        "提案を確かめて、",
+        "次の一歩へ。"
+      ],
+      "source_ids": [
+        "tasks"
+      ],
+      "body": "次は、権限と停止。",
+      "media": {
+        "path": "outputs/claude-acquired-20260919/MiniMax_H3_Claude_Acquired_00001_.mp4",
+        "proof": "verification/claude-acquired-2026-09-19.json"
+      },
+      "eyebrow": "DOTS 08 / 09"
+    }
+  ],
+  "editorial": {
+    "checked_date": "2026-10-05",
+    "series_episode": 8,
+    "official_source_ids": [
+      "controls",
+      "tasks"
+    ],
+    "visuals": "Original motion graphics and reused fictional programmer characters; not recorded product UI.",
+    "availability_note": "ここで扱うのはProactive research（先回り調査）です。利用を許可された情報の読み取りと私的なメモ作成が中心で、この機能自体は送信、アプリの変更、ブラウザーやコンピューターの操作を行いません。提案の後に依頼する実作業には、通常の権限と承認確認が適用されます。利用者が明示して任せる定期実行とは範囲が異なります。",
+    "user_approved": false
+  }
+}

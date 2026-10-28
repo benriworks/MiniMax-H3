@@ -1,0 +1,215 @@
+{
+  "schema_version": 1,
+  "id": "SHORT_20261024_php2shell_overview",
+  "title": "【PHP】PHP2Shellとは？サイト運営者が今確認すべきこと",
+  "voice": "Aoede",
+  "rate": 1,
+  "duration_seconds": 50,
+  "music_preset": "bright_groove_v1",
+  "pronunciations": [
+    {
+      "source": "PHPツーシェル",
+      "target": "ピーエイチピーツーシェル"
+    },
+    {
+      "source": "PHP",
+      "target": "ピーエイチピー"
+    },
+    {
+      "source": "Web",
+      "target": "ウェブ"
+    }
+  ],
+  "scenes": [
+    {
+      "kind": "editorial",
+      "editorial_layout": "hook",
+      "headline": "自分のサイトも？",
+      "narration": "Webサイトを運営しているなら確認を。",
+      "captions": [
+        "Webサイトを",
+        "運営しているなら\n確認を。"
+      ],
+      "visual_style": "business",
+      "eyebrow": "PHP2Shell",
+      "body": "三浦航・Web担当",
+      "action": "まず利用環境を確認",
+      "media": {
+        "path": "outputs/content-projects/CONTENT_20261024_php2shell_overview/motion/v01/miura-insight-v02/MiniMax_H3_miura_insight_v02_00001_.mp4",
+        "proof": "outputs/content-projects/CONTENT_20261024_php2shell_overview/motion/v01/miura-insight-v02/visual-review.json"
+      }
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "contrast",
+      "headline": "PHPは\nサイトの裏側",
+      "narration": "サイトの裏側を動かすPHPに、2件の重大な脆弱性が公表されました。",
+      "captions": [
+        "サイトの裏側を動かす\nPHPに、",
+        "2件の重大な脆弱性が",
+        "公表されました。"
+      ],
+      "eyebrow": "2026年10月21日",
+      "body": "見える画面 → サーバー",
+      "items": [
+        {
+          "label": "Webページ",
+          "detail": "利用者が見る画面"
+        },
+        {
+          "label": "PHP",
+          "detail": "サーバー側で処理"
+        }
+      ]
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "PHP2Shell\n2件の重大な不具合",
+      "eyebrow": "PHP公式告知",
+      "narration": "通称、PHPツーシェル。条件がそろうと、",
+      "captions": [
+        "通称、PHPツーシェル。",
+        "条件がそろうと、"
+      ],
+      "capture": {
+        "origin": "official",
+        "path": "outputs/productions/SHORT_20261024_php2shell_overview/captures/php-quote.png",
+        "proof": "outputs/productions/SHORT_20261024_php2shell_overview/captures/php-proof.json",
+        "source_url": "https://www.php.net/archive/2026.php#2026-10-21-5",
+        "title": "PHP公式・10月21日"
+      }
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "permissions",
+      "headline": "ログインなしで\n不正な処理の恐れ",
+      "narration": "ログインせずにサーバーでプログラムを実行される恐れがあります。",
+      "captions": [
+        "ログインせずに\nサーバーで",
+        "プログラムを実行される",
+        "恐れがあります。"
+      ],
+      "eyebrow": "構成などで成立条件が異なる",
+      "body": "構成などで条件は異なる",
+      "items": [
+        {
+          "label": "CVE-2026-109618",
+          "detail": "PHP本体の問題"
+        },
+        {
+          "label": "CVE-2026-109619",
+          "detail": "設定だけでは不十分"
+        }
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "conversation",
+      "headline": "誰に、何を聞く？",
+      "narration": "管理担当やホスティング会社に、利用中のPHPを確認。",
+      "captions": [
+        "管理担当や\nホスティング会社に、",
+        "利用中のPHPを確認。"
+      ],
+      "visual_style": "business",
+      "eyebrow": "三浦さんが管理担当へ確認",
+      "body": "利用中のPHPは？",
+      "items": [
+        {
+          "label": "管理担当",
+          "detail": "バージョンと構成"
+        },
+        {
+          "label": "ホスティング会社",
+          "detail": "対策の適用状況"
+        }
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "contrast",
+      "headline": "修正版へ更新\n動作も確認",
+      "narration": "対策済みかも聞き、修正版への更新と動作確認を。",
+      "captions": [
+        "対策済みかも聞き、",
+        "修正版への更新と",
+        "動作確認を。"
+      ],
+      "eyebrow": "10/21公表の修正版の基準",
+      "body": "提供元の修正適用も確認",
+      "items": [
+        {
+          "label": "8.2.35 / 8.3.36",
+          "detail": "8.2系 / 8.3系"
+        },
+        {
+          "label": "8.4.27 / 8.5.12",
+          "detail": "8.4系 / 8.5系"
+        }
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "research",
+      "headline": "更新したら\nログも調べる",
+      "narration": "不審なログの調査も忘れずに。",
+      "captions": [
+        "不審なログの調査も",
+        "忘れずに。"
+      ],
+      "eyebrow": "JPCERT/CCの注意喚起",
+      "body": "更新前の被害も確認",
+      "items": [
+        {
+          "label": "更新・動作確認",
+          "detail": "今後のリスクを減らす"
+        },
+        {
+          "label": "ログの調査",
+          "detail": "侵害の兆候を確認"
+        }
+      ]
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "10月23日にも\n追加の注意喚起",
+      "eyebrow": "PHP公式告知",
+      "narration": "10月23日には、別の条件に関する追加注意喚起も出ています。",
+      "captions": [
+        "10月23日には、",
+        "別の条件に関する",
+        "追加注意喚起も\n出ています。"
+      ],
+      "capture": {
+        "origin": "official",
+        "path": "outputs/productions/SHORT_20261024_php2shell_overview/captures/php-followup-quote.png",
+        "proof": "outputs/productions/SHORT_20261024_php2shell_overview/captures/php-followup-proof.json",
+        "source_url": "https://www.php.net/archive/2026.php#2026-10-23-1",
+        "title": "PHP公式・10月23日"
+      }
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "recap",
+      "headline": "最新の公式案内まで\n確認しましょう",
+      "narration": "最新の公式案内まで確認を。",
+      "captions": [
+        "最新の公式案内まで\n確認を。"
+      ],
+      "eyebrow": "2026年10月24日確認",
+      "body": "確認 → 更新 → 調査",
+      "items": [
+        {
+          "label": "PHP公式",
+          "detail": "追加告知も確認"
+        },
+        {
+          "label": "IPA / JPCERT",
+          "detail": "国内向けの注意喚起"
+        }
+      ]
+    }
+  ]
+}

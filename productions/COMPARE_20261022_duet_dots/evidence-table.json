@@ -1,0 +1,160 @@
+{
+  "schema_version": 1,
+  "checked_at": "2026-10-22T13:07:47Z",
+  "claims": [
+    {
+      "id": "C01",
+      "topic": "発表日",
+      "claim_ja": "Duetは2026年10月21日に研究プレビュー発表。",
+      "source_ids": [
+        "S01"
+      ],
+      "location": "Date / introductory paragraph",
+      "status": "official_confirmed"
+    },
+    {
+      "id": "C02",
+      "topic": "Duet提供条件",
+      "claim_ja": "現プレビューは米国Pro/Max、待機リストからの招待。Team/Enterpriseは未提供。日本は対象外。",
+      "source_ids": [
+        "S01",
+        "S02"
+      ],
+      "location": "Who can get access / Why you might not have access yet",
+      "status": "official_confirmed"
+    },
+    {
+      "id": "C03",
+      "topic": "共通点",
+      "claim_ja": "両方が独自のクラウドPC・ブラウザーを持ち、端末を閉じてもクラウド作業を継続できる。",
+      "source_ids": [
+        "S01",
+        "S02",
+        "S03",
+        "S04"
+      ],
+      "location": "How Claude Duet works / Use the cloud computer",
+      "status": "official_confirmed"
+    },
+    {
+      "id": "C04",
+      "topic": "Duetの知らせ方",
+      "claim_ja": "朝の要点まとめと、一定間隔のアカウント確認。緊急情報を即座に捕捉する保証ではない。",
+      "source_ids": [
+        "S01",
+        "S02"
+      ],
+      "location": "How Claude Duet works / Limitations",
+      "status": "official_confirmed"
+    },
+    {
+      "id": "C05",
+      "topic": "dotsの知らせ方",
+      "claim_ja": "必要なフォロー時期を判断できる。決まった時刻の反復作業は保存された予定が必要。",
+      "source_ids": [
+        "S05"
+      ],
+      "location": "Assigned work / Recurring tasks",
+      "status": "official_confirmed"
+    },
+    {
+      "id": "C06",
+      "topic": "Duetブラウザー",
+      "claim_ja": "現プレビューはブラウザーを見たり操作を引き継いだりできない。",
+      "source_ids": [
+        "S02"
+      ],
+      "location": "Limitations",
+      "status": "official_confirmed"
+    },
+    {
+      "id": "C07",
+      "topic": "dotsブラウザー",
+      "claim_ja": "開いて確認し、Take overで操作を引き継ぎ、Return controlで制御を戻せる。",
+      "source_ids": [
+        "S03",
+        "S04"
+      ],
+      "location": "Its computer and yours / Use the cloud computer",
+      "status": "official_confirmed"
+    },
+    {
+      "id": "C08",
+      "topic": "手元PC",
+      "claim_ja": "dotsは許可した手元PCでWork/Codexを作成し、既存ローカルCodexも継続できる。オンラインでChatGPTアプリを開く必要がある。",
+      "source_ids": [
+        "S04"
+      ],
+      "location": "Connect your computer",
+      "status": "official_confirmed"
+    },
+    {
+      "id": "C09",
+      "topic": "Duetの利用枠",
+      "claim_ja": "研究プレビューの追加料金はないが、背景作業もClaudeの5時間・週の共通利用枠を消費。",
+      "source_ids": [
+        "S02"
+      ],
+      "location": "Pricing and usage limits",
+      "status": "official_confirmed"
+    },
+    {
+      "id": "C10",
+      "topic": "dotsの利用枠",
+      "claim_ja": "dots会話はChatGPT枠に算入されず、Work/Codexで始めた・管理する作業は各製品の枠へ算入。deeper workの枠もある。",
+      "source_ids": [
+        "S03"
+      ],
+      "location": "Access",
+      "status": "official_confirmed"
+    },
+    {
+      "id": "C11",
+      "topic": "dots提供条件",
+      "claim_ja": "Pro 100/200/500は18歳超、EEA・英国・スイス以外。Business Premium/Enterpriseは世界で順次展開、Enterpriseは管理者による有効化が必要。",
+      "source_ids": [
+        "S03"
+      ],
+      "location": "Access",
+      "status": "official_confirmed"
+    },
+    {
+      "id": "C12",
+      "topic": "利用できる時期",
+      "claim_ja": "対象プランでもdotsが即表示される保証はない。Duetの招待日・日本展開日は確認資料に確定日なし。",
+      "source_ids": [
+        "S02",
+        "S03"
+      ],
+      "location": "Why you might not have access yet / Access",
+      "status": "official_confirmed"
+    },
+    {
+      "id": "C13",
+      "topic": "共通のカフェ例",
+      "claim_ja": "予定確認と資料準備を同じ架空依頼として視覚化する。両製品で同じ仕事を完遂した実験ではない。",
+      "source_ids": [],
+      "location": "author_created_fictional_example",
+      "status": "illustrative_not_tested"
+    },
+    {
+      "id": "C14",
+      "topic": "使い分け",
+      "claim_ja": "朝の確認や途中の引継ぎなど、使いたい作業の流れを選ぶ観点。勝敗や業務適性の実測結論ではない。",
+      "source_ids": [
+        "S01",
+        "S04"
+      ],
+      "location": "Editorial interpretation of documented interfaces",
+      "status": "editorial_inference"
+    },
+    {
+      "id": "C15",
+      "topic": "未確認",
+      "claim_ja": "速度、正確さ、成功率、音声品質、実料金の同条件比較、日本語での運用品質、現在の個別アカウントへの提供可否は未検証。",
+      "source_ids": [],
+      "location": "No benchmark or account inspection performed",
+      "status": "unverified"
+    }
+  ]
+}

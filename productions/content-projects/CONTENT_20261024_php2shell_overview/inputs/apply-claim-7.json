@@ -1,0 +1,15 @@
+{
+  "operation_id": "op_php_claim_7",
+  "expected_revision": 7,
+  "data": {
+    "claim_id": "impact",
+    "text": "条件がそろうと、認証なしにPHPの実行プロセスの権限で任意のコードを実行される可能性がある。すべての構成で即座に攻撃が成功するという意味ではない。",
+    "basis": "official",
+    "checked_at": "2026-10-24",
+    "source_ids": [
+      "php_oom",
+      "php_state",
+      "jpcert_oct22"
+    ]
+  }
+}

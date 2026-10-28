@@ -1,0 +1,36 @@
+見出し
+【PHP】WordPressも要確認！PHP2Shellの概要と対策
+
+説明欄案
+WordPressのサイトも関係するかもしれません。日本とのつながり、PHPがサーバーで何をしているか、PHP2Shellの概要と対策を約60秒で解説します。
+
+W3Techsの2026年10月24日のデータでは、サーバー所在地が日本で、サーバー側プログラミング言語を判別できたサイトの92.4%がPHPを使用しています。日本の全サイトを対象にした普及率ではなく、今回の脆弱性の影響率や被害率でもありません。
+
+PHPは、WordPressやPHPで作られたフォーム・買い物の仕組みを、サーバー側で動かす言語です。図解では、利用者のアクセス→サーバー内での処理→ブラウザーへの応答という流れを示しています。すべての対話的なサイトがPHPを使うという意味ではありません。
+
+サイトの管理担当やホスティング会社に、PHPの利用状況と対策の適用を確認。修正版への更新、動作確認、侵害の兆候の調査まで進めましょう。OS・製品提供元による修正情報も確認してください。
+
+表示した4つのバージョンは10月21日の2件に対する修正版の基準です。10月23日には別の条件に関する追加告知も出ているため、最新の公式案内もご確認ください。
+
+出典・確認日：2026年10月25日
+W3Techs・PHPのサーバー所在地別利用率（データ日10月24日）
+https://w3techs.com/technologies/breakdown/pl-php/server_location
+W3Techs・調査方法
+https://w3techs.com/technologies
+WordPress公式要件（一般的な動作要件とセキュリティ修正版は別です）
+https://wordpress.org/about/requirements/
+PHP公式入門
+https://www.php.net/manual/ja/introduction.php
+PHP公式・10月21日の告知
+https://www.php.net/archive/2026.php#2026-10-21-5
+PHP公式・10月23日の追加告知
+https://www.php.net/archive/2026.php#2026-10-23-1
+IPAの注意喚起
+https://www.ipa.go.jp/security/security-alert/2026/alert20261022.html
+JPCERT/CCの注意喚起
+https://www.jpcert.or.jp/at/2026/at260033.html
+
+CVE-2026-109618 / CVE-2026-109619
+登場人物は架空のWeb運用担当者です。
+
+#PHP #PHP2Shell #WordPress #セキュリティ #Shorts

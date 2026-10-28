@@ -1,0 +1,15 @@
+{
+  "operation_id": "op_php_character_13",
+  "expected_revision": 13,
+  "data": {
+    "character_id": "miura_wataru",
+    "fictional_adult": true,
+    "name": "三浦 航（36歳・架空）",
+    "persona": "架空の会社でWebサイトの運用を担当する。落ち着いて一次情報を確認し、分からない点を専門の保守担当へ相談する。煽らず、確認する順番を示す。",
+    "role": "自分のサイトにも関係するかを確かめる視聴者の案内役。危険性を理解し、提供元の対応確認へ進む。",
+    "clothing": "紺のジャケット、水色のボタンダウンシャツ、グレーのパンツ、細い黒系フレームの眼鏡。ネクタイなし。自然な黒髪。",
+    "voice": "外部ナレーターGemini Aoedeが落ち着いて紹介。人物が話しているリップシンクとは扱わない。",
+    "continuity": "同じ架空の会社とサイトを継続して担当する。公式情報を見る→仕組みを理解→提供元に確認という行動。衣装・髪・眼鏡・顔を維持。",
+    "reference_asset_id": "miura-wataru-reference"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "operation_id": "php_revision_v04_feedback",
+  "expected_revision": 34,
+  "data": {
+    "feedback_id": "php_user_revision_v04",
+    "proposal_id": "proposal_php_overview_v01",
+    "kind": "revision_request",
+    "text": "良くなりました男性の動画、少し困った顔で顎に拳を当てている風にしましょうか？",
+    "interpretation": "v03改善の評価と、同じ男性への表情・動作修正依頼。軽い困り顔と緩い拳を顎の下に添える仕草でMiniMax人物動画を生成し、冒頭だけ差し替える。人物版1を維持し、音声・字幕・図解・事実・時刻を保存。全体や新生成結果への最終採用とは扱わない。"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "operation_id": "php_v03_capture_1",
+  "expected_revision": 28,
+  "data": {
+    "asset_id": "php_v03_research_capture_1",
+    "kind": "official_capture",
+    "path": "outputs/content-projects/CONTENT_20261024_php2shell_overview/captures/revision-v03/wordpress-original.jpg",
+    "visibility": "private",
+    "privacy_review": "passed",
+    "source_url": "https://wordpress.org/about/requirements/",
+    "source_checked_at": "2026-10-25",
+    "caption": "WordPress official PHP host requirement; not a recommendation to use unpatched PHP 8.3",
+    "blog_usage_review": "pending",
+    "user_approved_for_blog": false
+  }
+}

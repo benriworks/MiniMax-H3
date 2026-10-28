@@ -1,0 +1,16 @@
+{
+  "operation_id": "op_php_asset_2",
+  "expected_revision": 2,
+  "data": {
+    "asset_id": "php-official-preflight",
+    "kind": "official_capture",
+    "path": "outputs/content-projects/CONTENT_20261024_php2shell_overview/captures/preflight-v01/php-official-preflight.png",
+    "visibility": "private",
+    "privacy_review": "passed",
+    "source_url": "https://www.php.net/archive/2026.php#2026-10-21-5",
+    "source_checked_at": "2026-10-24",
+    "blog_usage_review": "pending",
+    "alt": "PHP公式による2026年10月21日の重大な脆弱性告知",
+    "caption": "撮影可否確認用の原本。公開用の引用範囲と可読性は別途確認する。"
+  }
+}

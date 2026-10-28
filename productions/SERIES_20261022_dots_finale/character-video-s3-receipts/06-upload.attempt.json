@@ -1,0 +1,12 @@
+{
+  "episode": 6,
+  "status": "submission_started",
+  "source": {
+    "path": "outputs/productions/SHORT_20261022_dots_06_editorial/20261022T155708236478Z/release/dots-06-channels-official.mp4",
+    "bytes": 3374371,
+    "sha256": "A68BA99691AF5B39DD33FC6D24C0DF65E3738CA70A4C8947F29AAFB256A79BE0"
+  },
+  "mode": "upload",
+  "started_at": "2026-10-22T18:54:40.0649167+00:00",
+  "automatic_retry_allowed": false
+}

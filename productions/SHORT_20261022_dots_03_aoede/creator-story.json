@@ -1,0 +1,278 @@
+{
+  "schema_version": 1,
+  "id": "SHORT_20261022_dots_03_aoede",
+  "title": "メールも資料もコードも！dotsのアプリ連携でできること",
+  "duration_seconds": 30,
+  "voice": "Aoede",
+  "rate": 1,
+  "pronunciations": [
+    {
+      "source": "dots",
+      "target": "ドッツ"
+    },
+    {
+      "source": "dot",
+      "target": "ドット"
+    },
+    {
+      "source": "ChatGPT",
+      "target": "チャットジーピーティー"
+    },
+    {
+      "source": "GPT-6 Astra",
+      "target": "ジーピーティーシックス、アストラ"
+    },
+    {
+      "source": "OpenAI",
+      "target": "オープンエーアイ"
+    },
+    {
+      "source": "Business Premium",
+      "target": "ビジネスプレミアム"
+    },
+    {
+      "source": "Enterprise",
+      "target": "エンタープライズ"
+    },
+    {
+      "source": "Pro",
+      "target": "プロ"
+    },
+    {
+      "source": "PC",
+      "target": "ピーシー"
+    },
+    {
+      "source": "Gmail",
+      "target": "ジーメール"
+    },
+    {
+      "source": "Drive",
+      "target": "ドライブ"
+    },
+    {
+      "source": "GitHub",
+      "target": "ギットハブ"
+    },
+    {
+      "source": "Slack",
+      "target": "スラック"
+    },
+    {
+      "source": "Teams",
+      "target": "チームズ"
+    },
+    {
+      "source": "Activity",
+      "target": "アクティビティ"
+    },
+    {
+      "source": "Scheduled",
+      "target": "スケジュールド"
+    },
+    {
+      "source": "SMS",
+      "target": "エスエムエス"
+    }
+  ],
+  "scenes": [
+    {
+      "kind": "hero",
+      "headline": "いつものアプリと、\nつながる。",
+      "narration": "dotsは、いつものアプリとつながる。",
+      "captions": [
+        "dotsは、",
+        "いつものアプリと",
+        "つながる。"
+      ],
+      "source_ids": [
+        "computer"
+      ],
+      "body": "dots / アプリ連携",
+      "media": {
+        "path": "outputs/claude-acquired-20260919/MiniMax_H3_Claude_Acquired_00001_.mp4",
+        "proof": "verification/claude-acquired-2026-09-19.json"
+      },
+      "eyebrow": "DOTS 03 / 09"
+    },
+    {
+      "kind": "diagram",
+      "headline": "必要なアプリを、\nプラグインで。",
+      "narration": "必要なアプリを、プラグインでつなぎます。",
+      "captions": [
+        "必要なアプリを、",
+        "プラグインで",
+        "つなぎます。"
+      ],
+      "source_ids": [
+        "computer",
+        "start"
+      ],
+      "body": "",
+      "eyebrow": "DOTS 03 / 09",
+      "graphic": "apps",
+      "items": [
+        {
+          "label": "メール"
+        },
+        {
+          "label": "資料"
+        },
+        {
+          "label": "コード"
+        }
+      ]
+    },
+    {
+      "kind": "diagram",
+      "headline": "メールも、資料も、\nコードも。",
+      "narration": "メール、資料、コードの作業へ。",
+      "captions": [
+        "メール、資料、",
+        "コードの作業へ。"
+      ],
+      "source_ids": [
+        "computer"
+      ],
+      "graphic": "apps",
+      "items": [
+        {
+          "label": "メール"
+        },
+        {
+          "label": "資料"
+        },
+        {
+          "label": "コード"
+        }
+      ],
+      "eyebrow": "DOTS 03 / 09"
+    },
+    {
+      "kind": "cards",
+      "headline": "たとえば、\nこんな連携。",
+      "narration": "GmailやDrive、GitHubなど。",
+      "captions": [
+        "GmailやDrive、",
+        "GitHubなど。"
+      ],
+      "source_ids": [
+        "computer"
+      ],
+      "items": [
+        {
+          "label": "Gmail",
+          "detail": "メールを確認"
+        },
+        {
+          "label": "Drive",
+          "detail": "資料を参照"
+        },
+        {
+          "label": "GitHub",
+          "detail": "課題を調査"
+        }
+      ],
+      "eyebrow": "DOTS 03 / 09"
+    },
+    {
+      "kind": "steps",
+      "headline": "必要なものを、\n自分で接続。",
+      "narration": "使うアプリは、自分で接続します。",
+      "captions": [
+        "使うアプリは、",
+        "自分で接続します。"
+      ],
+      "source_ids": [
+        "computer"
+      ],
+      "items": [
+        {
+          "label": "アプリを選ぶ"
+        },
+        {
+          "label": "アカウントを接続"
+        }
+      ],
+      "tone": "light",
+      "eyebrow": "DOTS 03 / 09"
+    },
+    {
+      "kind": "diagram",
+      "headline": "読める範囲と、\nできる操作。",
+      "narration": "読む権限と、送る権限は別。",
+      "captions": [
+        "読む権限と、",
+        "送る権限は別。"
+      ],
+      "source_ids": [
+        "computer"
+      ],
+      "graphic": "control",
+      "items": [
+        {
+          "label": "読む"
+        },
+        {
+          "label": "送る"
+        }
+      ],
+      "body": "権限は分けて設定",
+      "eyebrow": "DOTS 03 / 09"
+    },
+    {
+      "kind": "cards",
+      "headline": "使える連携は、\n環境で変わる。",
+      "narration": "対応状況や、組織の設定も確認。",
+      "captions": [
+        "対応状況や、",
+        "組織の設定も確認。"
+      ],
+      "source_ids": [
+        "computer"
+      ],
+      "items": [
+        {
+          "label": "対応",
+          "detail": "アカウントで確認"
+        },
+        {
+          "label": "組織",
+          "detail": "有効な連携を確認"
+        }
+      ],
+      "tone": "light",
+      "eyebrow": "DOTS 03 / 09"
+    },
+    {
+      "kind": "hero",
+      "headline": "まずはひとつ、\nつないでみよう。",
+      "narration": "まずは必要なアプリをひとつ。",
+      "captions": [
+        "まずは必要な",
+        "アプリをひとつ。"
+      ],
+      "source_ids": [
+        "start"
+      ],
+      "body": "次は、並行作業。",
+      "media": {
+        "path": "outputs/claude-acquired-female-silhouette-20260930/MiniMax_H3_Claude_Acquired_Female_Silhouette_00001_.mp4",
+        "proof": "verification/claude-acquired-female-silhouette-2026-09-30.json"
+      },
+      "eyebrow": "DOTS 03 / 09"
+    }
+  ],
+  "editorial": {
+    "checked_date": "2026-10-22",
+    "series_episode": 3,
+    "official_source_ids": [
+      "computer",
+      "start"
+    ],
+    "visuals": "Original motion graphics and reused fictional programmer characters; not recorded product UI.",
+    "availability_note": "接続したアカウント、プラグインの対応状況、組織設定と権限によって利用範囲が変わります。読む権限と送る権限は別に確認します。",
+    "user_approved": false
+  },
+  "music_preset": "bright_groove_v1"
+}

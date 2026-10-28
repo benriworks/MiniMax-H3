@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "episode": 3,
+  "status": "root_review_required",
+  "text_layout_validation": "passed",
+  "common_story_validation": "not_run_missing_capture",
+  "narration_characters": 164,
+  "source_proposal": {
+    "path": "productions/SERIES_20261022_claude_work/scripts-draft.json",
+    "bytes": 33343,
+    "sha256": "41063E1E4B7BA048FF1490C488AC98210208B02E03651AF48B3A277AD3B01D3D"
+  },
+  "change_note": "実演未完了のため「小さい文字」を断定せず調整方針に変更。修正結果に合わせた最終見直しが必要。",
+  "scenes": [
+    {
+      "scene": 1,
+      "original_scene_id": "01-hook",
+      "status": "pending_character_video",
+      "required": "新しいClaude栞のMiniMax動画と検証proof"
+    },
+    {
+      "scene": 2,
+      "original_scene_id": "02-source",
+      "status": "capture_reviewed_root_story_review_pending",
+      "capture_id": "design-refine",
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_03_work/captures/design-refine.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_03_work/captures/design-refine.json",
+        "origin": "official",
+        "title": "Refine your design",
+        "source_url": "https://support.claude.com/en/articles/14604416-get-started-with-claude-design"
+      }
+    },
+    {
+      "scene": 3,
+      "original_scene_id": "03-request",
+      "status": "pending_capture",
+      "requested_capture_id": null,
+      "required": "実際のDesign依頼の該当部分。"
+    },
+    {
+      "scene": 4,
+      "original_scene_id": "04-first",
+      "status": "pending_capture",
+      "requested_capture_id": null,
+      "required": "実際の初回告知を全体→価格と時間へ拡大。"
+    },
+    {
+      "scene": 5,
+      "original_scene_id": "05-revise",
+      "status": "pending_capture",
+      "requested_capture_id": null,
+      "required": "実際にコメント又はチャットで対象を指定。実操作した方式だけ映像化。"
+    },
+    {
+      "scene": 6,
+      "original_scene_id": "06-check",
+      "status": "pending_capture",
+      "requested_capture_id": null,
+      "required": "前後の実画像を同倍率にする。見かけの拡大を改善と見せない。"
+    },
+    {
+      "scene": 7,
+      "original_scene_id": "07-close",
+      "status": "pending_character_video",
+      "required": "新しいClaude栞のMiniMax動画と検証proof"
+    }
+  ],
+  "paid_requests_submitted": 0,
+  "production_story_written": false,
+  "actual_30_seconds_verified": false,
+  "ready_for_tts": false,
+  "remaining": [
+    "親による実素材・文意レビュー",
+    "人物MiniMax動画の確認",
+    "不足する実演画面の撮影",
+    "ナレーション確定後の音声生成と実尺測定"
+  ]
+}

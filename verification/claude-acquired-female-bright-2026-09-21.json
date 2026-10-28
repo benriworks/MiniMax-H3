@@ -1,0 +1,241 @@
+{
+  "schema_version": 1,
+  "verified_at": "2026-09-20T17:42:33.294584+00:00",
+  "generation_context": "generated_for_this_revision",
+  "production_id": "CATCH_20260921_claude_acquired_female_bright_5s",
+  "profile": "official_q4",
+  "runtime_mode": "dynamic_vram",
+  "mode": "I2VA",
+  "execution": {
+    "prompt_id": "6de56e17-a14d-4ff4-b62b-c06a8827716a",
+    "elapsed_seconds": 1692.343,
+    "success": true
+  },
+  "settings": {
+    "seed": 2026092007,
+    "steps": 20,
+    "sampler": "res_multistep",
+    "scheduler": "simple",
+    "width": 768,
+    "height": 1376,
+    "requested_duration_seconds": 5,
+    "turbo": false,
+    "save_crf": 14,
+    "reserve_vram_gb": 1.5
+  },
+  "inputs": [
+    {
+      "path": "outputs/claude-acquired-female-bright-20260921/graph.json",
+      "bytes": 5826,
+      "sha256": "D7D24F9122469F057DB9DE3BE947A8D716027592CAA11EF3EA192D05977329C3"
+    },
+    {
+      "path": "outputs/claude-acquired-female-bright-20260921/submission.json",
+      "bytes": 210,
+      "sha256": "CA0FCBC68ECA0E00B189D89E84DA4EDEC26ABE1D3E2C096F1E695B904C3FA9BE"
+    },
+    {
+      "path": "outputs/claude-acquired-female-bright-20260921/history.json",
+      "bytes": 8458,
+      "sha256": "5A2F7BB482463507A8F77F266FBC8659F222E6B224245F88A4808073A82D4272"
+    },
+    {
+      "path": "productions/CATCH_20260921_claude_acquired_female_bright_5s/prompts/FEMALE_H3.md",
+      "bytes": 2282,
+      "sha256": "9E19BAD44D0A823A7A970A7BD11FF8F03B0576C7B5009D473647639660157D65"
+    },
+    {
+      "path": "productions/CATCH_20260921_claude_acquired_female_bright_5s/prompts/FEMALE_KEYFRAME.md",
+      "bytes": 1174,
+      "sha256": "539C5FE6D1A639DBB73F7A1F83440C11A388AAE8FA9D82BD76988CDD2F71FF22"
+    },
+    {
+      "path": "outputs/claude-acquired-female-bright-20260921/female-keyframe.png",
+      "bytes": 1447469,
+      "sha256": "D14AB3DD5D091945A05E7AB38BEE4BDC423C2FADE100620F19FEEF4CE487A915"
+    },
+    {
+      "path": "runtime/ComfyUI/input/claude-acquired-female-bright-20260921/female-keyframe.png",
+      "bytes": 1447469,
+      "sha256": "D14AB3DD5D091945A05E7AB38BEE4BDC423C2FADE100620F19FEEF4CE487A915"
+    },
+    {
+      "path": "outputs/claude-acquired-female-20260920/female-keyframe.png",
+      "bytes": 1346352,
+      "sha256": "5B83C5B76381B3C796938F2299351E2679F40BB6AD1F67E27B748A232C3F7D5C"
+    },
+    {
+      "path": "outputs/claude-acquired-female-bright-20260921/image-edit.json",
+      "bytes": 1811,
+      "sha256": "2816756B1D3C9F9B4B27AB8EAD632C6E9F6D4657DDA6F84027CD9549D6C64BB4"
+    }
+  ],
+  "keyframe_provider": "Codex built-in image_gen, edited clothing colors from the previous female opening frame",
+  "artifact": {
+    "path": "outputs/claude-acquired-female-bright-20260921/MiniMax_H3_Claude_Acquired_Female_Bright_00001_.mp4",
+    "bytes": 4977159,
+    "sha256": "EC07ACBE2521BCEBECC31478A52E11E203F56414C9EF9B15E42C7EB7A2847E57",
+    "full_decode_verified": true,
+    "probe": {
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "h264",
+          "codec_long_name": "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10",
+          "profile": "High",
+          "codec_type": "video",
+          "codec_tag_string": "avc1",
+          "codec_tag": "0x31637661",
+          "mime_codec_string": "avc1.640020",
+          "width": 768,
+          "height": 1376,
+          "coded_width": 768,
+          "coded_height": 1376,
+          "has_b_frames": 2,
+          "pix_fmt": "yuv420p",
+          "level": 32,
+          "chroma_location": "left",
+          "field_order": "progressive",
+          "is_avc": "true",
+          "nal_length_size": "4",
+          "id": "0x1",
+          "r_frame_rate": "24/1",
+          "avg_frame_rate": "24/1",
+          "time_base": "1/12288",
+          "start_pts": 0,
+          "start_time": "0.000000",
+          "duration_ts": 63488,
+          "duration": "5.166667",
+          "bit_rate": "7559241",
+          "bits_per_raw_sample": "8",
+          "nb_frames": "124",
+          "extradata_size": 46,
+          "disposition": {
+            "default": 1,
+            "dub": 0,
+            "original": 0,
+            "comment": 0,
+            "lyrics": 0,
+            "karaoke": 0,
+            "forced": 0,
+            "hearing_impaired": 0,
+            "visual_impaired": 0,
+            "clean_effects": 0,
+            "attached_pic": 0,
+            "timed_thumbnails": 0,
+            "non_diegetic": 0,
+            "captions": 0,
+            "descriptions": 0,
+            "metadata": 0,
+            "dependent": 0,
+            "still_image": 0,
+            "multilayer": 0
+          },
+          "tags": {
+            "language": "und",
+            "handler_name": "VideoHandler"
+          }
+        },
+        {
+          "index": 1,
+          "codec_name": "aac",
+          "codec_long_name": "AAC (Advanced Audio Coding)",
+          "profile": "LC",
+          "codec_type": "audio",
+          "codec_tag_string": "mp4a",
+          "codec_tag": "0x6134706d",
+          "mime_codec_string": "mp4a.40.2",
+          "sample_fmt": "fltp",
+          "sample_rate": "32000",
+          "channels": 2,
+          "channel_layout": "stereo",
+          "bits_per_sample": 0,
+          "initial_padding": 0,
+          "id": "0x2",
+          "r_frame_rate": "0/0",
+          "avg_frame_rate": "0/0",
+          "time_base": "1/32000",
+          "start_pts": 0,
+          "start_time": "0.000000",
+          "duration_ts": 165344,
+          "duration": "5.167000",
+          "bit_rate": "130802",
+          "nb_frames": "163",
+          "extradata_size": 5,
+          "disposition": {
+            "default": 1,
+            "dub": 0,
+            "original": 0,
+            "comment": 0,
+            "lyrics": 0,
+            "karaoke": 0,
+            "forced": 0,
+            "hearing_impaired": 0,
+            "visual_impaired": 0,
+            "clean_effects": 0,
+            "attached_pic": 0,
+            "timed_thumbnails": 0,
+            "non_diegetic": 0,
+            "captions": 0,
+            "descriptions": 0,
+            "metadata": 0,
+            "dependent": 0,
+            "still_image": 0,
+            "multilayer": 0
+          },
+          "tags": {
+            "language": "und",
+            "handler_name": "SoundHandler"
+          }
+        }
+      ],
+      "format": {
+        "filename": "C:\\Users\\mono_\\MiniMaxH3\\outputs\\claude-acquired-female-bright-20260921\\MiniMax_H3_Claude_Acquired_Female_Bright_00001_.mp4",
+        "nb_streams": 2,
+        "nb_programs": 0,
+        "nb_stream_groups": 0,
+        "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+        "format_long_name": "QuickTime / MOV",
+        "start_time": "0.000000",
+        "duration": "5.167000",
+        "size": "4977159",
+        "bit_rate": "7706071",
+        "probe_score": 100,
+        "tags": {
+          "major_brand": "isom",
+          "minor_version": "512",
+          "compatible_brands": "isomiso2avc1mp41",
+          "prompt": "{\"92\": {\"class_type\": \"SaveVideo\", \"inputs\": {\"filename_prefix\": \"claude-acquired-female-bright-20260921/MiniMax_H3_Claude_Acquired_Female_Bright\", \"format\": \"mp4\", \"codec\": \"h264\", \"codec.encoding\": \"re-encode\", \"codec.encoding.crf\": 14.0, \"video\": [\"105:91\", 0]}}, \"105:6\": {\"class_type\": \"UNETLoader\", \"inputs\": {\"unet_name\": \"minimax_h3_fl2va_pruned_int8_convrot.safetensors\", \"weight_dtype\": \"default\"}}, \"105:9\": {\"class_type\": \"BasicScheduler\", \"inputs\": {\"scheduler\": \"simple\", \"steps\": 20, \"denoise\": 1.0, \"model\": [\"105:6\", 0]}}, \"105:10\": {\"class_type\": \"VAEDecode\", \"inputs\": {\"samples\": [\"105:14\", 0], \"vae\": [\"105:11\", 0]}}, \"105:11\": {\"class_type\": \"VAELoader\", \"inputs\": {\"vae_name\": \"minimax_h3_video_vae_fp16.safetensors\"}}, \"105:13\": {\"class_type\": \"CLIPLoaderGGUF\", \"inputs\": {\"clip_name\": \"qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf\", \"type\": \"minimax\"}}, \"105:14\": {\"class_type\": \"SamplerCustomAdvanced\", \"inputs\": {\"noise\": [\"105:15\", 0], \"guider\": [\"105:16\", 0], \"sampler\": [\"105:17\", 0], \"sigmas\": [\"105:9\", 0], \"latent_image\": [\"105:104\", 1]}}, \"105:15\": {\"class_type\": \"RandomNoise\", \"inputs\": {\"noise_seed\": 2026092007}}, \"105:16\": {\"class_type\": \"BasicGuider\", \"inputs\": {\"model\": [\"105:6\", 0], \"conditioning\": [\"105:104\", 0]}}, \"105:17\": {\"class_type\": \"KSamplerSelect\", \"inputs\": {\"sampler_name\": \"res_multistep\"}}, \"105:23\": {\"class_type\": \"VAEDecodeAudio\", \"inputs\": {\"samples\": [\"105:14\", 0], \"vae\": [\"105:24\", 0]}}, \"105:24\": {\"class_type\": \"VAELoader\", \"inputs\": {\"vae_name\": \"minimax_h3_audio_vae_fp32.safetensors\"}}, \"105:91\": {\"class_type\": \"CreateVideo\", \"inputs\": {\"fps\": 24.0, \"bit_depth\": 8, \"images\": [\"105:10\", 0], \"audio\": [\"105:23\", 0]}}, \"105:104\": {\"class_type\": \"MiniMaxH3ImageToVideo\", \"inputs\": {\"prompt\": \"For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\\n\\nintegrated_multimodal_description: [Shot 1] Polished anime-style cel-shaded 3D videogame cinematic, playful JRPG rare-item acquisition scene, vertical portrait, one continuous five-second shot. Begin exactly with the adult Japanese female programmer, black bob haircut with side-swept bangs, dark eyes, warm ivory hoodie over a light sky-blue shirt, blue jeans, black gaming chair, open black laptop and desk shown in <Picture 1>. Keep the warm ivory fabric visibly light with soft dimensional folds and preserve the light sky-blue neckline. Preserve her adult face, hairstyle, clothes, body proportions, room layout and cyan-and-magenta rim lighting throughout. She leans forward with a bright focused smile, looking at the laptop. From 00:00.300 to 00:01.300, one brilliant faceted amber crystal rises above the laptop and hovers beside her face on the right side of the image at shoulder height, surrounded by a rotating golden ring and small sparkling particles. She looks up in delighted surprise. From 00:01.300 to 00:02.600 she straightens her back, raises her right fist on the left side of the image in one large triumphant fist pump, and draws her other fist close to her chest. From 00:02.600 to 00:05.000 she holds the victory pose with a broad joyful smile, like obtaining a legendary item in a game. Both hands form simple coherent closed fists, with exactly two arms. The crystal stays separate from her hands and does not cover her face. Golden rays spread behind her and colorful square confetti floats down. Maintain her friendly adult programmer identity and the same polished game art style. The camera pushes in with small amplitude at slow speed, keeping her entire face, raised fist and crystal visible. Reserve the top strip for a badge and the bottom quarter for the acquisition message added later. No cuts, no additional characters, no speech, no generated letters or text, no logos or watermarks, no rapid strobing, no extra limbs.\\n\\noverall_soundscape: A soft keyboard click, a rising magical whoosh as the crystal appears, and a glittering reward chime as she raises her fist. No speech or other vocalization.\\n\\nnon_diegetic_music: N/A\", \"width\": 768, \"height\": 1376, \"length\": [\"105:107\", 1], \"clip\": [\"105:13\", 0], \"vae\": [\"105:11\", 0], \"first_frame\": [\"female-keyframe\", 0]}}, \"105:107\": {\"class_type\": \"ComfyMathExpression\", \"inputs\": {\"expression\": \"max(5, round(a * 24)) + (5 - (max(5, round(a * 24)) % 17)) % 17\", \"values.a\": [\"105:111\", 0]}}, \"105:111\": {\"class_type\": \"PrimitiveFloat\", \"inputs\": {\"value\": 5.0}}, \"female-keyframe\": {\"class_type\": \"LoadImage\", \"inputs\": {\"image\": \"claude-acquired-female-bright-20260921/female-keyframe.png\"}, \"is_changed\": [\"d14ab3dd5d091945a05e7ab38bee4bdc423c2fade100620f19feef4ce487a915\"]}}",
+          "encoder": "Lavf62.12.102"
+        }
+      }
+    }
+  },
+  "review_status": "visual_review_passed",
+  "paid_api_calls": 0,
+  "paid_api_calls_scope": "MiniMax video API calls only; keyframe uses the built-in image generation tool",
+  "visual_review": {
+    "reviewed_at": "2026-09-20T17:43:32.999058+00:00",
+    "inspected": [
+      {
+        "path": "outputs/claude-acquired-female-bright-20260921/contact-sheet.png",
+        "bytes": 1570377,
+        "sha256": "40637D8242E8650FF9538B2C0D2DEE3E4DE1565BCD13AB4403067EACB1383513"
+      },
+      {
+        "path": "outputs/claude-acquired-female-bright-20260921/raw-4.png",
+        "bytes": 857960,
+        "sha256": "3A1411FE02F8906DAB59539282EB1EBEE56F13CE496C1EC0F4A3028C8AE25CE8"
+      }
+    ],
+    "coverage": "20 frames at 4 fps covering 0-4.75 seconds, plus full-resolution 4-second frame",
+    "findings": [
+      "Ivory hoodie and light sky-blue neckline remain bright; folds and fabric shading remain visible.",
+      "Black bob and friendly adult female face remain recognizable.",
+      "Two coherent arms and closed fists; continuous rise into victory pose.",
+      "Golden crystal stays beside face; rotating light ring crosses forehead/eyes briefly, as in previous candidate.",
+      "Gold rays and confetti retained; no generated text."
+    ],
+    "user_approved": false
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "operation_id": "register_php_quote_v01",
+  "expected_revision": 17,
+  "data": {
+    "asset_id": "php-public-quote-v01",
+    "kind": "official_capture",
+    "path": "outputs/productions/SHORT_20261024_php2shell_overview/captures/php-quote.png",
+    "visibility": "public",
+    "privacy_review": "passed",
+    "source_url": "https://www.php.net/archive/2026.php#2026-10-21-5",
+    "source_checked_at": "2026-10-24",
+    "alt": "PHP公式・10月21日の告知見出しと日付",
+    "caption": "実際の公式告知の見出しを引用。内容の日本語要約は別のテロップ。",
+    "blog_usage_review": "pending",
+    "user_approved_for_blog": false
+  }
+}

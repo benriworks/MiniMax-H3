@@ -1,0 +1,238 @@
+{
+  "schema_version": 1,
+  "id": "SHORT_20261005_dots_07",
+  "title": "毎朝の確認を任せる｜dotsの定期実行とイベント監視",
+  "duration_seconds": 30,
+  "voice": "Microsoft Sayaka",
+  "rate": 1,
+  "pronunciations": [
+    {
+      "source": "dots",
+      "target": "ドッツ"
+    },
+    {
+      "source": "dot",
+      "target": "ドット"
+    },
+    {
+      "source": "ChatGPT",
+      "target": "チャットジーピーティー"
+    },
+    {
+      "source": "GPT-6 Astra",
+      "target": "ジーピーティーシックス、アストラ"
+    },
+    {
+      "source": "OpenAI",
+      "target": "オープンエーアイ"
+    },
+    {
+      "source": "Business Premium",
+      "target": "ビジネスプレミアム"
+    },
+    {
+      "source": "Enterprise",
+      "target": "エンタープライズ"
+    },
+    {
+      "source": "Pro",
+      "target": "プロ"
+    },
+    {
+      "source": "PC",
+      "target": "ピーシー"
+    },
+    {
+      "source": "Gmail",
+      "target": "ジーメール"
+    },
+    {
+      "source": "Drive",
+      "target": "ドライブ"
+    },
+    {
+      "source": "GitHub",
+      "target": "ギットハブ"
+    },
+    {
+      "source": "Slack",
+      "target": "スラック"
+    },
+    {
+      "source": "Teams",
+      "target": "チームズ"
+    },
+    {
+      "source": "Activity",
+      "target": "アクティビティ"
+    },
+    {
+      "source": "Scheduled",
+      "target": "スケジュールド"
+    },
+    {
+      "source": "SMS",
+      "target": "エスエムエス"
+    }
+  ],
+  "scenes": [
+    {
+      "kind": "hero",
+      "headline": "毎朝の確認、\n任せられる？",
+      "narration": "dotsに、繰り返しの仕事を。",
+      "captions": [
+        "dotsに、",
+        "繰り返しの仕事を。"
+      ],
+      "source_ids": [
+        "tasks"
+      ],
+      "body": "dots / 定期実行",
+      "media": {
+        "path": "outputs/claude-acquired-20260919/MiniMax_H3_Claude_Acquired_00001_.mp4",
+        "proof": "verification/claude-acquired-2026-09-19.json"
+      },
+      "eyebrow": "DOTS 07 / 09"
+    },
+    {
+      "kind": "quote",
+      "headline": "時間を決めて、\n繰り返す。",
+      "narration": "例えば、毎朝9時に予定を確認。",
+      "captions": [
+        "例えば、毎朝9時に",
+        "予定を確認。"
+      ],
+      "source_ids": [
+        "tasks"
+      ],
+      "body": "毎朝9時に、\n予定を確認して。",
+      "tone": "light",
+      "eyebrow": "DOTS 07 / 09"
+    },
+    {
+      "kind": "steps",
+      "headline": "頼むときは、\nここを具体的に。",
+      "narration": "時刻、タイムゾーン、通知先も指定。",
+      "captions": [
+        "時刻、タイムゾーン、",
+        "通知先も指定。"
+      ],
+      "source_ids": [
+        "tasks"
+      ],
+      "items": [
+        {
+          "label": "何をするか"
+        },
+        {
+          "label": "時刻とタイムゾーン"
+        },
+        {
+          "label": "通知先と終了日"
+        }
+      ],
+      "eyebrow": "DOTS 07 / 09"
+    },
+    {
+      "kind": "diagram",
+      "headline": "会話だけで、\n済ませない。",
+      "narration": "予定の保存を確認。",
+      "captions": [
+        "予定の保存を確認。"
+      ],
+      "source_ids": [
+        "tasks"
+      ],
+      "graphic": "schedule",
+      "items": [],
+      "body": "保存された予定を確認",
+      "eyebrow": "DOTS 07 / 09"
+    },
+    {
+      "kind": "cards",
+      "headline": "Scheduledで\n変更・キャンセル。",
+      "narration": "Scheduledで、変更やキャンセル。",
+      "captions": [
+        "Scheduledで、",
+        "変更やキャンセル。"
+      ],
+      "source_ids": [
+        "tasks",
+        "controls"
+      ],
+      "items": [
+        {
+          "label": "確認",
+          "detail": "登録された予定"
+        },
+        {
+          "label": "変更",
+          "detail": "止める・直す"
+        }
+      ],
+      "tone": "light",
+      "eyebrow": "DOTS 07 / 09"
+    },
+    {
+      "kind": "diagram",
+      "headline": "出来事をきっかけに、\n動くことも。",
+      "narration": "対応する連携先なら、出来事をきっかけにも。",
+      "captions": [
+        "対応する連携先なら、",
+        "出来事をきっかけにも。"
+      ],
+      "source_ids": [
+        "tasks"
+      ],
+      "graphic": "research",
+      "items": [],
+      "body": "対応する連携先が必要",
+      "eyebrow": "DOTS 07 / 09"
+    },
+    {
+      "kind": "diagram",
+      "headline": "接続しただけでは、\n監視は始まらない。",
+      "narration": "監視の対象と条件を指定。",
+      "captions": [
+        "監視の対象と条件を指定。"
+      ],
+      "source_ids": [
+        "tasks"
+      ],
+      "graphic": "control",
+      "items": [],
+      "body": "対象・条件・通知を指定",
+      "tone": "light",
+      "eyebrow": "DOTS 07 / 09"
+    },
+    {
+      "kind": "hero",
+      "headline": "繰り返す仕事を、\nひとつ任せよう。",
+      "narration": "まずは、毎朝ひとつの確認から。",
+      "captions": [
+        "まずは、",
+        "毎朝ひとつの確認から。"
+      ],
+      "source_ids": [
+        "tasks"
+      ],
+      "body": "次は、先回り調査。",
+      "media": {
+        "path": "outputs/claude-acquired-female-silhouette-20260930/MiniMax_H3_Claude_Acquired_Female_Silhouette_00001_.mp4",
+        "proof": "verification/claude-acquired-female-silhouette-2026-09-30.json"
+      },
+      "eyebrow": "DOTS 07 / 09"
+    }
+  ],
+  "editorial": {
+    "checked_date": "2026-10-05",
+    "series_episode": 7,
+    "official_source_ids": [
+      "controls",
+      "tasks"
+    ],
+    "visuals": "Original motion graphics and reused fictional programmer characters; not recorded product UI.",
+    "availability_note": "決まった時刻の定期実行には、保存されたスケジュールが必要です。会話で話しただけで設定済みと思わず、保存を確認し、Scheduledで管理します。内容・時刻・タイムゾーン・期間・通知条件・通知先を指定してください。イベント監視は連携先が対応している場合に利用でき、接続しただけでは始まりません。動画の依頼は説明用の例です。",
+    "user_approved": false
+  }
+}

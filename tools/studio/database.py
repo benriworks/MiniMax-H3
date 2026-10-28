@@ -26,7 +26,7 @@ from .security import (
 )
 
 
-SCHEMA_VERSION = 14
+SCHEMA_VERSION = 15
 MAX_EVENT_LINE_BYTES = 2 * 1024 * 1024
 MAX_ANNOUNCEMENT_RECIPE_BYTES = 256 * 1024
 _RUN_EXECUTION_PROFILES = {
@@ -247,7 +247,7 @@ class WindowsCaptureConsentError(ValueError):
 
 
 class StudioDatabase:
-    def __init__(self, path: Path, *, workspace: Path | None = None):
+    def __init__(self, path: Path, *, workspace: Path | None = None, recover: bool = True):
         self.path = path.resolve()
         self.workspace = (workspace or self.path.parent).resolve(strict=True)
         workspace_path(self.workspace, self.path)
@@ -257,9 +257,11 @@ class StudioDatabase:
         self._mirror_health_lock = threading.Lock()
         self._mirror_issues: dict[str, dict[str, str]] = {}
         self.initialize()
-        self.restore_events_from_mirror()
-        self.interrupt_active_work()
-        self.sync_event_mirror()
+        # Editorial CLI clients share the DB but must not interrupt live workers.
+        if recover:
+            self.restore_events_from_mirror()
+            self.interrupt_active_work()
+            self.sync_event_mirror()
 
     def connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.path, timeout=30, isolation_level=None)
@@ -838,6 +840,8 @@ class StudioDatabase:
             # retried instead of being advertised as complete.
             connection.execute("BEGIN IMMEDIATE")
             try:
+                from .content_workspace import install_schema as install_content_schema
+                install_content_schema(connection)
                 from .still_plans import install_schema as install_still_plans_schema
                 install_still_plans_schema(connection)
                 from .claude_control import install_schema as install_claude_control_schema

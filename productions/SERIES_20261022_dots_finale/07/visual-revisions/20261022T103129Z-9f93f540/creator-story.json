@@ -1,0 +1,276 @@
+{
+  "schema_version": 1,
+  "voice": "Aoede",
+  "rate": 1,
+  "pronunciations": [
+    {
+      "source": "dots",
+      "target": "ドッツ"
+    },
+    {
+      "source": "dot",
+      "target": "ドット"
+    },
+    {
+      "source": "ChatGPT",
+      "target": "チャットジーピーティー"
+    },
+    {
+      "source": "GPT-6 Astra",
+      "target": "ジーピーティーシックス、アストラ"
+    },
+    {
+      "source": "OpenAI",
+      "target": "オープンエーアイ"
+    },
+    {
+      "source": "Business Premium",
+      "target": "ビジネスプレミアム"
+    },
+    {
+      "source": "Enterprise",
+      "target": "エンタープライズ"
+    },
+    {
+      "source": "Pro",
+      "target": "プロ"
+    },
+    {
+      "source": "PC",
+      "target": "ピーシー"
+    },
+    {
+      "source": "Gmail",
+      "target": "ジーメール"
+    },
+    {
+      "source": "Drive",
+      "target": "ドライブ"
+    },
+    {
+      "source": "GitHub",
+      "target": "ギットハブ"
+    },
+    {
+      "source": "Slack",
+      "target": "スラック"
+    },
+    {
+      "source": "Teams",
+      "target": "チームズ"
+    },
+    {
+      "source": "Activity",
+      "target": "アクティビティ"
+    },
+    {
+      "source": "Scheduled",
+      "target": "スケジュールド"
+    },
+    {
+      "source": "SMS",
+      "target": "エスエムエス"
+    }
+  ],
+  "duration_seconds": 30,
+  "music_preset": "bright_groove_v1",
+  "id": "SHORT_20261022_dots_07_editorial",
+  "title": "【ChatGPT】毎朝の確認を任せる！dotsの定期実行は「保存」が大事",
+  "scenes": [
+    {
+      "kind": "editorial",
+      "editorial_layout": "calendar",
+      "headline": "毎朝の確認、\nまた頼んでる？",
+      "narration": "毎朝の確認、また同じことを頼んでいませんか？",
+      "captions": [
+        "毎朝の確認、",
+        "また同じことを",
+        "頼んでいませんか？"
+      ],
+      "stat": "9:00",
+      "body": "繰り返す仕事",
+      "items": [
+        {
+          "label": "朝の確認",
+          "detail": "今日の変更点"
+        }
+      ],
+      "eyebrow": "DOTS 07 / 定期実行",
+      "source_ids": [
+        "tasks-and-memory",
+        "controls"
+      ],
+      "presenter": {
+        "path": "outputs/characters/dots-guide-20261022/guide.png",
+        "proof": "outputs/characters/dots-guide-20261022/guide.json",
+        "role": "hook"
+      }
+    },
+    {
+      "kind": "source",
+      "headline": "繰り返す仕事は、\n保存して動かす。",
+      "narration": "繰り返す仕事は、スケジュールとして保存します。",
+      "captions": [
+        "繰り返す仕事は、",
+        "スケジュールとして",
+        "保存します。"
+      ],
+      "capture": {
+        "title": "Tasks and memory",
+        "path": "outputs/productions/SHORT_20261022_dots_07_editorial/captures/official-recurring.png",
+        "proof": "outputs/productions/SHORT_20261022_dots_07_editorial/captures/official-recurring.json",
+        "source_url": "https://learn.chatgpt.com/docs/dots/tasks-and-memory"
+      },
+      "eyebrow": "DOTS 07 / 定期実行",
+      "source_ids": [
+        "tasks-and-memory",
+        "controls"
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "calendar",
+      "headline": "平日の朝9時に、\n予定の変更を確認。",
+      "narration": "たとえば、平日の朝九時に、予定の変更を確認。",
+      "captions": [
+        "たとえば、",
+        "平日の朝九時に、",
+        "予定の変更を確認。"
+      ],
+      "stat": "9:00",
+      "body": "依頼の例",
+      "items": [
+        {
+          "label": "対象",
+          "detail": "接続した予定表"
+        },
+        {
+          "label": "条件",
+          "detail": "変更時だけ"
+        }
+      ],
+      "eyebrow": "DOTS 07 / 定期実行",
+      "source_ids": [
+        "tasks-and-memory",
+        "controls"
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "recap",
+      "headline": "いつ・どこへ、\nを具体的に。",
+      "narration": "日本時間、期限、通知先まで具体的に。",
+      "captions": [
+        "日本時間、期限、",
+        "通知先まで具体的に。"
+      ],
+      "body": "依頼に加える条件",
+      "items": [
+        {
+          "label": "時間帯",
+          "detail": "日本時間"
+        },
+        {
+          "label": "終了日",
+          "detail": "今月末まで"
+        },
+        {
+          "label": "通知先",
+          "detail": "ChatGPTへ"
+        }
+      ],
+      "eyebrow": "DOTS 07 / 定期実行",
+      "source_ids": [
+        "tasks-and-memory",
+        "controls"
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "statement",
+      "headline": "保存した内容を、\n確認しよう。",
+      "narration": "保存した内容は、確認してもらいましょう。",
+      "captions": [
+        "保存した内容は、",
+        "確認して",
+        "もらいましょう。"
+      ],
+      "body": "何を・いつ\nどこへ届ける？",
+      "action": "保存内容を確認",
+      "eyebrow": "DOTS 07 / 定期実行",
+      "source_ids": [
+        "tasks-and-memory",
+        "controls"
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "contrast",
+      "headline": "止めるときも、\n予約を確認。",
+      "narration": "作業の一時停止と、予約の解除は別です。",
+      "captions": [
+        "作業の一時停止と、",
+        "予約の解除は別です。"
+      ],
+      "body": "停止の違い",
+      "items": [
+        {
+          "label": "現在の作業",
+          "detail": "一時停止"
+        },
+        {
+          "label": "今後の定期実行",
+          "detail": "無効化・削除"
+        }
+      ],
+      "eyebrow": "DOTS 07 / 定期実行",
+      "source_ids": [
+        "tasks-and-memory",
+        "controls"
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "recap",
+      "headline": "毎日のひと手間を、\n任せるしくみに。",
+      "narration": "何を、いつ、どこへ。次は、先回り調査。",
+      "captions": [
+        "何を、いつ、どこへ。",
+        "次は、先回り調査。"
+      ],
+      "body": "任せ方を具体的に",
+      "items": [
+        {
+          "label": "内容と時刻",
+          "detail": "はっきり伝える"
+        },
+        {
+          "label": "保存結果",
+          "detail": "必ず確認"
+        }
+      ],
+      "action": "次回：先回り調査",
+      "eyebrow": "DOTS 07 / 定期実行",
+      "source_ids": [
+        "tasks-and-memory",
+        "controls"
+      ],
+      "presenter": {
+        "path": "outputs/characters/dots-guide-20261022/guide.png",
+        "proof": "outputs/characters/dots-guide-20261022/guide.json",
+        "role": "recap"
+      }
+    }
+  ],
+  "editorial": {
+    "checked_date": "2026-10-22",
+    "series_episode": 7,
+    "official_source_ids": [
+      "tasks-and-memory",
+      "controls"
+    ],
+    "availability_note": "固定時刻の繰り返しには保存したスケジュールが必要。何を・いつ・どの変化を通知・どこへ届けるかを明示し、保存内容を確認します。日付や時刻は架空の依頼例で、この動画によって実際のスケジュールは登録されていません。イベント監視は対応サービスのみで、接続だけでは設定されません。",
+    "user_approved": false,
+    "visuals": "One short excerpt captured from official documentation plus original editorial explanatory graphics; fictional examples are labelled. Not a live product test."
+  }
+}

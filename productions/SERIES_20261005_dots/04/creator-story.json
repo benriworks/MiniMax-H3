@@ -1,0 +1,249 @@
+{
+  "schema_version": 1,
+  "id": "SHORT_20261005_dots_04",
+  "title": "ひとつの会話で複数の仕事へ｜dotsの並行作業",
+  "duration_seconds": 30,
+  "voice": "Microsoft Sayaka",
+  "rate": 1,
+  "pronunciations": [
+    {
+      "source": "dots",
+      "target": "ドッツ"
+    },
+    {
+      "source": "dot",
+      "target": "ドット"
+    },
+    {
+      "source": "ChatGPT",
+      "target": "チャットジーピーティー"
+    },
+    {
+      "source": "GPT-6 Astra",
+      "target": "ジーピーティーシックス、アストラ"
+    },
+    {
+      "source": "OpenAI",
+      "target": "オープンエーアイ"
+    },
+    {
+      "source": "Business Premium",
+      "target": "ビジネスプレミアム"
+    },
+    {
+      "source": "Enterprise",
+      "target": "エンタープライズ"
+    },
+    {
+      "source": "Pro",
+      "target": "プロ"
+    },
+    {
+      "source": "PC",
+      "target": "ピーシー"
+    },
+    {
+      "source": "Gmail",
+      "target": "ジーメール"
+    },
+    {
+      "source": "Drive",
+      "target": "ドライブ"
+    },
+    {
+      "source": "GitHub",
+      "target": "ギットハブ"
+    },
+    {
+      "source": "Slack",
+      "target": "スラック"
+    },
+    {
+      "source": "Teams",
+      "target": "チームズ"
+    },
+    {
+      "source": "Activity",
+      "target": "アクティビティ"
+    },
+    {
+      "source": "Scheduled",
+      "target": "スケジュールド"
+    },
+    {
+      "source": "SMS",
+      "target": "エスエムエス"
+    }
+  ],
+  "scenes": [
+    {
+      "kind": "hero",
+      "headline": "同時に、\nいくつも頼める。",
+      "narration": "dotsに、いくつもの仕事を。",
+      "captions": [
+        "dotsに、",
+        "いくつもの仕事を。"
+      ],
+      "source_ids": [
+        "tasks"
+      ],
+      "body": "dots / 並行作業",
+      "media": {
+        "path": "outputs/claude-acquired-female-silhouette-20260930/MiniMax_H3_Claude_Acquired_Female_Silhouette_00001_.mp4",
+        "proof": "verification/claude-acquired-female-silhouette-2026-09-30.json"
+      },
+      "eyebrow": "DOTS 04 / 09"
+    },
+    {
+      "kind": "diagram",
+      "headline": "いくつもの仕事を、\n並行して。",
+      "narration": "調査と整理を、並行して。",
+      "captions": [
+        "調査と整理を、並行して。"
+      ],
+      "source_ids": [
+        "tasks"
+      ],
+      "graphic": "parallel",
+      "items": [
+        {
+          "label": "調査"
+        },
+        {
+          "label": "整理"
+        },
+        {
+          "label": "開発"
+        }
+      ],
+      "eyebrow": "DOTS 04 / 09"
+    },
+    {
+      "kind": "steps",
+      "headline": "仕事を分けて、\n裏で進める。",
+      "narration": "別のエージェントに、分担もできます。",
+      "captions": [
+        "別のエージェントに、",
+        "分担もできます。"
+      ],
+      "source_ids": [
+        "tasks"
+      ],
+      "items": [
+        {
+          "label": "部分作業を委任"
+        },
+        {
+          "label": "裏側で作業を進める"
+        }
+      ],
+      "tone": "light",
+      "eyebrow": "DOTS 04 / 09"
+    },
+    {
+      "kind": "diagram",
+      "headline": "待っている間も、\n会話できる。",
+      "narration": "作業中も、会話は続けられる。",
+      "captions": [
+        "作業中も、",
+        "会話は続けられる。"
+      ],
+      "source_ids": [
+        "tasks"
+      ],
+      "graphic": "chat",
+      "items": [],
+      "body": "追加の情報も伝えられる",
+      "eyebrow": "DOTS 04 / 09"
+    },
+    {
+      "kind": "quote",
+      "headline": "途中で、\n優先順位を変更。",
+      "narration": "追加の指示や、優先順位の変更も。",
+      "captions": [
+        "追加の指示や、",
+        "優先順位の変更も。"
+      ],
+      "source_ids": [
+        "tasks"
+      ],
+      "body": "先にこの資料を\nまとめて。",
+      "tone": "light",
+      "eyebrow": "DOTS 04 / 09"
+    },
+    {
+      "kind": "steps",
+      "headline": "Activityで\n進み具合を確認。",
+      "narration": "結果は、Activityで確認。",
+      "captions": [
+        "結果は、",
+        "Activityで確認。"
+      ],
+      "source_ids": [
+        "controls"
+      ],
+      "items": [
+        {
+          "label": "進行中の仕事を見る"
+        },
+        {
+          "label": "結果を開く"
+        }
+      ],
+      "eyebrow": "DOTS 04 / 09"
+    },
+    {
+      "kind": "checklist",
+      "headline": "完了の表示と、\n成果の確認。",
+      "narration": "完了表示だけでなく、成果も確認。",
+      "captions": [
+        "完了表示だけでなく、",
+        "成果も確認。"
+      ],
+      "source_ids": [
+        "tasks"
+      ],
+      "body": "受け取ったら",
+      "items": [
+        {
+          "label": "内容を読む"
+        },
+        {
+          "label": "依頼と照らす"
+        }
+      ],
+      "action": "最後は自分で確認",
+      "tone": "light",
+      "eyebrow": "DOTS 04 / 09"
+    },
+    {
+      "kind": "hero",
+      "headline": "ひとつの会話で、\n複数の仕事へ。",
+      "narration": "会話はひとつ。進む仕事は、いくつも。",
+      "captions": [
+        "会話はひとつ。",
+        "進む仕事は、いくつも。"
+      ],
+      "source_ids": [
+        "tasks"
+      ],
+      "body": "次は、記憶と好み。",
+      "media": {
+        "path": "outputs/claude-acquired-20260919/MiniMax_H3_Claude_Acquired_00001_.mp4",
+        "proof": "verification/claude-acquired-2026-09-19.json"
+      },
+      "eyebrow": "DOTS 04 / 09"
+    }
+  ],
+  "editorial": {
+    "checked_date": "2026-10-05",
+    "series_episode": 4,
+    "official_source_ids": [
+      "controls",
+      "tasks"
+    ],
+    "visuals": "Original motion graphics and reused fictional programmer characters; not recorded product UI.",
+    "availability_note": "dotは必要に応じて作業の一部をバックグラウンドのエージェントへ委任し、複数の仕事を並行して進められます。常にすべての仕事が同時実行される、無制限に実行できる、という保証ではありません。新しい作業には必要な文脈が渡され、会話全体が自動的にすべて共有されるわけではありません。Activityと実際の成果物を確認してください。",
+    "user_approved": false
+  }
+}

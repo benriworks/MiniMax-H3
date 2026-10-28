@@ -1,0 +1,16 @@
+{
+  "operation_id": "php_v04_motion_asset",
+  "expected_revision": 35,
+  "data": {
+    "asset_id": "miura-concerned-chin-v04",
+    "kind": "generated_video",
+    "path": "outputs/content-projects/CONTENT_20261024_php2shell_overview/motion/v02/miura-concerned-chin-v04/MiniMax_H3_miura_concerned_chin_v04_00001_.mp4",
+    "visibility": "private",
+    "privacy_review": "passed",
+    "character_id": "miura_wataru",
+    "character_version": 1,
+    "provider": "minimax",
+    "generation_record": "outputs/content-projects/CONTENT_20261024_php2shell_overview/motion/v02/miura-concerned-chin-v04/visual-review.json",
+    "caption": "同じ採用画像から、軽い困り顔で緩い右拳を顎の下へ添える動作を生成。生成・AI確認と最終ユーザー採用は別。"
+  }
+}

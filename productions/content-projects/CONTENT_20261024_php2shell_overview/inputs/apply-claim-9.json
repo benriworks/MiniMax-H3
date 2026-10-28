@@ -1,0 +1,14 @@
+{
+  "operation_id": "op_php_claim_9",
+  "expected_revision": 9,
+  "data": {
+    "claim_id": "fixes",
+    "text": "修正済みリリースの基準はPHP 8.2.35・8.3.36・8.4.27・8.5.12。製品・OS提供元の更新やバックポートの有無も確認する。",
+    "basis": "official",
+    "checked_at": "2026-10-24",
+    "source_ids": [
+      "php_oct21",
+      "ipa_oct22"
+    ]
+  }
+}

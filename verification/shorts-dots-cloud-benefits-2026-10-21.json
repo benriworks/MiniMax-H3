@@ -1,0 +1,24 @@
+{
+  "production_id": "SHORT_20261021_dots_cloud_benefits",
+  "output": "outputs/productions/SHORT_20261021_dots_cloud_benefits/20261021T094421120681Z",
+  "verification": {
+    "path": "outputs/productions/SHORT_20261021_dots_cloud_benefits/20261021T094421120681Z/verification.json",
+    "bytes": 16099,
+    "sha256": "75F8AF91D69F3E0335D07059503E2F3E8665048FCF2EC77B5A77A64753E12D65"
+  },
+  "delivery": {
+    "path": "outputs/productions/SHORT_20261021_dots_cloud_benefits/20261021T094421120681Z/shorts-creator.mp4",
+    "bytes": 12027437,
+    "sha256": "548648347329D3F06026D820A300F5229EF104A44ECE62641F351CC737442969"
+  },
+  "review_status": "verified_candidate_awaiting_user_review",
+  "user_approved": false,
+  "youtube_uploaded": false,
+  "checks": {
+    "unit_tests_passed": 12,
+    "rendered_safe_area_frames": 1080,
+    "full_decode_verified": true,
+    "visual_scene_samples": 10,
+    "previous_nine_mp4_hashes_unchanged": true
+  }
+}

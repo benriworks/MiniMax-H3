@@ -1,0 +1,11 @@
+{
+  "operation_id": "php_revision_v03_feedback",
+  "expected_revision": 22,
+  "data": {
+    "feedback_id": "php_user_revision_v03",
+    "proposal_id": "proposal_php_overview_v01",
+    "kind": "revision_request",
+    "text": "うーん、PHPのサイトが日本でどのくらい使用されているかを冒頭近くで伝えて、影響の大きさや自分との関係があるかもしれない事を強調しましょう。\n特にWordPressや、多数のインタラクティブなサイトで動いていることも。\nあとはphpとは何かを、サイトアクセス者、サーバー、その上で動くサービスとしてイラストで表現して下さい",
+    "interpretation": "同じ動画の改訂として国内サーバーの利用率を正しい分母で追加。WordPress・PHPで作られたフォームや買い物の例を示し、アクセス者→サーバー内のPHPとアプリ→応答をイラスト化。読む時間を確保する60秒候補。採用人物と後半音声は維持し、最終動画のユーザー採用は未確認。"
+  }
+}

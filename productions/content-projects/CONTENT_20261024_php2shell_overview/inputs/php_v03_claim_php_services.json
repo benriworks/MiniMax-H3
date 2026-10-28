@@ -1,0 +1,15 @@
+{
+  "operation_id": "php_v03_claim_php_services",
+  "expected_revision": 25,
+  "data": {
+    "claim_id": "php_services",
+    "text": "WordPressはPHPを利用する。フォームや買い物などの仕組みもPHPで実装される例がある。すべての対話的サイトがPHPを使うわけではない。",
+    "basis": "official",
+    "source_ids": [
+      "wordpress_php_v03",
+      "php_intro_v03"
+    ],
+    "checked_at": "2026-10-25",
+    "asset_ids": []
+  }
+}

@@ -1,0 +1,100 @@
+{
+  "checked_at": "2026-10-22T13:17:23.909732+00:00",
+  "status": "research_and_draft_consistency_passed",
+  "narration_characters": 440,
+  "cuts": 14,
+  "duration_seconds_provisional": 82,
+  "source_quote_words": {
+    "S01": 21,
+    "S02": 15,
+    "S03": 5,
+    "S04": 3,
+    "S05": 4
+  },
+  "json_parse_and_internal_refs_passed": true,
+  "narration_copy_matches_scenes": true,
+  "no_tts_or_render_performed_by_research_task": true,
+  "measured_speech_duration_seconds": null,
+  "official_capture_status": "planned_not_captured",
+  "comparative_benchmark": "not_performed",
+  "user_approved": false,
+  "new_research_files": [
+    {
+      "path": "productions/COMPARE_20261022_duet_dots/ARCHITECTURE.md",
+      "bytes": 1883,
+      "sha256": "7653856317DBB364C4BDA40DB8D9C662EB554DE3B1676E6F8037D52F890D1B93"
+    },
+    {
+      "path": "productions/COMPARE_20261022_duet_dots/ARCHITECTURE_DIAGRAM.md",
+      "bytes": 1188,
+      "sha256": "06EE7DDDA0714384A3FB33B039EE2376D74CDC725C7C3E37E5B8DB21223A5877"
+    },
+    {
+      "path": "productions/COMPARE_20261022_duet_dots/evidence-table.json",
+      "bytes": 5417,
+      "sha256": "85434F226A868362C7C75DD249A1EA3D7A97D6C302B724546FFFC45F82AB2133"
+    },
+    {
+      "path": "productions/COMPARE_20261022_duet_dots/image-quote-candidates.json",
+      "bytes": 5206,
+      "sha256": "8B4D0072F7F332FBAE4FE7A9A5F341B615AB7C9B436DE9D0B18808DD87B0B424"
+    },
+    {
+      "path": "productions/COMPARE_20261022_duet_dots/narration-ja.txt",
+      "bytes": 1137,
+      "sha256": "2D07569DD99C0B179CAA2ACB7ADECFBD1BFB3F7982D9D9EA94C57543D826A26B"
+    },
+    {
+      "path": "productions/COMPARE_20261022_duet_dots/README.md",
+      "bytes": 1488,
+      "sha256": "ED06AF3E6BF33BD4D2AD122B8120881D8276B73D76C297451748115D8F085CFF"
+    },
+    {
+      "path": "productions/COMPARE_20261022_duet_dots/RESEARCH_JA.md",
+      "bytes": 4074,
+      "sha256": "7496AB605AA90DB3086F91211027F69BDE15F1ED3F3CE307C08BFAF914ABBC15"
+    },
+    {
+      "path": "productions/COMPARE_20261022_duet_dots/script-draft.json",
+      "bytes": 13412,
+      "sha256": "6BAC5CAB475C0841B7B1B83CA7F13D1E115F44911071853DC78F2841E05AE047"
+    },
+    {
+      "path": "productions/COMPARE_20261022_duet_dots/sources.json",
+      "bytes": 4383,
+      "sha256": "D44D58ED5A0D58C21F028AF51F42F85655B23C3CA2C513A6A7A5C5E3D72EC006"
+    },
+    {
+      "path": "productions/COMPARE_20261022_duet_dots/SOURCES_JA.md",
+      "bytes": 2201,
+      "sha256": "EF46B2EAD8159197EA1D6848DFB3DA29AEBFD9C66136FB20C2AC7312759D0CC8"
+    },
+    {
+      "path": "productions/COMPARE_20261022_duet_dots/STORYBOARD_JA.md",
+      "bytes": 7118,
+      "sha256": "1AD9BCBEE5BA6B594D5454C082D31E05BE57FB8DF7BE67F7504D1E4787375655"
+    },
+    {
+      "path": "productions/COMPARE_20261022_duet_dots/youtube-description.txt",
+      "bytes": 2205,
+      "sha256": "EC72C77656E435E803BB2FF70EC293A44ECD2A2C9CF7384B990859B27D91CD76"
+    },
+    {
+      "path": "productions/COMPARE_20261022_duet_dots/youtube-title.txt",
+      "bytes": 76,
+      "sha256": "0A3B79855E899E1FE39C23AA4D5C09727832DB6A82FD11DFAA590DC2F9FBA5C7"
+    }
+  ],
+  "preexisting_parent_files": [
+    {
+      "path": "productions/COMPARE_20261022_duet_dots/character-prompt.json",
+      "bytes": 2246,
+      "sha256": "F81AFE9D5F4D4F5563B4BE7831897B7F6F366B053094F12DF9375EB0BC63622A"
+    },
+    {
+      "path": "productions/COMPARE_20261022_duet_dots/frontend-reuse-proposal.json",
+      "bytes": 6714,
+      "sha256": "057EE16B332F674E8C89C1F62A8FC4FEC9DBE4C758952BCFB5DA4F855A4081C7"
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "original_story": {
+    "path": "productions/SERIES_20261022_dots_finale/06/creator-story.json",
+    "bytes": 7825,
+    "sha256": "F20DE5A19FFB11911107E0A763C06C834F01DAF5CA64AEA0AFDCABF7FC1EE711"
+  },
+  "render_story": {
+    "path": "productions/SERIES_20261022_dots_finale/06/visual-revisions/20261022T103127Z-d2899147/creator-story.json",
+    "bytes": 8218,
+    "sha256": "F719F9D7E5C56E44B849DAFB706512A8DF3A4FAFAAF8CB8F45534CDD59A21C18"
+  },
+  "presenter": {
+    "path": "outputs/characters/dots-guide-20261022/guide.png",
+    "bytes": 1890886,
+    "sha256": "1C2542CEEBB889226CC4C8058A2B9AC8976CEC819BEBAAAA3E50E1A8D81F47C8"
+  },
+  "presenter_proof": {
+    "path": "outputs/characters/dots-guide-20261022/guide.json",
+    "bytes": 694,
+    "sha256": "54B9DEDF875FF3549163F0D4C1B268FA55B5DEFE9A623F4649DAB8DCA67D5FB2"
+  },
+  "previous_state": {
+    "path": "productions/SERIES_20261022_dots_finale/06/visual-revisions/20261022T103127Z-d2899147/previous-state.json",
+    "bytes": 239,
+    "sha256": "9300AC4D149E3D30500F75C9D6FF04D3BB1CD71C88A22E2D02BC17C3818E52FA"
+  },
+  "previous_output": "outputs/productions/SHORT_20261022_dots_06_editorial/20261022T101320804234Z",
+  "preserved_files": [
+    {
+      "path": "outputs/productions/SHORT_20261022_dots_06_editorial/20261022T101320804234Z/shorts-creator.mp4",
+      "bytes": 2530891,
+      "sha256": "4578EA5045ED03269A73F047EB3E12C2CDCFE16D32DB392789C8D77D2F4B707D"
+    },
+    {
+      "path": "outputs/productions/SHORT_20261022_dots_06_editorial/20261022T101320804234Z/release/dots-06-channels-official.mp4",
+      "bytes": 2530891,
+      "sha256": "4578EA5045ED03269A73F047EB3E12C2CDCFE16D32DB392789C8D77D2F4B707D"
+    },
+    {
+      "path": "outputs/productions/SHORT_20261022_dots_06_editorial/20261022T101320804234Z/dots-06-channels-official.zip",
+      "bytes": 2683415,
+      "sha256": "241EFB8423AE4B09572D989D4B0FB3AAB63266B228F7CBA4ADBB017820267CCB"
+    }
+  ],
+  "output": "outputs/productions/SHORT_20261022_dots_06_editorial/20261022T103127763041Z",
+  "narration_source": {
+    "path": "outputs/productions/SHORT_20261022_dots_06_editorial/voice-generations/20261022T100957Z-c253f395/voice-source.json",
+    "bytes": 5725,
+    "sha256": "886B413634A0B9EC3FDFE7041B2E4E225690ACA327B2C414D3BF568EC5451B46"
+  },
+  "narration_inputs_unchanged": true,
+  "audio_signature_unchanged": true,
+  "audio_method": "previous_aac_stream_copy",
+  "additional_tts_requests": 0,
+  "presenter_scenes": [
+    0,
+    6
+  ]
+}

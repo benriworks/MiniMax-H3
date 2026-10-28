@@ -1,0 +1,116 @@
+{
+  "kind": "character_video_revision",
+  "original_story": {
+    "path": "productions/SERIES_20261022_dots_finale/09/creator-story.json",
+    "bytes": 7875,
+    "sha256": "C2DD206159EE8942D24B9A80F2D015E4C5416BAC311BDF1CB762B33483B89A7E"
+  },
+  "render_story": {
+    "path": "productions/SERIES_20261022_dots_finale/09/character-video-revisions/20261022T190939Z-9e4ab04f/creator-story.json",
+    "bytes": 8385,
+    "sha256": "1E48456609082F7F8C435A4EB78E6CE89C99CBB078888BA6A0B3814185CD61C0"
+  },
+  "previous_state": {
+    "path": "productions/SERIES_20261022_dots_finale/09/character-video-revisions/20261022T190939Z-9e4ab04f/previous-state.json",
+    "bytes": 1042,
+    "sha256": "A42026436A3EDC13926C9DFB8B0234044321A637745765066FA2A6107AF5A5C4"
+  },
+  "previous_delivery": {
+    "path": "productions/SERIES_20261022_dots_finale/09/character-video-revisions/20261022T190939Z-9e4ab04f/previous-delivery.json",
+    "bytes": 2274,
+    "sha256": "546D78BF035248A135B8BCFD5A9F34070D89898A738A50D25F36ECBD195368E9"
+  },
+  "previous_output": "outputs/productions/SHORT_20261022_dots_09_editorial/20261022T155717091107Z",
+  "preserved_files": [
+    {
+      "path": "outputs/productions/SHORT_20261022_dots_09_editorial/20261022T155717091107Z/shorts-creator.mp4",
+      "bytes": 3475733,
+      "sha256": "2C2D2EF7697B7143C97C13FA6F3592D83F6433872F6137BB8D4FD4DA1143FE1E"
+    },
+    {
+      "path": "outputs/productions/SHORT_20261022_dots_09_editorial/20261022T155717091107Z/release/dots-09-controls-official.mp4",
+      "bytes": 3475733,
+      "sha256": "2C2D2EF7697B7143C97C13FA6F3592D83F6433872F6137BB8D4FD4DA1143FE1E"
+    },
+    {
+      "path": "outputs/productions/SHORT_20261022_dots_09_editorial/20261022T155717091107Z/dots-09-controls-official.zip",
+      "bytes": 3868641,
+      "sha256": "DD702ECCCA7EB7678DB84125DA161615052F2E9865F99F6534EF0FA83374DE05"
+    }
+  ],
+  "output": "outputs/productions/SHORT_20261022_dots_09_editorial/20261022T190939332262Z",
+  "clips": [
+    {
+      "media": {
+        "path": "outputs/characters/explainer-motion-20261022/dots-male/MiniMax_H3_dots_male_00001_.mp4",
+        "proof": "outputs/characters/explainer-motion-20261022/dots-male/verification.json"
+      },
+      "start": 0,
+      "artifact": {
+        "path": "outputs/characters/explainer-motion-20261022/dots-male/MiniMax_H3_dots_male_00001_.mp4",
+        "bytes": 1724186,
+        "sha256": "5F64D452AEF589F55421931F69627F33CFE86DD9187C726A946D2A58B9B8AB36"
+      },
+      "proof": {
+        "path": "outputs/characters/explainer-motion-20261022/dots-male/verification.json",
+        "bytes": 11831,
+        "sha256": "7FB18FE84E5505237B973F817E5A2704E9BD1676F006F49666D0C6EDDF46375C"
+      },
+      "presenter": {
+        "path": "outputs/claude-acquired-20260919/raw-0.png",
+        "bytes": 337314,
+        "sha256": "57031CECC619F6894BCD176C05198541067CF978B1ADFB58AEA085217CF2B78C"
+      },
+      "keyframe": {
+        "path": "runtime/ComfyUI/input/explainer-motion-20261022/dots-male/keyframe.png",
+        "bytes": 337314,
+        "sha256": "57031CECC619F6894BCD176C05198541067CF978B1ADFB58AEA085217CF2B78C"
+      },
+      "character": "male"
+    },
+    {
+      "media": {
+        "path": "outputs/characters/explainer-motion-20261022/dots-female/MiniMax_H3_dots_female_00001_.mp4",
+        "proof": "outputs/characters/explainer-motion-20261022/dots-female/verification.json"
+      },
+      "start": 0,
+      "artifact": {
+        "path": "outputs/characters/explainer-motion-20261022/dots-female/MiniMax_H3_dots_female_00001_.mp4",
+        "bytes": 2240397,
+        "sha256": "6DEDFC5577A05547C0525A97FCADC34F4767CA5F8BEF3212CB48C813E6B1320C"
+      },
+      "proof": {
+        "path": "outputs/characters/explainer-motion-20261022/dots-female/verification.json",
+        "bytes": 12087,
+        "sha256": "F893CBECA6A6EB3FC1481859DAEC32D165E6A950AA4AABC95C71F22C91FAB22A"
+      },
+      "presenter": {
+        "path": "outputs/claude-acquired-female-silhouette-20260930/female-keyframe.png",
+        "bytes": 1419256,
+        "sha256": "04157FF085802B1EF8EB0D4ABCB2391C1FE5E28483ED7010A8D31AD19DF19A41"
+      },
+      "keyframe": {
+        "path": "runtime/ComfyUI/input/explainer-motion-20261022/dots-female/keyframe.png",
+        "bytes": 1419256,
+        "sha256": "04157FF085802B1EF8EB0D4ABCB2391C1FE5E28483ED7010A8D31AD19DF19A41"
+      },
+      "character": "female"
+    }
+  ],
+  "narration_source": {
+    "path": "outputs/productions/SHORT_20261022_dots_09_editorial/voice-generations/20261022T101743Z-e90d314c/voice-source.json",
+    "bytes": 6148,
+    "sha256": "A1C2BD4CEDBF20C98EAAACD1541EF9552A0F7BCEE237BE81A97E1A858D8484FD"
+  },
+  "narration_inputs_unchanged": true,
+  "audio_signature_unchanged": true,
+  "middle_scenes_unchanged": true,
+  "official_source_scenes_unchanged": true,
+  "audio_method": "previous_aac_stream_copy",
+  "additional_tts_requests": 0,
+  "additional_tts_characters": 0,
+  "character_video_scenes": [
+    0,
+    6
+  ]
+}

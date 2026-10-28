@@ -1,0 +1,17 @@
+{
+  "operation_id": "php_v03_figure_2",
+  "expected_revision": 31,
+  "data": {
+    "asset_id": "php-services-v03",
+    "kind": "original",
+    "path": "outputs/content-projects/CONTENT_20261024_php2shell_overview/blog-assets/v03/php-services.png",
+    "visibility": "public",
+    "privacy_review": "passed",
+    "alt": "利用者とブラウザー、サーバー内でPHPを利用するWordPress・フォーム・買い物の例",
+    "caption": "自作のコード図解。製品の実画面や公式のスクリーンショットではない。",
+    "source_type": "original_code_diagram",
+    "provenance": "outputs/content-projects/CONTENT_20261024_php2shell_overview/blog-assets/v03/figure-provenance.json",
+    "blog_usage_review": "pending",
+    "user_approved_for_blog": false
+  }
+}

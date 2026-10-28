@@ -1,0 +1,13 @@
+{
+  "operation_id": "op_php_claim_10",
+  "expected_revision": 10,
+  "data": {
+    "claim_id": "response",
+    "text": "修正の適用と動作確認に加え侵害有無も調査する。痕跡がないことだけで未侵害とは断定できない。",
+    "basis": "official",
+    "checked_at": "2026-10-24",
+    "source_ids": [
+      "jpcert_oct22"
+    ]
+  }
+}

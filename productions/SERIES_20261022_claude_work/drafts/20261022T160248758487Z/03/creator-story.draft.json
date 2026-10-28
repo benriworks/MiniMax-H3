@@ -1,0 +1,180 @@
+{
+  "schema_version": 1,
+  "id": "SHORT_20261022_claude_03_work",
+  "title": "【Claude】告知デザインを見やすく！文字と余白を整える",
+  "voice": "Aoede",
+  "rate": 1,
+  "duration_seconds": 30,
+  "music_preset": "bright_groove_v1",
+  "pronunciations": [
+    {
+      "source": "Claude",
+      "target": "クロード"
+    },
+    {
+      "source": "Docs",
+      "target": "ドックス"
+    },
+    {
+      "source": "Slides",
+      "target": "スライド"
+    },
+    {
+      "source": "Design",
+      "target": "デザイン"
+    },
+    {
+      "source": "栞",
+      "target": "しおり"
+    }
+  ],
+  "scenes": [
+    {
+      "kind": "editorial",
+      "visual_style": "business",
+      "headline": "同じ企画を、\n店内の告知へ。",
+      "eyebrow": "CLAUDE 03 / Design",
+      "narration": "栞さん、今度は店内の告知を見やすくしたい。",
+      "captions": [
+        "栞さん、今度は店内の\n告知を見やすくしたい。"
+      ],
+      "source_ids": [],
+      "editorial_layout": "hook",
+      "body": "企画担当の栞さん",
+      "action": "架空の業務例",
+      "media": {
+        "path": "outputs/characters/explainer-motion-20261022/claude-shiori/MiniMax_H3_claude_shiori_00001_.mp4",
+        "proof": "outputs/characters/explainer-motion-20261022/claude-shiori/verification.json"
+      },
+      "mediaStart": 0
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "Designは\n会話とキャンバス",
+      "eyebrow": "CLAUDE 03 / Design",
+      "narration": "クロードのデザインは、会話しながら見た目を整える機能。",
+      "captions": [
+        "クロードのデザインは、",
+        "会話しながら\n見た目を整える機能。"
+      ],
+      "source_ids": [
+        "claude_design"
+      ],
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_03_work/captures/design-refine.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_03_work/captures/design-refine.json",
+        "origin": "official",
+        "title": "Refine your design",
+        "source_url": "https://support.claude.com/en/articles/14604416-get-started-with-claude-design"
+      }
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "用途・内容・\n色を伝える",
+      "eyebrow": "CLAUDE 03 / Design",
+      "narration": "使う場所と載せる内容、色の希望を伝えます。",
+      "captions": [
+        "使う場所と載せる内容、",
+        "色の希望を伝えます。"
+      ],
+      "source_ids": [
+        "claude_design"
+      ],
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_03_work/captures/03-design-request-native-excerpt-v3.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_03_work/captures/03-design-request-native-excerpt-v3.json",
+        "origin": "demonstration",
+        "title": "店内告知を依頼",
+        "product": "Claude",
+        "phase": "before"
+      }
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "最初の案を\n読み手目線で",
+      "eyebrow": "CLAUDE 03 / Design",
+      "narration": "最初の案は、価格と時間がひと目で分かるか確認。",
+      "captions": [
+        "最初の案は、",
+        "価格と時間がひと目で\n分かるか確認。"
+      ],
+      "source_ids": [
+        "claude_design"
+      ],
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_03_work/captures/03-design-first-price-hours-native.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_03_work/captures/03-design-first-price-hours-native.json",
+        "origin": "demonstration",
+        "title": "初回の価格と時間",
+        "product": "Claude",
+        "phase": "first-output"
+      }
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "価格と時間を\nもう一段大きく",
+      "eyebrow": "CLAUDE 03 / Design",
+      "narration": "価格と提供時間を、もう一段大きくするよう頼みます。",
+      "captions": [
+        "価格と提供時間を、",
+        "もう一段大きくするよう\n頼みます。"
+      ],
+      "source_ids": [
+        "claude_design"
+      ],
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_03_work/captures/03-design-revision-larger-native.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_03_work/captures/03-design-revision-larger-native.json",
+        "origin": "demonstration",
+        "title": "文字を大きくする依頼",
+        "product": "Claude",
+        "phase": "revision"
+      }
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "修正の前後を\n同じ大きさで比べる",
+      "eyebrow": "CLAUDE 03 / Design",
+      "narration": "修正の前後を同じ大きさで見比べて、数字も照合。",
+      "captions": [
+        "修正の前後を\n同じ大きさで見比べて、",
+        "数字も照合。"
+      ],
+      "source_ids": [],
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_03_work/captures/03-design-after-price-hours-native.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_03_work/captures/03-design-after-price-hours-native.json",
+        "origin": "demonstration",
+        "title": "修正後の価格と時間",
+        "product": "Claude",
+        "phase": "after"
+      }
+    },
+    {
+      "kind": "editorial",
+      "visual_style": "business",
+      "headline": "一度で決めず、\n見て直す。",
+      "eyebrow": "CLAUDE 03 / Design",
+      "narration": "一度で決めず、見て直す。次は文書の部分修正です。",
+      "captions": [
+        "一度で決めず、見て直す。",
+        "次は文書の部分修正です。"
+      ],
+      "source_ids": [],
+      "editorial_layout": "closing",
+      "body": "作って、見て、直す",
+      "action": "内容は自分で確認",
+      "media": {
+        "path": "outputs/characters/explainer-motion-20261022/claude-shiori/MiniMax_H3_claude_shiori_00001_.mp4",
+        "proof": "outputs/characters/explainer-motion-20261022/claude-shiori/verification.json"
+      },
+      "mediaStart": 0
+    }
+  ],
+  "draft_status": "root_review_required_do_not_generate"
+}

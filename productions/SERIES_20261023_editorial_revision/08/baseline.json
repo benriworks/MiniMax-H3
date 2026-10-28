@@ -1,0 +1,12 @@
+{
+  "voice_source": {
+    "path": "outputs/productions/SHORT_20261022_dots_08_editorial/voice-generations/20261022T101504Z-ab0b3bf8/voice-source.json",
+    "bytes": 5751,
+    "sha256": "FAB83001DB17FAA21F45E6DBFC5831C231451565D7A7B432D2748E3C301C11DD"
+  },
+  "video": {
+    "path": "outputs/productions/SHORT_20261022_dots_08_editorial/20261022T191612593118Z/release/dots-08-research-official.mp4",
+    "bytes": 6777921,
+    "sha256": "EB5C223B59730E97EB1F066726DFE3517CACAF092D089CD3B0420DB713564ABB"
+  }
+}

@@ -72,7 +72,7 @@ _TRANSITION_KEYS = {"type", "duration_ms"}
 _OVERLAY_KEYS = {"text", "start_ms", "end_ms", "position", "style_preset"}
 _INTERNAL_EXTRA_KEYS = {"source_path", "source_bytes", "source_sha256"}
 _POSITIONS = {"top", "center", "bottom"}
-_STYLE_PRESETS = {"shorts_ja_large_v1"}
+_STYLE_PRESETS = {"shorts_ja_large_v1", "shorts_creator_v1"}
 
 
 class RemotionTimelineError(RuntimeError):
@@ -171,6 +171,10 @@ def _overlay(value: Any, *, index: int, clip_duration_ms: int) -> dict[str, Any]
     style_preset = value.get("style_preset")
     if style_preset not in _STYLE_PRESETS:
         raise RemotionTimelineValidationError(f"clips[{index}].overlay.style_preset is invalid")
+    if style_preset == "shorts_creator_v1" and (
+        len(text.split('\n')) > 3 or any(sum(.54 if ord(c)<128 or '\uff61'<=c<='\uff9f' else 1 for c in line)>14 for line in text.split('\n'))
+    ):
+        raise RemotionTimelineValidationError('Creator headline exceeds the readable safe area')
     return {
         "text": text,
         "start_ms": start_ms,

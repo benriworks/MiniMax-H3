@@ -1,0 +1,11 @@
+{
+  "operation_id": "php_v01_approve_character",
+  "expected_revision": 16,
+  "data": {
+    "character_id": "miura_wataru",
+    "version": 1,
+    "confirm_acceptance": true,
+    "user_response": "この構成・人物で進める",
+    "scope": "PHP2Shell概要ショートの提示済み構成と三浦航v01参照画像。本番人物動画生成と組み込み。最終動画の試聴・公開は含まない。"
+  }
+}

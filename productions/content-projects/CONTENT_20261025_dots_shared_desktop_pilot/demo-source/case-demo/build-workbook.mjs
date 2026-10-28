@@ -1,0 +1,17 @@
+import fs from 'node:fs/promises';
+import {Workbook,SpreadsheetFile} from '@oai/artifact-tool';
+const out='/workspace/scratch/cb625c97a9f7/dots-desktop-pilot-20261025/case-demo/outputs/case-demo';
+await fs.mkdir(out,{recursive:true});
+const wb=Workbook.create(), sh=wb.worksheets.add('架空案件');
+sh.getRange('A1:E4').values=[['案件ID','顧客名','案件名','納期','金額円'],['DEMO-001','デモ顧客A','架空展示会LP',new Date('2026-11-10T00:00:00Z'),120000],['DEMO-002','デモ顧客B','架空チラシ',new Date('2026-11-12T00:00:00Z'),80000],['DEMO-003','デモ顧客C','架空セミナー申込',new Date('2026-11-14T00:00:00Z'),50000]];
+sh.getRange('D6').values=[['合計']];sh.getRange('E6').formulas=[['=SUM(E2:E4)']];
+sh.getRange('A1:E6').format.font={name:'Noto Sans CJK JP',size:14};
+sh.getRange('A1:E1').format={fill:'#153F38',font:{name:'Noto Sans CJK JP',size:14,bold:true,color:'#FFFFFF'},rowHeight:36};
+sh.getRange('A2:E4').format.rowHeight=34;sh.getRange('D2:D4').setNumberFormat('yyyy-mm-dd');sh.getRange('E2:E6').setNumberFormat('#,##0');
+sh.getRange('A:A').format.columnWidth=18;sh.getRange('B:B').format.columnWidth=20;sh.getRange('C:C').format.columnWidth=30;sh.getRange('D:D').format.columnWidth=19;sh.getRange('E:E').format.columnWidth=18;
+sh.getRange('D6:E6').format.font.bold=true;sh.getRange('D6:E6').format.fill='#E5EEE9';sh.showGridLines=false;
+wb.recalculate();
+console.log((await wb.inspect({kind:'table',range:'架空案件!A1:E6',include:'values,formulas',tableMaxRows:6,tableMaxCols:5})).ndjson);
+console.log((await wb.inspect({kind:'match',searchTerm:'#REF!|#DIV/0!|#VALUE!|#NAME\\?|#N/A|#NUM!|#NULL!',options:{useRegex:true,maxResults:20}})).ndjson);
+const png=await wb.render({sheetName:'架空案件',range:'A1:E7',scale:1.5});await fs.writeFile(out+'/workbook-preview.png',new Uint8Array(await png.arrayBuffer()));
+await (await SpreadsheetFile.exportXlsx(wb)).save(out+'/demo-cases.xlsx');

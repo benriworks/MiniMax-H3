@@ -1,0 +1,13 @@
+{
+  "operation_id": "op_php_claim_11",
+  "expected_revision": 11,
+  "data": {
+    "claim_id": "followup",
+    "text": "2026年10月23日の関連する追加注意喚起は特殊な設定条件に関する別件。10月21日の2件だけの対策と分けて最新情報を確認する。",
+    "basis": "official",
+    "checked_at": "2026-10-24",
+    "source_ids": [
+      "php_oct23"
+    ]
+  }
+}

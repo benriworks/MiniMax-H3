@@ -1,0 +1,280 @@
+{
+  "schema_version": 1,
+  "voice": "Aoede",
+  "rate": 1,
+  "pronunciations": [
+    {
+      "source": "dots",
+      "target": "ドッツ"
+    },
+    {
+      "source": "dot",
+      "target": "ドット"
+    },
+    {
+      "source": "ChatGPT",
+      "target": "チャットジーピーティー"
+    },
+    {
+      "source": "GPT-6 Astra",
+      "target": "ジーピーティーシックス、アストラ"
+    },
+    {
+      "source": "OpenAI",
+      "target": "オープンエーアイ"
+    },
+    {
+      "source": "Business Premium",
+      "target": "ビジネスプレミアム"
+    },
+    {
+      "source": "Enterprise",
+      "target": "エンタープライズ"
+    },
+    {
+      "source": "Pro",
+      "target": "プロ"
+    },
+    {
+      "source": "PC",
+      "target": "ピーシー"
+    },
+    {
+      "source": "Gmail",
+      "target": "ジーメール"
+    },
+    {
+      "source": "Drive",
+      "target": "ドライブ"
+    },
+    {
+      "source": "GitHub",
+      "target": "ギットハブ"
+    },
+    {
+      "source": "Slack",
+      "target": "スラック"
+    },
+    {
+      "source": "Teams",
+      "target": "チームズ"
+    },
+    {
+      "source": "Activity",
+      "target": "アクティビティ"
+    },
+    {
+      "source": "Scheduled",
+      "target": "スケジュールド"
+    },
+    {
+      "source": "SMS",
+      "target": "エスエムエス"
+    }
+  ],
+  "duration_seconds": 30,
+  "music_preset": "bright_groove_v1",
+  "id": "SHORT_20261022_dots_08_editorial",
+  "title": "【ChatGPT】頼む前に気づく？dotsの「先回り調査」でできること",
+  "scenes": [
+    {
+      "kind": "editorial",
+      "editorial_layout": "research",
+      "headline": "頼む前に、\n気づいてくれる？",
+      "narration": "その変更、気づくのが遅れそう。そんなとき。",
+      "captions": [
+        "その変更、",
+        "気づくのが遅れそう。",
+        "そんなとき。"
+      ],
+      "body": "見落としやすい変化",
+      "items": [
+        {
+          "label": "新しい予定",
+          "detail": "時間が変更"
+        },
+        {
+          "label": "以前のメモ",
+          "detail": "締切は同じ"
+        }
+      ],
+      "eyebrow": "DOTS 08 / 先回り調査",
+      "source_ids": [
+        "tasks-and-memory",
+        "controls"
+      ],
+      "media": {
+        "path": "outputs/characters/explainer-motion-20261022/dots-male/MiniMax_H3_dots_male_00001_.mp4",
+        "proof": "outputs/characters/explainer-motion-20261022/dots-male/verification.json"
+      },
+      "mediaStart": 0
+    },
+    {
+      "kind": "source",
+      "headline": "公式の機能、\n先回り調査。",
+      "narration": "dotsには、先回りで情報を調べるしくみがあります。",
+      "captions": [
+        "dotsには、",
+        "先回りで情報を調べる",
+        "しくみがあります。"
+      ],
+      "capture": {
+        "title": "Tasks and memory",
+        "path": "outputs/productions/SHORT_20261022_dots_08_editorial/captures/official-research.png",
+        "proof": "outputs/productions/SHORT_20261022_dots_08_editorial/captures/official-research.json",
+        "source_url": "https://learn.chatgpt.com/docs/dots/tasks-and-memory"
+      },
+      "eyebrow": "DOTS 08 / 先回り調査",
+      "source_ids": [
+        "tasks-and-memory",
+        "controls"
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "research",
+      "headline": "読める情報を、\nつなげて考える。",
+      "narration": "読める権限のある情報を調べ、前の話とつなげます。",
+      "captions": [
+        "読める権限のある",
+        "情報を調べ、",
+        "前の話とつなげます。"
+      ],
+      "body": "許可された情報から",
+      "items": [
+        {
+          "label": "接続した情報",
+          "detail": "新しい変更"
+        },
+        {
+          "label": "以前の話",
+          "detail": "決めていた方針"
+        }
+      ],
+      "action": "関連する気づきへ",
+      "eyebrow": "DOTS 08 / 先回り調査",
+      "source_ids": [
+        "tasks-and-memory",
+        "controls"
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "contrast",
+      "headline": "予定の変更と、\n締切のずれに注目。",
+      "narration": "たとえば、会議の変更と締切のずれに気づく。",
+      "captions": [
+        "たとえば、",
+        "会議の変更と",
+        "締切のずれに気づく。"
+      ],
+      "body": "架空の例",
+      "items": [
+        {
+          "label": "新しい会議",
+          "detail": "金曜日に変更"
+        },
+        {
+          "label": "締切のメモ",
+          "detail": "木曜日のまま"
+        }
+      ],
+      "eyebrow": "DOTS 08 / 先回り調査",
+      "source_ids": [
+        "tasks-and-memory",
+        "controls"
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "permissions",
+      "headline": "調べることと、\n実行することは別。",
+      "narration": "この調査自体は、送信やアプリの変更をしません。",
+      "captions": [
+        "この調査自体は、",
+        "送信やアプリの変更を",
+        "しません。"
+      ],
+      "body": "先回り調査の範囲",
+      "items": [
+        {
+          "label": "情報を調べる",
+          "detail": "読む権限の範囲",
+          "done": true
+        },
+        {
+          "label": "送信・変更",
+          "detail": "調査自体はしない",
+          "done": false
+        }
+      ],
+      "eyebrow": "DOTS 08 / 先回り調査",
+      "source_ids": [
+        "tasks-and-memory",
+        "controls"
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "statement",
+      "headline": "気づきをもとに、\n次の一手を決める。",
+      "narration": "提案を受けて、次の行動を決められます。",
+      "captions": [
+        "提案を受けて、",
+        "次の行動を",
+        "決められます。"
+      ],
+      "body": "締切の確認を\nお願いしよう。",
+      "action": "次の依頼の例",
+      "eyebrow": "DOTS 08 / 先回り調査",
+      "source_ids": [
+        "tasks-and-memory",
+        "controls"
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "recap",
+      "headline": "気づく相棒を、\nどう使う？",
+      "narration": "気づきから、次の行動へ。最後は、権限と停止。",
+      "captions": [
+        "気づきから、",
+        "次の行動へ。",
+        "最後は、権限と停止。"
+      ],
+      "body": "読む → 気づく → 相談",
+      "items": [
+        {
+          "label": "調査",
+          "detail": "許可された情報"
+        },
+        {
+          "label": "行動",
+          "detail": "必要な権限で"
+        }
+      ],
+      "action": "次回：権限と停止",
+      "eyebrow": "DOTS 08 / 先回り調査",
+      "source_ids": [
+        "tasks-and-memory",
+        "controls"
+      ],
+      "media": {
+        "path": "outputs/characters/explainer-motion-20261022/dots-female/MiniMax_H3_dots_female_00001_.mp4",
+        "proof": "outputs/characters/explainer-motion-20261022/dots-female/verification.json"
+      },
+      "mediaStart": 0
+    }
+  ],
+  "editorial": {
+    "checked_date": "2026-10-22",
+    "series_episode": 8,
+    "official_source_ids": [
+      "tasks-and-memory",
+      "controls"
+    ],
+    "availability_note": "先回り調査は読める権限のある接続情報を調べ、非公開ノートを使って提案につなげるしくみです。この調査自体はメッセージ送信、アプリの変更、ブラウザー/PC操作をしません。別途依頼した定期実行とは権限とスケジュールが別。動画の会議・締切・確認依頼は架空例で実行を実証した録画ではありません。",
+    "user_approved": false,
+    "visuals": "One short excerpt captured from official documentation plus original editorial explanatory graphics; fictional examples are labelled. Not a live product test."
+  }
+}

@@ -1,0 +1,284 @@
+{
+  "schema_version": 1,
+  "voice": "Aoede",
+  "rate": 1,
+  "pronunciations": [
+    {
+      "source": "dots",
+      "target": "ドッツ"
+    },
+    {
+      "source": "dot",
+      "target": "ドット"
+    },
+    {
+      "source": "ChatGPT",
+      "target": "チャットジーピーティー"
+    },
+    {
+      "source": "GPT-6 Astra",
+      "target": "ジーピーティーシックス、アストラ"
+    },
+    {
+      "source": "OpenAI",
+      "target": "オープンエーアイ"
+    },
+    {
+      "source": "Business Premium",
+      "target": "ビジネスプレミアム"
+    },
+    {
+      "source": "Enterprise",
+      "target": "エンタープライズ"
+    },
+    {
+      "source": "Pro",
+      "target": "プロ"
+    },
+    {
+      "source": "PC",
+      "target": "ピーシー"
+    },
+    {
+      "source": "Gmail",
+      "target": "ジーメール"
+    },
+    {
+      "source": "Drive",
+      "target": "ドライブ"
+    },
+    {
+      "source": "GitHub",
+      "target": "ギットハブ"
+    },
+    {
+      "source": "Slack",
+      "target": "スラック"
+    },
+    {
+      "source": "Teams",
+      "target": "チームズ"
+    },
+    {
+      "source": "Activity",
+      "target": "アクティビティ"
+    },
+    {
+      "source": "Scheduled",
+      "target": "スケジュールド"
+    },
+    {
+      "source": "SMS",
+      "target": "エスエムエス"
+    }
+  ],
+  "duration_seconds": 30,
+  "music_preset": "bright_groove_v1",
+  "id": "SHORT_20261022_dots_06_editorial",
+  "title": "【ChatGPT】声でも頼める！dotsは通話を切った後も仕事が続く",
+  "scenes": [
+    {
+      "kind": "editorial",
+      "editorial_layout": "channels",
+      "headline": "声で相談。\nそのまま仕事へ。",
+      "narration": "声で相談して、そのまま仕事を任せたい。",
+      "captions": [
+        "声で相談して、",
+        "そのまま仕事を",
+        "任せたい。"
+      ],
+      "stat": "dot",
+      "body": "話す → 頼む",
+      "items": [
+        {
+          "label": "相談",
+          "detail": "声で伝える"
+        },
+        {
+          "label": "依頼",
+          "detail": "進める作業"
+        }
+      ],
+      "eyebrow": "DOTS 06 / 会話と通話",
+      "source_ids": [
+        "channels",
+        "tasks-and-memory"
+      ],
+      "presenter": {
+        "path": "outputs/characters/dots-guide-20261022/guide.png",
+        "proof": "outputs/characters/dots-guide-20261022/guide.json",
+        "role": "hook"
+      }
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "statement",
+      "headline": "文字だけでなく、\n通話でも。",
+      "narration": "dotsとは、ChatGPTから通話もできます。",
+      "captions": [
+        "dotsとは、",
+        "ChatGPTから",
+        "通話もできます。"
+      ],
+      "body": "相談を、\n声で。",
+      "action": "アプリから通話",
+      "eyebrow": "DOTS 06 / 会話と通話",
+      "source_ids": [
+        "channels",
+        "tasks-and-memory"
+      ]
+    },
+    {
+      "kind": "source",
+      "headline": "通話しながら、\n文字も送れる。",
+      "narration": "公式の画面例では、通話しながら文字も送れます。",
+      "captions": [
+        "公式の画面例では、",
+        "通話しながら",
+        "文字も送れます。"
+      ],
+      "capture": {
+        "title": "Message your dot",
+        "path": "outputs/productions/SHORT_20261022_dots_06_editorial/captures/official-call.png",
+        "proof": "outputs/productions/SHORT_20261022_dots_06_editorial/captures/official-call.json",
+        "source_url": "https://learn.chatgpt.com/docs/dots/channels"
+      },
+      "eyebrow": "DOTS 06 / 会話と通話",
+      "source_ids": [
+        "channels",
+        "tasks-and-memory"
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "channels",
+      "headline": "連絡する場所を、\n選べる。",
+      "narration": "SlackやTeamsでも、同じ相棒に連絡できます。",
+      "captions": [
+        "SlackやTeamsでも、",
+        "同じ相棒に",
+        "連絡できます。"
+      ],
+      "stat": "dot",
+      "body": "使う連絡方法を接続",
+      "items": [
+        {
+          "label": "ChatGPT",
+          "detail": "相談と更新"
+        },
+        {
+          "label": "Slack",
+          "detail": "メッセージ"
+        },
+        {
+          "label": "Teams",
+          "detail": "メッセージ"
+        }
+      ],
+      "eyebrow": "DOTS 06 / 会話と通話",
+      "source_ids": [
+        "channels",
+        "tasks-and-memory"
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "contrast",
+      "headline": "同じ相棒。\n履歴は別々。",
+      "narration": "ただし、会話の履歴が全部コピーされるわけではありません。",
+      "captions": [
+        "ただし、会話の履歴が",
+        "全部コピーされる",
+        "わけではありません。"
+      ],
+      "body": "引き継ぎと表示の違い",
+      "items": [
+        {
+          "label": "引き継ぐ",
+          "detail": "関連する文脈"
+        },
+        {
+          "label": "表示される履歴",
+          "detail": "それぞれの会話"
+        }
+      ],
+      "eyebrow": "DOTS 06 / 会話と通話",
+      "source_ids": [
+        "channels",
+        "tasks-and-memory"
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "permissions",
+      "headline": "通話終了と、\n作業停止は別。",
+      "narration": "通話を終えても、依頼した仕事は続けられます。",
+      "captions": [
+        "通話を終えても、",
+        "依頼した仕事は",
+        "続けられます。"
+      ],
+      "body": "依頼済みの仕事",
+      "items": [
+        {
+          "label": "音声の会話",
+          "detail": "終了",
+          "done": false
+        },
+        {
+          "label": "依頼した作業",
+          "detail": "継続できる",
+          "done": true
+        }
+      ],
+      "eyebrow": "DOTS 06 / 会話と通話",
+      "source_ids": [
+        "channels",
+        "tasks-and-memory"
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "recap",
+      "headline": "スマホなら、\nアプリから。",
+      "narration": "スマホはアプリで。次は、定期実行。",
+      "captions": [
+        "スマホはアプリで。",
+        "次は、定期実行。"
+      ],
+      "body": "話す場所を選ぼう",
+      "items": [
+        {
+          "label": "声で相談",
+          "detail": "ChatGPT"
+        },
+        {
+          "label": "文字で連絡",
+          "detail": "接続した連絡先"
+        }
+      ],
+      "action": "次回：定期実行",
+      "eyebrow": "DOTS 06 / 会話と通話",
+      "source_ids": [
+        "channels",
+        "tasks-and-memory"
+      ],
+      "presenter": {
+        "path": "outputs/characters/dots-guide-20261022/guide.png",
+        "proof": "outputs/characters/dots-guide-20261022/guide.json",
+        "role": "recap"
+      }
+    }
+  ],
+  "editorial": {
+    "checked_date": "2026-10-22",
+    "series_episode": 6,
+    "official_source_ids": [
+      "channels",
+      "tasks-and-memory"
+    ],
+    "availability_note": "ChatGPTアプリとデスクトップブラウザーから通話。モバイルWebは非対応。Slack/Teamsは利用可能な連絡方法を接続して使います。通話は選択された文脈を使用し、すべての作業文脈が必ず共有されるわけではありません。dot側からの発信やSMSは現在利用可能とは説明していません。",
+    "user_approved": false,
+    "visuals": "One short excerpt captured from official documentation plus original editorial explanatory graphics; fictional examples are labelled. Not a live product test."
+  }
+}

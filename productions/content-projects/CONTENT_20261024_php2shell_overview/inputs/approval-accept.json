@@ -1,0 +1,9 @@
+{
+  "operation_id": "php_v01_accept",
+  "expected_revision": 15,
+  "data": {
+    "proposal_id": "proposal_php_overview_v01",
+    "feedback_id": "feedback_php_concept_character_accept",
+    "confirm_acceptance": true
+  }
+}

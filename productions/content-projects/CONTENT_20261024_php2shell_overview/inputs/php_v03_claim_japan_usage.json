@@ -1,0 +1,15 @@
+{
+  "operation_id": "php_v03_claim_japan_usage",
+  "expected_revision": 24,
+  "data": {
+    "claim_id": "japan_usage",
+    "text": "2026-10-24のW3Techs調査で、日本にサーバーがあり、サーバー側プログラミング言語を判別できたサイトの92.4%がPHPを使用。日本全体の全数調査でも、今回の影響率でもない。",
+    "basis": "official",
+    "source_ids": [
+      "w3techs_japan_v03",
+      "w3techs_method_v03"
+    ],
+    "checked_at": "2026-10-25",
+    "asset_ids": []
+  }
+}

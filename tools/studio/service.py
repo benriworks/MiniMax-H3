@@ -673,6 +673,8 @@ class StudioService:
         path = database_path or workspace_path(self.workspace, "outputs/studio/studio.sqlite3")
         path = workspace_path(self.workspace, path)
         self.database = StudioDatabase(path, workspace=self.workspace)
+        from .content_workspace import ContentWorkspace
+        self.content_workspace = ContentWorkspace(self.workspace, self.database)
         # Startup DB recovery invalidates every unconsumed consent first.
         # Deterministic nonce partials are then removed before any capture
         # lane exists. A cleanup error aborts Studio startup instead of

@@ -1,0 +1,33 @@
+2026-10-22 人物説明モーション制作
+
+目的
+dots第1回由来の男女、Claude/Codex新シリーズのビジネス男女について、同じ顔・衣装を保持した新規MiniMax H3動画を作る。静止画へのパン・ズームや過去動画の再利用を新規生成と呼ばない。
+
+生成条件
+ローカルComfyUI、official_q4、I2VA、768×1376、24fps、124フレーム（約5.167秒）、20 steps、res_multistep/simple、CRF14、Turbo無効。入力PNGは加工せずコピーし、SHA-256一致を確認。MiniMax有料APIは利用しない。
+
+専用サービス
+start-local.ps1は127.0.0.1:8189だけを起動し、出力を outputs/characters/explainer-motion-20261022/ に隔離する。元のモデル・設定・過去成果を変更しない。他のアプリやBlenderのプロセスを停止しない。reserve-vram=2.0、dynamic VRAM、APIノード無効、pinned memory無効。
+実行前に既存local_doctorでruntime-lock一致、モデルサイズ、RAM/VRAM/ディスクを確認する。巨大モデルのSHA-256再検査はこの起動確認には含まない。
+
+投入と再開
+generate.py --prepare-only dots-male dots-female は入力コピー・プロンプト・graphだけを用意する。
+generate.py dots-male dots-female は旧男性→旧女性を直列実行する。
+generate.py claude-shiori codex-makoto はビジネス女性→男性を直列実行する。各source_presenterは元の人物PNG、source_keyframeはofficeキー画像の未加工コピーとして別々に記録する。
+generate.py --after codex-makoto duet-dots-haruka は誠の技術検証完了・MP4のSHA-256一致を待ってから比較用の遥を生成する。前提が未完了の間は新規生成を投入しない。待機上限は4時間。follow-on-service.jsonにhidden依存runnerのPIDと起動条件を保存しているため、重複起動しない。
+request.jsonを排他的に保存してからPOSTし、prompt_idを固定する。submission.jsonがある場合は同じIDの履歴を待つ。POST結果が不明でも、queue/historyでIDが見つかる場合だけ再送せず復帰する。不明なIDを自動再送しない。
+
+メモリ保護
+投入直前にRAM空き12GiB、コミット空き24GiB、ディスク20GiBを必要とする。
+この条件を満たさず専用queueが空の場合だけ、同じ8189サービスのキャッシュされたモデルを解放し、最大60秒再確認する。他サービス・他アプリのメモリには触れない。
+20秒ごとにRAM・コミット・ディスク・GPU状態をresources.jsonlへ記録する。
+RAM空き1GiB未満、コミット空き3GiB未満、またはディスク空き5GiB未満が3回連続した場合は、専用サービスで当該prompt_idだけが実行中であることを確認して、その生成だけに中断を送る。他のプロセスを止めない。
+2時間を超えた待機は終了するが、重複生成しない。再開は同じコマンドで保存済IDを参照する。
+
+検証
+成功historyとgraph完全一致、単一MP4、解像度/fps/フレーム数、ffmpeg全デコードを確認する。0〜4秒のPNGと5枚のcontact-sheet.jpgを生成する。
+verification.jsonにはprovider=minimax、生成ID、今回新規生成であること、元人物PNG・I2VA入力PNG・成果MP4のSHA-256、設定、履歴を保存する。
+自動確認の完了時点はawaiting_visual_review。親エージェントによる顔・手・体格・服・動きの目視確認まで、映像品質合格やユーザー承認を付けない。
+
+シリーズでの使用
+主映像のナレーションはAoede一人。人物は無言の小さい頷きと片手説明。主映像へ組み込む際、H3が生成した環境音は使用せず既存の音声・BGM設計に合わせる。新動画に『MiniMaxで作りました』のクレジットを載せない。

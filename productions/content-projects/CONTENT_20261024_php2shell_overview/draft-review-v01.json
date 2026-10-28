@@ -1,0 +1,21 @@
+{
+  "status": "draft_layout_reviewed_motion_pending",
+  "scope": "AI inspected nine 360px design stills, not human listening",
+  "technical_verification": {
+    "path": "outputs/productions/SHORT_20261024_php2shell_overview/20261024T131610722057Z/shorts-creator.mp4",
+    "bytes": 3233415,
+    "sha256": "097953ACE5C3AF6D8348ED907AF762F79FBEAB38ACB0F9B2669052A8AFB6678C"
+  },
+  "full_decode_verified": true,
+  "loudness_lufs": "-16.01",
+  "true_peak_dbfs": "-3.94",
+  "observations": [
+    "CVE IDs and four version baselines fit",
+    "PHP source credit matches publisher",
+    "Official headings retained without content redraw",
+    "Opening is temporary text until approved-character H3 completes"
+  ],
+  "human_listening": "pending",
+  "user_adoption": "pending",
+  "publication": "not_performed"
+}

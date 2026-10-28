@@ -1,0 +1,16 @@
+dotsの機能を30秒ずつ紹介する全9本シリーズ、第3回「アプリ連携」。
+
+4,000以上という数は、OpenAI発表にあるプラグインのエコシステム全体の規模です。全アプリが最初から接続済み、または全アカウントで利用可能という意味ではありません。インストール済み・有効なプラグイン、接続先アカウント、組織設定と権限によって利用範囲が変わります。Slack等の連絡先接続と、アプリやPCへのアクセス許可は別です。
+
+情報確認日：2026年10月5日。機能・対象プラン・提供地域は変更されることがあります。
+OpenAI公式資料をもとにした非公式の紹介動画です。画面は独自のモーショングラフィックスで、実機操作の録画ではありません。登場人物は架空のキャラクターです。
+
+出典（OpenAI公式）
+OpenAI — Computers and apps
+https://learn.chatgpt.com/docs/dots/computers-and-apps
+OpenAI — Introducing dots
+https://openai.com/index/introducing-dots/
+OpenAI — Get started with your dot
+https://learn.chatgpt.com/docs/dots/getting-started
+
+#dots #ChatGPT #OpenAI #AI活用 #Shorts

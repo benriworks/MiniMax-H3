@@ -1,0 +1,23 @@
+{
+  "tool": "built-in image_gen",
+  "transparent_background": false,
+  "jobs": [
+    {
+      "key": "claude",
+      "path": "C:\\Users\\mono_\\MiniMaxH3\\outputs\\characters\\business-guides-20261022\\claude-shiori.png",
+      "prompt": "Use case: identity-preserve. Edit the referenced fictional Japanese businesswoman into a keyframe for a calm business explainer video. Preserve her exact face, age, natural adult proportions, dark bob haircut, charcoal blazer, pale muted blue high-neck blouse and restrained editorial illustration style. Change only framing, pose and backdrop: a vertical 9:16 waist-up medium shot at eye level, head fully visible with a modest 12 percent headroom, face near the upper third. She sits or stands relaxed beside a simple pale desk, holds the same neutral notebook at her waist, her free hand rests ready for a small explaining gesture. Calm attentive closed-mouth smile. A softly rendered quiet modern office background, warm off-white wall, subtle shelf and muted green plant far behind, evenly lit daylight. Modest businesslike presentation, no glamour pose, no dramatic lighting, no sparkle/glow, no floating graphics, no text, no logos. Opaque full image: replace all transparent areas with the office background. Preserve identity and outfit precisely."
+    },
+    {
+      "key": "codex",
+      "path": "C:\\Users\\mono_\\MiniMaxH3\\outputs\\characters\\business-guides-20261022\\codex-makoto.png",
+      "prompt": "Use case: identity-preserve. Edit the referenced fictional Japanese businessman into a keyframe for a calm business explainer video. Preserve his exact face, age, natural adult proportions, short black hair, thin rectangular glasses, navy blazer, light gray crew-neck knit and restrained editorial illustration style. Change only framing, pose and backdrop: a vertical 9:16 waist-up medium shot at eye level, head fully visible with a modest 12 percent headroom, face near the upper third. He sits or stands relaxed beside a simple pale desk, holds the same closed neutral laptop at his waist, his free hand rests ready for a small explaining gesture. Calm attentive closed-mouth smile. A softly rendered quiet modern office background, warm off-white wall, subtle shelf and muted green plant far behind, evenly lit daylight. Modest businesslike presentation, no glamour pose, no dramatic lighting, no sparkle/glow, no floating graphics, no text, no logos. Opaque full image: replace all transparent areas with the office background. Preserve identity and outfit precisely."
+    }
+  ],
+  "review": {
+    "reviewer": "AI visual inspection",
+    "reviewed_at": "2026-10-22",
+    "face_outfit_identity_preserved": true,
+    "no_text_or_logo": true,
+    "user_approved": false
+  }
+}

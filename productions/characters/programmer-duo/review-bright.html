@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ja">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>女性プログラマー・服装の比較</title>
+<style>
+  :root { color-scheme: dark; font-family: "Yu Gothic UI", "Meiryo", sans-serif; background: #0c1326; color: #faf3e5; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 36px 24px 56px; }
+  main { max-width: 920px; margin: auto; }
+  h1 { font-size: clamp(25px, 4vw, 36px); margin: 0 0 12px; }
+  .intro, .note { color: #c5cad8; line-height: 1.8; }
+  .intro { margin-bottom: 28px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  article { background: #172139; border: 1px solid #38445e; border-radius: 16px; padding: 20px; }
+  article.new { border-color: #d1b17b; }
+  h2 { margin: 0 0 8px; font-size: 24px; }
+  .status { color: #f6d792; margin: 0 0 18px; }
+  video { display: block; width: 100%; max-height: 660px; aspect-ratio: 9 / 16; object-fit: contain; border-radius: 9px; background: #070d1b; }
+  a { color: #ffdd93; text-underline-offset: 4px; }
+  .links { display: flex; flex-wrap: wrap; gap: 18px; line-height: 1.8; margin-top: 18px; }
+  footer { border-top: 1px solid #38445e; margin-top: 28px; padding-top: 18px; color: #c5cad8; line-height: 1.8; }
+  @media(max-width: 620px) { body { padding: 24px 16px; } .grid { grid-template-columns: 1fr; } }
+</style>
+<main>
+  <h1>女性プログラマー・服装の比較</h1>
+  <p class="intro">アイボリーのパーカーと明るい水色のインナーに変更しました。<br>黒髪のボブとゲーム風の獲得演出を揃えた、縦型5秒の動画です。</p>
+  <div class="grid">
+    <article class="new">
+      <h2>明るい服装</h2>
+      <p class="status">今回の候補</p>
+      <video aria-label="明るい服装の動画" controls playsinline preload="metadata" poster="bright-preview.png" src="bright.mp4"></video>
+      <div class="links"><a href="bright.mp4" download>動画を保存</a><a href="female-bright-keyframe.png">冒頭の参照画像</a></div>
+      <p class="note">アイボリー × 水色。やわらかく明るい印象に。</p>
+    </article>
+    <article>
+      <h2>前回の服装</h2>
+      <p class="status">比較用</p>
+      <video aria-label="前回の服装の動画" controls playsinline preload="metadata" poster="previous-preview.png" src="previous.mp4"></video>
+      <div class="links"><a href="previous.mp4" download>動画を保存</a><a href="female-previous-keyframe.png">冒頭の参照画像</a></div>
+      <p class="note">濃いグレー × 青。男性版に合わせた配色。</p>
+    </article>
+  </div>
+  <footer>1080×1920 / 24fps / 5秒。声・速さ・読み方・効果音は同じです。<br><a href="../programmer-duo-20260920/index.html">男性版と前回女性版の比較を見る</a></footer>
+</main>
+</html>

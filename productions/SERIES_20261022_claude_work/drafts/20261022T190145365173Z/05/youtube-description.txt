@@ -1,0 +1,13 @@
+DocsやSlidesをWord・PowerPoint形式に書き出し、保存した実ファイルで文字や数値を確認します。今回はPowerPointのbasic fontsを選択し、明示フォントがNoto Sans JPからArialへ置き換わる案内を確認しました。アプリで開いた見た目も確認が必要です。
+
+登場人物の佐伯栞、店舗「灯台珈琲」、企画・資料は説明用の架空設定です。
+Anthropicの公式・公認動画ではありません。公式資料の引用と、こちらで記録した実演を区別しています。
+画面・機能の確認日：2026年10月22日。プランや設定、更新によって表示・利用条件が変わる場合があります。
+
+出典
+What are artifacts and how do I use them?
+https://support.claude.com/en/articles/17153992-what-are-artifacts-and-how-do-i-use-them
+Get started with Claude Docs
+https://support.claude.com/en/articles/16923645-get-started-with-claude-docs
+
+#Claude #仕事効率化 #Shorts

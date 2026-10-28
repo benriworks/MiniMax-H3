@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "status": "proposal_only_not_implemented",
+  "production_id": "COMPARE_20261022_duet_dots",
+  "checked_date": "2026-10-22",
+  "script_owner": "batch_production",
+  "target": {
+    "duration_seconds": 82,
+    "duration_status": "provisional_until_actual_speech_is_measured",
+    "allowed_range_seconds": [60, 90],
+    "expected_cuts": 14,
+    "frame_rate": 24,
+    "width": 1080,
+    "height": 1920,
+    "voice": "Aoede"
+  },
+  "confirmed_local_constraints": [
+    {
+      "path": "studio/src/remotion/shortsMotion.ts",
+      "detail": "validateCreatorProps currently accepts 240-1440 frames, up to 24 scenes, and 24-192 frames per scene. Business media is restricted to the first and last scenes."
+    },
+    {
+      "path": "tools/studio/shorts_creator.py",
+      "detail": "validate_story permits 15/30/45/60 seconds. allocate_scenes is duration-agnostic but requires each allocated scene to stay at or below 192 frames."
+    },
+    {
+      "path": "studio/creator-render.mjs",
+      "detail": "The render entry and composition ID are currently hardcoded to creatorEntry.tsx / CreatorShort. Evidence freeze, staged media decode, stills, safe-area image, 24fps PNG rendering and final frame-count verification are reusable."
+    },
+    {
+      "path": "productions/SERIES_20261022_claude_work/produce.py",
+      "detail": "The Claude-work wrapper enforces 30 seconds and seven scenes. Do not relax it for this comparison."
+    }
+  ],
+  "recommended_boundary": {
+    "composition_id": "ProductComparison",
+    "new_registration": "studio/src/remotion/comparisonEntry.tsx",
+    "new_composition": "studio/src/remotion/ComparisonComposition.tsx",
+    "new_props_contract": "studio/src/remotion/comparisonMotion.ts",
+    "production_wrapper": "productions/COMPARE_20261022_duet_dots/produce.py",
+    "legacy_policy": "Keep CreatorShort defaults, limits, business first/last media restrictions, previously completed source frames and completed videos unchanged.",
+    "duration_validation": "Dedicated comparison validator accepts an integer total of 1440-2160 frames; scenes must cover it without gaps or overlap, captions must stay within it. Actual delivery length is chosen after Aoede speech measurement.",
+    "render_route": "Use a comparison-specific render entry/ID. If shared rendering is refactored, retain the existing creator route as the default with identical behavior and frozen sources."
+  },
+  "reusable_parts": [
+    "ScreenTypography and bundled Noto Sans JP font",
+    "CreatorCaption with business styling and existing caption-safe area",
+    "SHORTS_SAFE, displayUnits, outCubic, deterministic frame-based animation",
+    "Business official-source scene rendering through EditorialScene without changing source pixels",
+    "Official capture provenance, closed URL allowlist, staging, hash checks and capture-render-validation",
+    "MiniMax media path/proof, muted OffthreadVideo playback and full decode checks",
+    "Measured speech segment allocation, caption phrase timing, local sound design and final AAC/MP4 verification"
+  ],
+  "proposed_scene_kinds": [
+    {
+      "kind": "presenter",
+      "positions": ["opening", "midpoint", "closing"],
+      "purpose": "New Morikawa Haruka motion video for the question, insight, and final choice. Use actual generated MP4, not an animated still.",
+      "fields": ["headline", "eyebrow", "body", "media", "mediaStart"],
+      "constraint": "A dedicated comparison scene allows the midpoint shot without weakening the existing business scene rules. Each selected clip interval must fit the actual MP4 duration."
+    },
+    {
+      "kind": "source",
+      "purpose": "Two or three actual official-page excerpts, kept visible for roughly 5-7 seconds each with source credit.",
+      "fields": ["headline", "eyebrow", "capture"],
+      "constraint": "Use the existing explicit official origin contract and evidence; do not use illustrative cards as product screenshots."
+    },
+    {
+      "kind": "comparison",
+      "layouts": ["signal", "workspace", "availability", "decision"],
+      "fields": ["headline", "eyebrow", "panels", "emphasis", "source_ids"],
+      "constraint": "All product names, conditions, labels and narration come from the verified script. No hardcoded product capability claims. Main comparisons use two stacked lanes for phone readability."
+    }
+  ],
+  "motion_direction": {
+    "signal": "Sequential arrival of message cards and a distinct clock marker only where the script identifies scheduled work. Do not equate self-initiated follow-up with a time schedule.",
+    "workspace": "A central cloud work area with separate human-observation, takeover and permissioned-local-machine paths. Only verified paths appear. Arrows animate their direction and the active path gains emphasis.",
+    "availability": "Three large eligibility chips for region, invitation/rollout, and usage allowance. Each condition appears in turn; no dense plan matrix or tiny caveats.",
+    "decision": "Two vertically stacked use-case cards followed by one short question. The result is a task-based choice rather than a winner/loser ranking.",
+    "fictional_case": "Use the same fictional cafe's schedule check and meeting preparation as an explicitly labeled request example. Do not present it as a real product execution test unless separately captured.",
+    "transitions": "Short restrained fades and shape motion; avoid repeated zoom-only shots and decorative text animations that compete with the narration."
+  },
+  "readability": {
+    "minimum_editorial_font_px": 54,
+    "headline_max_display_units_per_line": 10,
+    "headline_max_lines": 2,
+    "caption_max_display_units_per_line": 12,
+    "caption_max_lines": 2,
+    "main_visual_bottom": 1230,
+    "caption_top": 1300,
+    "safe_text_bottom": 1490,
+    "source_pixels": "Actual UI captures require native-scale readable text and lossless PNG. Do not mask low resolution by artificial upscaling or redrawing a quoted UI."
+  },
+  "validation_before_delivery": [
+    "Official source support and character-video proof reviewed before freezing narration",
+    "No TTS until the parent approves the verified script and evidence",
+    "Compare old CreatorShort fixture PNG hashes if shared rendering code changes",
+    "Negative tests for duration, caption timing, unsupported scene layout, missing proof and out-of-range media interval",
+    "Inspect all 14 scene frames at 1080x1920 and a phone-size view, including the midpoint insight video",
+    "Full-frame text-safe-area guard, complete video decode, measured narration duration and final listening review",
+    "Document architecture and Mermaid flow separately when implementation is approved"
+  ]
+}

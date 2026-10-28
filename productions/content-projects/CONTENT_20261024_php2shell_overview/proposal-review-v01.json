@@ -1,0 +1,36 @@
+{
+  "status": "draft_for_user_review",
+  "title": "【PHP】PHP2Shellとは？サイト運営者が今確認すべきこと",
+  "duration_target_seconds": 50,
+  "audience": "Webサイトを運営する担当者・小規模事業者。サーバーの専門知識は前提にしない。",
+  "angle_selected_by_user": "概要と対策：何が危険で、何を確認・更新すべきか（おすすめ）",
+  "beats": [
+    {
+      "seconds": "0–8",
+      "purpose": "自分にも関係する？",
+      "visual": "人物全面→ブラウザーとPHPの簡単な関係図"
+    },
+    {
+      "seconds": "8–22",
+      "purpose": "PHP本体の2件の脆弱性と影響",
+      "visual": "PHP公式告知の必要箇所→CVE番号とRCEの概念図"
+    },
+    {
+      "seconds": "22–40",
+      "purpose": "確認・更新・調査という行動",
+      "visual": "提供元への確認カード→修正済み基準の2×2表→ログ調査の短いチェック"
+    },
+    {
+      "seconds": "40–50",
+      "purpose": "追加注意喚起と最新情報確認",
+      "visual": "10/23の日付と公式注意→人物全面の落ち着いた締め"
+    }
+  ],
+  "narration_draft": "Webサイトを運営しているなら確認を。サイトの裏側を動かすPHPに、2件の重大な脆弱性が公表されました。通称、PHPツーシェル。条件がそろうと、ログインせずにサーバーでプログラムを実行される恐れがあります。管理担当やホスティング会社に、利用中のPHPと、対策済みかを確認しましょう。修正版への更新と動作確認に加え、不審なログの調査も。10月23日には、別の条件に関する追加注意喚起も出ています。最新の公式案内まで確認を。",
+  "narration_generated": false,
+  "character_video_generated": false,
+  "character_adopted": false,
+  "final_video_created": false,
+  "sources_checked_at": "2026-10-24",
+  "blog": "詳細記事では修正版と提供元の対応状況、追加注意喚起を整理する案。記事の作成・公開は未実施。"
+}

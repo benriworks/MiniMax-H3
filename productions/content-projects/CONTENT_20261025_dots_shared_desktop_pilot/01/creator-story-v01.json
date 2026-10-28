@@ -1,0 +1,134 @@
+{
+  "schema_version": 1,
+  "id": "SHORT_20261025_dots_desktop_01",
+  "title": "【ChatGPT】AIと同じ画面で仕上げる！dotsの共有デスクトップ",
+  "voice": "Aoede",
+  "rate": 1,
+  "duration_seconds": 30,
+  "music_preset": "bright_groove_v1",
+  "pronunciations": [
+    {
+      "source": "dots",
+      "target": "ドッツ"
+    },
+    {
+      "source": "dot",
+      "target": "ドット"
+    }
+  ],
+  "scenes": [
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "同じPCで\n仕上げる",
+      "eyebrow": "DOTS / 共有PC",
+      "narration": "クラウドが、dotsとあなたの共有デスクトップになります。",
+      "captions": [
+        "クラウドが、\ndotsとあなたの",
+        "共有デスクトップに\nなります。"
+      ],
+      "capture": {
+        "origin": "demonstration",
+        "product": "ChatGPT",
+        "phase": "after",
+        "title": "クラウド上の完成文",
+        "path": "outputs/productions/SHORT_20261025_dots_desktop_01/captures/after.png",
+        "proof": "outputs/productions/SHORT_20261025_dots_desktop_01/captures/after-proof.json"
+      }
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "下書きから\n同じ画面へ",
+      "eyebrow": "DOTS / 作業を確認",
+      "narration": "dotが用意した下書きを、同じ作業画面で確認。",
+      "captions": [
+        "dotが用意した下書きを、",
+        "同じ作業画面で確認。"
+      ],
+      "capture": {
+        "origin": "demonstration",
+        "product": "ChatGPT",
+        "phase": "first-output",
+        "title": "案内文の初回出力",
+        "path": "outputs/productions/SHORT_20261025_dots_desktop_01/captures/first.png",
+        "proof": "outputs/productions/SHORT_20261025_dots_desktop_01/captures/first-proof.json"
+      }
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "操作を引き継ぎ\n自分で修正",
+      "eyebrow": "DOTS / 操作交代",
+      "narration": "操作を引き継げば、自分で見出しを直せます。",
+      "captions": [
+        "操作を引き継げば、",
+        "自分で見出しを直せます。"
+      ],
+      "capture": {
+        "origin": "demonstration",
+        "product": "ChatGPT",
+        "phase": "revision",
+        "title": "見出しの修正",
+        "path": "outputs/productions/SHORT_20261025_dots_desktop_01/captures/revision.png",
+        "proof": "outputs/productions/SHORT_20261025_dots_desktop_01/captures/revision-proof.json"
+      }
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "操作を戻して\n続きを任せる",
+      "eyebrow": "DOTS / 作業を戻す",
+      "narration": "終わったら操作を戻し、続きを頼めます。",
+      "captions": [
+        "終わったら操作を戻し、",
+        "続きを頼めます。"
+      ],
+      "capture": {
+        "origin": "demonstration",
+        "product": "ChatGPT",
+        "phase": "after",
+        "title": "操作をdotへ戻す",
+        "path": "outputs/productions/SHORT_20261025_dots_desktop_01/captures/return.png",
+        "proof": "outputs/productions/SHORT_20261025_dots_desktop_01/captures/return-proof.json"
+      }
+    },
+    {
+      "kind": "diagram",
+      "headline": "手元PCとは\n別の作業環境",
+      "eyebrow": "ログインも別",
+      "narration": "ファイルやログインは、手元のパソコンと別です。",
+      "captions": [
+        "ファイルやログインは、",
+        "手元のパソコンと別です。"
+      ],
+      "graphic": "cloud",
+      "items": [
+        {
+          "label": "手元"
+        },
+        {
+          "label": "別環境"
+        }
+      ]
+    },
+    {
+      "kind": "editorial",
+      "visual_style": "business",
+      "editorial_layout": "closing",
+      "headline": "見る、直す\nそして任せる",
+      "eyebrow": "DOTS / 同じ作業場所",
+      "body": "自分も確認できる",
+      "action": "まず画面を開く",
+      "narration": "見る、直す、任せる。同じ作業場所で進めましょう。",
+      "captions": [
+        "見る、直す、任せる。",
+        "同じ作業場所で\n進めましょう。"
+      ],
+      "media": {
+        "path": "outputs/characters/explainer-motion-20261022/dots-male/MiniMax_H3_dots_male_00001_.mp4",
+        "proof": "outputs/characters/explainer-motion-20261022/dots-male/verification.json"
+      }
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "content_project_id": "CONTENT_20261024_php2shell_overview",
+  "production_id": "SHORT_20261024_php2shell_overview",
+  "revision": "v02",
+  "title": "【PHP】PHP2Shellとは？サイト運営者が今確認すべきこと",
+  "status": "verified_candidate_awaiting_user_review",
+  "video": {
+    "path": "outputs/productions/SHORT_20261024_php2shell_overview/20261024T133431012463Z/release/php2shell-overview-v01.mp4",
+    "bytes": 6282891,
+    "sha256": "83811044FA48F083952B266BD26EB22ABD4C4806CD93C978A66A4E3C257F20F1"
+  },
+  "output": "outputs/productions/SHORT_20261024_php2shell_overview/20261024T133431012463Z",
+  "duration_seconds": 50,
+  "width": 1080,
+  "height": 1920,
+  "fps": 24,
+  "verification": {
+    "path": "outputs/productions/SHORT_20261024_php2shell_overview/20261024T133431012463Z/verification.json",
+    "bytes": 19322,
+    "sha256": "0B747F98EBC12D9B8E60B4B6F2138B70D8D5D1A369726DD3DB219B95BEFCB2A9"
+  },
+  "ai_visual_review": {
+    "path": "outputs/productions/SHORT_20261024_php2shell_overview/20261024T133431012463Z/ai-visual-review.json",
+    "bytes": 1774,
+    "sha256": "0C0E67074ABF807EE632106EF81705CA29C509D1092C390C5E049DD7092FE90D"
+  },
+  "motion_proof": {
+    "path": "outputs/content-projects/CONTENT_20261024_php2shell_overview/motion/v01/miura-insight-v02/visual-review.json",
+    "bytes": 12968,
+    "sha256": "6C9B8314044F0E96FFFD26D985BF6DB352F412C5B0B209D2EAD9BA1B1E37F29C"
+  },
+  "new_motion_generated": true,
+  "successful_minimax_generations": 1,
+  "minimax_paid_api_calls": 0,
+  "gemini_verified_requests": 9,
+  "voice": "Aoede",
+  "reused_voice_pcm_verified": true,
+  "human_listening": "pending",
+  "user_adoption": "pending",
+  "publication": "not_performed",
+  "sharing": {
+    "provider": "google_drive",
+    "status": "uploaded_and_metadata_verified",
+    "receipt": {
+      "path": "outputs/content-projects/CONTENT_20261024_php2shell_overview/drive-review-v01.json",
+      "bytes": 850,
+      "sha256": "225BE9E05D2BDEA2F62D102A5A89D5F4F64D013CB9982DF685FC1202965DC992"
+    },
+    "mobile_playback": "not_verified"
+  }
+}

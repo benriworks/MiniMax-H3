@@ -1,0 +1,111 @@
+{
+  "date": "2026-09-30",
+  "status": "implementation_verified_sample_awaiting_user_review",
+  "user_approved": false,
+  "production_id": "SHORT_20260930_claude_code_creator",
+  "sample": {
+    "path": "outputs/productions/SHORT_20260930_claude_code_creator/20260930T045206790884Z/shorts-creator.mp4",
+    "bytes": 10706547,
+    "sha256": "546904D17D4A5C577A220735365D63BC06D05AD6486C77C149D0D430E4E2462E"
+  },
+  "sample_verification": "outputs/productions/SHORT_20260930_claude_code_creator/20260930T045206790884Z/verification.json",
+  "package": {
+    "zip": {
+      "path": "outputs/productions/SHORT_20260930_claude_code_creator/20260930T045206790884Z/shorts-creator-review.zip",
+      "bytes": 12083292,
+      "sha256": "40A5A18CB6A9A92DE5517AB01D2F083A38F8375C5AF02C99FA12DD85868B56BB"
+    },
+    "crc_and_hashes_verified": true
+  },
+  "tests": {
+    "backend": {
+      "passed": 94,
+      "log": "outputs/creator-backend-tests.log"
+    },
+    "frontend": {
+      "passed": 233,
+      "log": "outputs/creator-frontend-tests.log"
+    },
+    "final_caption_regression_subset": {
+      "passed": 32,
+      "log": "outputs/creator-final-caption-tests.log"
+    },
+    "build": "passed; existing large bundle warning",
+    "build_log": "outputs/creator-build.log",
+    "git_diff_check": "passed",
+    "visual_revision": {
+      "backend_passed": 7,
+      "backend_log": "outputs/female-silhouette-shorts-tests.log",
+      "build": "passed; existing large bundle warning",
+      "build_log": "outputs/female-silhouette-build.log",
+      "audio_integration": "outputs/female-silhouette-audio-check.json",
+      "visual_change_check": {
+        "path": "outputs/productions/SHORT_20260930_claude_code_creator/20260930T045206790884Z/visual-change-check.json",
+        "bytes": 3829,
+        "sha256": "28E2FB79D224B5B5DD321EC8D48964EB1146DA65153FD48C515472F819F0B1EE"
+      }
+    }
+  },
+  "studio": {
+    "recipe_id": "announcement_3a1c31120b788419ae196d970c923f3d",
+    "full_pipeline_job": "job_56ede9365ad74102b72c741d1443b087",
+    "full_pipeline_status": "succeeded",
+    "full_pipeline_technical_verdict": "pass",
+    "final_caption_assembly_job": "job_a9277b13022444c184c21ee2a7b7ef92",
+    "final_caption_qc_job": "job_981d1e2e52e74441aefd85dceb282584",
+    "final_caption_qc_status": "succeeded",
+    "final_caption_qc_report": "outputs/studio/runs/run_77aa1c1b4c084435af7618678da309c7/qc/FC3E6BD78D9092F48776408E1561EA7F6A7946369D988ED7B457B07FCFF8377F/technical-qc.json",
+    "font_size_ass": 96,
+    "phone_frame": "outputs/creator-studio-preview.png",
+    "browser_checks": [
+      "Creator preset and phrase caption selection",
+      "Saved recipe readback",
+      "Successful save after same-origin session recovery",
+      "Successful save after server restart"
+    ],
+    "details": "outputs/creator-studio-smoke.json"
+  },
+  "delivery_scope": {
+    "studio": "3-scene motion preset and phrase captions; original audio mix",
+    "shared_cli": "3-24 scenes, 15/30/45/60 seconds, measured speech scheduling, original music and effects, ducking and loudness normalization"
+  },
+  "documentation": [
+    "SHORTS_CREATOR_JA.md",
+    "ARCHITECTURE.md",
+    "ARCHITECTURE_DIAGRAM.md",
+    "productions/SHORT_20260930_claude_code_creator/README.md"
+  ],
+  "browser_preview_note": "Automatic file URL preview was blocked by browser protocol policy. Local MP4, HTML and ZIP remain available; no browser workaround was attempted.",
+  "publication_performed": false,
+  "sample_history": [
+    {
+      "sample": {
+        "path": "outputs/productions/SHORT_20260930_claude_code_creator/20260929T190107153171Z/shorts-creator.mp4",
+        "bytes": 10874426,
+        "sha256": "90634827689BD3B5C45C9E88109126A75A4C4D6188CDEA5283D4F0A74C032514"
+      },
+      "sample_verification": "outputs/productions/SHORT_20260930_claude_code_creator/20260929T190107153171Z/verification.json",
+      "package": {
+        "zip": {
+          "path": "outputs/productions/SHORT_20260930_claude_code_creator/20260929T190107153171Z/shorts-creator-review.zip",
+          "bytes": 12250685,
+          "sha256": "00A90CD6F73E04EFB1966623AF7AD02177E551DB67A199718782F8D49AF2A9C1"
+        },
+        "crc_and_hashes_verified": true
+      },
+      "revision": "initial_creator_revision"
+    }
+  ],
+  "updated_at": "2026-09-30T04:58:13.260843+00:00",
+  "current_revision": {
+    "illustration_note_displayed": false,
+    "female_generation_proof": {
+      "path": "verification/claude-acquired-female-silhouette-2026-09-30.json",
+      "bytes": 14033,
+      "sha256": "F7F9E4F6094121C7B35E4B728117DC776904AD79291793A87DED36441C1291B9"
+    },
+    "character_comparison": "outputs/characters/programmer-duo-20260930/index.html",
+    "audio_packet_identity_verified": true,
+    "user_approved": false
+  }
+}

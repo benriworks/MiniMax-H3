@@ -1,0 +1,12 @@
+{
+  "voice_source": {
+    "path": "outputs/productions/SHORT_20261022_dots_09_editorial/voice-generations/20261022T101743Z-e90d314c/voice-source.json",
+    "bytes": 6148,
+    "sha256": "A1C2BD4CEDBF20C98EAAACD1541EF9552A0F7BCEE237BE81A97E1A858D8484FD"
+  },
+  "video": {
+    "path": "outputs/productions/SHORT_20261022_dots_09_editorial/20261022T191615022282Z/release/dots-09-controls-official.mp4",
+    "bytes": 6828507,
+    "sha256": "5C59A1C439A8D5D132854351D2EAFED7CFFA572BF7F5B6AF329E4A0DC99FBFFB"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "title": "Claude Code、何がすごい？",
+  "duration_ms": 30000,
+  "fps": 24,
+  "width": 1080,
+  "height": 1920,
+  "minimum_font_px": 54,
+  "voice": "Microsoft Sayaka",
+  "rate": 1,
+  "pronunciations": [{"source": "Claude Code", "target": "クロードコード"}],
+  "segments": [
+    {"start_ms": 180, "text": "Claude Code、何がすごい？", "caption": ["Claude Code、", "何がすごい？"]},
+    {"start_ms": 5180, "text": "日本語で依頼。つくる手順を考えてくれる。", "caption": ["日本語で依頼。", "つくる手順を考えてくれる。"]},
+    {"start_ms": 10180, "text": "ファイルをまとめて編集。画面も機能も形に。", "caption": ["ファイルをまとめて編集。", "画面も機能も形に。"]},
+    {"start_ms": 15180, "text": "エラーを修正。テストまで進められる。", "caption": ["エラーを修正。", "テストまで進められる。"]},
+    {"start_ms": 20180, "text": "追加で頼んで、対話で仕上げる。", "caption": ["追加で頼んで、", "対話で仕上げる。"]},
+    {"start_ms": 25180, "text": "最後は自分で確認。アイデアを形に。", "caption": ["最後は自分で確認。", "アイデアを形に。"]}
+  ],
+  "visuals": {
+    "opening": {"path": "outputs/claude-acquired-20260919/MiniMax_H3_Claude_Acquired_00001_.mp4", "proof": "verification/claude-acquired-2026-09-19.json", "new_generation": false},
+    "closing": {"path": "outputs/claude-acquired-female-bright-20260921/MiniMax_H3_Claude_Acquired_Female_Bright_00001_.mp4", "proof": "verification/claude-acquired-female-bright-2026-09-21.json", "new_generation": false}
+  },
+  "middle_scenes": "Original explanatory motion graphics; not an actual Claude Code recording or a measured completion-time demonstration.",
+  "music": "Original locally synthesized 112 BPM instrumental, low under narration",
+  "publication": "review_candidate_not_uploaded"
+}

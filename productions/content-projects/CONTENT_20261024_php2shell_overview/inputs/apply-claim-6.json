@@ -1,0 +1,14 @@
+{
+  "operation_id": "op_php_claim_6",
+  "expected_revision": 6,
+  "data": {
+    "claim_id": "identity",
+    "text": "2026年10月21日に公表されたCVE-2026-109618／CVE-2026-109619はPHP2Shellと呼ばれる2件の脆弱性。",
+    "basis": "official",
+    "checked_at": "2026-10-24",
+    "source_ids": [
+      "ipa_oct22",
+      "php_oct21"
+    ]
+  }
+}

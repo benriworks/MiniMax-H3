@@ -1,0 +1,11 @@
+架空のメモからDocsで企画書を作り、予算欄の見出しと金額の書式を整える過程を紹介します。
+
+登場人物の佐伯栞、店舗「灯台珈琲」、企画・資料は説明用の架空設定です。
+Anthropicの公式・公認動画ではありません。公式資料の引用と、こちらで記録した実演を区別しています。
+画面・機能の確認日：2026年10月22日。プランや設定、更新によって表示・利用条件が変わる場合があります。
+
+出典
+Get started with Claude Docs
+https://support.claude.com/en/articles/16923645-get-started-with-claude-docs
+
+#Claude #仕事効率化 #Shorts

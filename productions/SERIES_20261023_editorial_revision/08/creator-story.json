@@ -1,0 +1,272 @@
+{
+  "schema_version": 1,
+  "voice": "Aoede",
+  "rate": 1,
+  "pronunciations": [
+    {
+      "source": "dots",
+      "target": "ドッツ"
+    },
+    {
+      "source": "dot",
+      "target": "ドット"
+    },
+    {
+      "source": "ChatGPT",
+      "target": "チャットジーピーティー"
+    },
+    {
+      "source": "GPT-6 Astra",
+      "target": "ジーピーティーシックス、アストラ"
+    },
+    {
+      "source": "OpenAI",
+      "target": "オープンエーアイ"
+    },
+    {
+      "source": "Business Premium",
+      "target": "ビジネスプレミアム"
+    },
+    {
+      "source": "Enterprise",
+      "target": "エンタープライズ"
+    },
+    {
+      "source": "Pro",
+      "target": "プロ"
+    },
+    {
+      "source": "PC",
+      "target": "ピーシー"
+    },
+    {
+      "source": "Gmail",
+      "target": "ジーメール"
+    },
+    {
+      "source": "Drive",
+      "target": "ドライブ"
+    },
+    {
+      "source": "GitHub",
+      "target": "ギットハブ"
+    },
+    {
+      "source": "Slack",
+      "target": "スラック"
+    },
+    {
+      "source": "Teams",
+      "target": "チームズ"
+    },
+    {
+      "source": "Activity",
+      "target": "アクティビティ"
+    },
+    {
+      "source": "Scheduled",
+      "target": "スケジュールド"
+    },
+    {
+      "source": "SMS",
+      "target": "エスエムエス"
+    }
+  ],
+  "duration_seconds": 30,
+  "music_preset": "bright_groove_v1",
+  "id": "SHORT_20261023_dots_08_message_v02",
+  "title": "【ChatGPT】頼む前に次の一手！dotsの「先回り提案」",
+  "scenes": [
+    {
+      "kind": "editorial",
+      "editorial_layout": "contrast",
+      "headline": "頼む前に、\n次の一手を提案。",
+      "narration": "頼む前に、次の一手を提案。",
+      "captions": [
+        "頼む前に、",
+        "次の一手を提案。"
+      ],
+      "body": "先回り提案",
+      "items": [
+        {
+          "label": "気づく",
+          "detail": "変化を見つける"
+        },
+        {
+          "label": "提案する",
+          "detail": "次にすること"
+        }
+      ],
+      "eyebrow": "DOTS 08 / 先回り提案",
+      "source_ids": [
+        "tasks-and-memory",
+        "controls"
+      ],
+      "media": {
+        "path": "outputs/characters/explainer-motion-20261022/dots-male/MiniMax_H3_dots_male_00001_.mp4",
+        "proof": "outputs/characters/explainer-motion-20261022/dots-male/verification.json"
+      },
+      "mediaStart": 0
+    },
+    {
+      "kind": "source",
+      "headline": "メールや予定から、\n仕事の変化を知る。",
+      "narration": "接続したメールや予定表を、読める範囲で調べます。",
+      "captions": [
+        "接続したメールや\n予定表を、",
+        "読める範囲で調べます。"
+      ],
+      "capture": {
+        "title": "Tasks and memory",
+        "path": "outputs/productions/SHORT_20261022_dots_08_editorial/captures/official-research.png",
+        "proof": "outputs/productions/SHORT_20261022_dots_08_editorial/captures/official-research.json",
+        "source_url": "https://learn.chatgpt.com/docs/dots/tasks-and-memory"
+      },
+      "eyebrow": "DOTS 08 / 先回り提案",
+      "source_ids": [
+        "tasks-and-memory",
+        "controls"
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "research",
+      "headline": "仕事の文脈と、\n変化をつなぐ。",
+      "narration": "毎回指示しなくても、仕事の文脈と変化をつなぎます。",
+      "captions": [
+        "毎回指示しなくても、",
+        "仕事の文脈と",
+        "変化をつなぎます。"
+      ],
+      "body": "使える情報をもとに",
+      "items": [
+        {
+          "label": "これまで",
+          "detail": "仕事の文脈"
+        },
+        {
+          "label": "新しい情報",
+          "detail": "変わった予定"
+        }
+      ],
+      "eyebrow": "DOTS 08 / 先回り提案",
+      "source_ids": [
+        "tasks-and-memory",
+        "controls"
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "calendar",
+      "headline": "会議は前倒し。\n資料の準備は？",
+      "narration": "たとえば、会議は前倒し。資料の締切はそのまま。",
+      "captions": [
+        "たとえば、会議は前倒し。",
+        "資料の締切はそのまま。"
+      ],
+      "body": "架空の例",
+      "items": [
+        {
+          "label": "会議",
+          "detail": "水曜へ変更"
+        },
+        {
+          "label": "資料の締切",
+          "detail": "木曜のまま"
+        }
+      ],
+      "eyebrow": "DOTS 08 / 先回り提案",
+      "source_ids": [
+        "tasks-and-memory",
+        "controls"
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "statement",
+      "headline": "「準備を早めませんか？」",
+      "narration": "準備を早めませんか？と、次の一手を提案します。",
+      "captions": [
+        "準備を早めませんか？と、",
+        "次の一手を提案します。"
+      ],
+      "body": "予定の変化から\n次の行動を提案",
+      "action": "提案の例",
+      "eyebrow": "DOTS 08 / 先回り提案",
+      "source_ids": [
+        "tasks-and-memory",
+        "controls"
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "permissions",
+      "headline": "提案を受けて、\n次の行動を決める。",
+      "narration": "提案を受けて、実行するかはあなたが判断。",
+      "captions": [
+        "提案を受けて、",
+        "実行するかは\nあなたが判断。"
+      ],
+      "body": "提案から次の一歩へ",
+      "items": [
+        {
+          "label": "dots",
+          "detail": "気づきを届ける"
+        },
+        {
+          "label": "あなた",
+          "detail": "次の行動を選ぶ"
+        }
+      ],
+      "eyebrow": "DOTS 08 / 先回り提案",
+      "source_ids": [
+        "tasks-and-memory",
+        "controls"
+      ]
+    },
+    {
+      "kind": "editorial",
+      "editorial_layout": "recap",
+      "headline": "気づきを、\n行動のきっかけに。",
+      "narration": "気づきを、行動のきっかけに。dotsの先回り提案。",
+      "captions": [
+        "気づきを、",
+        "行動のきっかけに。",
+        "dotsの先回り提案。"
+      ],
+      "body": "先回り提案",
+      "items": [
+        {
+          "label": "気づく",
+          "detail": "仕事の変化"
+        },
+        {
+          "label": "提案する",
+          "detail": "次の一手"
+        }
+      ],
+      "action": "次回：実行前の確認",
+      "eyebrow": "DOTS 08 / 先回り提案",
+      "source_ids": [
+        "tasks-and-memory",
+        "controls"
+      ],
+      "media": {
+        "path": "outputs/characters/explainer-motion-20261022/dots-female/MiniMax_H3_dots_female_00001_.mp4",
+        "proof": "outputs/characters/explainer-motion-20261022/dots-female/verification.json"
+      },
+      "mediaStart": 0
+    }
+  ],
+  "editorial": {
+    "checked_date": "2026-10-23",
+    "series_episode": 8,
+    "official_source_ids": [
+      "tasks-and-memory",
+      "controls"
+    ],
+    "availability_note": "Proactive researchの価値を先回り提案として説明。許可された情報が対象で、個別の調査依頼を毎回必要としない。カレンダー例は架空。接続だけで全イベントの監視予約ができるとは主張しない。",
+    "user_approved": false,
+    "visuals": "One short excerpt captured from official documentation plus original editorial explanatory graphics; fictional examples are labelled. Not a live product test."
+  }
+}

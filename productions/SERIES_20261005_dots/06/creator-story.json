@@ -1,0 +1,248 @@
+{
+  "schema_version": 1,
+  "id": "SHORT_20261005_dots_06",
+  "title": "ChatGPT・Slack・Teamsで同じ相棒と｜dotsの会話と通話",
+  "duration_seconds": 30,
+  "voice": "Microsoft Sayaka",
+  "rate": 1,
+  "pronunciations": [
+    {
+      "source": "dots",
+      "target": "ドッツ"
+    },
+    {
+      "source": "dot",
+      "target": "ドット"
+    },
+    {
+      "source": "ChatGPT",
+      "target": "チャットジーピーティー"
+    },
+    {
+      "source": "GPT-6 Astra",
+      "target": "ジーピーティーシックス、アストラ"
+    },
+    {
+      "source": "OpenAI",
+      "target": "オープンエーアイ"
+    },
+    {
+      "source": "Business Premium",
+      "target": "ビジネスプレミアム"
+    },
+    {
+      "source": "Enterprise",
+      "target": "エンタープライズ"
+    },
+    {
+      "source": "Pro",
+      "target": "プロ"
+    },
+    {
+      "source": "PC",
+      "target": "ピーシー"
+    },
+    {
+      "source": "Gmail",
+      "target": "ジーメール"
+    },
+    {
+      "source": "Drive",
+      "target": "ドライブ"
+    },
+    {
+      "source": "GitHub",
+      "target": "ギットハブ"
+    },
+    {
+      "source": "Slack",
+      "target": "スラック"
+    },
+    {
+      "source": "Teams",
+      "target": "チームズ"
+    },
+    {
+      "source": "Activity",
+      "target": "アクティビティ"
+    },
+    {
+      "source": "Scheduled",
+      "target": "スケジュールド"
+    },
+    {
+      "source": "SMS",
+      "target": "エスエムエス"
+    }
+  ],
+  "scenes": [
+    {
+      "kind": "hero",
+      "headline": "場所が変わっても、\n同じ相棒。",
+      "narration": "dotsは、いろんな場所で話せる。",
+      "captions": [
+        "dotsは、",
+        "いろんな場所で話せる。"
+      ],
+      "source_ids": [
+        "channels"
+      ],
+      "body": "dots / 会話と通話",
+      "media": {
+        "path": "outputs/claude-acquired-female-silhouette-20260930/MiniMax_H3_Claude_Acquired_Female_Silhouette_00001_.mp4",
+        "proof": "verification/claude-acquired-female-silhouette-2026-09-30.json"
+      },
+      "eyebrow": "DOTS 06 / 09"
+    },
+    {
+      "kind": "diagram",
+      "headline": "ChatGPT、Slack、\nTeamsから。",
+      "narration": "ChatGPT、Slack、Teamsから。",
+      "captions": [
+        "ChatGPT、Slack、",
+        "Teamsから。"
+      ],
+      "source_ids": [
+        "channels"
+      ],
+      "graphic": "chat",
+      "items": [
+        {
+          "label": "ChatGPT"
+        },
+        {
+          "label": "Slack"
+        },
+        {
+          "label": "Teams"
+        }
+      ],
+      "eyebrow": "DOTS 06 / 09"
+    },
+    {
+      "kind": "diagram",
+      "headline": "連絡先を変えても、\n関係は続く。",
+      "narration": "同じdotと、文脈を引き継げる。",
+      "captions": [
+        "同じdotと、",
+        "文脈を引き継げる。"
+      ],
+      "source_ids": [
+        "channels",
+        "tasks"
+      ],
+      "graphic": "memory",
+      "items": [],
+      "body": "同じ相棒との会話",
+      "tone": "light",
+      "eyebrow": "DOTS 06 / 09"
+    },
+    {
+      "kind": "diagram",
+      "headline": "声で、\n相談できる。",
+      "narration": "声で話すことも。",
+      "captions": [
+        "声で話すことも。"
+      ],
+      "source_ids": [
+        "channels"
+      ],
+      "graphic": "chat",
+      "items": [],
+      "body": "ChatGPTの通話から",
+      "eyebrow": "DOTS 06 / 09"
+    },
+    {
+      "kind": "cards",
+      "headline": "通話中も、\n文字で補足。",
+      "narration": "通話中に、文字で補足も。",
+      "captions": [
+        "通話中に、文字で補足も。"
+      ],
+      "source_ids": [
+        "channels"
+      ],
+      "items": [
+        {
+          "label": "声",
+          "detail": "話して相談"
+        },
+        {
+          "label": "文字",
+          "detail": "情報を追記"
+        }
+      ],
+      "tone": "light",
+      "eyebrow": "DOTS 06 / 09"
+    },
+    {
+      "kind": "diagram",
+      "headline": "通話を終えても、\n仕事は続く。",
+      "narration": "通話を切っても、仕事は止まりません。",
+      "captions": [
+        "通話を切っても、",
+        "仕事は止まりません。"
+      ],
+      "source_ids": [
+        "channels"
+      ],
+      "graphic": "parallel",
+      "items": [],
+      "body": "終了と停止は別の操作",
+      "eyebrow": "DOTS 06 / 09"
+    },
+    {
+      "kind": "cards",
+      "headline": "これからの機能も、\n区別しよう。",
+      "narration": "SMSや、dotからの通話は今後の予定。",
+      "captions": [
+        "SMSや、dotからの通話は",
+        "今後の予定。"
+      ],
+      "source_ids": [
+        "channels"
+      ],
+      "items": [
+        {
+          "label": "SMS",
+          "detail": "今後の対応予定"
+        },
+        {
+          "label": "dotの発信",
+          "detail": "今後の対応予定"
+        }
+      ],
+      "tone": "light",
+      "eyebrow": "DOTS 06 / 09"
+    },
+    {
+      "kind": "hero",
+      "headline": "会話する場所を、\n選べる。",
+      "narration": "使いやすい場所で、同じ相棒と。",
+      "captions": [
+        "使いやすい場所で、",
+        "同じ相棒と。"
+      ],
+      "source_ids": [
+        "channels"
+      ],
+      "body": "次は、定期実行。",
+      "media": {
+        "path": "outputs/claude-acquired-20260919/MiniMax_H3_Claude_Acquired_00001_.mp4",
+        "proof": "verification/claude-acquired-2026-09-19.json"
+      },
+      "eyebrow": "DOTS 06 / 09"
+    }
+  ],
+  "editorial": {
+    "checked_date": "2026-10-05",
+    "series_episode": 6,
+    "official_source_ids": [
+      "channels",
+      "tasks"
+    ],
+    "visuals": "Original motion graphics and reused fictional programmer characters; not recorded product UI.",
+    "availability_note": "ChatGPT、接続したSlack／Teamsで同じdotと会話でき、関連する文脈を引き継げます。ただし各チャンネルのメッセージが自動で丸ごと複製されるわけではありません。ChatGPTのデスクトップ／Webでは通話できます。通話終了は割り当て済みの作業停止を意味しません。2026年10月5日の確認時点で、SMSとdotから発信する通話は今後の予定として案内されています。モバイルは対応アプリ更新後、モバイルWebは未対応です。",
+    "user_approved": false
+  }
+}

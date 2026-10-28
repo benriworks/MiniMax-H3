@@ -1,0 +1,11 @@
+{
+  "revision": "v02",
+  "story": "productions/SERIES_20261023_editorial_revision/01/visual-v03/creator-story.json",
+  "render_state": "productions/SERIES_20261023_editorial_revision/01/final-state.json",
+  "review_entry": "outputs/content-projects/CONTENT_20261023_claude_docs_reuse/review/v02/index.html",
+  "article_pr": "https://github.com/benriworks/blog/pull/85",
+  "technical_verification": "passed",
+  "ai_visual_review": "representative_frames_and_all_pdf_pages_checked",
+  "user_approved": false,
+  "additional_direct_edit_and_multi_source_capture": "not_performed"
+}

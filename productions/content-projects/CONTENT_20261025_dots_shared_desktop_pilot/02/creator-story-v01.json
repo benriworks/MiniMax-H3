@@ -1,0 +1,149 @@
+{
+  "schema_version": 1,
+  "id": "SHORT_20261025_dots_desktop_02",
+  "title": "【ChatGPT】どら焼きを3Dに！dotsのクラウドPCでBlender制作",
+  "voice": "Aoede",
+  "rate": 1,
+  "duration_seconds": 35,
+  "music_preset": "bright_groove_v1",
+  "pronunciations": [
+    {
+      "source": "dots",
+      "target": "ドッツ"
+    },
+    {
+      "source": "Blender",
+      "target": "ブレンダー"
+    },
+    {
+      "source": "PC",
+      "target": "ピーシー"
+    }
+  ],
+  "scenes": [
+    {
+      "kind": "hero",
+      "headline": "このどら焼き\nクラウドで制作",
+      "eyebrow": "完成した3Dモデル",
+      "narration": "このどら焼き、dotsのクラウドPCで作りました。",
+      "captions": [
+        "このどら焼き、",
+        "dotsのクラウドPCで",
+        "作りました。"
+      ],
+      "media": {
+        "path": "outputs/content-projects/CONTENT_20261025_dots_shared_desktop_pilot/editorial/blender-v01/thicker_anko.mp4",
+        "proof": "outputs/content-projects/CONTENT_20261025_dots_shared_desktop_pilot/editorial/blender-v01/thicker_anko-proof.json"
+      }
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "皮とあんこを\nモデリング",
+      "eyebrow": "クラウド内のBlender",
+      "narration": "クラウド側のBlenderを使い、皮とあんこを形に。",
+      "captions": [
+        "クラウド側の\nBlenderを使い、",
+        "皮とあんこを形に。"
+      ],
+      "capture": {
+        "origin": "demonstration",
+        "product": "ChatGPT",
+        "phase": "first-output",
+        "title": "クラウドのBlender",
+        "path": "outputs/productions/SHORT_20261025_dots_desktop_02/captures/first.png",
+        "proof": "outputs/productions/SHORT_20261025_dots_desktop_02/captures/first-proof.json"
+      }
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "立体のまま\n形を確かめる",
+      "eyebrow": "Blenderの作業画面",
+      "narration": "画面を回せば、立体のまま形を確認できます。",
+      "captions": [
+        "画面を回せば、",
+        "立体のまま形を",
+        "確認できます。"
+      ],
+      "capture": {
+        "origin": "demonstration",
+        "product": "ChatGPT",
+        "phase": "revision",
+        "title": "クラウドのBlender",
+        "path": "outputs/productions/SHORT_20261025_dots_desktop_02/captures/viewport.png",
+        "proof": "outputs/productions/SHORT_20261025_dots_desktop_02/captures/viewport-proof.json"
+      }
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "あんこを\n少し厚く",
+      "eyebrow": "同じモデルを修正",
+      "narration": "あんこを少し厚く、と頼んで同じモデルを修正。",
+      "captions": [
+        "あんこを少し\n厚く、と頼んで",
+        "同じモデルを修正。"
+      ],
+      "capture": {
+        "origin": "demonstration",
+        "product": "ChatGPT",
+        "phase": "revision",
+        "title": "クラウドのBlender",
+        "path": "outputs/productions/SHORT_20261025_dots_desktop_02/captures/revision.png",
+        "proof": "outputs/productions/SHORT_20261025_dots_desktop_02/captures/revision-proof.json"
+      }
+    },
+    {
+      "kind": "hero",
+      "headline": "あんこを厚く\n前後を比較",
+      "eyebrow": "同じカメラで比較",
+      "narration": "修正前と後を、同じ角度で見比べます。",
+      "captions": [
+        "修正前と後を、",
+        "同じ角度で見比べます。"
+      ],
+      "media": {
+        "path": "outputs/content-projects/CONTENT_20261025_dots_shared_desktop_pilot/editorial/blender-v01/comparison.mp4",
+        "proof": "outputs/content-projects/CONTENT_20261025_dots_shared_desktop_pilot/editorial/blender-v01/comparison-proof.json"
+      }
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "保存した\nモデルを開く",
+      "eyebrow": "保存と再表示",
+      "narration": "ファイルを保存。開き直して、続きから作業。",
+      "captions": [
+        "ファイルを保存。",
+        "開き直して、\n続きから作業。"
+      ],
+      "capture": {
+        "origin": "demonstration",
+        "product": "ChatGPT",
+        "phase": "export",
+        "title": "クラウドのBlender",
+        "path": "outputs/productions/SHORT_20261025_dots_desktop_02/captures/reopen.png",
+        "proof": "outputs/productions/SHORT_20261025_dots_desktop_02/captures/reopen-proof.json"
+      }
+    },
+    {
+      "kind": "editorial",
+      "visual_style": "business",
+      "editorial_layout": "closing",
+      "headline": "アプリも使う\nクラウドPC",
+      "eyebrow": "DOTS / 制作の作業場所",
+      "body": "画面で確認して修正",
+      "action": "必要な環境を確認",
+      "narration": "使えるソフトや環境は、実際に確かめましょう。",
+      "captions": [
+        "使えるソフトや環境は、",
+        "実際に確かめましょう。"
+      ],
+      "media": {
+        "path": "outputs/characters/explainer-motion-20261022/dots-female/MiniMax_H3_dots_female_00001_.mp4",
+        "proof": "outputs/characters/explainer-motion-20261022/dots-female/verification.json"
+      }
+    }
+  ]
+}

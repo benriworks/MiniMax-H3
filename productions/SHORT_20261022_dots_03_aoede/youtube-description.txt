@@ -1,0 +1,11 @@
+dots紹介の第3弾は「アプリ連携」。Gmailでメールを探す、Google Driveで資料を扱う、GitHubで課題を調べるなどの使い方を30秒で紹介します。
+
+利用するプラグインの接続アカウント、許可した操作、組織設定によって使える範囲は変わります。メールの閲覧を許可しても、送信まで許可したことにはなりません。
+
+情報確認日：2026年10月22日。OpenAI公式資料をもとにした非公式紹介です。独自図解と架空のキャラクターを使用し、実機録画ではありません。
+
+出典
+https://learn.chatgpt.com/docs/dots/computers-and-apps
+https://learn.chatgpt.com/docs/dots/getting-started
+
+#ChatGPT #dots #OpenAI #AI活用 #Shorts

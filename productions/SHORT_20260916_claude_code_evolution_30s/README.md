@@ -1,5 +1,51 @@
 # Claude Codeを支えるAI：3か月の進化
 
+## 2026-09-18：冒頭5秒を高画質化
+
+夜景の方向性は維持し、MiniMax H3の生成サイズを480×864から768×1376へ上げた（原本画素数は約2.548倍）。同じprompt・seed・20 steps・5秒で新しく生成したため、建物の配置は前版と異なる。窓の区切り、建物の輪郭、水面の反射を1080px幅の比較画像と20点の連続contactで確認した。
+
+- [高画質改訂版の字幕付きMP4](../../outputs/productions/SHORT_20260916_claude_code_evolution_30s/20260917T194143534675Z/master-captioned.mp4)
+- [高画質改訂版の確認用ZIP](../../outputs/productions/SHORT_20260916_claude_code_evolution_30s/20260917T194143534675Z/claude-code-evolution-review.zip)
+- [解像度・圧縮・音声同一性・目視の確認](../../outputs/productions/SHORT_20260916_claude_code_evolution_30s/20260917T194143534675Z/hq-revision-check.json)
+- [生成記録](../../verification/night-city-hq-2026-09-18.json)／[完成版1080px幅の確認画像](../../outputs/productions/SHORT_20260916_claude_code_evolution_30s/20260917T194143534675Z/preview-full-02.png)
+
+原本生成はローカルofficial INT8 + Q4／Dynamic VRAMで1,412.682秒、課金APIなし。原本CRF 14、Remotion中間CRF 12、字幕付きは中間から直接CRF 14／slowで1回だけ圧縮する`hq_direct_v1`を使用。字幕なし映像はstream copyで中間映像のpacket hashと一致した。ナレーションは前版のAACをそのままcopyし、両完成MP4で前版とのaudio stream hash一致を確認。字幕の共通80px preset、最低54pxの図解、台本と読み方を保持した。
+
+生成映像ラベルは下部に統合し、ビル群の中央を見せる配置へ変更。完成版を1080px幅と360px幅で確認し、文字・字幕の非重複を確認した。冒頭以外の5場面の描画画像は前版と同じhash。両MP4は30秒・720frames・1080×1920・24fps・H.264＋AAC 48kHzで全decode成功、ZIP全10項目のCRC／payload hashも一致。Python／Node構文確認、`git diff --check`も成功した。確認用改訂版であり、利用者採用やYouTube公開は未実施。
+
+現行版の再制作は`produce.py prepare --reuse-audio <検証済み前版の出力フォルダー>`→`render.mjs <新しい出力フォルダー>`→`produce.py finish <新しい出力フォルダー>`。HQ経路は前版の検証済み音声を必須とし、通常Studioの標準assemblyを変更しない。各世代の原本・完成版は別フォルダーに保持する。
+
+## 2026-09-18：明るくきらめく夜景へ差し替え
+
+利用者の依頼で、金色・白のビル照明と青・金色の水面の反射が見える夜景をMiniMax H3で新しく生成した。縦480×864・24fps・124framesの素材から冒頭5秒を使用し、暗幕の軽減、明るさと彩度の調整、文字の影、出典案内の半透明背景を加えた。最低54pxと前版のナレーションを維持している。
+
+- [明るい夜景に差し替えた字幕付きMP4](../../outputs/studio/runs/run_d9bccab59caef5645b9b6b0db4e94ed7/assembly/05473C44AF6D1BCFCA6E3C8CB28833B5D2DF47965F9AB5ED22B5B305D828F93E/master-captioned.mp4)
+- [夜景改訂版の確認用ZIP](../../outputs/productions/SHORT_20260916_claude_code_evolution_30s/20260917T190404737055Z/claude-code-evolution-review.zip)
+- [音声・後半図解の一致と見た目の確認](../../outputs/productions/SHORT_20260916_claude_code_evolution_30s/20260917T190404737055Z/night-revision-check.json)
+- [新規H3生成の記録](../../verification/night-city-2026-09-18.json)／[生成prompt](prompts/NIGHT_CITY_H3.md)
+
+ローカルofficial INT8 ConvRot + Q4／Dynamic VRAM／20 stepsで369.984秒、課金APIは未使用。生成graphと実行historyの一致、原本hash、媒体形式と全decodeを検証。0／2／4秒の原本と、文字・字幕を重ねた360px幅の完成画像を目視し、照明・反射と文字の非重複を確認した。
+
+完成版は両MP4とも30秒・720frames・1080×1920・24fps・H.264＋AAC 48kHzで全decode成功。ZIP全10項目のCRCとpayload hashも一致した。前版とナレーション4成果物および完成版AAC音声のSHA-256が同じで、冒頭以外の5場面の描画確認画像も同一だった。確認用の改訂版であり、利用者採用・YouTube投稿は未実施。前版成果物は保持し、今回起動したComfyUIは生成完了・空queue確認後に停止した。
+
+## 2026-09-17：文字の下限とアイキャッチを更新
+
+利用者の依頼で最低54px（360px表示では18px相当）へ拡大し、補足文も短く整理した。冒頭5秒はMiniMax H3で生成済みの夕暮れの都市映像を採用候補として配置。「MiniMax H3 生成映像」と表示し、元音声は使わない。原本と生成記録はhashを照合する。詳細は[SOURCES_JA.md](SOURCES_JA.md)の2026-09-17追補。
+
+今回の準備は`produce.py prepare --reuse-audio <9月16日音声改訂版の出力フォルダー>`を使用する。声・速度・発音辞書・台本・発話時刻と4つの音声成果物を照合して再利用し、`render.mjs`と`produce.py finish`で新しい映像へ合成する。新規H3生成とSAPIの再合成は行わない。
+
+### 更新版の出力と検証
+
+- [文字拡大・MiniMaxアイキャッチ入りの字幕付きMP4](../../outputs/studio/runs/run_ed514f7625655294cd05213f17431374/assembly/464F33EA15C9401B6CC0BF68672AE258FE34D5FA7043DC5F77CF03F781699FF9/master-captioned.mp4)
+- [更新版の確認用ZIP](../../outputs/productions/SHORT_20260916_claude_code_evolution_30s/20260917T100948962629Z/claude-code-evolution-review.zip)
+- [文字・既存生成映像・音声同一性の確認](../../outputs/productions/SHORT_20260916_claude_code_evolution_30s/20260917T100948962629Z/visual-revision-check.json)
+
+両MP4は30秒・720frames・1080×1920・24fps・H.264＋AAC 48kHzで、全decodeに成功。ZIPの10項目はCRCと全payload hashを読み戻して一致した。完成版の2／7／12／17／22／27秒を360×640で目視し、日付・補足・グラフ目盛りの可読性、字幕との非重複、冒頭の都市映像と生成表記を確認した。
+
+ナレーション4成果物を前版と同じpath／hashで再利用し、完成版のAAC音声ストリームも前版と同じSHA-256（`d949b0ed57f384ca924d06c11b077447fd818ec7e0b140472b8a67e0522bd2d5`）だった。速度と小数版／整数版の読み方を保持している。これは利用者が確認するための改訂版で、採用やYouTube投稿は未実施。
+
+## これまでの制作記録
+
 2026-09-16制作。30秒・縦1080×1920・24fpsの初稿。Fable 5、Opus 5、Fable 5.1を発表順に紹介する。利用者の尺指定は未回答のため30秒を仮置き。台本と出典は[SOURCES_JA.md](SOURCES_JA.md)、制作用正本は[story.json](story.json)。
 
 最新の音声設定：利用者指定によりSayakaのrateを0から1へ上げた。「Fable 5.1」は「フェイブルごーてんいち」、「Fable 5」と「Opus 5」は「ファイブ」。映像と表示字幕本文は維持し、字幕の終了時刻を再合成した実WAVへ合わせる。以下の初稿記録は旧版の履歴として残す。

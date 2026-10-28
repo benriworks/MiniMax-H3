@@ -1,0 +1,170 @@
+{
+  "schema_version": 1,
+  "id": "SHORT_20261025_dots_desktop_03",
+  "title": "【ChatGPT】表計算からシステムへ自動転記！dotsのクラウドPC",
+  "voice": "Aoede",
+  "rate": 1,
+  "duration_seconds": 35,
+  "music_preset": "bright_groove_v1",
+  "pronunciations": [
+    {
+      "source": "dots",
+      "target": "ドッツ"
+    },
+    {
+      "source": "Excel",
+      "target": "エクセル"
+    },
+    {
+      "source": "25万円",
+      "target": "にじゅうごまんえん"
+    },
+    {
+      "source": "表計算",
+      "target": "ひょうけいさん"
+    },
+    {
+      "source": "表を",
+      "target": "ひょうを"
+    },
+    {
+      "source": "表と",
+      "target": "ひょうと"
+    }
+  ],
+  "scenes": [
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "システムへ\n自動転記",
+      "eyebrow": "ブラウザーと表計算",
+      "narration": "Webブラウザーと表計算が使えるので、自動転記できます。",
+      "captions": [
+        "Webブラウザーと",
+        "表計算が使えるので、",
+        "自動転記できます。"
+      ],
+      "capture": {
+        "origin": "demonstration",
+        "product": "ChatGPT",
+        "phase": "after",
+        "title": "クラウドの案件入力",
+        "path": "outputs/productions/SHORT_20261025_dots_desktop_03/captures/after.png",
+        "proof": "outputs/productions/SHORT_20261025_dots_desktop_03/captures/after-proof.json"
+      }
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "Excelの表を\nクラウドで開く",
+      "eyebrow": "転記するデータを用意",
+      "narration": "Excelの表を、クラウドで開きます。",
+      "captions": [
+        "Excelの表を、",
+        "クラウドで開きます。"
+      ],
+      "capture": {
+        "origin": "demonstration",
+        "product": "ChatGPT",
+        "phase": "before",
+        "title": "クラウドの案件入力",
+        "path": "outputs/productions/SHORT_20261025_dots_desktop_03/captures/source.png",
+        "proof": "outputs/productions/SHORT_20261025_dots_desktop_03/captures/source-proof.json"
+      }
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "入力欄に合わせ\n自動で転記",
+      "eyebrow": "案件・納期・金額",
+      "narration": "dotsが入力欄に合わせて、データを転記。",
+      "captions": [
+        "dotsが入力欄に\n合わせて、",
+        "データを転記。"
+      ],
+      "capture": {
+        "origin": "demonstration",
+        "product": "ChatGPT",
+        "phase": "revision",
+        "title": "クラウドの案件入力",
+        "path": "outputs/productions/SHORT_20261025_dots_desktop_03/captures/entry.png",
+        "proof": "outputs/productions/SHORT_20261025_dots_desktop_03/captures/entry-proof.json"
+      }
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "登録前も\n入力後も確認",
+      "eyebrow": "入力して終わりにしない",
+      "narration": "登録前に内容を確認。結果も一覧で確かめます。",
+      "captions": [
+        "登録前に内容を確認。",
+        "結果も一覧で\n確かめます。"
+      ],
+      "capture": {
+        "origin": "demonstration",
+        "product": "ChatGPT",
+        "phase": "revision",
+        "title": "クラウドの案件入力",
+        "path": "outputs/productions/SHORT_20261025_dots_desktop_03/captures/confirm.png",
+        "proof": "outputs/productions/SHORT_20261025_dots_desktop_03/captures/confirm-proof.json"
+      }
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "元の表と照合\n3件が一致",
+      "eyebrow": "件数と金額を確認",
+      "narration": "元の表と照合。3件、25万円が一致。",
+      "captions": [
+        "元の表と照合。",
+        "3件、25万円が一致。"
+      ],
+      "capture": {
+        "origin": "demonstration",
+        "product": "ChatGPT",
+        "phase": "after",
+        "title": "クラウドの案件入力",
+        "path": "outputs/productions/SHORT_20261025_dots_desktop_03/captures/readback.png",
+        "proof": "outputs/productions/SHORT_20261025_dots_desktop_03/captures/readback-proof.json"
+      }
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "実システムの\n利用権限が必要",
+      "eyebrow": "今回の画面は模擬環境",
+      "narration": "画面は模擬システム。実運用には、権限が必要です。",
+      "captions": [
+        "画面は模擬システム。",
+        "実運用には、\n権限が必要です。"
+      ],
+      "capture": {
+        "origin": "demonstration",
+        "product": "ChatGPT",
+        "phase": "export",
+        "title": "クラウドの案件入力",
+        "path": "outputs/productions/SHORT_20261025_dots_desktop_03/captures/caution.png",
+        "proof": "outputs/productions/SHORT_20261025_dots_desktop_03/captures/caution-proof.json"
+      }
+    },
+    {
+      "kind": "editorial",
+      "visual_style": "business",
+      "editorial_layout": "closing",
+      "headline": "転記を任せて\n人は確認へ",
+      "eyebrow": "dots / 自動転記",
+      "body": "入力後まで確認",
+      "action": "内容を確かめる",
+      "narration": "データ入力を任せて、人は内容の確認へ。",
+      "captions": [
+        "データ入力を任せて、",
+        "人は内容の確認へ。"
+      ],
+      "media": {
+        "path": "outputs/characters/explainer-motion-20261022/dots-male/MiniMax_H3_dots_male_00001_.mp4",
+        "proof": "outputs/characters/explainer-motion-20261022/dots-male/verification.json"
+      }
+    }
+  ]
+}

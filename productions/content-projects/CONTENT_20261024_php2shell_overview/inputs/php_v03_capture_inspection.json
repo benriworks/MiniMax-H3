@@ -1,0 +1,19 @@
+{
+  "operation_id": "php_v03_capture_inspection",
+  "expected_revision": 29,
+  "data": {
+    "inspection_id": "php_v03_preflight",
+    "target_feature": "PHP国内利用統計とWordPressのPHP要件",
+    "status": "available",
+    "checked_at": "2026-10-25",
+    "route": "このPCのin-app browserで一次資料2ページを開き、実画面を保存",
+    "result": "Japan 92.4%とデータ日、WordPressのPHP要件を画面で確認。研究用原本を保存。新しい図解を実画面と呼ばない。",
+    "app": "in-app browser",
+    "login_state": "不要",
+    "feature_entry": "W3Techsの国別PHPページ、WordPress公式Requirements",
+    "display_result": "統計の分母・数値・データ日とPHP要件が表示された",
+    "save_result": "JPEG原本を案件captures/revision-v03へ保存しhash記録",
+    "legibility": "原本で数値・要件を確認。動画の日本語表示と図解は別に360pxで検証",
+    "shots": []
+  }
+}

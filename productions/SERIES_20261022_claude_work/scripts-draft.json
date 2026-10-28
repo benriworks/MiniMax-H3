@@ -1,0 +1,687 @@
+{
+  "schema_version": 1,
+  "series_id": "SERIES_20261022_claude_work",
+  "status": "draft_pending_capture",
+  "checked_date": "2026-10-22",
+  "episode_duration_seconds": 30,
+  "expected_scene_count": 7,
+  "voice": {
+    "provider": "gemini",
+    "model": "gemini-2.5-flash-preview-tts",
+    "voice": "Aoede",
+    "mode": "single_narrator",
+    "note": "人物の会話音声を演じ分けない。読みはクロード、ドックス、スライド、デザイン、しおり。実音声の長さを測るまでは30秒収録を断定しない。"
+  },
+  "canonical_fictional_input": "これは撮影用の架空素材です。店名：灯台珈琲。担当：佐伯栞（架空人物）。目的：平日午後に来店するきっかけを作る。企画名：秋の午後セット。実施期間：2026年11月10日〜11月16日。提供時間：14時〜17時。内容：ドリンクと小さな焼き菓子のセット。価格：650円。告知予算：3万円。告知方法：店内掲示と自社SNS。未決定：焼き菓子の種類、担当者の割り当て。目標来店数・売上予測・割引率は未設定。数字や特典を追加せず、不明な点は『未定』と記載する。",
+  "production_boundary": {
+    "real_product_execution_recorded": false,
+    "official_pages_opened": true,
+    "paid_generation": false,
+    "new_series_published": false,
+    "do_not_synthesize_until": [
+      "product_captures_reviewed",
+      "narration_finalized_against_actual_result"
+    ],
+    "do_not_claim": [
+      "未確認の操作が成功した",
+      "架空人物が実在の利用者または公式担当者である",
+      "公式画面の例を手元での実演結果として示す"
+    ]
+  },
+  "character": {
+    "id": "saeki-shiori",
+    "name": "佐伯 栞",
+    "fictional": true,
+    "introduction": "企画担当の栞さん",
+    "role_in_video": "冒頭で課題を提示し、末尾で確認する。中央の操作パートは実画面を主役にする。",
+    "public_description_note": "登場人物と店舗・資料は、説明用の架空設定です。"
+  },
+  "sources": [
+    {
+      "id": "claude_artifacts",
+      "title": "What are artifacts and how do I use them?",
+      "url": "https://support.claude.com/en/articles/17153992-what-are-artifacts-and-how-do-i-use-them",
+      "checked": "2026-10-22",
+      "supports": [
+        "Docs、Slides、Designの提供対象と必要な機能設定",
+        "Slidesの作成と直接編集",
+        "選択部分へのEdit with Claude",
+        "Word/PPTXなどの書き出し先"
+      ],
+      "quote_plan": [
+        "Slides",
+        "Edit and iterate",
+        "Edit with Claude",
+        "View and export"
+      ],
+      "quote_words": 10
+    },
+    {
+      "id": "claude_docs",
+      "title": "Get started with Claude Docs",
+      "url": "https://support.claude.com/en/articles/16923645-get-started-with-claude-docs",
+      "checked": "2026-10-22",
+      "supports": [
+        "会話・/docs・OutputからのDocs作成",
+        "目的、読者、内容を指定する依頼",
+        "直接編集、会話やコメントでの修正",
+        "Word形式の書き出し"
+      ],
+      "quote_plan": [
+        "Create a doc",
+        "Edit directly",
+        "Export a doc"
+      ],
+      "quote_words": 8
+    },
+    {
+      "id": "claude_design",
+      "title": "Get started with Claude Design",
+      "url": "https://support.claude.com/en/articles/14604416-get-started-with-claude-design",
+      "checked": "2026-10-22",
+      "supports": [
+        "Output > Design又はArtifactsからの作成",
+        "会話・部分コメント・直接操作による修正",
+        "初回出力を確認して反復する使い方"
+      ],
+      "quote_plan": [
+        "Refine your design",
+        "Edit directly on the canvas"
+      ],
+      "quote_words": 9
+    },
+    {
+      "id": "claude_oct8",
+      "title": "Build live dashboards and animate explainers with Claude",
+      "url": "https://claude.com/resources/articles/dashboards-and-motion",
+      "checked": "2026-10-22",
+      "event_date": "2026-10-08",
+      "supports": [
+        "Docs、Slides、Designの正式提供の発表日",
+        "Motionの対象がTeam/Enterpriseであること"
+      ],
+      "quote_plan": [
+        "October 8, 2026",
+        "Docs, Slides, and Design"
+      ],
+      "quote_words": 8
+    }
+  ],
+  "episodes": [
+    {
+      "episode": 1,
+      "slug": "docs",
+      "id": "SHORT_20261022_claude_01_work",
+      "topic": "メモから企画書",
+      "title": "【Claude】メモから企画書へ！栞さんとDocsを使ってみよう",
+      "task": "架空店舗の企画メモを、店内確認用の短い企画書にする。",
+      "prompt": "これは撮影用の架空素材です。店名：灯台珈琲。担当：佐伯栞（架空人物）。目的：平日午後に来店するきっかけを作る。企画名：秋の午後セット。実施期間：2026年11月10日〜11月16日。提供時間：14時〜17時。内容：ドリンクと小さな焼き菓子のセット。価格：650円。告知予算：3万円。告知方法：店内掲示と自社SNS。未決定：焼き菓子の種類、担当者の割り当て。目標来店数・売上予測・割引率は未設定。数字や特典を追加せず、不明な点は『未定』と記載する。\nこのメモだけを使い、Claude Docsで店内確認用の企画書を作成してください。構成は目的、企画概要、日程、告知方法、予算、未決定事項の6項目。日本語で見通しよく短くまとめてください。外部への共有・送信・公開はしません。",
+      "correction_prompt": "告知予算と未決定事項が見つけやすいよう、見出しと箇条書きで整理してください。入力にない新しい数字・特典は足さないでください。",
+      "checks": [
+        "提供期間・14時〜17時・650円・3万円が入力と一致",
+        "未決定2項目が残る",
+        "来店数や売上を創作していない",
+        "初回と修正後の文書を別々に保存"
+      ],
+      "scenes": [
+        {
+          "id": "01-hook",
+          "visual_kind": "character",
+          "headline": "メモはある。\n企画書がまだ。",
+          "narration": "企画担当の栞さん。今日は、散らかったメモの整理です。",
+          "captions": [
+            "企画担当の栞さん。",
+            "今日は、散らかったメモの整理です。"
+          ],
+          "capture_required": "栞の小さな導入カットと、架空メモの要点。人物は実在利用者の体験談として見せない。",
+          "source_ids": [],
+          "result_status": "pending_capture"
+        },
+        {
+          "id": "02-source",
+          "visual_kind": "official_capture",
+          "headline": "会話から、\nDocsへ。",
+          "narration": "クロードのドックスは、会話から文書を作れます。",
+          "captions": [
+            "クロードのドックスは、会話から文書を作れます。"
+          ],
+          "capture_required": "公式claude_docsのCreate a doc見出しだけを引用。本文全面は公開映像に入れない。",
+          "source_ids": [
+            "claude_docs"
+          ],
+          "result_status": "pending_capture"
+        },
+        {
+          "id": "03-request",
+          "visual_kind": "product_capture",
+          "headline": "目的・読者・\n項目を伝える",
+          "narration": "メモに加えて、誰が読むか、何を載せるかも伝えます。",
+          "captions": [
+            "メモに加えて、誰が読むか、何を載せるかも伝えます。"
+          ],
+          "capture_required": "実際に送る撮影用依頼を拡大し、店内確認用・6項目に注目。",
+          "source_ids": [
+            "claude_docs"
+          ],
+          "result_status": "pending_capture"
+        },
+        {
+          "id": "04-first",
+          "visual_kind": "product_capture",
+          "headline": "まず、\n初回の出力を見る",
+          "narration": "最初の出力では、目的と日程が読み取れるかを確認。",
+          "captions": [
+            "最初の出力では、目的と日程が読み取れるかを確認。"
+          ],
+          "capture_required": "Docsの初回出力。生成結果にこの項目が実在するか確認後に使用。",
+          "source_ids": [
+            "claude_docs"
+          ],
+          "result_status": "pending_capture"
+        },
+        {
+          "id": "05-revise",
+          "visual_kind": "product_capture",
+          "headline": "見つけやすく、\n整理し直す",
+          "narration": "予算と未決定事項は、見つけやすく整理を頼みます。",
+          "captions": [
+            "予算と未決定事項は、見つけやすく整理を頼みます。"
+          ],
+          "capture_required": "実際の追加依頼と修正された箇所。修正前後を同倍率で並べる。",
+          "source_ids": [
+            "claude_docs"
+          ],
+          "result_status": "pending_capture"
+        },
+        {
+          "id": "06-check",
+          "visual_kind": "product_capture",
+          "headline": "元のメモと\n照合する",
+          "narration": "最後に、日付と数字を元のメモと照合します。",
+          "captions": [
+            "最後に、日付と数字を元のメモと照合します。"
+          ],
+          "capture_required": "650円・3万円・期間の一致と未定欄を確認。誤りがあれば修正過程も残す。",
+          "source_ids": [],
+          "result_status": "pending_capture"
+        },
+        {
+          "id": "07-close",
+          "visual_kind": "character",
+          "headline": "下書きを任せて、\n中身は確かめる",
+          "narration": "下書きを任せて、中身は確かめる。次はスライドです。",
+          "captions": [
+            "下書きを任せて、中身は確かめる。",
+            "次はスライドです。"
+          ],
+          "capture_required": "栞が文書を確認する控えめなカット。次回予告は独自演出。",
+          "source_ids": [],
+          "result_status": "pending_capture"
+        }
+      ],
+      "duration_seconds": 30,
+      "voice": "Aoede",
+      "status": "draft_pending_capture",
+      "narration_character_count": 168
+    },
+    {
+      "episode": 2,
+      "slug": "slides",
+      "id": "SHORT_20261022_claude_02_work",
+      "topic": "企画を5枚のスライドへ",
+      "title": "【Claude】同じ企画を5枚に！Slidesで伝わる資料へ",
+      "task": "第1回の架空企画を店内ミーティング用の5枚にする。",
+      "prompt": "先ほどの『灯台珈琲 秋の午後セット』の企画書をもとに、Claude Slidesで日本語の5枚の資料を作成してください。用途は店内ミーティングです。1表紙、2目的、3企画内容と価格、4日程と告知、5予算と未決定事項。1枚につき要点は最大3つ。見出しと本文を大きく、余白を取ってください。元の企画にない数値や効果は追加しないでください。外部へ共有・送信・公開はしません。",
+      "correction_prompt": "一番文字量が多いスライドを、要点3つ以内で短くしてください。価格、日付、予算、未決定事項は変えないでください。",
+      "checks": [
+        "5枚である",
+        "価格・期間・予算が企画書と一致",
+        "文字切れや読めない小さな本文がない",
+        "未決定事項が決定済みに変わっていない"
+      ],
+      "scenes": [
+        {
+          "id": "01-hook",
+          "visual_kind": "character",
+          "headline": "企画書を、\n会議で伝える。",
+          "narration": "栞さんの次の仕事は、企画を短く伝える資料づくり。",
+          "captions": [
+            "栞さんの次の仕事は、企画を短く伝える資料づくり。"
+          ],
+          "capture_required": "栞と前回Docsのタイトル。架空の店内ミーティングを示す。",
+          "source_ids": [],
+          "result_status": "pending_capture"
+        },
+        {
+          "id": "02-source",
+          "visual_kind": "official_capture",
+          "headline": "Slidesで\nプレゼン資料へ",
+          "narration": "公式のスライド機能では、会話の内容から資料を作れます。",
+          "captions": [
+            "公式のスライド機能では、会話の内容から資料を作れます。"
+          ],
+          "capture_required": "公式claude_artifactsのSlidesラベルを最小限引用。独自日本語で意味を説明。",
+          "source_ids": [
+            "claude_artifacts"
+          ],
+          "result_status": "pending_capture"
+        },
+        {
+          "id": "03-request",
+          "visual_kind": "product_capture",
+          "headline": "枚数と流れを\n先に伝える",
+          "narration": "五枚にして、目的、内容、日程などの流れを指定します。",
+          "captions": [
+            "五枚にして、目的、内容、日程などの流れを指定します。"
+          ],
+          "capture_required": "実際のSlides依頼画面、5枚の構成部分を切り出す。",
+          "source_ids": [
+            "claude_artifacts"
+          ],
+          "result_status": "pending_capture"
+        },
+        {
+          "id": "04-first",
+          "visual_kind": "product_capture",
+          "headline": "一覧で\n全体を確認",
+          "narration": "まず一覧で、話の順番と文字の量を確認。",
+          "captions": [
+            "まず一覧で、話の順番と文字の量を確認。"
+          ],
+          "capture_required": "実際の5枚のサムネイルと表紙/内容/日程を短く切り替える。",
+          "source_ids": [
+            "claude_artifacts"
+          ],
+          "result_status": "pending_capture"
+        },
+        {
+          "id": "05-revise",
+          "visual_kind": "product_capture",
+          "headline": "詰め込みすぎを\n短くする",
+          "narration": "詰め込みすぎの一枚は、要点を短くするよう頼みます。",
+          "captions": [
+            "詰め込みすぎの一枚は、要点を短くするよう頼みます。"
+          ],
+          "capture_required": "実際に文字量の多い1枚を選定。存在しなければ収録後に台本を『気になる一枚』へ修正。",
+          "source_ids": [
+            "claude_artifacts"
+          ],
+          "result_status": "pending_capture"
+        },
+        {
+          "id": "06-check",
+          "visual_kind": "product_capture",
+          "headline": "見やすさと\n数字を確かめる",
+          "narration": "見やすさに加えて、価格や日付も元の企画と照合。",
+          "captions": [
+            "見やすさに加えて、価格や日付も元の企画と照合。"
+          ],
+          "capture_required": "修正スライドの拡大。3万円、650円、日程を元Docsと確認。",
+          "source_ids": [],
+          "result_status": "pending_capture"
+        },
+        {
+          "id": "07-close",
+          "visual_kind": "character",
+          "headline": "伝える資料へ。\n次は告知デザイン",
+          "narration": "栞さんは、伝わるかを確かめます。次は告知デザインです。",
+          "captions": [
+            "栞さんは、伝わるかを確かめます。",
+            "次は告知デザインです。"
+          ],
+          "capture_required": "栞の短い確認カット。実演の成功を過剰な表情や派手な演出で断定しない。",
+          "source_ids": [],
+          "result_status": "pending_capture"
+        }
+      ],
+      "duration_seconds": 30,
+      "voice": "Aoede",
+      "status": "draft_pending_capture",
+      "narration_character_count": 171
+    },
+    {
+      "episode": 3,
+      "slug": "design",
+      "id": "SHORT_20261022_claude_03_work",
+      "topic": "告知デザインの作成と修正",
+      "title": "【Claude】告知デザインも！色と文字を直して仕上げる",
+      "task": "架空企画の縦長の店内告知を作り、部分を直して見やすさを確認する。",
+      "prompt": "これは撮影用の架空素材です。店名：灯台珈琲。担当：佐伯栞（架空人物）。目的：平日午後に来店するきっかけを作る。企画名：秋の午後セット。実施期間：2026年11月10日〜11月16日。提供時間：14時〜17時。内容：ドリンクと小さな焼き菓子のセット。価格：650円。告知予算：3万円。告知方法：店内掲示と自社SNS。未決定：焼き菓子の種類、担当者の割り当て。目標来店数・売上予測・割引率は未設定。数字や特典を追加せず、不明な点は『未定』と記載する。\nClaude Designで、この架空企画の店内掲示用の縦長告知を1枚作ってください。文字を主役にして、明るいアイボリーと落ち着いた青緑で知的で親しみやすい印象にします。企画名、650円、提供時間、期間を分かりやすく。写真や実在ロゴは使わず、簡単な図形を使ってください。『架空サンプル』を記載し、データ外の割引・売上・限定数を追加しないでください。外部へ公開・共有しません。",
+      "correction_prompt": "価格『650円』と提供時間『14時〜17時』を一段階大きくし、余白を確保してください。企画名と配色は保ち、入力にない文言を追加しないでください。",
+      "checks": [
+        "価格・時間・期間が一致",
+        "縦長の1枚で文字が切れていない",
+        "実在のロゴ・写真や偽の実績が追加されていない",
+        "依頼した部分以外も確認"
+      ],
+      "scenes": [
+        {
+          "id": "01-hook",
+          "visual_kind": "character",
+          "headline": "同じ企画を、\n店内の告知へ。",
+          "narration": "栞さん、今度は店内の告知を見やすくしたい。",
+          "captions": [
+            "栞さん、今度は店内の告知を見やすくしたい。"
+          ],
+          "capture_required": "企画メモと栞。実在店舗と誤解させず架空企画のラベルを続ける。",
+          "source_ids": [],
+          "result_status": "pending_capture"
+        },
+        {
+          "id": "02-source",
+          "visual_kind": "official_capture",
+          "headline": "Designは\n会話とキャンバス",
+          "narration": "クロードのデザインは、会話しながら見た目を整える機能。",
+          "captions": [
+            "クロードのデザインは、会話しながら見た目を整える機能。"
+          ],
+          "capture_required": "公式claude_designのRefine your design見出しを引用。",
+          "source_ids": [
+            "claude_design"
+          ],
+          "result_status": "pending_capture"
+        },
+        {
+          "id": "03-request",
+          "visual_kind": "product_capture",
+          "headline": "用途・内容・\n色を伝える",
+          "narration": "使う場所と載せる内容、色の希望を伝えます。",
+          "captions": [
+            "使う場所と載せる内容、色の希望を伝えます。"
+          ],
+          "capture_required": "実際のDesign依頼の該当部分。",
+          "source_ids": [
+            "claude_design"
+          ],
+          "result_status": "pending_capture"
+        },
+        {
+          "id": "04-first",
+          "visual_kind": "product_capture",
+          "headline": "最初の案を\n読み手目線で",
+          "narration": "最初の案は、価格と時間がひと目で分かるか確認。",
+          "captions": [
+            "最初の案は、価格と時間がひと目で分かるか確認。"
+          ],
+          "capture_required": "実際の初回告知を全体→価格と時間へ拡大。",
+          "source_ids": [
+            "claude_design"
+          ],
+          "result_status": "pending_capture"
+        },
+        {
+          "id": "05-revise",
+          "visual_kind": "product_capture",
+          "headline": "この文字を、\nもう少し大きく",
+          "narration": "小さい文字は、場所を示して大きくするよう頼みます。",
+          "captions": [
+            "小さい文字は、場所を示して大きくするよう頼みます。"
+          ],
+          "capture_required": "実際にコメント又はチャットで対象を指定。実操作した方式だけ映像化。",
+          "source_ids": [
+            "claude_design"
+          ],
+          "result_status": "pending_capture"
+        },
+        {
+          "id": "06-check",
+          "visual_kind": "product_capture",
+          "headline": "修正の前後を\n同じ大きさで比べる",
+          "narration": "修正の前後を同じ大きさで並べて、数字も照合。",
+          "captions": [
+            "修正の前後を同じ大きさで並べて、数字も照合。"
+          ],
+          "capture_required": "前後の実画像を同倍率にする。見かけの拡大を改善と見せない。",
+          "source_ids": [],
+          "result_status": "pending_capture"
+        },
+        {
+          "id": "07-close",
+          "visual_kind": "character",
+          "headline": "一度で決めず、\n見て直す。",
+          "narration": "一度で決めず、見て直す。次は文書の部分修正です。",
+          "captions": [
+            "一度で決めず、見て直す。",
+            "次は文書の部分修正です。"
+          ],
+          "capture_required": "栞の控えめな納得の表情。",
+          "source_ids": [],
+          "result_status": "pending_capture"
+        }
+      ],
+      "duration_seconds": 30,
+      "voice": "Aoede",
+      "status": "draft_pending_capture",
+      "narration_character_count": 163
+    },
+    {
+      "episode": 4,
+      "slug": "edit",
+      "id": "SHORT_20261022_claude_04_work",
+      "topic": "Docsの一部分を修正",
+      "title": "【Claude】一文だけ直したい！選んだ場所から修正する",
+      "task": "第1回の文書で分かりにくい一文を選び、そこへ修正を依頼する。",
+      "prompt": "先ほど作成した『灯台珈琲 秋の午後セット』の企画書を開いてください。まだ変更せず、そのまま表示してください。",
+      "correction_prompt": "選択した文を、店内スタッフ向けに短く分かりやすくしてください。新しい事実や数字は追加せず、価格・期間・予算は変更しないでください。",
+      "checks": [
+        "修正前の選択文を保存",
+        "Edit with Claude又はコメント@Claudeの実際の方式を記録",
+        "変更箇所と変更外の主要数値を確認",
+        "誤編集や追加変更があればその過程も保存"
+      ],
+      "scenes": [
+        {
+          "id": "01-hook",
+          "visual_kind": "character",
+          "headline": "ここだけ、\n分かりやすくしたい。",
+          "narration": "栞さんが気になったのは、企画書のこの一文。",
+          "captions": [
+            "栞さんが気になったのは、企画書のこの一文。"
+          ],
+          "capture_required": "栞と実際に選んだ一文。抽象的な差し替えテキストを実画面として見せない。",
+          "source_ids": [],
+          "result_status": "pending_capture"
+        },
+        {
+          "id": "02-source",
+          "visual_kind": "official_capture",
+          "headline": "選んだ部分に\n修正を頼む",
+          "narration": "公式には、選んだ文章に編集を頼む方法があります。",
+          "captions": [
+            "公式には、選んだ文章に編集を頼む方法があります。"
+          ],
+          "capture_required": "claude_artifactsのEdit and iterate又はEdit with Claudeだけを引用。",
+          "source_ids": [
+            "claude_artifacts"
+          ],
+          "result_status": "pending_capture"
+        },
+        {
+          "id": "03-select",
+          "visual_kind": "product_capture",
+          "headline": "直したい文を\n選択する",
+          "narration": "直したい文を選び、短く、分かりやすくと伝えます。",
+          "captions": [
+            "直したい文を選び、短く、分かりやすくと伝えます。"
+          ],
+          "capture_required": "実画面のテキスト選択と編集依頼。手段は観察済みUIに合わせる。",
+          "source_ids": [
+            "claude_artifacts",
+            "claude_docs"
+          ],
+          "result_status": "pending_capture"
+        },
+        {
+          "id": "04-first",
+          "visual_kind": "product_capture",
+          "headline": "どこが変わったか\n見比べる",
+          "narration": "変更後は、前の文と並べて意味を確認。",
+          "captions": [
+            "変更後は、前の文と並べて意味を確認。"
+          ],
+          "capture_required": "修正前後の実際の文。事実が変わっていれば追加修正へ。",
+          "source_ids": [
+            "claude_docs"
+          ],
+          "result_status": "pending_capture"
+        },
+        {
+          "id": "05-check",
+          "visual_kind": "product_capture",
+          "headline": "短くしても、\n意味は残す。",
+          "narration": "短くなっても、大事な条件が抜けていないかを見ます。",
+          "captions": [
+            "短くなっても、大事な条件が抜けていないかを見ます。"
+          ],
+          "capture_required": "期間・対象・条件など選択文にあった内容の保持を確認。",
+          "source_ids": [],
+          "result_status": "pending_capture"
+        },
+        {
+          "id": "06-outside",
+          "visual_kind": "product_capture",
+          "headline": "ほかの部分も\n一度確認",
+          "narration": "価格や日付など、ほかの部分にも目を通します。",
+          "captions": [
+            "価格や日付など、ほかの部分にも目を通します。"
+          ],
+          "capture_required": "変更外の650円・3万円・期間を実文書で再確認。",
+          "source_ids": [],
+          "result_status": "pending_capture"
+        },
+        {
+          "id": "07-close",
+          "visual_kind": "character",
+          "headline": "仕上げは、\n自分で確かめる。",
+          "narration": "仕上げは、自分で確かめる。次はファイルへの書き出し。",
+          "captions": [
+            "仕上げは、自分で確かめる。",
+            "次はファイルへの書き出し。"
+          ],
+          "capture_required": "栞の確認する姿と次回予告。",
+          "source_ids": [],
+          "result_status": "pending_capture"
+        }
+      ],
+      "duration_seconds": 30,
+      "voice": "Aoede",
+      "status": "draft_pending_capture",
+      "narration_character_count": 160
+    },
+    {
+      "episode": 5,
+      "slug": "export",
+      "id": "SHORT_20261022_claude_05_work",
+      "topic": "WordとPowerPointへ書き出す",
+      "title": "【Claude】作って終わりじゃない！Word・PowerPointで確認",
+      "task": "完成したDocs/Slidesをdocx/pptxとして書き出し、実ファイルで表示と内容を確認する。",
+      "prompt": "これまでの『灯台珈琲 秋の午後セット』のDocsと5枚のSlidesを確認対象にします。内容は変更せず、書き出しの操作ができる画面を表示してください。外部へ送信・共有・公開はしません。",
+      "correction_prompt": "書き出し後に確認した文字切れ・改ページの問題だけを直してください。価格、期間、予算、未決定事項は保ち、修正後の版を別名で保存できるようにしてください。",
+      "checks": [
+        "Word出力とPPTX出力を実際に取得",
+        "取得したファイルを対応ビューアで開き、実際に使ったアプリ名を記録",
+        "文字切れ・表・改ページ・スライド数を確認",
+        "650円・3万円・期間の一致、ファイル名と保存先を確認",
+        "Word/PowerPointアプリを使っていなければ『Word/PowerPointで開いた』と断定しない"
+      ],
+      "scenes": [
+        {
+          "id": "01-hook",
+          "visual_kind": "character",
+          "headline": "渡す前に、\nファイルでも確認。",
+          "narration": "栞さん、資料を渡す前に、ファイルでも確認します。",
+          "captions": [
+            "栞さん、資料を渡す前に、ファイルでも確認します。"
+          ],
+          "capture_required": "Docs/Slidesの実結果と栞。まだ第三者へ送信しない。",
+          "source_ids": [],
+          "result_status": "pending_capture"
+        },
+        {
+          "id": "02-source",
+          "visual_kind": "official_capture",
+          "headline": "文書はWord、\nスライドはPPTXへ",
+          "narration": "公式の書き出しは、文書ならワード、スライドならパワーポイント。",
+          "captions": [
+            "公式の書き出しは、文書ならワード、スライドならパワーポイント。"
+          ],
+          "capture_required": "claude_docsのExport a doc又はclaude_artifactsのView and exportの見出しを最小引用。",
+          "source_ids": [
+            "claude_docs",
+            "claude_artifacts"
+          ],
+          "result_status": "pending_capture"
+        },
+        {
+          "id": "03-word",
+          "visual_kind": "product_capture",
+          "headline": "文書を\n書き出す",
+          "narration": "まず文書を、ワード形式で書き出します。",
+          "captions": [
+            "まず文書を、ワード形式で書き出します。"
+          ],
+          "capture_required": "実際のDocsのExport選択と取得ファイル。",
+          "source_ids": [
+            "claude_docs"
+          ],
+          "result_status": "pending_capture"
+        },
+        {
+          "id": "04-ppt",
+          "visual_kind": "product_capture",
+          "headline": "スライドも\n書き出す",
+          "narration": "スライドも書き出して、保存したファイルを開きます。",
+          "captions": [
+            "スライドも書き出して、保存したファイルを開きます。"
+          ],
+          "capture_required": "実際のSlidesのPPTX出力と、対応ビューアで開いた画面。",
+          "source_ids": [
+            "claude_artifacts"
+          ],
+          "result_status": "pending_capture"
+        },
+        {
+          "id": "05-check",
+          "visual_kind": "product_capture",
+          "headline": "文字・表・\nページを確認",
+          "narration": "文字切れや表のずれ、ページの区切りを確認。",
+          "captions": [
+            "文字切れや表のずれ、ページの区切りを確認。"
+          ],
+          "capture_required": "取得したdocx/pptxの表示を全ページ確認。ソース側プレビューだけで代替しない。",
+          "source_ids": [],
+          "result_status": "pending_capture"
+        },
+        {
+          "id": "06-numbers",
+          "visual_kind": "product_capture",
+          "headline": "最後に、\n中身を照合。",
+          "narration": "最後に、価格と日付を照合し、保存先も確かめます。",
+          "captions": [
+            "最後に、価格と日付を照合し、保存先も確かめます。"
+          ],
+          "capture_required": "元文書とファイルの数値を一致確認。アカウント名や個人パスは公開画角から除く。",
+          "source_ids": [],
+          "result_status": "pending_capture"
+        },
+        {
+          "id": "07-close",
+          "visual_kind": "character",
+          "headline": "作る・直す・\n確かめる。",
+          "narration": "作る、直す、確かめる。クロードと進める資料づくりでした。",
+          "captions": [
+            "作る、直す、確かめる。",
+            "クロードと進める資料づくりでした。"
+          ],
+          "capture_required": "栞、Docs/Slides/Designの本シリーズ実成果物を短く並べ、最終回として閉じる。",
+          "source_ids": [],
+          "result_status": "pending_capture"
+        }
+      ],
+      "duration_seconds": 30,
+      "voice": "Aoede",
+      "status": "draft_pending_capture",
+      "narration_character_count": 172
+    }
+  ]
+}

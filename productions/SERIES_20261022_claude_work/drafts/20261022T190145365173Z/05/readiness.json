@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "episode": 5,
+  "status": "root_review_required",
+  "text_layout_validation": "passed",
+  "common_story_validation": "passed",
+  "narration_characters": 174,
+  "source_proposal": {
+    "path": "productions/SERIES_20261022_claude_work/scripts-draft.json",
+    "bytes": 33343,
+    "sha256": "41063E1E4B7BA048FF1490C488AC98210208B02E03651AF48B3A277AD3B01D3D"
+  },
+  "change_note": "実PPTX保存・PowerPoint保護ビューの3枚目650円を採用。Wordは予算の書式修正後に保存したDOCXの3万円と日付で、部分修正後の最終Docsだとは主張しない。PPTXは日程修正後の版。XML/CRCと実アプリ外観は別証拠として保存。basic fontsの書体変化を本文・説明欄で補足する。",
+  "scenes": [
+    {
+      "scene": 1,
+      "original_scene_id": "01-hook",
+      "status": "asset_reviewed_root_story_review_pending",
+      "asset": {
+        "path": "outputs/characters/explainer-motion-20261022/claude-shiori/MiniMax_H3_claude_shiori_00001_.mp4",
+        "proof": "outputs/characters/explainer-motion-20261022/claude-shiori/verification.json"
+      }
+    },
+    {
+      "scene": 2,
+      "original_scene_id": "02-source",
+      "status": "capture_reviewed_root_story_review_pending",
+      "capture_id": "docs-export",
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_05_work/captures/docs-export.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_05_work/captures/docs-export.json",
+        "origin": "official",
+        "title": "Export a doc",
+        "source_url": "https://support.claude.com/en/articles/16923645-get-started-with-claude-docs"
+      },
+      "capture_quality": "official_crop_reviewed"
+    },
+    {
+      "scene": 3,
+      "original_scene_id": "03-word",
+      "status": "capture_reviewed_root_story_review_pending",
+      "capture_id": "05-ppt-export-before-native",
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_05_work/captures/05-ppt-export-before-native.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_05_work/captures/05-ppt-export-before-native.json",
+        "origin": "demonstration",
+        "title": "PowerPointを選ぶ",
+        "product": "Claude",
+        "phase": "before"
+      },
+      "capture_quality": "native_png_ready_for_scene_review"
+    },
+    {
+      "scene": 4,
+      "original_scene_id": "04-ppt",
+      "status": "capture_reviewed_root_story_review_pending",
+      "capture_id": "05-ppt-price-export-native",
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_05_work/captures/05-ppt-price-export-native.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_05_work/captures/05-ppt-price-export-native.json",
+        "origin": "demonstration",
+        "title": "PPTXの価格を確認",
+        "product": "Claude",
+        "phase": "export"
+      },
+      "capture_quality": "native_png_ready_for_scene_review"
+    },
+    {
+      "scene": 5,
+      "original_scene_id": "05-check",
+      "status": "capture_reviewed_root_story_review_pending",
+      "capture_id": "05-word-budget-native",
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_05_work/captures/05-word-budget-native.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_05_work/captures/05-word-budget-native.json",
+        "origin": "demonstration",
+        "title": "Wordで予算を確認",
+        "product": "Claude",
+        "phase": "export"
+      },
+      "capture_quality": "native_png_ready_for_scene_review"
+    },
+    {
+      "scene": 6,
+      "original_scene_id": "06-numbers",
+      "status": "capture_reviewed_root_story_review_pending",
+      "capture_id": "05-word-date-native-v3",
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_05_work/captures/05-word-date-native-v3.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_05_work/captures/05-word-date-native-v3.json",
+        "origin": "demonstration",
+        "title": "Wordで日付と時間を確認",
+        "product": "Claude",
+        "phase": "export"
+      },
+      "capture_quality": "native_png_ready_for_scene_review"
+    },
+    {
+      "scene": 7,
+      "original_scene_id": "07-close",
+      "status": "asset_reviewed_root_story_review_pending",
+      "asset": {
+        "path": "outputs/characters/explainer-motion-20261022/claude-shiori/MiniMax_H3_claude_shiori_00001_.mp4",
+        "proof": "outputs/characters/explainer-motion-20261022/claude-shiori/verification.json"
+      }
+    }
+  ],
+  "paid_requests_submitted": 0,
+  "production_story_written": false,
+  "actual_30_seconds_verified": false,
+  "ready_for_tts": false,
+  "remaining": [
+    "親による実素材・文意レビュー",
+    "最終構成の確認",
+    "動画内の文字・前後比較の可読性確認",
+    "ナレーション確定後の音声生成と実尺測定"
+  ],
+  "native_recapture_required_scenes": []
+}

@@ -1,0 +1,14 @@
+dotsの機能を30秒ずつ紹介する全9本シリーズ、第8回「先回り調査」。
+
+ここで扱うのはProactive research（先回り調査）です。利用を許可された情報の読み取りと私的なメモ作成が中心で、この機能自体は送信、アプリの変更、ブラウザーやコンピューターの操作を行いません。提案の後に依頼する実作業には、通常の権限と承認確認が適用されます。利用者が明示して任せる定期実行とは範囲が異なります。
+
+情報確認日：2026年10月5日。機能・対象プラン・提供地域は変更されることがあります。
+OpenAI公式資料をもとにした非公式の紹介動画です。画面は独自のモーショングラフィックスで、実機操作の録画ではありません。登場人物は架空のキャラクターです。
+
+出典（OpenAI公式）
+OpenAI — Controls
+https://learn.chatgpt.com/docs/dots/controls
+OpenAI — Tasks and memory
+https://learn.chatgpt.com/docs/dots/tasks-and-memory
+
+#dots #ChatGPT #OpenAI #AI活用 #Shorts

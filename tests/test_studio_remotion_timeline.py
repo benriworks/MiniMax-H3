@@ -111,6 +111,8 @@ class RemotionTimelineWorkerTests(unittest.TestCase):
         self.types = tools / "types.ts"
         self.screen_themes = tools / "screenThemes.ts"
         self.screen_typography = tools / "ScreenTypography.tsx"
+        self.shorts_motion = tools / "shortsMotion.ts"
+        self.shorts_primitives = tools / "ShortsMotionPrimitives.tsx"
         self.screen_font = self.workspace / "studio/public/template-assets/NotoSansJP-Variable.ttf"
         self.screen_font.parent.mkdir(parents=True)
         self.screen_license = self.screen_font.with_name("OFL-NotoSansJP.txt")
@@ -125,6 +127,8 @@ class RemotionTimelineWorkerTests(unittest.TestCase):
             self.types,
             self.screen_themes,
             self.screen_typography,
+            self.shorts_motion,
+            self.shorts_primitives,
             self.screen_font,
             self.screen_license,
             self.render_script,
@@ -185,6 +189,8 @@ class RemotionTimelineWorkerTests(unittest.TestCase):
                 "sha256": hashlib.sha256(name.encode("utf-8")).hexdigest().upper(),
             }
         extra_sources = {
+            "shorts_motion_source": self.shorts_motion,
+            "shorts_primitives_source": self.shorts_primitives,
             "screen_themes_source": self.screen_themes,
             "screen_typography_source": self.screen_typography,
             "screen_font_asset": self.screen_font,
@@ -976,12 +982,14 @@ class RemotionTimelineWorkerTests(unittest.TestCase):
                 "types_source",
                 "screen_themes_source",
                 "screen_typography_source",
+                "shorts_motion_source",
+                "shorts_primitives_source",
                 "screen_font_asset",
                 "screen_font_license",
             },
             set(_FIRST_PARTY_SOURCE_PATHS),
         )
-        for name in ("api_source", "status_source", "types_source", "screen_themes_source", "screen_typography_source", "screen_font_asset", "screen_font_license"):
+        for name in ("api_source", "status_source", "types_source", "screen_themes_source", "screen_typography_source", "shorts_motion_source", "shorts_primitives_source", "screen_font_asset", "screen_font_license"):
             with self.subTest(name=name):
                 changed_identity = {
                     key: dict(value) for key, value in self.tool_identity.items()

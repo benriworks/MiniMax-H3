@@ -1,0 +1,209 @@
+{
+  "schema_version": 1,
+  "id": "SHORT_20261022_dots_04_editorial",
+  "title": "待ち時間に、次の仕事も。dotsの並行作業",
+  "duration_seconds": 30,
+  "voice": "Aoede",
+  "rate": 1,
+  "pronunciations": [
+    {
+      "source": "dots",
+      "target": "ドッツ"
+    },
+    {
+      "source": "dot",
+      "target": "ドット"
+    },
+    {
+      "source": "ChatGPT",
+      "target": "チャットジーピーティー"
+    },
+    {
+      "source": "GPT-6 Astra",
+      "target": "ジーピーティーシックス、アストラ"
+    },
+    {
+      "source": "OpenAI",
+      "target": "オープンエーアイ"
+    },
+    {
+      "source": "Business Premium",
+      "target": "ビジネスプレミアム"
+    },
+    {
+      "source": "Enterprise",
+      "target": "エンタープライズ"
+    },
+    {
+      "source": "Pro",
+      "target": "プロ"
+    },
+    {
+      "source": "PC",
+      "target": "ピーシー"
+    },
+    {
+      "source": "Gmail",
+      "target": "ジーメール"
+    },
+    {
+      "source": "Drive",
+      "target": "ドライブ"
+    },
+    {
+      "source": "GitHub",
+      "target": "ギットハブ"
+    },
+    {
+      "source": "Slack",
+      "target": "スラック"
+    },
+    {
+      "source": "Teams",
+      "target": "チームズ"
+    },
+    {
+      "source": "Activity",
+      "target": "アクティビティ"
+    },
+    {
+      "source": "Scheduled",
+      "target": "スケジュールド"
+    },
+    {
+      "source": "SMS",
+      "target": "エスエムエス"
+    }
+  ],
+  "scenes": [
+    {
+      "kind": "editorial",
+      "headline": "ひとつずつ、\n待っていませんか？",
+      "narration": "ひとつずつ、作業を待っていませんか？",
+      "captions": [
+        "ひとつずつ、",
+        "作業を待って",
+        "いませんか？"
+      ],
+      "eyebrow": "DOTS 04 / 並行作業",
+      "source_ids": [
+        "tasks"
+      ],
+      "editorial_layout": "hook"
+    },
+    {
+      "kind": "source",
+      "headline": "公式の例でも、\n二つの作業。",
+      "narration": "公式の例でも、二つの作業を進めています。",
+      "captions": [
+        "公式の例でも、",
+        "二つの作業を",
+        "進めています。"
+      ],
+      "eyebrow": "DOTS 04 / 並行作業",
+      "source_ids": [
+        "tasks"
+      ],
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_dots_04_editorial/captures/official-task-links.png",
+        "proof": "outputs/productions/SHORT_20261022_dots_04_editorial/captures/official-task-links.json",
+        "source_url": "https://learn.chatgpt.com/docs/dots/tasks-and-memory",
+        "title": "Tasks and memory"
+      }
+    },
+    {
+      "kind": "editorial",
+      "headline": "調査と整理を、\n並行して。",
+      "narration": "たとえば、競合調査と資料整理を並行して。",
+      "captions": [
+        "たとえば、",
+        "競合調査と",
+        "資料整理を並行して。"
+      ],
+      "eyebrow": "DOTS 04 / 並行作業",
+      "source_ids": [
+        "tasks"
+      ],
+      "editorial_layout": "parallel"
+    },
+    {
+      "kind": "editorial",
+      "headline": "作業中でも、\n追加で伝えられる。",
+      "narration": "待つ間も話せて、優先順位も変えられます。",
+      "captions": [
+        "待つ間も話せて、",
+        "優先順位も",
+        "変えられます。"
+      ],
+      "eyebrow": "DOTS 04 / 並行作業",
+      "source_ids": [
+        "tasks"
+      ],
+      "editorial_layout": "conversation"
+    },
+    {
+      "kind": "source",
+      "headline": "Activityで、\n進み具合を見る。",
+      "narration": "進み具合は、アクティビティで確認。",
+      "captions": [
+        "進み具合は、",
+        "アクティビティで確認。"
+      ],
+      "eyebrow": "DOTS 04 / 並行作業",
+      "source_ids": [
+        "tasks"
+      ],
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_dots_04_editorial/captures/official-recent-activity.png",
+        "proof": "outputs/productions/SHORT_20261022_dots_04_editorial/captures/official-recent-activity.json",
+        "source_url": "https://learn.chatgpt.com/docs/dots/tasks-and-memory",
+        "title": "Tasks and memory"
+      }
+    },
+    {
+      "kind": "source",
+      "headline": "完了の表示から、\n成果物の確認へ。",
+      "narration": "完了の表示だけでなく、成果物まで確認。",
+      "captions": [
+        "完了の表示だけでなく、",
+        "成果物まで確認。"
+      ],
+      "eyebrow": "DOTS 04 / 並行作業",
+      "source_ids": [
+        "tasks"
+      ],
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_dots_04_editorial/captures/official-outputs.png",
+        "proof": "outputs/productions/SHORT_20261022_dots_04_editorial/captures/official-outputs.json",
+        "source_url": "https://learn.chatgpt.com/docs/dots/tasks-and-memory",
+        "title": "Tasks and memory"
+      }
+    },
+    {
+      "kind": "editorial",
+      "headline": "ひとつの会話で、\n仕事を前へ。",
+      "narration": "会話はひとつ。次は、記憶のしくみ。",
+      "captions": [
+        "会話はひとつ。",
+        "次は、記憶のしくみ。"
+      ],
+      "eyebrow": "DOTS 04 / 並行作業",
+      "source_ids": [
+        "tasks"
+      ],
+      "editorial_layout": "closing"
+    }
+  ],
+  "editorial": {
+    "checked_date": "2026-10-22",
+    "series_episode": 4,
+    "official_source_ids": [
+      "tasks",
+      "controls"
+    ],
+    "visuals": "Three cropped screenshots of an official documentation UI illustration plus original editorial motion graphics. No live product task execution was recorded.",
+    "availability_note": "dotは必要に応じて作業の一部をバックグラウンドのエージェントへ委任し、複数の仕事を並行して進められます。常にすべての仕事が同時実行される、無制限に実行できる、という保証ではありません。新しい作業には必要な文脈が渡され、会話全体が自動的にすべて共有されるわけではありません。Activityと実際の成果物を確認してください。",
+    "user_approved": false
+  },
+  "music_preset": "bright_groove_v1"
+}

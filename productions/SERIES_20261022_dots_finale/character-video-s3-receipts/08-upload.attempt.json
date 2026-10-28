@@ -1,0 +1,12 @@
+{
+  "automatic_retry_allowed": false,
+  "started_at": "2026-10-22T18:55:43.4474226+00:00",
+  "source": {
+    "path": "outputs/productions/SHORT_20261022_dots_08_editorial/20261022T155714225968Z/release/dots-08-research-official.mp4",
+    "bytes": 3427278,
+    "sha256": "5457B39C4E8DAD17A28DB274F65C17D14051F2DFBA0210EDE123A9A2FA4536D0"
+  },
+  "mode": "upload",
+  "status": "submission_started",
+  "episode": 8
+}

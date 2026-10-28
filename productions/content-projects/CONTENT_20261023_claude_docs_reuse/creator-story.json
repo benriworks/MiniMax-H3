@@ -1,0 +1,181 @@
+{
+  "schema_version": 1,
+  "id": "SHORT_20261023_claude_docs_blog",
+  "title": "【Claude】メモからDocsへ！下書きと修正、数字まで確認",
+  "voice": "Aoede",
+  "rate": 1,
+  "duration_seconds": 30,
+  "music_preset": "bright_groove_v1",
+  "pronunciations": [
+    {
+      "source": "Claude",
+      "target": "クロード"
+    },
+    {
+      "source": "Docs",
+      "target": "ドックス"
+    },
+    {
+      "source": "Slides",
+      "target": "スライド"
+    },
+    {
+      "source": "Design",
+      "target": "デザイン"
+    },
+    {
+      "source": "栞",
+      "target": "しおり"
+    }
+  ],
+  "scenes": [
+    {
+      "kind": "editorial",
+      "visual_style": "business",
+      "headline": "メモはある。\n企画書がまだ。",
+      "eyebrow": "CLAUDE 01 / Docs",
+      "narration": "企画担当の栞さん。今日は、メモを企画書にします。",
+      "captions": [
+        "企画担当の栞さん。",
+        "今日は、メモを\n企画書にします。"
+      ],
+      "source_ids": [],
+      "editorial_layout": "hook",
+      "body": "企画担当の栞さん",
+      "action": "架空の業務例",
+      "media": {
+        "path": "outputs/characters/explainer-motion-20261022/claude-shiori/MiniMax_H3_claude_shiori_00001_.mp4",
+        "proof": "outputs/characters/explainer-motion-20261022/claude-shiori/verification.json"
+      },
+      "mediaStart": 0
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "会話から、\nDocsへ。",
+      "eyebrow": "CLAUDE 01 / Docs",
+      "narration": "クロードのドックスは、会話から文書を作れます。",
+      "captions": [
+        "クロードのドックスは、",
+        "会話から\n文書を作れます。"
+      ],
+      "source_ids": [
+        "claude_docs"
+      ],
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_01_work/captures/docs-create.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_01_work/captures/docs-create.json",
+        "origin": "official",
+        "title": "Create a doc",
+        "source_url": "https://support.claude.com/en/articles/16923645-get-started-with-claude-docs"
+      }
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "価格や予算も\n先に伝える",
+      "eyebrow": "CLAUDE 01 / Docs",
+      "narration": "価格や予算など、元のメモの条件を伝えます。",
+      "captions": [
+        "価格や予算など、",
+        "元のメモの条件を\n伝えます。"
+      ],
+      "source_ids": [
+        "claude_docs"
+      ],
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_01_work/captures/01-input-numbers-native.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_01_work/captures/01-input-numbers-native-f878cfbbea33.json",
+        "origin": "demonstration",
+        "title": "価格と予算のメモ",
+        "product": "Claude",
+        "phase": "before"
+      }
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "まずは\n初回の予算欄",
+      "eyebrow": "CLAUDE 01 / Docs",
+      "narration": "初回の出力を見て、予算欄を確認します。",
+      "captions": [
+        "初回の出力を見て、",
+        "予算欄を\n確認します。"
+      ],
+      "source_ids": [
+        "claude_docs"
+      ],
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_01_work/captures/01-budget-first-history-native.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_01_work/captures/01-budget-first-history-native-2835d74ccfc4.json",
+        "origin": "demonstration",
+        "title": "初回の予算欄",
+        "product": "Claude",
+        "phase": "first-output"
+      }
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "見出しと金額を\n見つけやすく",
+      "eyebrow": "CLAUDE 01 / Docs",
+      "narration": "予算の見出しを具体的に。金額も太字にするよう頼みます。",
+      "captions": [
+        "予算の見出しを具体的に。",
+        "金額も太字にするよう\n頼みます。"
+      ],
+      "source_ids": [
+        "claude_docs"
+      ],
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_01_work/captures/01-revision-budget-heading-native-v2.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_01_work/captures/01-revision-budget-heading-native-v2.json",
+        "origin": "demonstration",
+        "title": "見出しの修正依頼",
+        "product": "Claude",
+        "phase": "revision"
+      }
+    },
+    {
+      "kind": "source",
+      "visual_style": "business",
+      "headline": "修正後も\n元の数字と照合",
+      "eyebrow": "CLAUDE 01 / Docs",
+      "narration": "修正後も、予算の数字を元のメモと照合します。",
+      "captions": [
+        "修正後も、",
+        "予算の数字を\n元のメモと照合します。"
+      ],
+      "source_ids": [],
+      "capture": {
+        "path": "outputs/productions/SHORT_20261022_claude_01_work/captures/01-budget-revised-history-native.png",
+        "proof": "outputs/productions/SHORT_20261022_claude_01_work/captures/01-budget-revised-history-native-65f5ec978ffd.json",
+        "origin": "demonstration",
+        "title": "修正後の予算欄",
+        "product": "Claude",
+        "phase": "after"
+      }
+    },
+    {
+      "kind": "editorial",
+      "visual_style": "business",
+      "headline": "手順と入力例は\nブログへ",
+      "eyebrow": "CLAUDE 01 / Docs",
+      "narration": "下書きは任せて、数字は確認。手順はプロフィールのブログへ。",
+      "captions": [
+        "下書きは任せて、\n数字は確認。",
+        "手順はプロフィールの\nブログへ。"
+      ],
+      "source_ids": [],
+      "editorial_layout": "closing",
+      "body": "詳しい手順と入力例",
+      "action": "プロフィールから",
+      "media": {
+        "path": "outputs/characters/explainer-motion-20261022/claude-shiori/MiniMax_H3_claude_shiori_00001_.mp4",
+        "proof": "outputs/characters/explainer-motion-20261022/claude-shiori/verification.json"
+      },
+      "mediaStart": 0
+    }
+  ],
+  "draft_status": "paired_blog_review_draft"
+}

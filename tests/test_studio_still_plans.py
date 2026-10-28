@@ -16,6 +16,7 @@ from tests import test_studio_still_library as fixtures
 from tools.studio.still_library import StillLibraryError
 from tools.studio.service import StudioService
 from tools.studio.server import create_server
+from tools.studio.database import SCHEMA_VERSION
 
 
 def ident(prefix):
@@ -180,7 +181,7 @@ class StillPlansTests(fixtures.StillLibraryTests):
         self.assertEqual(self.library.get(image['id'])['history'], image['history'])
         self.assertEqual(self.library.image(image['id']), self.original.read_bytes())
         with self.service.database.session() as connection:
-            self.assertEqual(connection.execute("SELECT value FROM schema_meta WHERE key='schema_version'").fetchone()[0], '14')
+            self.assertEqual(connection.execute("SELECT value FROM schema_meta WHERE key='schema_version'").fetchone()[0], str(SCHEMA_VERSION))
             self.assertEqual(connection.execute('SELECT count(*) FROM still_plan_captures').fetchone()[0], 0)
 
     def test_reject_executable_or_volatile_source_and_bad_images(self):

@@ -1,0 +1,50 @@
+{
+  "date": "2026-10-24",
+  "scope": ["research_and_series_proposal", "capture_feasibility_and_shots", "claims_and_evidence", "shared_assets", "characters_and_storyboard"],
+  "implementation": "chat_led_shared_cli_api_sqlite_and_studio_review",
+  "database_schema": 15,
+  "automated_checks": {
+    "python_related_regression": {"passed": 159, "failed": 0},
+    "python_focused_latest_including_additional_claim_case": {"passed": 28, "failed": 0, "overlaps_related_regression": true},
+    "frontend_existing": {"passed": 233, "failed": 0},
+    "frontend_content_workspace": {"passed": 2, "failed": 0},
+    "isolated_staged_snapshot": {"python_migration_and_workflow_passed": 80, "frontend_existing_passed": 233, "frontend_new_passed": 2, "production_build": "passed", "note": "Feature hunks separated from pre-existing worktree edits; later focused checks include stricter claim conditions and UTF-8 CLI output."},
+    "build_note": "Existing large-chunk advisory remains; build succeeds."
+  },
+  "real_browser_checks": {
+    "tool": "Playwright CLI / Chromium",
+    "environment": "isolated fixture Studio; fictional research, proposals, replies and images",
+    "saved_natural_feedback_without_adoption": "passed",
+    "unapplied_feedback_blocks_adoption": "passed",
+    "cli_updated_two_episodes_to_one_and_ui_reflected_it": "passed",
+    "explicit_fixture_adoption": "passed",
+    "revision_comparison": "passed",
+    "five_panels_opened": "passed",
+    "registered_public_image_loaded": "passed",
+    "mobile_viewport": [390, 844],
+    "dialog_client_and_scroll_width": [372, 372],
+    "console_errors": 0,
+    "screenshots_local_only": [
+      "studio/output/playwright/content-workspace-assets-desktop.png",
+      "studio/output/playwright/content-workspace-storyboard-mobile.png"
+    ]
+  },
+  "docs_copy_pilot": {
+    "source_id": "CONTENT_20261023_claude_docs_reuse",
+    "copied_public_assets": 5,
+    "hashes_match": true,
+    "source_manifest_and_assets_preserved": true,
+    "import_issues": [],
+    "new_proposal_adoption": null,
+    "article_published": false
+  },
+  "boundaries": {
+    "actual_product_research_or_new_app_capture_performed": false,
+    "paid_generation_called": false,
+    "new_human_media_review_performed": false,
+    "new_user_character_or_video_approval_recorded": false,
+    "media_uploaded_or_published": false,
+    "existing_media_overwritten": false,
+    "features_6_to_10_added": false
+  }
+}

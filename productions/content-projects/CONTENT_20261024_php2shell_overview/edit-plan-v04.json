@@ -1,0 +1,33 @@
+{
+  "revision": "v04",
+  "previous_delivery": {
+    "path": "outputs/productions/SHORT_20261024_php2shell_overview/20261024T163345527432Z/shorts-creator.mp4",
+    "bytes": 7338286,
+    "sha256": "7FD62DF412205B75AE93080FB4B91236D9DFB3B01E8D5114C1F141A6E0281B9A"
+  },
+  "approved_reference": {
+    "path": "outputs/content-projects/CONTENT_20261024_php2shell_overview/characters/miura-wataru/v01/reference.png",
+    "bytes": 1981608,
+    "sha256": "538A24B8E45AE7F5D14AAA5563C3E583C623CCAE4B076AB6549DB00481FFD8C0"
+  },
+  "character_version": 1,
+  "duration_frames": 1440,
+  "replacement_scene": 0,
+  "replacement_interval_frames": [
+    0,
+    91
+  ],
+  "change": "Mild concern, loosely curled right hand gently supporting underside of chin",
+  "preserve": "All narration, subtitles, captions, diagrams, factual claims, music, effects and timings",
+  "audio_reuse": {
+    "source_delivery": {
+      "path": "outputs/productions/SHORT_20261024_php2shell_overview/20261024T163345527432Z/shorts-creator.mp4",
+      "bytes": 7338286,
+      "sha256": "7FD62DF412205B75AE93080FB4B91236D9DFB3B01E8D5114C1F141A6E0281B9A"
+    },
+    "method": "aac_stream_copy"
+  },
+  "new_gemini_requests": 0,
+  "new_series_or_character": false,
+  "old_artifacts_overwritten": false
+}

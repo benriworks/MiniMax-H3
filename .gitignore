@@ -12,6 +12,41 @@ __pycache__/
 studio/node_modules/
 studio/dist/
 studio/.test-dist/
+studio/.comparison-test-dist/
 .playwright-cli/
+.playwright-mcp/
 output/playwright/
 studio/output/playwright/
+
+# Production media stay on the local PC or an approved sharing store.
+# Existing upstream-tracked demo assets are unaffected by ignore rules.
+*.mp4
+*.m4v
+*.mov
+*.mkv
+*.webm
+*.avi
+*.wav
+*.flac
+*.mp3
+*.aac
+*.m4a
+*.zip
+**/_private/
+
+# Attachments, private captures and derived bundles remain local.
+.codex-attachments/
+studio/.security-test-dist/
+studio/output/
+**/captures/private/
+productions/**/audit-*/
+productions/**/fullframe-revisions/
+productions/**/renderer-revisions/
+# Upload receipts and transient execution snapshots are not source assets.
+productions/**/*receipt*.json
+productions/**/*dry-run*.json
+productions/**/*staging.json
+productions/**/api-cadence.json
+
+# Use the reviewed public project export, not the private local working copy.
+productions/content-projects/CONTENT_20261023_claude_docs_reuse/content-project.json

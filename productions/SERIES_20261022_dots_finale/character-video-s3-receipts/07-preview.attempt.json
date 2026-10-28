@@ -1,0 +1,12 @@
+{
+  "status": "submission_started",
+  "episode": 7,
+  "automatic_retry_allowed": false,
+  "source": {
+    "path": "outputs/productions/SHORT_20261022_dots_07_editorial/20261022T155711318602Z/release/dots-07-schedule-official.mp4",
+    "bytes": 3325027,
+    "sha256": "CD31FE1066BA713C6492A23C234C6FE5885310F1CB97AA324359AEA16009DAED"
+  },
+  "mode": "preview",
+  "started_at": "2026-10-22T18:54:53.4491081+00:00"
+}

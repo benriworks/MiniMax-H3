@@ -1,0 +1,12 @@
+{
+  "voice_source": {
+    "path": "outputs/productions/SHORT_20261022_dots_07_editorial/voice-generations/20261022T101230Z-4834bbad/voice-source.json",
+    "bytes": 5719,
+    "sha256": "A1464F374F49A453BBF5D2408569919ADB1C458CA45114A6556DBB12C15CD6C5"
+  },
+  "video": {
+    "path": "outputs/productions/SHORT_20261022_dots_07_editorial/20261022T191609949330Z/release/dots-07-schedule-official.mp4",
+    "bytes": 6894257,
+    "sha256": "4424B64F3F0A9CF7EABDFCC8319913574A4F0B59BB9A4428B83CBE9FC05872E0"
+  }
+}

@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "checked_date": "2026-10-22",
+  "status": "capture_plan_only",
+  "candidates": [
+    {
+      "id": "Q01-duet-announcement",
+      "source_id": "S01",
+      "page_url": "https://claude.com/resources/articles/claude-duet",
+      "crop_target": "Article heading, displayed announcement date, and short US Pro/Max waitlist subtitle only.",
+      "purpose": "発表日と米国の招待待ちという導入条件の根拠",
+      "quote_plan_source": "sources.json:S01",
+      "capture_status": "not_captured",
+      "rights_status": "Specific excerpt use not yet approved; no blanket open licence established.",
+      "credit": "出典：Anthropic / 2026-10-22確認",
+      "exclude": [
+        "navigation",
+        "testimonials and real-person portraits",
+        "related articles",
+        "signup form"
+      ]
+    },
+    {
+      "id": "Q02-duet-browser-limit",
+      "source_id": "S02",
+      "page_url": "https://support.claude.com/en/articles/17631495-get-started-with-claude-duet",
+      "crop_target": "Limitations heading and the one bullet stating that the browser cannot be watched or taken over.",
+      "purpose": "現プレビューのブラウザー制限を公式文で確かめる",
+      "quote_plan_source": "sources.json:S02",
+      "capture_status": "not_captured",
+      "rights_status": "Use a minimum excerpt directly supporting the narration; publication decision pending.",
+      "credit": "出典：Anthropic / 2026-10-22確認",
+      "exclude": [
+        "other limitations outside the quote budget",
+        "full-page capture",
+        "account UI"
+      ]
+    },
+    {
+      "id": "Q03-dots-takeover-ui",
+      "source_id": "S03",
+      "page_url": "https://learn.chatgpt.com/docs/dots",
+      "crop_target": "The official embedded example's control strip containing Alfred has control and Take over, excluding the DMV site and URL.",
+      "purpose": "dotsのTake overがある公式UI例",
+      "quote_plan_source": "sources.json:S03",
+      "capture_status": "not_captured",
+      "rights_status": "Official UI example, not our real execution. Do not use embedded third-party DMV image.",
+      "credit": "出典：OpenAI / 公式の画面例",
+      "exclude": [
+        "California DMV content",
+        "vehicle or licence examples",
+        "browser address",
+        "any other third-party page"
+      ]
+    },
+    {
+      "id": "Q04-dots-local-heading",
+      "source_id": "S04",
+      "page_url": "https://learn.chatgpt.com/docs/dots/computers-and-apps",
+      "crop_target": "Connect your computer section heading only; exact permission and online conditions explained in our Japanese diagram.",
+      "purpose": "許可したローカルPC連携の出典を示す補助",
+      "quote_plan_source": "sources.json:S04",
+      "capture_status": "optional_not_captured",
+      "rights_status": "Small relevant text excerpt only, not an entire article.",
+      "credit": "出典：OpenAI / 2026-10-22確認",
+      "exclude": [
+        "long instructions exceeding quote budget"
+      ]
+    },
+    {
+      "id": "Q05-dots-schedule-headings",
+      "source_id": "S05",
+      "page_url": "https://learn.chatgpt.com/docs/dots/tasks-and-memory",
+      "crop_target": "Assigned work and Recurring tasks as separate short original captures; never combine their pixels into a forged page.",
+      "purpose": "自発フォローと定時の予定を別の仕組みとして示す補助",
+      "quote_plan_source": "sources.json:S05",
+      "capture_status": "optional_not_captured",
+      "rights_status": "Small relevant text excerpts; each needs original context proof.",
+      "credit": "出典：OpenAI / 2026-10-22確認",
+      "exclude": [
+        "long example prompts"
+      ]
+    },
+    {
+      "id": "R01-duet-icon",
+      "source_id": "S01",
+      "page_url": "https://claude.com/resources/articles/claude-duet",
+      "asset_url": "https://assets.claude.com/9273e22b909074c1c2d42ca3514a239623f8af40.svg",
+      "purpose": "製品識別用の参考候補",
+      "capture_status": "URL_only_not_downloaded",
+      "rights_status": "Trademark/brand asset; general reuse permission not established. Prefer the sourced article excerpt.",
+      "recommended": false
+    },
+    {
+      "id": "R02-duet-partner-logos",
+      "source_id": "S01",
+      "page_url": "https://claude.com/resources/articles/claude-duet",
+      "asset_url": "https://assets.claude.com/c3618d5ce675bcaa9716a06d180879c2b94161c3.png",
+      "purpose": "公式記事内の連携ロゴ図の所在記録",
+      "capture_status": "URL_only_not_downloaded",
+      "rights_status": "Multiple third-party marks; outside the three-axis explanation.",
+      "recommended": false
+    },
+    {
+      "id": "R03-dmv-background",
+      "source_id": "S03",
+      "page_url": "https://learn.chatgpt.com/docs/dots",
+      "asset_url": "https://learn.chatgpt.com/images/codex/dots/california-dmv-registration.jpg",
+      "purpose": "公式UI例に埋め込まれた第三者画像の識別",
+      "capture_status": "URL_only_not_downloaded",
+      "rights_status": "Third-party content unrelated to the claim; exclude from public crop.",
+      "recommended": false
+    }
+  ]
+}
