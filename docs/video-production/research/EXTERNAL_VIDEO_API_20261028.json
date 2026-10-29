@@ -1,0 +1,262 @@
+{
+  "schema_version": 1,
+  "checked_on": "2026-10-28",
+  "status": "research_only_not_adopted",
+  "request_ja": "外部APIを使って、より高画質で動きのある動画を速く作れるようにもしておきたい。まずは候補を調べて。",
+  "scope_ja": "公開された公式ドキュメントと既存コードの読取り。生成API・アカウント契約・課金確認・動画生成・公開は行っていない。",
+  "billable_requests": 0,
+  "implementation_changed": false,
+  "existing_implementation": {
+    "h3_api": {
+      "path": "tools/h3_api.py",
+      "capabilities": [
+        "MiniMax-H3固定",
+        "V2 submit/status/wait/download",
+        "768Pと2K",
+        "4〜15秒",
+        "画像・動画・音声参照",
+        "confirm-billableの明示"
+      ],
+      "not_confirmed": [
+        "このアカウントでのAPI利用可否",
+        "クラウド実生成の画質と所要時間",
+        "Highspeed/Liteの切替とStudio連携"
+      ]
+    },
+    "local_generation": "tools/studio/comfyui.py と comfyui_execution.py。現行local-only経路は外部送信へ勝手に切り替えない。",
+    "historical_bottleneck": {
+      "source": "PRODUCTION_PLAYBOOK_JA.md",
+      "example": "ローカル0.6 MP・5秒・20-stepの品質runは総時間3:31:14.964、sampling 10:41。過去の個別測定で、現在の全生成時間を表すものではない。"
+    },
+    "reuse": [
+      "確認済み人物参照とペルソナ",
+      "Gemini Aoede/Charonの既存音声",
+      "素材hash・世代保存",
+      "外部生成後の動画取込",
+      "Remotion/FFmpegの字幕・編集・QC",
+      "動画と記事の素材共用"
+    ]
+  },
+  "candidates": [
+    {
+      "id": "minimax_h3",
+      "priority": "最初の汎用候補",
+      "route": "MiniMax直結API",
+      "models": [
+        "MiniMax-H3",
+        "MiniMax-H3-Highspeed",
+        "MiniMax-H3-Lite"
+      ],
+      "official_facts_ja": [
+        "H3は768P/2K、4〜15秒。画像・開始/終了フレーム・動画/音声参照に対応。",
+        "料金表にはHighspeed 768PとLite 768P/480Pがあるが、既存CLIはH3固定。",
+        "動画パックは現在H3対象外。従量課金を区別する。"
+      ],
+      "unit_prices_usd_per_output_second": {
+        "H3_2K": "0.13",
+        "H3_768P": "0.08",
+        "Highspeed_768P": "0.06",
+        "Lite_768P": "0.04",
+        "Lite_480P": "0.025"
+      },
+      "examples": {
+        "H3_2K_5s": "0.65",
+        "Highspeed_768P_5s": "0.30",
+        "Lite_768P_5s": "0.20"
+      },
+      "extra_costs_ja": "参照動画は入力秒数で別課金。基本3モデルは先頭5画像無料、超過画像別課金。再生成・2K化は別課金。",
+      "fit_inference_ja": "現在のH3プロンプト設計と参照画像を活用しやすい。高速試作と2K仕上げの比較対象にする。ローカル出力との同一性は保証しない。",
+      "sources": [
+        "https://platform.minimax.io/docs/guides/video-generation",
+        "https://platform.minimax.io/docs/pricing/overview"
+      ]
+    },
+    {
+      "id": "gemini_omni_flash",
+      "priority": "Google運用に寄せる比較候補",
+      "route": "Gemini API",
+      "model": "gemini-omni-1.1-flash",
+      "official_facts_ja": [
+        "有料枠の安定版。3〜10秒・24fps。",
+        "720pが基本。1080p/4Kはアップスケール出力であり、高解像度出力と細部の実品質を分ける。",
+        "画像から動画、開始/終了フレーム補間、会話による編集・末尾延長に対応。",
+        "現行の制約欄では音声参照のアップロード非対応。既存TTSを渡すだけで口パクが完成するモデルとして扱わない。"
+      ],
+      "output_pricing": {
+        "usd_per_million_video_tokens": "17.50",
+        "tokens_per_second_720p": 5792,
+        "estimated_720p_5s_usd": "0.5068"
+      },
+      "extra_costs_ja": "入力とテキスト出力のtoken料金は別。1080p/4Kの料金を720p単価で断定しない。",
+      "fit_inference_ja": "既存Gemini音声と同じGoogle側の運用に寄せやすい。モデル利用権限・割当はアカウントで未確認。日本語の発話は既存音声を後から合わせる。",
+      "sources": [
+        "https://ai.google.dev/gemini-api/docs/video",
+        "https://ai.google.dev/gemini-api/docs/models/gemini-omni-flash",
+        "https://ai.google.dev/gemini-api/docs/omni",
+        "https://ai.google.dev/gemini-api/docs/pricing"
+      ]
+    },
+    {
+      "id": "runway_generation",
+      "priority": "速い試作の比較候補",
+      "route": "Runway API",
+      "models": [
+        "gen4_turbo",
+        "gen4.5"
+      ],
+      "official_facts_ja": [
+        "Gen-4 Turboは画像から動画。公式モデル一覧ではRunwayの高速I2Vとして案内。",
+        "Gen-4.5はテキスト/画像から動画。"
+      ],
+      "usd_per_credit": "0.01",
+      "credits_per_output_second": {
+        "gen4_turbo": 5,
+        "gen4.5": 12
+      },
+      "output_5s_usd": {
+        "gen4_turbo": "0.25",
+        "gen4.5": "0.60"
+      },
+      "fit_inference_ja": "短い動作・カメラ演出を安く複数試す候補。二人の同一性や動きの質は実生成で比較する。",
+      "sources": [
+        "https://docs.dev.runwayml.com/guides/models/",
+        "https://docs.dev.runwayml.com/guides/pricing/"
+      ]
+    },
+    {
+      "id": "runway_characters",
+      "priority": "会話・PIPの改善候補",
+      "route": "Runway API",
+      "model": "gwm1_avatars",
+      "endpoint": "POST /v1/avatar_videos",
+      "official_facts_ja": [
+        "人物画像から作るcustom avatarがあり、実写・アニメ等のスタイルに対応する。",
+        "非同期avatar_videosは音声ファイルまたはテキストを受けて話す人物動画を生成。ライブWebRTC経路とは別。",
+        "映像は3秒につき1credit、最低2credits。テキスト読み上げは50文字ごとの追加課金。"
+      ],
+      "audio_input_video_12s_usd": "0.04",
+      "price_scope_ja": "既存音声を渡す場合の映像料金のみ。初期設定や素材準備・TTSの費用は含めない。",
+      "fit_inference_ja": "Aoede/Charonの声を維持してPIPの口パク・表情を改善できる可能性がある。人物は一人ずつ作り、左右合成する。走り込みや全身二人芝居の代替にはしない。",
+      "unverified": [
+        "日本語との口パク精度",
+        "採用済み人物画像の再現",
+        "出力画質と寸法・実尺・音声保持",
+        "強調場面で必要な感情表現",
+        "実完了時間とアカウント利用可否"
+      ],
+      "sources": [
+        "https://docs.dev.runwayml.com/characters/",
+        "https://docs.dev.runwayml.com/characters/concepts/",
+        "https://docs.dev.runwayml.com/api/",
+        "https://docs.dev.runwayml.com/guides/pricing/"
+      ]
+    },
+    {
+      "id": "kling4",
+      "priority": "二人芝居・複雑な動きの比較候補",
+      "route": "Runway経由。Kling直結の料金と同一視しない。",
+      "model": "kling_4",
+      "official_facts_ja": [
+        "Runwayの現行モデル一覧で2026-10-23追加。720p/1080p、3〜30秒、フレームと画像/動画参照・動画編集に対応。"
+      ],
+      "pricing_without_input_video": {
+        "usd_per_output_second_1080p_list": "0.235",
+        "usd_per_output_second_1080p_promotion": "0.188",
+        "promotion_end": "2026-11-30 UTC",
+        "output_5s_1080p_promotion_usd": "0.94",
+        "output_5s_1080p_list_usd": "1.175"
+      },
+      "extra_costs_ja": "入力動画を使う場合は別の入力/出力課金。",
+      "fit_inference_ja": "参照画像と長めの動作を使う二人の登場場面の候補。今の人物での演技・顔・手の再現は未測定。",
+      "sources": [
+        "https://docs.dev.runwayml.com/guides/models/",
+        "https://docs.dev.runwayml.com/guides/pricing/",
+        "https://kling.ai/document-api/pricing/base/video"
+      ],
+      "access_note_ja": "Kling直結の公開ページは動的表示で本文料金を取得できず。今回の見積りは本文確認できたRunway経由のもの。"
+    },
+    {
+      "id": "luma_ray32",
+      "priority": "高画質・構図修正の追加候補",
+      "route": "Luma Agents API",
+      "model": "ray-3.2",
+      "official_facts_ja": [
+        "画像から動画、複数キーフレーム、動画編集、縦横比の再構図、HDRに対応。",
+        "通常の動画生成は5秒/10秒。通常と編集、HDRの料金は別。"
+      ],
+      "credits_per_5s_sdr": {
+        "720p": 100,
+        "1080p": 400
+      },
+      "default_list_usd_per_credit": "0.003",
+      "example_5s_1080p_sdr_usd_at_list": "1.20",
+      "cost_note_ja": "1creditのUSD単価はアカウントのplan/contract/overage_rateを優先し、0.003は既定list rateの参考値。従量課金にはlatency SLAなし。",
+      "fit_inference_ja": "凝った映像・構図変更の比較候補。現在の用途ではまずH3と会話PIPの検証を優先する。",
+      "sources": [
+        "https://docs.agents.lumalabs.ai/guides/model/",
+        "https://docs.agents.lumalabs.ai/guides/pricing/",
+        "https://docs.agents.lumalabs.ai/guides/usage/"
+      ]
+    }
+  ],
+  "secondary_candidates": [
+    {
+      "model": "seedance2_5",
+      "route": "Runway",
+      "official_facts_ja": "30秒まで、複数の画像・動画・音声参照。公開料金の720p出力は30credit/秒、参照動画は追加。",
+      "output_5s_720p_usd": "1.50",
+      "status": "高コストのため初回少数比較の後。1080pの料金は今回未確定。",
+      "sources": [
+        "https://docs.dev.runwayml.com/guides/models/",
+        "https://docs.dev.runwayml.com/guides/pricing/"
+      ]
+    }
+  ],
+  "availability_changes": [
+    {
+      "item": "Gemini APIのVeo 3.1 Preview",
+      "status": "2026-10-22終了。Googleの候補はOmni安定版で調査。GAの別経路や他社経由まで全て終了したという意味ではない。",
+      "source": "https://ai.google.dev/gemini-api/docs/video"
+    },
+    {
+      "item": "OpenAI Sora 2 / Videos API",
+      "status": "公式終了日は2026-09-24。新規導入候補から除外。",
+      "source": "https://developers.openai.com/api/docs/deprecations"
+    }
+  ],
+  "recommendation_ja": "仕様と既存コードからの暫定推奨。まずH3 APIで短い全身動作、Runway Charactersで既存音声を使った会話PIP、Gemini Omniを比較候補にする。実画質・速度の優劣は未検証。",
+  "benchmark_proposal": {
+    "status": "未実施・未採用",
+    "materials_ja": "確認済みの架空成人の人物だけを使う。新人物の採用や既存完成品の上書きはしない。",
+    "scenes_ja": [
+      "同じ人物が困り顔からうなずく5秒",
+      "男性の横へ女性が右から入る5秒",
+      "Aoede/Charonの既存音声に合わせて一人ずつ話す12秒"
+    ],
+    "metrics_ja": [
+      "キュー待ち込みの完了時間",
+      "実解像度とアップスケールの区別",
+      "顔・衣装・人数・手の破綻",
+      "必要な時間帯まで動きが続くか",
+      "日本語の口パク・表情・実音声の保持",
+      "再生成込みの採用1カット当たり費用",
+      "全decodeと素材hash・来歴"
+    ],
+    "latency_note_ja": "Fast等の名前で他社より速いと断定しない。少数試験でp95を実測済みとはしない。"
+  },
+  "future_integration_proposal_ja": [
+    "既存H3 CLIと取込・編集・QCを活用し、外部映像用の共通アダプターを追加する。",
+    "モデル・参照・画質・尺を固定した事前見積りと上限を用意する。",
+    "task IDを保存し、送信結果不明時に自動再送しない。",
+    "取得後すぐローカル原本とhashを保存し、レビューは既存方針どおりDrive優先。",
+    "人物・開始終了フレーム・音声・初回出力と修正を共通台帳へ結ぶ。",
+    "MiniMax以外を採用する時点で既存のMiniMax固定ルールの適用範囲を見直す。人物確認とシリーズの一貫性は維持する。"
+  ],
+  "publication_notes_ja": [
+    "Runwayの公開attributionページにはUIでの表記案内がある。動画への可視注釈の要否や商用条件は採用時に契約と出力単位で確認し、必須透かしの除去を前提にしない。",
+    "本調査でYouTube向けの利用条件を全モデル横断で確認済みとはしない。"
+  ],
+  "publication_sources": [
+    "https://docs.dev.runwayml.com/usage/attribution/"
+  ]
+}

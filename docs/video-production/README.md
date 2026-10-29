@@ -1,6 +1,6 @@
 # 動画制作ガイド・引き継ぎ資料
 
-更新日：2026-10-28。対象：人物キャラ、MiniMaxの人物動画、公式資料引用、実演、Geminiナレーションを組み合わせる日本語解説動画。
+更新日：2026-10-30。対象：人物キャラ、MiniMaxの人物動画、公式資料引用、実演、Geminiナレーションを組み合わせる日本語解説動画。
 
 ## 最初に読むファイル
 
@@ -8,6 +8,7 @@
 
 | ファイル | 用途 |
 | --- | --- |
+| [PRODUCTION_KNOWHOW_JA.md](PRODUCTION_KNOWHOW_JA.md) | **最初に読むノウハウ総覧**。企画から人物・動作・撮影・音声・部分修正・記事・レビューまでの判断と、失敗への対処 |
 | [VIDEO_PRODUCTION_HANDOFF_JA.md](VIDEO_PRODUCTION_HANDOFF_JA.md) | 制作ノウハウと全工程。人物確認、ストーリー、保存、レビュー、GitHub運用を含む。別の制作担当者へ渡す総合資料 |
 | [EDITORIAL_PATTERNS_JA.md](EDITORIAL_PATTERNS_JA.md) | **タイトル・結論ファースト・フル動画の人物と掛け合いの基準**。具体例、経緯、採用範囲、未完了の修正、初稿確認項目 |
 | [NARRATION_HANDOFF_JA.md](NARRATION_HANDOFF_JA.md) | **ナレーション担当者へ単体で渡せる別ファイル**。原稿、声、生成、速度・読み、組み込み、試聴、修正、保存の手順 |
@@ -19,7 +20,7 @@
 | [templates/CHARACTER_BIBLE_JA.md](templates/CHARACTER_BIBLE_JA.md) | 人物の外見・ペルソナ・成長・承認履歴のひな形 |
 | [templates/REVIEW_REQUEST_JA.md](templates/REVIEW_REQUEST_JA.md) | 人物確認・初稿・修正版・最終版のレビュー依頼文と回答記録のひな形 |
 | [templates/asset-catalog.example.json](templates/asset-catalog.example.json) | PC内の素材をID・版・相対パス・hashで追跡する記載例。自動登録ツールではない |
-| [templates/content-project.example.json](templates/content-project.example.json) | 動画と記事を同じ企画・事実・素材に結び付ける共通台帳の記載例。未実装 |
+| [templates/content-project.example.json](templates/content-project.example.json) | 動画と記事を同じ企画・事実・素材に結び付ける台帳の記載例。稼働中の版管理はContentWorkspaceを参照 |
 
 現在の正本はこのフォルダー。低VRAM環境・生成方式の過去の実測は [PRODUCTION_PLAYBOOK_JA.md](../../PRODUCTION_PLAYBOOK_JA.md)、アプリの設計は [ARCHITECTURE.md](../../ARCHITECTURE.md) と [ARCHITECTURE_DIAGRAM.md](../../ARCHITECTURE_DIAGRAM.md) を参照する。
 
@@ -43,3 +44,11 @@
 `outputs/` の動画、音声、画像、レビュー用ページはローカル成果物。GitHubへcloneしただけでは取得できない。引き継ぎ時は、この文書群に加え、必要な素材・コードの版・環境情報を別途渡す。署名付き共有リンクは一時的な受け渡し手段であり、素材の恒久的な所在にはしない。
 
 2026-10-23、ユーザーは「まず自分用に磨く」「動画から詳細ブログへつなぐ」「制作の決定事項と素材を記事にも使う」方向を提示し、「メモからDocsを作る」で制作工程を開始した。当面はチャットを窓口とし、レビュー動画はGoogle Driveを優先する。繰り返し使う処理はStudioへ随時追加する。具体化は [動画とブログの共通工程](VIDEO_TO_BLOG_WORKFLOW_JA.md)、最初の案件は [制作記録](../../productions/content-projects/CONTENT_20261023_claude_docs_reuse/README.md) を参照。公開は個別に確認する。
+
+
+## 外部映像APIの候補調査
+
+[2026-10-28の候補・料金・出典・比較案](research/EXTERNAL_VIDEO_API_20261028.json) は調査記録。MiniMax H3、Gemini Omni、Runwayの生成と会話人物、Kling、Lumaを用途別に比較する。提供終了・アップスケール・入力別料金を区別し、実生成の画質・速度、アカウント利用可否と採用は未確認。実装や有料送信は行っていない。
+
+
+2026-10-30整理：全工程の判断と改善例を [制作ノウハウ総覧](PRODUCTION_KNOWHOW_JA.md) に集約した。担当別の詳細手順は各別冊を正本とし、規定、個別制作の実績、調査・比較待ちを分けて読む。
