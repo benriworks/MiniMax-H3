@@ -1,5 +1,8 @@
 # PHP2Shell：サイト運営者向けショート
 
+
+> 2026-10-30整理：現在の判断と次の作業は [再開履歴兼ノウハウ](RESUME_AND_KNOWHOW_JA.md) を先に確認する。以下の制作時点の記録は履歴・詳細根拠として保持する。
+
 2026-10-24開始。`CONTENT_20261024_php2shell_overview`。出力IDは `SHORT_20261024_php2shell_overview`。
 
 **最新版は2026-10-25のv04・60秒候補。** [v03](REVISION_V03_JA.md)の内容を保ち、冒頭を少し困った表情で拳を顎に添えて考える人物動画へ差し替えた。[v04改訂記録](REVISION_V04_JA.md)と `delivery-v04.json` を参照。音声・字幕・図解・時刻を維持し、AACのpacket hash一致と後半11カットの確認画像の画素一致を検証。旧 `delivery.json` はv02、`delivery-v03.json` はv03の記録として保持し、最新版は出力フォルダーの `latest.json` から追う。

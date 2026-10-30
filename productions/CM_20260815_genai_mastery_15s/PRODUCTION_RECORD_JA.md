@@ -1,5 +1,8 @@
 # 制作記録 — CM_20260815_genai_mastery_15s
 
+
+> 2026-10-30整理：現在の判断と次の作業は [再開履歴兼ノウハウ](RESUME_AND_KNOWHOW_JA.md) を先に確認する。以下の制作時点の記録は履歴・詳細根拠として保持する。
+
 ## 1. 記録の目的と状態
 
 このファイルは、採用した素材・生成設定・artifact・編集判断・QCを記録する制作台帳である。CUT1/CUT2/CUT3のrawと15秒masterは生成・組立済みで、artifact hashとfull decodeを記録した。独立master監査はGREEN / blockerなしで完了し、ステータスは `complete_independently_reviewed` である。これは公開、権利許諾、人間による聴取を主張しない。

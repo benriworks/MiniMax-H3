@@ -1,3 +1,5 @@
+> 動画・関連記事の制作を始める／再開する場合は、[制作索引](docs/video-production/README.md) → [ノウハウ総覧](docs/video-production/PRODUCTION_KNOWHOW_JA.md) → 索引にある対象案件の再開記録を確認してください。
+
 > [!NOTE]
 > **このチェックアウトには Windows 向けローカル/API実行補助が追加されています。**
 > まず [日本語セットアップ](LOCAL_SETUP_JA.md) を確認してください。構築時の判断、ハマりどころ、回避策は

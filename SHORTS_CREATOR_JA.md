@@ -1,5 +1,8 @@
 # ショート動画の演出・制作機能
 
+
+> 2026-10-30：制作を始める／再開する際は [索引](docs/video-production/README.md) → [総覧](docs/video-production/PRODUCTION_KNOWHOW_JA.md) → 対象案件の再開記録を確認する。本書は実装・操作の詳細資料。新しい判断と次の作業は各 `RESUME_AND_KNOWHOW_JA.md` へ残す。
+
 ## BGMを変える（2026-10-21）
 
 CLI制作のJSON台本へ`"music_preset": "bright_groove_v1"`を指定すると、112 BPMの明るいプラックと柔らかいベースへ変わる。省略時と`electro_pop_v1`は既存の120 BPM曲を維持する。どちらもローカル合成のオリジナル曲で、発話時の減音・切り替え効果音・最終音量検査を使う。音楽プリセットを変えた場合は音声の再利用を拒否する。既存のStudio経路へ新しいBGM設定UIを追加する変更ではない。

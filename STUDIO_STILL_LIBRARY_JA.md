@@ -1,5 +1,8 @@
 # 静止画ライブラリ — 記事素材の撮影・比較・書き出し
 
+
+> 2026-10-30：制作を始める／再開する際は [索引](docs/video-production/README.md) → [総覧](docs/video-production/PRODUCTION_KNOWHOW_JA.md) → 対象案件の再開記録を確認する。本書は実装・操作の詳細資料。新しい判断と次の作業は各 `RESUME_AND_KNOWHOW_JA.md` へ残す。
+
 更新: 2026-09-12
 
 ## 撮影前のClaude画面準備（実験機能）

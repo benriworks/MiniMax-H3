@@ -1,5 +1,8 @@
 # 制作記録 — PV_20260815_original_jp_dance_unit_15s
 
+
+> 2026-10-30整理：現在の判断と次の作業は [再開履歴兼ノウハウ](RESUME_AND_KNOWHOW_JA.md) を先に確認する。以下の制作時点の記録は履歴・詳細根拠として保持する。
+
 ## 1. 記録の目的と状態
 
 このファイルは、完全合成人物による15秒PVの素材、生成、編集、QC、権利確認の台帳である。技術状態は `complete_independently_reviewed` で、3本のH3 rawと15秒映像masterは独立監査GOである。一方、創作状態はCUT03後半が `needs_improvement`、公開状態は権利確認待ちのblocked、人による試聴は未実行である。これらを技術GOから推測で昇格しない。

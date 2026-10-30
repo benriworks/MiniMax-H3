@@ -1,3 +1,5 @@
+> 動画・関連記事の制作を始める／再開する場合は、[制作索引](docs/video-production/README.md) → [ノウハウ総覧](docs/video-production/PRODUCTION_KNOWHOW_JA.md) → 索引にある対象案件の再開記録を確認してください。
+
 > [!NOTE]
 > **このチェックアウトのWindows向けローカル補助資料:**
 > [セットアップ](LOCAL_SETUP_JA.md)、[制作プレイブック](PRODUCTION_PLAYBOOK_JA.md)、
