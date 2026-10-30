@@ -1,5 +1,8 @@
 # MiniMax H3 ローカル映像制作プレイブック
 
+
+> 2026-10-30：新しいチャットでは [制作索引](docs/video-production/README.md) → [総覧](docs/video-production/PRODUCTION_KNOWHOW_JA.md) → 対象案件の再開記録を先に読む。本書はローカル生成の詳細と過去実測の別冊。共通判断の更新は総覧、案件固有の結果と次の作業は各 `RESUME_AND_KNOWHOW_JA.md` へ残す。
+
 ## 2026-10-23：制作全体の運用規定と引き継ぎ
 
 人物キャラの初期ユーザー確認、MiniMaxでの動画化、人物のストーリーとシリーズの一貫性、ローカル保存、レビュー、GitHubでの資産化は [制作全体の引き継ぎガイド](docs/video-production/VIDEO_PRODUCTION_HANDOFF_JA.md) を正本とする。人物を使う新しい解説シリーズでは、人物の確認を本番生成・量産より先に行う。

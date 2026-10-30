@@ -1,5 +1,8 @@
 # タイトル・結論ファースト・人物の掛け合いの制作基準
 
+
+> 2026-10-30：制作の入口は [索引](README.md) → [総覧](PRODUCTION_KNOWHOW_JA.md) → 対象案件の `RESUME_AND_KNOWHOW_JA.md`。本書は工程別の詳細資料として併用し、案件の現在地・次の作業・新しい学びは再開記録へ反映する。
+
 更新日：2026-10-28。これまでのユーザー指定、dots詳細動画の採用・修正記録を、次の制作で再利用するための編集基準へ整理した。媒体・音声・撮影・保存の実務は [総合手順](VIDEO_PRODUCTION_HANDOFF_JA.md)、[音声別冊](NARRATION_HANDOFF_JA.md)、[会話の実装](DIALOGUE_NARRATION_JA.md)、[実画面と引用](SCREEN_CAPTURE_AND_QUOTES_JA.md) を併用する。
 
 ## 1. この資料の使い方と採用の範囲

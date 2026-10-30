@@ -1,5 +1,8 @@
 # 画面解説テンプレート: 素材準備を減らす
 
+
+> 2026-10-30：制作を始める／再開する際は [索引](docs/video-production/README.md) → [総覧](docs/video-production/PRODUCTION_KNOWHOW_JA.md) → 対象案件の再開記録を確認する。本書は実装・操作の詳細資料。新しい判断と次の作業は各 `RESUME_AND_KNOWHOW_JA.md` へ残す。
+
 更新: 2026-09-06
 
 **外観テーマを追加:** 同梱Noto Sans JPの日本語見出しと、標準／Claude Desktop／Claude Code／技術解説の選択に対応。素材・台本・保存済み音声設定を維持したまま配色と識別文を切り替える。ロゴの利用承認は未確認のため未使用。[テーマの仕様・利用条件・検証記録](STUDIO_TEMPLATE_BRANDING_JA.md)。音質改善は利用者の指示で保留中。

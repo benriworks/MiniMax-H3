@@ -1,12 +1,18 @@
-# Production records
+# 制作記録の保存場所
 
-## 現行の制作ルール（2026-10-23）
+## 再開の入口（2026-10-30）
+
+共通の入口は [制作索引](../docs/video-production/README.md) → [ノウハウ総覧](../docs/video-production/PRODUCTION_KNOWHOW_JA.md) → 対象案件の `RESUME_AND_KNOWHOW_JA.md`。35単位を含む完全な案件一覧は制作索引へ集約した。このファイルの過去の4件表と状態遷移は当時の記録であり、全案件の現在地を示さない。
+
+新規案件は [ひな形](../docs/video-production/templates/PRODUCTION_RECORD_JA.md) から再開記録を作り、索引へ追加する。再開・修正・生成・レビュー・採用・終了時に先頭の現在地と次の作業を更新し、履歴へ追記する。既存のREADME、制作台帳、台本、JSONは詳細の根拠として保持する。
+
+## 従来の保存規約と記録（2026-10-23時点）
 
 制作工程と担当者向けの入口は [動画制作ガイド](../docs/video-production/README.md)。新しい人物を使う場合は先にユーザーへ確認し、確認済み人物をMiniMaxで動画化する。人物のペルソナと物語、初回出力と修正履歴、素材の版と採否を案件記録へ残す。
 
 ナレーションは [独立した引き継ぎ資料](../docs/video-production/NARRATION_HANDOFF_JA.md) を参照。下記の既存台帳形式は保持し、今後の保存・レビュー・GitHub更新の運用を [総合ガイド](../docs/video-production/VIDEO_PRODUCTION_HANDOFF_JA.md) に従って補う。動画・音声・納品ZIPの本体はローカル／共有ストレージに置き、GitHubへは文書・軽量な台帳を残す。
 
-このディレクトリは、MiniMax H3およびStudioのローカル編集・モーショングラフィックスで制作した個別案件の追跡可能な台帳を置く場所です。再利用可能な制作判断はルートの[PRODUCTION_PLAYBOOK_JA.md](../PRODUCTION_PLAYBOOK_JA.md)へ集約し、案件固有のprompt、hash、採否、権利境界は各productionに残します。
+このディレクトリは、MiniMax H3およびStudioのローカル編集・モーショングラフィックスで制作した個別案件の追跡可能な台帳を置く場所です。再利用可能な制作判断は[総覧](../docs/video-production/PRODUCTION_KNOWHOW_JA.md)へ、生成方式と過去の実測の詳細は[PRODUCTION_PLAYBOOK_JA.md](../PRODUCTION_PLAYBOOK_JA.md)へ、案件固有のprompt、hash、採否、権利境界は各productionに残します。
 
 ## ディレクトリ契約
 
@@ -14,6 +20,7 @@
 
 | ファイル | 責務 |
 | --- | --- |
+| `RESUME_AND_KNOWHOW_JA.md` | 現在地・採用範囲・次の作業・案件の学び・再開履歴。新しい制作と再開の入口 |
 | `CUT_PLAN_JA.md` | cut割り、入力mode、動作、音声、編集、生成前gate |
 | `PRODUCTION_RECORD_JA.md` | prompt ID、graph hash、seed、所要時間、artifact、編集、QC、採否 |
 | `ASSET_PROVENANCE_JA.md` | source / generated asset、派生関係、bytes、SHA-256、権利境界 |

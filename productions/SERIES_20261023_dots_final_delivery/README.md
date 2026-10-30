@@ -1,5 +1,8 @@
 # dots 第5〜9回の仕上げ
 
+
+> 2026-10-30整理：現在の判断と次の作業は [再開履歴兼ノウハウ](RESUME_AND_KNOWHOW_JA.md) を先に確認する。以下の制作時点の記録は履歴・詳細根拠として保持する。
+
 ## YouTubeアップロード状況（2026-10-24）
 
 ユーザーより「ChatGPTはすべてアップ完了しました。」との申告。ChatGPT（dots）編は全編アップロード済みとして記録した。第5・6回はGemini Aoede完成版、第7〜9回はメッセージ修正後のv02が直前に提示した最新版。現在の記録は[publication-status.json](publication-status.json)、原文と対象動画は[申告記録](publication-reports/20261024T064153Z.json)を参照。過去のVERIFICATION・納品時点の未投稿記録は履歴として保持する。YouTube URL・公開範囲・実際の公開日時は未提供で、最終試聴や別の採用確認を自動的に合格へ変更しない。

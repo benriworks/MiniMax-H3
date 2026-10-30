@@ -1,5 +1,8 @@
 # Studio コンテンツ品質・制作ガイド
 
+
+> 2026-10-30：制作を始める／再開する際は [索引](docs/video-production/README.md) → [総覧](docs/video-production/PRODUCTION_KNOWHOW_JA.md) → 対象案件の再開記録を確認する。本書は実装・操作の詳細資料。新しい判断と次の作業は各 `RESUME_AND_KNOWHOW_JA.md` へ残す。
+
 2026-10-23追記：人物キャラの初期確認からMiniMax人物動画、物語、公式引用、Geminiナレーション、保存・レビュー・GitHub資産化までの運用は [制作全体のガイド](docs/video-production/README.md) を参照。音声担当へは [ナレーション別冊](docs/video-production/NARRATION_HANDOFF_JA.md) を渡す。以下のStudio UI操作の説明は従来の機能・時点の記録として保持する。
 
 更新日: 2026-09-05
