@@ -1,6 +1,6 @@
 # 動画・関連記事の制作索引
 
-更新日：2026-10-30。このリポジトリの制作情報は、索引・総覧・案件ごとの再開履歴兼ノウハウの3種類を入口に管理する。チャット履歴がない別チャット・別担当者も、ここから再開する。
+更新日：2026-10-31。このリポジトリの制作情報は、索引・総覧・案件ごとの再開履歴兼ノウハウの3種類を入口に管理する。チャット履歴がない別チャット・別担当者も、ここから再開する。
 
 ## 最初に読む3種類
 
@@ -32,7 +32,7 @@
 
 | 案件・素材 | 再開時の入口 |
 | --- | --- |
-| ChatGPT Pro：Work・Codex利用枠拡大ニュース | [content-projects/CONTENT_20261030_chatgpt_pro_usage_news](../../productions/content-projects/CONTENT_20261030_chatgpt_pro_usage_news/RESUME_AND_KNOWHOW_JA.md) |
+| ChatGPT Pro：Work・Codex利用枠拡大ニュース（48秒動画v02・記事草稿v02をDrive共有、試聴待ち） | [content-projects/CONTENT_20261030_chatgpt_pro_usage_news](../../productions/content-projects/CONTENT_20261030_chatgpt_pro_usage_news/RESUME_AND_KNOWHOW_JA.md) |
 | dots：Excelから案件管理へ自動転記する詳細動画 | [LONG_20261026_dots_transfer_detail](../../productions/LONG_20261026_dots_transfer_detail/RESUME_AND_KNOWHOW_JA.md) |
 | Claude Docs：メモから文書へ、動画と記事の共用 | [content-projects/CONTENT_20261023_claude_docs_reuse](../../productions/content-projects/CONTENT_20261023_claude_docs_reuse/RESUME_AND_KNOWHOW_JA.md) |
 | PHP2Shell：概要と対策を説明するショート | [content-projects/CONTENT_20261024_php2shell_overview](../../productions/content-projects/CONTENT_20261024_php2shell_overview/RESUME_AND_KNOWHOW_JA.md) |

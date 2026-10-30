@@ -1,5 +1,23 @@
 # Architecture diagram
 
+## Pro利用枠ニュースの制作経路（2026-10-31）
+
+```mermaid
+flowchart LR
+    Approval[構成と既存人物の採用] --> Ledger[共通ContentWorkspace]
+    Ledger --> Driver[案件専用ドライバー]
+    Motion[既存MiniMax人物動画] --> Driver
+    TTS[既存Gemini Aoedeアダプター] --> Driver
+    Driver --> Video[従来比グラフと48秒MP4]
+    Driver --> Article[記事草稿と比較図]
+    Video --> QC[全編decodeと実フレーム確認]
+    QC --> Drive[接続ツールによるDrive保存]
+    Article --> Drive
+    Drive --> Review[ユーザーの試聴と採用]
+```
+
+詳細は案件の[独立したMermaid図](productions/content-projects/CONTENT_20261030_chatgpt_pro_usage_news/ARCHITECTURE_DIAGRAM.md)。枠の絶対量・仕事数の保証・自動公開を表す経路ではない。
+
 ## dots第5〜9回の改訂経路（2026-10-23）
 
 ```mermaid

@@ -1,5 +1,9 @@
 # Architecture
 
+## Pro利用枠ニュースの相対グラフ制作（2026-10-31）
+
+`productions/content-projects/CONTENT_20261030_chatgpt_pro_usage_news/produce.py` は採用済み48秒の企画から、既存MiniMax人物動画、各プランの従来枠＝1とする相対グラフ、公開候補画面、Aoede音声を合成する。既存Geminiアダプターと明るいBGM生成器を再利用し、原本・v01・v02・技術QC・記事用画像を独立保存する。共通ContentWorkspaceへ採用原文・人物・素材を記録し、Driveは接続ツールで個別送信する。StudioのUI／HTTP APIや自動公開は追加しない。案件の[設計本文](productions/content-projects/CONTENT_20261030_chatgpt_pro_usage_news/ARCHITECTURE.md)と[図](productions/content-projects/CONTENT_20261030_chatgpt_pro_usage_news/ARCHITECTURE_DIAGRAM.md)を参照。
+
 ## dots第5〜9回の仕上げ改訂（2026-10-23）
 
 `productions/SERIES_20261023_dots_final_delivery/produce.py`は第5回の文脈保持と第7回の定期実行の使い方を独立IDで改訂する。既存原稿に一致するGemini Aoede発話だけを再利用し、変更分を既存TTSアダプターで生成して共通Shorts処理へ渡す。旧dotsのMiniMax人物動画・公式引用証跡を保ち、第6・8・9回の検証済み動画と合わせて独立フォルダーへ集約する。Driveへの共有は接続ツールによる個別操作。UI・API・DB・実schedule登録経路は追加しない。詳細は[専用アーキテクチャ](productions/SERIES_20261023_dots_final_delivery/ARCHITECTURE.md)。
