@@ -32,7 +32,7 @@
 
 | 案件・素材 | 再開時の入口 |
 | --- | --- |
-| ChatGPT Pro：Work・Codex利用枠拡大ニュース（48秒v02をDrive共有。男女各3リアクションの新規H3生成・v03改訂中） | [content-projects/CONTENT_20261030_chatgpt_pro_usage_news](../../productions/content-projects/CONTENT_20261030_chatgpt_pro_usage_news/RESUME_AND_KNOWHOW_JA.md) |
+| ChatGPT Pro：Work・Codex利用枠拡大ニュース（新規H3人物6本を使う48秒v03・15秒ポーズ一覧をDrive共有、試聴待ち） | [content-projects/CONTENT_20261030_chatgpt_pro_usage_news](../../productions/content-projects/CONTENT_20261030_chatgpt_pro_usage_news/RESUME_AND_KNOWHOW_JA.md) |
 | dots：Excelから案件管理へ自動転記する詳細動画 | [LONG_20261026_dots_transfer_detail](../../productions/LONG_20261026_dots_transfer_detail/RESUME_AND_KNOWHOW_JA.md) |
 | Claude Docs：メモから文書へ、動画と記事の共用 | [content-projects/CONTENT_20261023_claude_docs_reuse](../../productions/content-projects/CONTENT_20261023_claude_docs_reuse/RESUME_AND_KNOWHOW_JA.md) |
 | PHP2Shell：概要と対策を説明するショート | [content-projects/CONTENT_20261024_php2shell_overview](../../productions/content-projects/CONTENT_20261024_php2shell_overview/RESUME_AND_KNOWHOW_JA.md) |

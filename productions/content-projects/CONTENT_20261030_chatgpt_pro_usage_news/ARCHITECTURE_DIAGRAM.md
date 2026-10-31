@@ -9,10 +9,14 @@ flowchart TD
     PoseRequest[男女各3ポーズの追加依頼] --> LocalH3[専用ローカルH3で新規6本]
     LocalH3 --> PoseProof[要求IDとhistoryと媒体検査]
     PoseProof --> PoseReview[外見と動作のAI補助確認]
-    PoseReview --> Revision[ポーズを使い分けるv03編集]
+    PoseReview --> SafeDerivative[必要な寄りを派生し原本hashと結ぶ]
+    SafeDerivative --> Revision[ポーズを使い分けるv03編集]
+    SafeDerivative --> Stills[記事用の静止画と素材台帳]
     Video --> Revision
     Revision --> AudioCopy[v02のAACをstream copy]
     AudioCopy --> QC
+    QC --> Archive[原本と派生と証跡のZIPとSHA-256検査]
+    Archive --> Drive
     Transcript[表示原稿と読み原稿] --> TTS[既存Gemini Aoedeアダプター]
     TTS --> PCM[場面別PCMと検証証跡]
     PCM --> Timeline[実尺を保持して約48秒へ配置]

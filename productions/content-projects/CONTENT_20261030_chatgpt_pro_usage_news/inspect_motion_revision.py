@@ -14,9 +14,9 @@ def inspect_pose(job):
  command(['ffmpeg','-v','error','-nostdin','-xerror','-i',str(raw),'-f','null','-'])
  # This measures visible change only; semantic pose and identity still require visual review.
  pictures=[]
- for i in range(10):
+ for i,t in enumerate([.2+i*.5 for i in range(10)]+[5.1]):
   p=dest/f'inspect-{i:02d}.jpg'
-  if not p.exists():command(['ffmpeg','-v','error','-nostdin','-ss',str(.2+i*.5),'-i',str(raw),'-frames:v','1','-q:v','2',str(p)])
+  if not p.exists():command(['ffmpeg','-v','error','-nostdin','-ss',str(t),'-i',str(raw),'-frames:v','1','-q:v','2',str(p)])
   with Image.open(p) as im:pictures.append(im.convert('L').resize((96,172)))
  differences=[ImageStat.Stat(ImageChops.difference(a,b)).mean[0] for a,b in zip(pictures,pictures[1:])]
  result=dict(job=job,raw_sha256=digest(raw),full_decode=True,half_second_grayscale_differences=differences,metric_scope='Pixel-change diagnostic; not a semantic action or identity score',ai_visual_review=False,user_approved=False)

@@ -23,7 +23,9 @@ def main():
    status['ai_visual_review']=review['status']=='visual_review_passed'
    if status['ai_visual_review'] and not any(a['asset_id']==aid for a in current()['assets']):
     c=next(c for c in current()['characters'] if c['character_id']=='dots_'+item['who'])
-    apply('asset',dict(asset_id=aid,kind='generated_video',path=data['artifact']['path'],sha256=data['artifact']['sha256'],bytes=data['artifact']['bytes'],visibility='public',privacy_review='passed',character_id=c['character_id'],character_version=c['version'],provider='minimax',generation_record=proof.relative_to(ROOT).as_posix(),generation_context='generated_for_this_revision',pose=item['pose'],visual_review_record=visual.relative_to(ROOT).as_posix(),user_approved=False),job+'_v01')
+    video=data['artifact'];derivation=d/'public-derivative.json'
+    if derivation.exists():video=json.loads(derivation.read_text(encoding='utf-8'))
+    apply('asset',dict(asset_id=aid,kind='generated_video',path=video['path'],sha256=video['sha256'],bytes=video['bytes'],visibility='public',privacy_review='passed',character_id=c['character_id'],character_version=c['version'],provider='minimax',generation_record=proof.relative_to(ROOT).as_posix(),generation_context='generated_for_this_revision',pose=item['pose'],visual_review_record=visual.relative_to(ROOT).as_posix(),derivation_record=derivation.relative_to(ROOT).as_posix() if derivation.exists() else None,user_approved=False),job+'_v01')
    status['registered']=any(a['asset_id']==aid for a in current()['assets'])
   states.append(status)
  result=dict(revision=current()['revision'],expected_pose_count=6,generated_count=sum(s['technical_proof'] for s in states),ai_reviewed_count=sum(s['ai_visual_review'] for s in states),assets=states,final_v03_user_approved=False,published=False)

@@ -17,7 +17,12 @@ def checked_sources():
   if not proof.exists():raise RuntimeError('New MiniMax pose not yet generated: '+job)
   value=json.loads(proof.read_text(encoding='utf-8'));item=value['artifact'];p=ROOT/item['path']
   if not value['execution']['success'] or not item['full_decode_verified'] or base.sha(p).upper()!=item['sha256']:raise RuntimeError('Motion identity/technical proof mismatch: '+job)
-  result[job]=dict(video=p,proof=proof,sha256=item['sha256'],frames=value['settings']['frames'])
+  original_sha=item['sha256'];derivative=MOTIONS/job/'public-derivative.json'
+  if derivative.exists():
+   derived=json.loads(derivative.read_text(encoding='utf-8'));p=ROOT/derived['path']
+   if derived['source_sha256']!=original_sha or base.sha(p).upper()!=derived['sha256'].upper():raise RuntimeError('Public derivative changed')
+   item=derived
+  result[job]=dict(video=p,proof=proof,sha256=item['sha256'],raw_sha256=original_sha,frames=value['settings']['frames'])
  return result
 
 def cache_sources(sources):
@@ -25,16 +30,16 @@ def cache_sources(sources):
   d=CACHE/name;d.mkdir(parents=True,exist_ok=True)
   files=list(d.glob('*.jpg'))
   if files and len(files)!=item['frames']:raise RuntimeError('Incomplete pose cache: '+name)
-  if not files:base.cmd(['ffmpeg','-v','error','-nostdin','-i',str(item['video']),'-vf','scale=540:968','-q:v','3',str(d/'%04d.jpg')])
+  if not files:base.cmd(['ffmpeg','-v','error','-nostdin','-i',str(item['video']),'-vf','scale=540:-2','-q:v','3',str(d/'%04d.jpg')])
   if len(list(d.glob('*.jpg')))!=item['frames']:raise RuntimeError('Unexpected pose frame count')
 
 def selection(scene,who,t):
  # Play each purposeful action once. Never loop the same palm-up gesture.
- if scene==0:return who+'-happy',max(0,t)*.82
+ if scene==0:return who+'-happy',.65+max(0,t)*.70
  if scene==1:return who+'-understanding',max(0,t)*.72
  if scene==2:
   return (who+'-thinking',max(0,t)*.82) if t<6 else (who+'-understanding',(t-6)*.82)
- if scene==3:return who+'-happy',max(0,t)*.62
+ if scene==3:return (who+'-happy',.5+max(0,t)*.85) if t<4 else (who+'-understanding',.3+(t-4)*1.05)
  return who+'-understanding',max(0,t)*.82
 
 def new_photo(im,who,xy,wh,t):
@@ -82,12 +87,34 @@ def render():
  proc.stdin.close()
  if proc.wait()!=0:raise RuntimeError('Render failed')
  base.save(RELEASE/'timeline.json',timeline)
- base.save(RELEASE/'motion-provenance.json',{name:dict(path=item['video'].relative_to(ROOT).as_posix(),proof=item['proof'].relative_to(ROOT).as_posix(),sha256=item['sha256'],context='new MiniMax H3 generation for this revision') for name,item in sources.items()})
+ base.save(RELEASE/'motion-provenance.json',{name:dict(path=item['video'].relative_to(ROOT).as_posix(),proof=item['proof'].relative_to(ROOT).as_posix(),sha256=item['sha256'],raw_sha256=item['raw_sha256'],context='new MiniMax H3 generation for this revision; see public-derivative.json when cropped') for name,item in sources.items()})
  base.save(RELEASE/'delivery.json',dict(path=target.relative_to(ROOT).as_posix(),bytes=target.stat().st_size,sha256=base.sha(target),seconds=48,width=1080,height=1920,fps=24,audio='AAC stream copied from v02',new_h3_poses=6,new_tts_requests=0,technical_qc=False,ai_visual_review=False,user_approved=False,published=False))
  print(str(target),flush=True)
 
+def montage():
+ sources=checked_sources();cache_sources(sources)
+ dest=OUT/'review/motions-v01';dest.mkdir(parents=True,exist_ok=True);target=dest/'character-reactions-v01.mp4'
+ if target.exists():raise RuntimeError('Do not overwrite the pose montage')
+ p=subprocess.Popen(['ffmpeg','-v','error','-nostdin','-f','rawvideo','-pixel_format','rgb24','-video_size','1080x1920','-framerate','24','-i','pipe:0','-c:v','libx264','-preset','fast','-crf','19','-pix_fmt','yuv420p','-movflags','+faststart','-an',str(target)],stdin=subprocess.PIPE)
+ for pose,label in [('thinking','考える'),('happy','喜ぶ'),('understanding','納得する')]:
+  for n in range(120):
+   im=Image.new('RGB',(1080,1920),base.BG)
+   base.txt(im,'新しい人物リアクション',(72,100),64)
+   base.txt(im,label,(72,230),90,base.TEAL)
+   for who,x in [('male',72),('female',552)]:
+    with Image.open(CACHE/f'{who}-{pose}'/f'{n+1:04d}.jpg') as pic:
+     im.paste(ImageOps.contain(pic,(450,1200),method=Image.Resampling.LANCZOS),(x,480))
+   base.txt(im,'男性',(72,420),48);base.txt(im,'女性',(552,420),48)
+   base.txt(im,'ポーズ確認用・無音',(72,1640),40,base.MUTED)
+   p.stdin.write(im.tobytes())
+ p.stdin.close()
+ if p.wait()!=0:raise RuntimeError('Pose montage render failed')
+ base.save(dest/'manifest.json',dict(path=target.relative_to(ROOT).as_posix(),bytes=target.stat().st_size,sha256=base.sha(target),seconds=15,audio=False,user_approved=False))
+ print(str(target),flush=True)
+
 if __name__=='__main__':
- p=argparse.ArgumentParser();p.add_argument('command',choices=['render','gallery']);args=p.parse_args()
+ p=argparse.ArgumentParser();p.add_argument('command',choices=['render','gallery','montage']);args=p.parse_args()
  if args.command=='render':render()
+ elif args.command=='montage':montage()
  else:
   sources=checked_sources();cache_sources(sources);review_gallery(sources)

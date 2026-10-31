@@ -6,15 +6,15 @@
 
 ## 現在地と次の作業
 
-2026-10-31追加依頼：人物の動きが単調との指摘を受け、[男性・女性の思考／喜び／納得の計6本](MOTION_REVISION_V03_JA.md)を新規MiniMax H3で制作中。APIキー未設定のため、検査済みのローカルH3を使用。専用8191サービスと独立出力 `motions/v01/` で逐次生成する。最初の男性思考1本は26分17.755秒で技術検証を終え、AIのフレーム確認とDrive保存・メタデータ照合を実施。残り5本と本編v03は未完了。6本の成功・媒体検査・動作確認後にv03へ組み込み、v02のAACを再利用してDriveへ共有する。
+2026-10-31追加依頼：人物の動きが単調との指摘を受け、[男性・女性の思考／喜び／納得の計6本](MOTION_REVISION_V03_JA.md)を新規ローカルMiniMax H3で生成。本編v03へ組み込み、48秒版と15秒無音のポーズ一覧をDriveへ保存し、メタデータを照合した。新規6本の生成・全decode・hash・AI補助確認、本編の全decode・AAC同一性・AI補助確認を実施。人の最終試聴、スマホ実機、完成動画採用、公開は未実施。現在のレビュー対象はv03。
 
-ユーザーが約48秒・1本と既存男女の継続を明示的に採用し、伸びるグラフと絶対量への注意を追加指定した。[採用原文](approval-20261031.json)を共通台帳へ保存。48秒・1080×1920の音声／BGM付きレビュー動画v02、[記事草稿v02](article-draft-v02.md)、記事用比較図と公開候補画面4点を準備し、Driveへ保存した。完成動画のユーザー採用、スマホ実機再生、YouTube・記事公開は未実施。
+初回の経緯：ユーザーが約48秒・1本と既存男女の継続を明示的に採用し、伸びるグラフと絶対量への注意を追加指定した。[採用原文](approval-20261031.json)を共通台帳へ保存。最初に音声／BGM付き動画v02、[記事草稿v02](article-draft-v02.md)、記事用比較図と公開候補画面4点を準備しDriveへ保存した。上記v03は人物動作を改訂した現在のレビュー版。完成動画のユーザー採用、スマホ実機再生、YouTube・記事公開は未実施。
 
 - タイトル案：【ChatGPT】ProのWork・Codex枠が拡大！2倍になる人・変わらない人
-- 声はAoede単独解説、Gemini 2.5 Flash Preview TTSで6要求すべて生成・PCM検証。MiniMax人物動画は既存dots男女の原素材とhashを照合して再利用。新規MiniMax生成0、映像改訂v02の追加TTS0。自然な人物動作で、音声同期の新規口パク生成ではない。
-- 次は `motions/v01/*/submission.json` と同じIDのqueue/historyを参照して6本を完走させる。検査済みの `verification.json` と実フレームで外見・動作を確認し、`render_motion_revision.py render` でv03へ。新しい人物カットの印象と最終試聴をユーザーへ依頼する。blog配置・MDX・案内役画像・公開は別途。構成採用を動画の最終採用に広げない。
-- 技術確認：48秒、24fps、1152フレーム、AAC 48kHz stereo、全編decode通過。実MP4から冒頭の成長過程・カット境界・終端14点を抽出し、AI補助で文字・顔・グラフ・出典を確認。初回v01のグラフ数値と見出しの近接をv02で解消。人の試聴、スマホ実機再生、動画採用、公開は未実施。
-- 共有：動画v02（4,480,703 bytes）と記事草稿・画像ZIP（218,654 bytes）をDriveのマイドライブへ保存し、名前・MIME・容量・所有者権限を読戻し確認。構成レビューPDFも保持。スマホ実機閲覧は未確認。S3未送信、YouTube未投稿、記事未公開。Git保存先は個人forkの `codex/pro-usage-news-20261030`、Draft PR #8。mainには未マージ。
+- 声はAoede単独解説、Gemini 2.5 Flash Preview TTSの6件をv01〜v03で再利用。v03の追加TTS0、圧縮AACはv02とbitstream一致。v02までは既存MiniMax動作2本を再利用し、v03では新規H3動作6本へ改訂した。自然な人物動作で、音声同期の新規口パク生成ではない。
+- 次はDriveの本編v03で、冒頭0〜6秒の喜び、13〜25秒の思考から納得への切り替え、42〜48秒の締めをユーザーが確認する。15秒無音のポーズ一覧も参照できる。blog配置・MDX・案内役画像・公開は別途。構成・素材生成の依頼を完成動画の最終採用に広げない。
+- 技術確認：v03は48秒、24fps、1152フレーム、AAC 48kHz stereo、全編decode通過。実MP4の13点と指を立てる24.0秒／46.6秒をAI補助確認し、衣装の不要文字が見えない寄り、顔・手・字幕・グラフ・出典を確認。v01の数値と見出しの近接はv02で解消し維持。人の試聴、スマホ実機再生、動画採用、公開は未実施。
+- 共有：現在は本編v03（5,171,867 bytes）と15秒無音のポーズ一覧（2,210,901 bytes）をDrive保存し、名前・MIME・容量・所有者権限を読戻し確認。以前のv02・記事ZIP・構成PDFも保持。スマホ実機閲覧は未確認。S3未送信、YouTube未投稿、記事未公開。Git保存先は個人forkの `codex/pro-usage-news-20261030`、Draft PR #8。mainには未マージ。
 
 ## 保存先と原素材
 
@@ -23,8 +23,13 @@
 - 原本は `_private/captures/`、公開候補は `captures/`、レビューは `review/v01/index.html`。captured UIの請求履歴・識別情報・実残量・共有情報をGitへ入れない。
 - ユーザーがlocalhostを開けなかったため、同じ構成案をサーバー不要の `review/portable-v01/ChatGPT-Pro-review-v01.pdf` へまとめた。構成、人物、ナレーション全文、公開候補画面、記事草稿を収録。初回レイアウトは同フォルダーの `revision-history/initial-layout/` に保持。共有の受領記録は `drive-upload.json`、検査は `manifest.json`。PDF・共有識別子はGitへ入れない。
 - 共通CLIはこのworktreeの `outputs/studio/studio.sqlite3` へ保存。元制作フォルダーの別DBや既存案件は変更しない。ignored素材はcloneに付属しない。
-- 最新動画：`release/v02/chatgpt-pro-usage-v02.mp4`。音声原本：`voice/v01/scene-00`〜`scene-05`。同版の `timeline.json`、`verification.json`、`qc/`、`drive-upload.json` から実尺・hash・検査・共有を追う。初回動画v01は保持。
+- 改訂元動画：`release/v02/chatgpt-pro-usage-v02.mp4`。音声原本：`voice/v01/scene-00`〜`scene-05`。同版の `timeline.json`、`verification.json`、`qc/`、`drive-upload.json` から実尺・hash・検査・共有を追う。初回動画v01も保持。
+- 最新の改訂：`release/v03/chatgpt-pro-usage-v03.mp4`（5,171,867 bytes）。上のv02は改訂元として保持。`release/v03/verification.json`、`motion-provenance.json`、`qc/`、`drive-upload.json` に根拠を保存。ポーズ一覧は `review/motions-v01/character-reactions-v01.mp4`（2,210,901 bytes）。
+- 新規人物6本は `motions/v01/<性別-ポーズ>/`。男性納得は衣装の不要な文字を避けた `public-closeup-v01.mp4` を使う。原本は保持し、`public-derivative.json` に切り出しとhashを記録。原本そのものを公開推奨素材としない。共通台帳revision 27に新規6本を登録。
 - 記事用：`blog-handoff/v02/` と `blog-handoff/ChatGPT-Pro-blog-review-v02.zip`。本文v02、1600×900の比較図、実画面切り出し2点、短い公式引用、寸法・hash・出典を保持。記事は共通草稿で、blogへ未配置。
+- 記事用の追加候補：`blog-handoff/motion-assets-v01/` の6静止画とmanifest。男性納得は公開用の寄りから抽出し、記事の人物規定と掲載幅の確認前に自動配置・公開しない。
+- 再利用用アーカイブ：`release/v03/ChatGPT-Pro-H3-motion-reuse-v01.zip`。原本・公開用の寄り・参照画像・prompt・証跡・本編v02/v03・記事用静止画を相対パスで収録。91メンバー、34,826,585 bytes。MANIFESTでファイル単位のSHA-256を検査。APIキー、Drive ID、実アカウントの私的撮影原本は含めない。男性納得はREADMEの指示どおり公開用派生を使う。
+- 上記アーカイブもDriveへ「ChatGPT-Pro_H3人物ポーズ6本_原本と編集用素材_v01.zip」の名前で保存し、容量・MIME・所有者権限をreadback照合した。受領記録は `release/v03/drive-source-bank.json`。6件完走・queue空を確認してモデルキャッシュを解放し、所有範囲を確認した専用8191サービスだけを終了した。
 - 案件の[設計本文](ARCHITECTURE.md)、[Mermaid図](ARCHITECTURE_DIAGRAM.md)、[動画検査](VERIFICATION_VIDEO_V02_JA.md)、[投稿文案](YOUTUBE_DESCRIPTION_JA.md)を併用する。
 
 ## この案件のノウハウ
@@ -53,3 +58,7 @@
 | 2026-10-31 | 共通台帳revision 20へ比較図と記事v02の章・素材参照を保存 | Studioの記事本文自動同期やblog配置ではない。公開承認はfalseを維持 |
 | 2026-10-31 | 男女それぞれの思考・喜び・納得の新規H3動画を依頼され、6本の動作・始点・専用サービスを準備。最初の男性思考を投入 | ローカルH3 official INT8＋Q4、768×1376、20 steps、5秒。本番結果・v03組込み・再共有は未完了。既存音声と記事の事実は変更しない |
 | 2026-10-31 | 男性思考1本の成功history・全decode・hash・0〜4秒の画像とフルサイズ2秒を確認し、顎に手を当てて視線を上げる動作を確認。Driveへ素材単体を保存 | 男性思考1本のみ確認済み。女性喜びを処理中。v03全体の完成・試聴・採用ではない |
+| 2026-10-31 | 女性喜びと女性思考が生成完了。両拳を上げる喜びと、指を顎へ当てる思考をcontact sheetとフルサイズ画像でAI補助確認 | 新規3本が確認済み、男性喜びを生成中。追加TTSは0。残る3本・本編組込み・共有は未完了 |
+| 2026-10-31 | 新規6本を完走し、思考・喜び・納得をAI補助確認。男性納得の意図しない衣装文字を寄りの派生で除外 | 6本execution合計9,504.684秒。原本を保持し、生成完了・編集・人の採用を分離 |
+| 2026-10-31 | 48秒本編v03、15秒無音のポーズ一覧、記事用6静止画を作成。Driveへ本編と一覧を保存しreadback照合 | 全編decodeとAAC bitstream一致、実MP4の13＋2フレームを確認。人の最終試聴・実機・公開は未実施 |
+| 2026-10-31 | 原本・公開用派生・本編・検査・記事用静止画を91メンバーの再利用ZIPへ保存し、全メンバーhashを照合。Drive保存・readbackを確認 | 追加MiniMax API／TTS要求0。私的画面原本・キー・Drive IDをZIPやGitへ含めない。完走後に専用サービスのみ終了 |
