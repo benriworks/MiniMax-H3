@@ -1,0 +1,39 @@
+{
+  "video": {
+    "path": "outputs/content-projects/CONTENT_20261029_gpt61_terra/v02/terra-explained-v02.mp4",
+    "bytes": 3791719,
+    "sha256": "F5F73263E887B85FA4D875B03AA288BBCD8E1D7EB1FF44D0145A30E4DBBF7F1D"
+  },
+  "seconds": 62.791666666666664,
+  "frames": 1507,
+  "width": 1080,
+  "height": 1920,
+  "fps": 24,
+  "full_decode": "passed",
+  "audio": {
+    "codec": "aac",
+    "sample_rate": "48000",
+    "channels": 2,
+    "speakers": [
+      "Charon",
+      "Aoede"
+    ],
+    "new_requests": 10,
+    "new_audio_generation_succeeded": true
+  },
+  "character_source": "existing adopted dots v03 duo; MiniMax opening3s plus existing atlas; no new character generation",
+  "ai_visual_review": "10 encoded frames checked at 360px width; captions/face separation and hidden portraits during comparison confirmed",
+  "human_listening": "pending",
+  "smartphone_playback": "pending",
+  "user_approved": false,
+  "published": false,
+  "source_checked_at": "2026-10-31",
+  "demo_tested_at": "2026-10-29",
+  "pc_operation_tested": false,
+  "drive": {
+    "id": "1NKkD4X7_5Gu9xiQ-7DvtByiI4Zg_jUiX",
+    "url": "https://drive.google.com/file/d/1NKkD4X7_5Gu9xiQ-7DvtByiI4Zg_jUiX/view",
+    "size": 3791719,
+    "folder_id": "1u6CNT7C-E1QtoSgxk-znNTI7XrZZSZBl"
+  }
+}

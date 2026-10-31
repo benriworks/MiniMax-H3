@@ -1,5 +1,19 @@
 # Terraショート制作の構成図
 
+## v02会話版
+
+```mermaid
+flowchart LR
+  Script[男性の質問と女性の説明] --> TTS[CharonとAoede]
+  TTS --> PCM[実PCMと発話時刻]
+  PCM --> Driver[DialogueDriverの口形ゲート]
+  Atlas[既存の人物アトラス] --> Driver
+  MiniMax[既存MiniMax冒頭3秒] --> Render[縦動画描画]
+  Driver --> Render
+  Evidence[実API結果と画像比較] --> Render
+  Render --> MP4[別版MP4とDriveレビュー]
+```
+
 ```mermaid
 flowchart TD
   Official[OpenAI公式資料] --> Capture[Playwrightによる実画面撮影]
