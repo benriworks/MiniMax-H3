@@ -6,6 +6,13 @@ flowchart TD
     Sources[公式条件と実画面の公開候補] --> Driver[案件専用produce.py]
     Workspace --> Driver
     OldMotion[SHA-256照合済みMiniMax人物動画] --> Driver
+    PoseRequest[男女各3ポーズの追加依頼] --> LocalH3[専用ローカルH3で新規6本]
+    LocalH3 --> PoseProof[要求IDとhistoryと媒体検査]
+    PoseProof --> PoseReview[外見と動作のAI補助確認]
+    PoseReview --> Revision[ポーズを使い分けるv03編集]
+    Video --> Revision
+    Revision --> AudioCopy[v02のAACをstream copy]
+    AudioCopy --> QC
     Transcript[表示原稿と読み原稿] --> TTS[既存Gemini Aoedeアダプター]
     TTS --> PCM[場面別PCMと検証証跡]
     PCM --> Timeline[実尺を保持して約48秒へ配置]

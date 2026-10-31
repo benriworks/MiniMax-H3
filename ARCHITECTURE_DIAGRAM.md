@@ -7,6 +7,11 @@ flowchart LR
     Approval[構成と既存人物の採用] --> Ledger[共通ContentWorkspace]
     Ledger --> Driver[案件専用ドライバー]
     Motion[既存MiniMax人物動画] --> Driver
+    PoseRequest[男女各3動作の追加依頼] --> LocalH3[専用H3で新規ポーズ生成]
+    LocalH3 --> PoseQC[成功historyとhashと動作の確認]
+    PoseQC --> Revision[v03編集と旧AACのコピー]
+    Video --> Revision
+    Revision --> QC
     TTS[既存Gemini Aoedeアダプター] --> Driver
     Driver --> Video[従来比グラフと48秒MP4]
     Driver --> Article[記事草稿と比較図]
