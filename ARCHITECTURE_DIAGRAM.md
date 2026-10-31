@@ -1,5 +1,23 @@
 # Architecture diagram
 
+## 公式引用を使うニュース2本
+
+```mermaid
+flowchart LR
+    Brief[二題材の制作依頼] --> Research[公式本文と実画面の照合]
+    Research --> Bounds[実証範囲と撮影不足を記録]
+    Bounds --> Plan[企画と表示原稿と読み原稿]
+    Plan --> Media[既存人物と公式引用と自作図]
+    Plan --> Voice[場面別AoedeとPCM実尺]
+    Voice --> Render[版付き本編2本]
+    Media --> Render
+    Default[共通BGM explanation_v1] --> Render
+    Render --> QC[全decodeと音量と実フレーム検査]
+    Plan --> Blog[記事草稿2本と共通素材]
+    QC --> Drive[Driveレビュー]
+    Blog --> Drive
+```
+
 ## BGMの共通既定
 
 ```mermaid

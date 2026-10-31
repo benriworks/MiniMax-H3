@@ -1,5 +1,9 @@
 # Architecture
 
+## 10/31ニュース2本の独立制作（2026-10-31）
+
+`productions/content-projects/CONTENT_20261031_ai_news_ultra_accounts/` はユーザー指定のUltra条件とスマホ2アカウントを、公式引用・図解・既存人物・Aoedeで作る。PC撮影と端末接続を確認し、未実証の個別反映を仕様の説明と分ける。共通BGM既定を利用し、音声の実尺・版付き動画・記事用図・引用を保存する。`register_workspace.py` は二題材の依頼の採用範囲と、根拠・撮影不足・絵コンテ・記事節を共通台帳へ記録する。Driveは個別送信で照合し、自動公開やUI/API契約は追加しない。独立した[設計本文](productions/content-projects/CONTENT_20261031_ai_news_ultra_accounts/ARCHITECTURE.md)と[図](productions/content-projects/CONTENT_20261031_ai_news_ultra_accounts/ARCHITECTURE_DIAGRAM.md)を参照。
+
 ## 制作BGMの共通既定（2026-10-31）
 
 `music_mix.DEFAULT_BGM_PROFILE` がユーザー採用の `explanation_v1` を保持する。フェード前の音楽へ `default_bgm_bed()` が頭尾強調・発話中減音・フェードを適用し、Shortsと長尺の両入口が既定利用する。曲の生成と声・効果音は独立。Shortsのpreparationと音声署名にプロファイルIDを記録し、IDなしの過去ミックスはlegacyとして新既定への誤流用を拒否する。`legacy` は旧版再現用として保持。[設定と検査](docs/video-production/BGM_DEFAULTS_JA.md)。
