@@ -1,0 +1,324 @@
+{
+  "production_id": "CONTENT_20261101_tibo_28day_recap",
+  "as_of": "2026-10-31T19:23:28Z",
+  "title": "【Codex】毎日改善かリセット！Tiboの28日間チャレンジまとめ",
+  "scope": "Day 26までの発表とDay 27・28の予告。完結版ではない。",
+  "voice": "Aoede",
+  "bgm_profile": "explanation_v1",
+  "episodes": [
+    {
+      "id": "tibo-recap",
+      "title": "【Codex】毎日改善かリセット！Tiboの28日間チャレンジまとめ",
+      "conclusion": "改善と利用枠回復を続ける28日間。即時回復と後で使うバンクリセットは別。",
+      "source_label": "出典：Tibo @thsottiaux / OpenAI公式",
+      "scenes": [
+        {
+          "kind": "hero",
+          "seconds": 6,
+          "headline": "毎日改善。\nなければリセット！",
+          "spoken": "毎日、改善を出す。出せなければ、利用枠をリセット。そんな二十八日間のチャレンジです。",
+          "captions": [
+            "毎日、改善を出す",
+            "出せなければリセット",
+            "Tiboの28日間チャレンジ"
+          ],
+          "voice_version": "v02"
+        },
+        {
+          "kind": "promise",
+          "seconds": 7,
+          "headline": "Tiboの約束",
+          "spoken": "オープンエーアイのティボが宣言した、コーデックスとワークの改善チャレンジ。流れを一気に見てみましょう。",
+          "captions": [
+            "Codex・Workの改善チャレンジ",
+            "10月5日から28日間",
+            "太平洋時間のDay番号で振り返る"
+          ]
+        },
+        {
+          "kind": "days",
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "seconds": 9.1,
+          "headline": "最初は、速さと操作",
+          "spoken": "まずは生成の高速化や、操作性の改善。リセットの日もあり、三日目には、後で使えるバンクリセットも登場しました。",
+          "captions": [
+            "生成速度・操作性を改善",
+            "リセットの日も",
+            "後で使えるバンクリセットも登場"
+          ]
+        },
+        {
+          "kind": "days",
+          "days": [
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14
+          ],
+          "seconds": 9.1,
+          "headline": "軽く、止まりにくく",
+          "spoken": "アプリを軽くし、混雑時のエラーや、キャッシュの再利用も改善。過去メッセージの編集も加わります。",
+          "captions": [
+            "アプリの容量を削減",
+            "エラーと再利用を改善",
+            "過去メッセージを編集"
+          ]
+        },
+        {
+          "kind": "days",
+          "days": [
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21
+          ],
+          "seconds": 9.1,
+          "headline": "使い続けやすさへ",
+          "spoken": "後半も、キャッシュやシーエルアイを改善しながら、リセットが続きます。キャッシュの保持は、会話を永久に覚える意味ではありません。",
+          "captions": [
+            "キャッシュ・CLIを改善",
+            "リセットも続く",
+            "キャッシュ保持 ≠ 永久の会話記憶"
+          ]
+        },
+        {
+          "kind": "final_days",
+          "days": [
+            22,
+            23,
+            24,
+            25,
+            26
+          ],
+          "seconds": 10.1,
+          "headline": "終盤はモデルと利用枠",
+          "spoken": "テラの復帰、ドッツへのメッセージ、プロの利用枠拡大、スマホのアカウント切り替えへ。ただし、全員の全制限が二倍ではありません。",
+          "captions": [
+            "Terra復帰・dotsへのメッセージ",
+            "ProのWork・Codex枠を拡大",
+            "Pro 200は元の枠によって異なる",
+            "全員の全制限が2倍ではない"
+          ]
+        },
+        {
+          "kind": "forecast",
+          "seconds": 7,
+          "headline": "Day 27・28は予告段階",
+          "spoken": "最後の二日間は、バンクリセットの予告まで確認。配布済みとは、まだ断定しません。",
+          "captions": [
+            "最後の2日間はバンクリセット予告",
+            "配布の確認とは分ける",
+            "日本時間11月1日早朝の確認時点"
+          ]
+        },
+        {
+          "kind": "types",
+          "seconds": 10,
+          "headline": "リセットは2種類",
+          "spoken": "通常のリセットは、対象の枠をその場で回復。バンクリセットは、後で使う一回分。受け取るだけでは回復せず、有効期限もあります。",
+          "captions": [
+            "通常：対象枠をその場で回復",
+            "バンク：後で使う1回分",
+            "受け取るだけでは回復しない",
+            "有効期限あり"
+          ]
+        },
+        {
+          "kind": "closing",
+          "seconds": 6,
+          "headline": "あなたの残量を確認",
+          "spoken": "使い放題になったわけではありません。設定の使用状況で、対象の枠と期限を確認しましょう。",
+          "captions": [
+            "使い放題ではありません",
+            "設定 → 使用状況",
+            "対象枠と有効期限を確認"
+          ]
+        }
+      ]
+    }
+  ],
+  "days": [
+    {
+      "day": 1,
+      "label": "生成速度を改善",
+      "type": "improvement",
+      "source": "speed"
+    },
+    {
+      "day": 2,
+      "label": "Auto-reviewなど＋",
+      "type": "reset",
+      "source": "day2"
+    },
+    {
+      "day": 3,
+      "label": "Tailscaleなど＋",
+      "type": "bank",
+      "source": "day3"
+    },
+    {
+      "day": 4,
+      "label": "即時ステアリング",
+      "type": "improvement",
+      "source": "tracker"
+    },
+    {
+      "day": 5,
+      "label": "入力予測・dots",
+      "type": "improvement",
+      "source": "tracker"
+    },
+    {
+      "day": 6,
+      "label": "リセット",
+      "type": "reset",
+      "source": "tracker"
+    },
+    {
+      "day": 7,
+      "label": "コンテキスト拡大",
+      "type": "improvement",
+      "source": "day7"
+    },
+    {
+      "day": 8,
+      "label": "リセット",
+      "type": "reset",
+      "source": "tracker"
+    },
+    {
+      "day": 9,
+      "label": "アプリの容量削減",
+      "type": "improvement",
+      "source": "tracker"
+    },
+    {
+      "day": 10,
+      "label": "リセット",
+      "type": "reset",
+      "source": "tracker"
+    },
+    {
+      "day": 11,
+      "label": "混雑エラーを改善",
+      "type": "improvement",
+      "source": "tracker"
+    },
+    {
+      "day": 12,
+      "label": "キャッシュ等を改善",
+      "type": "improvement",
+      "source": "tracker"
+    },
+    {
+      "day": 13,
+      "label": "リセット",
+      "type": "reset",
+      "source": "tracker"
+    },
+    {
+      "day": 14,
+      "label": "過去メッセージ編集",
+      "type": "improvement",
+      "source": "tracker"
+    },
+    {
+      "day": 15,
+      "label": "リセット",
+      "type": "reset",
+      "source": "tracker"
+    },
+    {
+      "day": 16,
+      "label": "キャッシュ保持改善",
+      "type": "improvement",
+      "source": "day16"
+    },
+    {
+      "day": 17,
+      "label": "リセット",
+      "type": "reset",
+      "source": "tracker"
+    },
+    {
+      "day": 18,
+      "label": "リセット予告",
+      "type": "reset",
+      "source": "tracker"
+    },
+    {
+      "day": 19,
+      "label": "CLI・通話改善",
+      "type": "improvement",
+      "source": "tracker"
+    },
+    {
+      "day": 20,
+      "label": "リセット予告",
+      "type": "reset",
+      "source": "tracker"
+    },
+    {
+      "day": 21,
+      "label": "リセット",
+      "type": "reset",
+      "source": "tracker"
+    },
+    {
+      "day": 22,
+      "label": "Terra復帰",
+      "type": "improvement",
+      "source": "tracker"
+    },
+    {
+      "day": 23,
+      "label": "リセット",
+      "type": "reset",
+      "source": "tracker"
+    },
+    {
+      "day": 24,
+      "label": "dotsにメッセージ",
+      "type": "improvement",
+      "source": "release"
+    },
+    {
+      "day": 25,
+      "label": "Proの利用枠拡大",
+      "type": "improvement",
+      "source": "pro"
+    },
+    {
+      "day": 26,
+      "label": "スマホ2アカウント",
+      "type": "improvement",
+      "source": "day26"
+    },
+    {
+      "day": 27,
+      "label": "バンクリセット予告",
+      "type": "forecast",
+      "source": "day26"
+    },
+    {
+      "day": 28,
+      "label": "バンクリセット予告",
+      "type": "forecast",
+      "source": "day26"
+    }
+  ]
+}

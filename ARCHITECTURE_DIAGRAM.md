@@ -1,5 +1,22 @@
 # Architecture diagram
 
+## 発表の確度とリセットの違いを保つ振り返り
+
+```mermaid
+flowchart LR
+    Sources[本人投稿と公式条件] --> Verify[現地日付と予告と反映を区別]
+    Verify --> Plan[日別原稿と対象条件]
+    PC[PCの実画面と私的原本] --> Quote[短い引用と公開用の切出し]
+    Plan --> Motion[ボタン押下と券の保管]
+    Voice[Aoedeと既存MiniMax人物と共通BGM] --> Render[版付き縦動画]
+    Motion --> Render
+    Quote --> Render
+    Plan --> Blog[記事と日別表と原投稿URL]
+    Render --> QC[全decodeと音量と実フレームとAI音声点検]
+    QC --> Review[Drive優先のレビュー]
+    Blog --> Review
+```
+
 ## 公式引用を使うニュース2本
 
 ```mermaid

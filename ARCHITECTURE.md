@@ -1,5 +1,9 @@
 # Architecture
 
+## Tiboの期間ものニュースを振り返る独立制作（2026-11-01）
+
+`productions/content-projects/CONTENT_20261101_tibo_28day_recap/` は本人の原投稿・公式Help・PCの実画面を照合し、Day26までの発表と最後の2日間の予告を区別する。既存MiniMax人物、場面別Aoede、共通BGMを再利用し、新規のボタン押下と券の保管を自作2Dモーションとして日別タイムラインへ組み込む。受取だけで利用枠を回復させず、実際のリセット使用はしない。短い引用、記事草稿・日別表・図、旧版と入力snapshot、実MP4の検査を別保存し、共通ContentWorkspaceへ制作依頼の範囲と根拠を登録する。Studio共通機能・自動公開は改修しない。独立した[設計本文](productions/content-projects/CONTENT_20261101_tibo_28day_recap/ARCHITECTURE.md)と[Mermaid図](productions/content-projects/CONTENT_20261101_tibo_28day_recap/ARCHITECTURE_DIAGRAM.md)を参照。
+
 ## 10/31ニュース2本の独立制作（2026-10-31）
 
 `productions/content-projects/CONTENT_20261031_ai_news_ultra_accounts/` はユーザー指定のUltra条件とスマホ2アカウントを、公式引用・図解・既存人物・Aoedeで作る。PC撮影と端末接続を確認し、未実証の個別反映を仕様の説明と分ける。共通BGM既定を利用し、音声の実尺・版付き動画・記事用図・引用を保存する。`register_workspace.py` は二題材の依頼の採用範囲と、根拠・撮影不足・絵コンテ・記事節を共通台帳へ記録する。Driveは個別送信で照合し、自動公開やUI/API契約は追加しない。独立した[設計本文](productions/content-projects/CONTENT_20261031_ai_news_ultra_accounts/ARCHITECTURE.md)と[図](productions/content-projects/CONTENT_20261031_ai_news_ultra_accounts/ARCHITECTURE_DIAGRAM.md)を参照。
