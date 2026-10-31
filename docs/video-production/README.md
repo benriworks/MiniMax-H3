@@ -34,7 +34,7 @@ BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_J
 
 | 案件・素材 | 再開時の入口 |
 | --- | --- |
-| Tiboの28日間チャレンジ：改善とリセットを振り返る76秒v04、Day27・28は予告扱い（記事草稿・日別表を同時準備、試聴待ち） | [content-projects/CONTENT_20261101_tibo_28day_recap](../../productions/content-projects/CONTENT_20261101_tibo_28day_recap/RESUME_AND_KNOWHOW_JA.md) |
+| Tiboの28日間チャレンジ：84秒v07。中央揃え・称賛ときらめく締め、明るい8小節ループ・3種SE（新版試聴待ち、Day27・28は予告扱い） | [content-projects/CONTENT_20261101_tibo_28day_recap](../../productions/content-projects/CONTENT_20261101_tibo_28day_recap/RESUME_AND_KNOWHOW_JA.md) |
 | 10/31ニュース：Claude Ultra 47秒v01とChatGPTスマホ2アカウント48秒v02（動画2本と記事素材をDrive共有） | [content-projects/CONTENT_20261031_ai_news_ultra_accounts](../../productions/content-projects/CONTENT_20261031_ai_news_ultra_accounts/RESUME_AND_KNOWHOW_JA.md) |
 | ChatGPT Pro：Work・Codex利用枠拡大ニュース（新規H3人物6本を使う48秒、BGM調整版v04をDrive共有、試聴待ち） | [content-projects/CONTENT_20261030_chatgpt_pro_usage_news](../../productions/content-projects/CONTENT_20261030_chatgpt_pro_usage_news/RESUME_AND_KNOWHOW_JA.md) |
 | dots：Excelから案件管理へ自動転記する詳細動画 | [LONG_20261026_dots_transfer_detail](../../productions/LONG_20261026_dots_transfer_detail/RESUME_AND_KNOWHOW_JA.md) |

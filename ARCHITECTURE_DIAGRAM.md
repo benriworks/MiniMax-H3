@@ -1,5 +1,29 @@
 # Architecture diagram
 
+## 映像を再圧縮せず音を更新
+
+```mermaid
+flowchart LR
+    Prior[確認済みの映像とナレーション] --> Reuse[video stream copyとWAV一致]
+    Loop[8小節の循環原曲] --> Mix[共通BGM音量と発話中減音]
+    Frames[実フレームの押下と保管と改善表示] --> Effects[reset bank improvementの3種SE]
+    Effects --> Mix
+    Mix --> New[新しいAACを多重化]
+    Reuse --> New
+    New --> Check[映像hash一致と全decodeと音声点検]
+```
+
+## 1行の中央配置と明示複数行の上寄せ
+
+```mermaid
+flowchart LR
+    Label[明示されたボタン文言と領域] --> Ink[実フォントのink範囲とbearing]
+    Ink --> Layout[1行は中央 複数行は上寄せ]
+    Layout --> Fit[文字サイズを保ち領域内を検査]
+    Fit --> Draw[描画原点と配置台帳]
+    Draw --> Frame[実MP4のボタンと字幕を確認]
+```
+
 ## 発表の確度とリセットの違いを保つ振り返り
 
 ```mermaid

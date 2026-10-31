@@ -1,15 +1,25 @@
 """Portable article draft, exact short excerpts and own figures; no private captures."""
 from pathlib import Path
-import datetime,hashlib,html,importlib.util,json,shutil,zipfile
+import argparse,datetime,hashlib,html,importlib.util,json,shutil,zipfile
 
 ROOT=Path(__file__).resolve().parents[3];HERE=Path(__file__).parent;OUT=ROOT/'outputs/content-projects'/HERE.name
 
-def main():
+def main(version='v01'):
+    handoff=OUT/'blog-handoff'/version
+    target=handoff.parent/f'Tibo-28days-blog-review-{version}.zip'
+    if handoff.exists() or target.exists():raise RuntimeError('Preserve previous handoff; use a new version')
     spec=importlib.util.spec_from_file_location('article_figures',HERE.parent/'CONTENT_20261031_ai_news_ultra_accounts/build_handoff.py')
     figures=importlib.util.module_from_spec(spec);spec.loader.exec_module(figures);figures.OUT=OUT;figures.ACCENT='#087E82'
-    figures.diagram('reset-types','利用枠の回復と、後で使う1回分',[('自動リセット',['対象の枠に直接反映','その場で回復','保管する券は増えない']),('バンクリセット',['後で使う1回分を保管','受取だけでは回復しない','対象と有効期限を確認'])],'出典：OpenAI「How resets work in Codex」/ 2026-11-01確認')
-    figures.diagram('challenge-flow','28日間：毎日改善、または利用枠のリセット',[('序盤',['生成速度・方向修正','入力予測・文脈拡大']),('中盤',['容量・エラーの改善','キャッシュ・編集']),('終盤',['モデル・利用枠','最後の2日間は予告'])],'太平洋時間のDay番号 / Day27・28の配布完了は未確認')
-    handoff=OUT/'blog-handoff/v01';(handoff/'images').mkdir(parents=True,exist_ok=True)
+    if version=='v01':
+        figures.diagram('reset-types','利用枠の回復と、後で使う1回分',[('自動リセット',['対象の枠に直接反映','その場で回復','保管する券は増えない']),('バンクリセット',['後で使う1回分を保管','受取だけでは回復しない','対象と有効期限を確認'])],'出典：OpenAI「How resets work in Codex」/ 2026-11-01確認')
+        figures.diagram('challenge-flow','28日間：毎日改善、または利用枠のリセット',[('序盤',['生成速度・方向修正','入力予測・文脈拡大']),('中盤',['容量・エラーの改善','キャッシュ・編集']),('終盤',['モデル・利用枠','最後の2日間は予告'])],'太平洋時間のDay番号 / Day27・28の配布完了は未確認')
+    (handoff/'images').mkdir(parents=True,exist_ok=True)
+    if version!='v01':
+        for name in ['reset-types','challenge-flow']:
+            for suffix in ['.png','.svg']:
+                source=OUT/'blog-handoff/v01/images'/(name+suffix)
+                copied=handoff/'images'/(name+suffix);shutil.copy2(source,copied)
+                assert hashlib.sha256(source.read_bytes()).digest()==hashlib.sha256(copied.read_bytes()).digest()
     plan=json.loads((HERE/'plan.json').read_text(encoding='utf-8'))
     rows=['# 日別の概要と確認範囲','', '2026-11-01 JST早朝確認。Day番号と日付はPacific基準。全ての機能を列挙した表ではありません。','', '| Day | Pacific日付 | 主な内容 | 状態 |','| --- | --- | --- | --- |']
     for day in plan['days']:
@@ -44,8 +54,6 @@ def main():
     files=sorted(p for p in handoff.rglob('*') if p.is_file() and p.name!='MANIFEST.sha256')
     entries='\n'.join(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.relative_to(handoff).as_posix() for p in files)+'\n'
     (handoff/'MANIFEST.sha256').write_text(entries,encoding='utf-8')
-    target=handoff.parent/'Tibo-28days-blog-review-v01.zip'
-    if target.exists():raise RuntimeError('Preserve the previous ZIP; use a new handoff version')
     with zipfile.ZipFile(target,'w',zipfile.ZIP_DEFLATED) as z:
         for p in sorted(handoff.rglob('*')):
             if p.is_file():z.write(p,p.relative_to(handoff).as_posix())
@@ -56,4 +64,5 @@ def main():
         members=len(z.namelist())
     print(json.dumps(dict(file=target.relative_to(ROOT).as_posix(),bytes=target.stat().st_size,members=members,sha256=hashlib.sha256(target.read_bytes()).hexdigest(),all_members_verified=True)))
 
-if __name__=='__main__':main()
+if __name__=='__main__':
+    parser=argparse.ArgumentParser();parser.add_argument('--version',choices=['v01','v02'],default='v01');main(parser.parse_args().version)

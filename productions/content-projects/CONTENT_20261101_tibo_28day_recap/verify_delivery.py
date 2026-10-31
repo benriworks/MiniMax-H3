@@ -45,6 +45,7 @@ def listening(version):
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER,'Environment') as k:os.environ['GEMINI_API_KEY']=winreg.QueryValueEx(k,'GEMINI_API_KEY')[0]
     model='gemini-3.8-flash'
     prompt='日本語の解説動画の完成音声を実際に聞こえる内容だけで点検してください。台本は渡しません。JSONでtranscript（おおよその時刻と全文）、pronunciation_observed（製品名の聞こえ方）、audible_issues（音切れ、余分な台詞、BGMで聞こえない部分と時刻。なければ空配列）、uncertaintiesを返してください。聞こえない所を推測しないでください。'
+    if version=='v07':prompt+=' effect_observationsとして、聞こえる効果音の種類と概時刻も記載してください。音声が音楽や効果音に埋もれていないかを優先し、効果音の意味は推測せず音響的な違いを述べてください。'
     body=dict(contents=[dict(parts=[dict(text=prompt),dict(inlineData=dict(mimeType='audio/mp3',data=base64.b64encode(audio.read_bytes()).decode()))])],generationConfig=dict(responseMimeType='application/json',maxOutputTokens=6500))
     save(folder/'submission.json',dict(status='submitted',model=model,automatic_retry=False,prompt=prompt,audio_sha256=hashlib.sha256(audio.read_bytes()).hexdigest()))
     req=urllib.request.Request('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent',data=json.dumps(body).encode(),headers={'Content-Type':'application/json','x-goog-api-key':os.environ['GEMINI_API_KEY']},method='POST')
@@ -61,4 +62,4 @@ def listening(version):
     save(folder/'review.json',result);print(json.dumps(result,ensure_ascii=False))
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('command',choices=['frames','listening']);p.add_argument('--version',default='v04');a=p.parse_args();globals()[a.command](a.version)
+    p=argparse.ArgumentParser();p.add_argument('command',choices=['frames','listening']);p.add_argument('--version',default='v07');a=p.parse_args();globals()[a.command](a.version)

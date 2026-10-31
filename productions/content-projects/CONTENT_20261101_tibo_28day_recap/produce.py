@@ -12,12 +12,26 @@ ROOT=Path(__file__).resolve().parents[3];HERE=Path(__file__).parent
 OUT=ROOT/'outputs/content-projects'/HERE.name
 spec=importlib.util.spec_from_file_location('news_helpers',HERE.parent/'CONTENT_20261031_ai_news_ultra_accounts/produce.py')
 b=importlib.util.module_from_spec(spec);spec.loader.exec_module(b)
+from tools.studio.text_layout import box_text_layout, visible_glyph_bbox
 PLAN=json.loads((HERE/'plan.json').read_text(encoding='utf-8'));EP=PLAN['episodes'][0]
 b.OUT=OUT;b.PLAN=PLAN
 FPS=24;W,H=1080,1920
 BG='#F5F2EA';INK='#172F3E';TEAL='#087E82';RED='#D94848';PURPLE='#7954B4';GRAY='#526777'
 text=b.text;box=b.box;fit=b.fit;font=b.font;sha=b.sha;save=b.save
 STATIC={}
+LABEL_AUDIT={}
+GLYPH_BOUNDS={}
+
+def label(im,value,rect,size=56,fill=INK):
+    d=ImageDraw.Draw(im);f=font(size)
+    def bounds(line):
+        key=(line,size)
+        if key not in GLYPH_BOUNDS:GLYPH_BOUNDS[key]=visible_glyph_bbox(line,f)
+        return GLYPH_BOUNDS[key]
+    layout=box_text_layout(value,rect,bounds,padding=4,line_gap=10)
+    for item in layout['placements']:d.text(item['origin'],item['text'],font=f,fill=fill)
+    key=(value,tuple(rect),size)
+    LABEL_AUDIT[key]=dict(text=value,rect=rect,font_size=size,**layout)
 
 def prepare():
     assets=OUT/'assets';assets.mkdir(parents=True,exist_ok=True)
@@ -67,7 +81,7 @@ def reset_motion(im,t,y=670,scale=1):
     d.rectangle((310,y+95+compression,770,y+228),fill='#9F2634')
     d.ellipse((310,y+160,770,y+290),fill='#9F2634')
     d.ellipse((310,y+30+compression,770,y+215+compression),fill=RED,outline='#E97874',width=6)
-    text(im,'RESET',(540,y+90+compression),60,'#FFFFFF',True)
+    label(im,'RESET',(310,y+30+compression,770,y+215+compression),60,'#FFFFFF')
     # Enter from the right, below the title. Contact precedes recovery.
     shift=(1-ease(t/.45))*490+ease((t-.95)/.4)*490
     fy=y+50+down*24
@@ -100,7 +114,7 @@ def bank_motion(im,t,y=620,forecast=False):
     text(im,'後で使う',(540,y+650),59,PURPLE,True)
     if forecast:
         box(im,(380,y+276,700,y+358),INK,radius=18)
-        text(im,'予告',(540,y+280),51,'#FFFFFF',True)
+        label(im,'予告',(380,y+276,700,y+358),51,'#FFFFFF')
     else:text(im,'受取だけでは枠は回復しない',(540,y+743),41,GRAY,True)
 
 def source_panel(im,name,y,label='Tibo @thsottiaux の原投稿・抜粋'):
@@ -125,7 +139,7 @@ def grid(im,current=None):
         n=v['day'];x=79+((n-1)%14)*67;y=1374+((n-1)//14)*63
         col=RED if v['type']=='reset' else PURPLE if v['type'] in ('bank','forecast') else TEAL
         box(im,(x,y,x+53,y+49),col if n==current else '#FFFFFF',col,radius=9)
-        text(im,str(n),(x+26,y+1),29,'#FFFFFF' if n==current else col,True)
+        label(im,str(n),(x,y,x+53,y+49),29,'#FFFFFF' if n==current else col)
         if v['type']=='forecast':d.line((x+4,y+43,x+49,y+43),fill=col,width=2)
 
 def improved(im,day,t):
@@ -151,9 +165,9 @@ def improved(im,day,t):
         text(im,'Terra',(540,835),126,'#88DBCC',True)
         text(im,'モデル選択肢へ復帰',(540,1140),54,TEAL,True)
     elif day in (16,19):
-        for j,label in enumerate(['前の処理','キャッシュ','次の処理']):
+        for j,stage in enumerate(['前の処理','キャッシュ','次の処理']):
             x=80+j*325;box(im,(x,710,x+275,1040),'#FFFFFF',TEAL)
-            text(im,label,(x+137,830),43,TEAL,True)
+            label(im,stage,(x,710,x+275,1040),43,TEAL)
             if j<2:b.arrow(im,(x+275,875),(x+324,875),TEAL)
         text(im,'再利用しやすく改善',(540,1160),57,TEAL,True)
     elif day in (24,26):
@@ -161,9 +175,9 @@ def improved(im,day,t):
         if day==26:
             for j,word in enumerate(['仕事用','個人用']):
                 yy=760+j*190;box(im,(235,yy,845,yy+135),TEAL if j==0 else PURPLE)
-                text(im,word,(540,yy+22),61,'#FFFFFF',True)
+                label(im,word,(235,yy,845,yy+135),61,'#FFFFFF')
         else:
-            box(im,(220,750,860,940),TEAL);text(im,'dotsに依頼',(540,805),60,'#FFFFFF',True)
+            box(im,(220,750,860,940),TEAL);label(im,'dotsに依頼',(220,750,860,940),60,'#FFFFFF')
             text(im,'米国Pro向けプレビュー',(540,1250),46,GRAY,True)
     else:
         box(im,(140,650,940,1090),'#FFFFFF',TEAL)
@@ -172,7 +186,7 @@ def improved(im,day,t):
         words=labels.get(day,['改善','作業','次へ'])
         for j,word in enumerate(words):
             yy=690+j*118;box(im,(200,yy,880,yy+92),TEAL if int(t*2)%3==j else '#E8F2F0')
-            text(im,word,(540,yy+10),45,'#FFFFFF' if int(t*2)%3==j else INK,True)
+            label(im,word,(200,yy,880,yy+92),45,'#FFFFFF' if int(t*2)%3==j else INK)
         text(im,'作業を続けやすく',(540,1190),55,TEAL,True)
 
 def frame(ep,index,t,duration,global_t,total,voice_seconds):
@@ -187,7 +201,7 @@ def frame(ep,index,t,duration,global_t,total,voice_seconds):
         text(im,s['headline'],(540,146),67,INK,True)
         if day:
             obj=PLAN['days'][day-1];col=RED if obj['type']=='reset' else PURPLE if obj['type']=='bank' else TEAL
-            box(im,(390,345,690,445),col);text(im,f'DAY {day:02}',(540,358),57,'#FFFFFF',True)
+            box(im,(390,345,690,445),col);label(im,f'DAY {day:02}',(390,345,690,445),57,'#FFFFFF')
             text(im,obj['label'],(540,479),62,INK,True)
         elif kind=='promise':
             text(im,'Codex・ChatGPTを率いる',(540,360),46,GRAY,True)
@@ -207,6 +221,8 @@ def frame(ep,index,t,duration,global_t,total,voice_seconds):
             box(im,(65,1180,1015,1350),'#FFFFFF')
             text(im,'OpenAI公式：バンクリセットの確認方法',(88,1192),31,GRAY)
             fit(im,OUT/'assets/official-banked-heading.png',(90,1247,990,1325))
+        elif kind=='celebration':
+            text(im,'改善と向き合う姿勢に拍手',(540,335),49,GRAY,True)
         grid(im,day)
         box(im,(55,1542,1025,1777),INK)
         cap=caps[capidx]
@@ -234,13 +250,13 @@ def frame(ep,index,t,duration,global_t,total,voice_seconds):
         else:
             b.picture(im,'female-happy',t-2.6,(65,410,1015,1300))
             box(im,(100,1160,980,1325),INK)
-            text(im,'改善と回復の28日間',(540,1195),58,'#FFFFFF',True)
+            label(im,'改善と回復の28日間',(100,1160,980,1325),58,'#FFFFFF')
     elif kind=='forecast':bank_motion(im,min(t,2.8),y=330,forecast=True)
     elif kind=='types':
         bank_at=.15+voice_seconds/len(caps)
-        label='通常：対象枠をその場で回復' if t<bank_at else 'バンク：後で使う1回分'
+        wording='通常：対象枠をその場で回復' if t<bank_at else 'バンク：後で使う1回分'
         box(im,(70,380,1010,550),'#FFFFFF',TEAL if t<bank_at else PURPLE)
-        text(im,label,(540,430),51,TEAL if t<bank_at else PURPLE,True)
+        label(im,wording,(70,380,1010,550),51,TEAL if t<bank_at else PURPLE)
         if t<bank_at:reset_motion(im,t,y=570)
         else:bank_motion(im,min(2.8,t-bank_at),y=490)
     elif kind=='closing':
@@ -252,10 +268,38 @@ def frame(ep,index,t,duration,global_t,total,voice_seconds):
             text(im,'実画面で確認',(540,425),58,TEAL,True)
             fit(im,OUT/'assets/usage-reset-description.png',(165,660,915,855))
             text(im,'対象の枠と期限を確認',(540,940),46,INK,True)
+    elif kind=='celebration':
+        # Keep the approved faces unobscured; shine around them, not over their eyes.
+        if t<3.3:b.picture(im,'female-happy',t,(110,445,970,1220))
+        else:
+            idx=min(124,max(1,round(min(t-3.3,4.95)*FPS)+1))
+            src=b.load(OUT/f'motion-cache/male-understanding/{idx:04d}.jpg').crop((0,180,540,688))
+            im.paste(ImageOps.fit(src,(860,775),centering=(.5,.55)),(110,445))
+        sparkle(im,t)
+        box(im,(105,1175,975,1328),'#FFF0C0','#D3A540',radius=25)
+        label(im,'Tibo、ありがとう！',(105,1175,975,1328),70,INK)
     # Persistent day strip remains unobscured by the motion scenes.
     grid(im,day)
     d.rectangle((65,1890,1015,1898),fill='#D4DAD8');d.rectangle((65,1890,65+950*global_t/total,1898),fill=TEAL)
     return im
+
+def sparkle(im,t):
+    """Gentle gold glints and drifting confetti, with no full-screen flashes."""
+    layer=Image.new('RGBA',im.size,(0,0,0,0));d=ImageDraw.Draw(layer)
+    for k in range(34):
+        phase=(t*.17+k*.173)%1
+        x=76+(k*179)%928+math.sin(t*.9+k)*14
+        y=430+phase*850
+        if 200<x<880 and 455<y<1175:continue
+        strength=math.sin(math.pi*phase)**2
+        r=5+(k%4)*3+8*strength;alpha=round(85+150*strength)
+        d.polygon([(x,y-r*2),(x+r*.25,y-r*.25),(x+r,y),(x+r*.25,y+r*.25),(x,y+r*2),(x-r*.25,y+r*.25),(x-r,y),(x-r*.25,y-r*.25)],fill=(242,183,59,alpha))
+    for k,(x,y) in enumerate([(108,457),(966,512),(105,1020),(976,1110),(210,438),(870,438)]):
+        r=12+9*(.5+.5*math.sin(t*1.9+k))
+        d.line((x-r,y,x+r,y),fill=(255,219,104,220),width=3)
+        d.line((x,y-r*1.7,x,y+r*1.7),fill=(255,219,104,220),width=3)
+        d.ellipse((x-3,y-3,x+3,y+3),fill=(255,249,215,255))
+    im.paste(Image.alpha_composite(im.convert('RGBA'),layer).convert('RGB'))
 
 def preview():
     prepare();dest=OUT/'review/visual-v01';dest.mkdir(parents=True,exist_ok=True)
@@ -272,7 +316,7 @@ def preview():
     sheet.save(dest/'contact-sheet.jpg')
 
 def clips():
-    prepare();dest=OUT/'motion-graphics/v02';dest.mkdir(parents=True,exist_ok=True)
+    prepare();dest=OUT/'motion-graphics/v03';dest.mkdir(parents=True,exist_ok=True)
     import subprocess
     for name,func in [('reset-button-press',reset_motion),('banked-reset-store',bank_motion)]:
         path=dest/(name+'.mp4')
@@ -322,7 +366,8 @@ def render(version):
     save(dest/'verification.json',proof)
     save(dest/'plan-snapshot.json',PLAN)
     shutil.copy2(HERE/'produce.py',dest/'produce-snapshot.py')
-    save(dest/'render-inputs.json',dict(plan=b.record(dest/'plan-snapshot.json'),renderer=b.record(dest/'produce-snapshot.py'),helper=b.record(HERE.parent/'CONTENT_20261031_ai_news_ultra_accounts/produce.py'),audio_helpers=[b.record(ROOT/'tools/studio/music_mix.py'),b.record(ROOT/'tools/studio/longform_audio.py')]))
+    save(dest/'label-layout-audit.json',dict(rule='single-line visible glyphs centered; authored multi-line top aligned',labels=list(LABEL_AUDIT.values())))
+    save(dest/'render-inputs.json',dict(plan=b.record(dest/'plan-snapshot.json'),renderer=b.record(dest/'produce-snapshot.py'),helper=b.record(HERE.parent/'CONTENT_20261031_ai_news_ultra_accounts/produce.py'),audio_helpers=[b.record(ROOT/'tools/studio/music_mix.py'),b.record(ROOT/'tools/studio/longform_audio.py')],text_layout=b.record(ROOT/'tools/studio/text_layout.py')))
 
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('command',choices=['prepare','preview','clips','render']);p.add_argument('--version',default='v01');a=p.parse_args()
