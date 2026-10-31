@@ -78,8 +78,10 @@ def music(seconds):
     return result
 
 
-def music_bright(seconds):
+def music_bright(seconds, *, fade_in_seconds=.7, fade_out_seconds=3.):
     """Original C-major 112 BPM plucked chords, marimba-like notes and soft shaker."""
+    if not all(math.isfinite(v) and v >= 0 for v in (fade_in_seconds, fade_out_seconds)):
+        raise ValueError('Music fades must be finite and nonnegative')
     n=round(seconds*SR);result=np.zeros((n,2),dtype=np.float32);beat=60/112
     rng=np.random.default_rng(20261026)
     chords=[(130.8128,164.8138,195.9977),(174.6141,220.,261.6256),
@@ -107,8 +109,8 @@ def music_bright(seconds):
         if bar%2==0:
             for offset,freq in [(1,523.251),(2.5,659.255),(3.5,783.991)]:
                 add((bar*4+offset)*beat,pluck(freq,.55,.018),.12)
-    result*=np.minimum(np.arange(n)/SR/.7,1)[:,None]
-    result*=np.minimum((n-np.arange(n))/SR/3,1)[:,None]
+    if fade_in_seconds:result*=np.minimum(np.arange(n)/SR/fade_in_seconds,1)[:,None]
+    if fade_out_seconds:result*=np.minimum((n-np.arange(n))/SR/fade_out_seconds,1)[:,None]
     return result
 
 

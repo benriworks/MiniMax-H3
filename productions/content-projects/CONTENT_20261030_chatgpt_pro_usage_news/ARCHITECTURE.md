@@ -19,3 +19,7 @@
 `render_motion_revision.py` は新規6本の成功とhashが揃ってから読込み、意味に応じて思考・喜び・納得を選び、ループを避けてv03へ合成する。v02のAACをstream copyするため、新しいTTSやBGM生成は不要。生成技術検査とAIによる動作評価は別記録で、生成完了だけを採用へ昇格しない。詳細は[人物改訂](MOTION_REVISION_V03_JA.md)。
 
 男性納得の衣装に意図しない文字が出たため、原本とhashを保持したまま、`public-derivative.json` で416×530の公開用寄りへ結ぶ。レンダラー・共通素材登録・記事用静止画の抽出はこの派生を選択し、変形せずアスペクト比を保って合成する。`export_motion_stills.py` は6枚と来歴を保存し、`package_motion_revision.py` は原本・派生・前後の本編・証跡を相対パスでまとめ、ZIP内の全ファイルをSHA-256で照合する。ローカル秘密・私的画面原本・Drive識別子は同梱しない。Drive送信は今回も接続ツールで行う個別操作。
+
+## BGMだけを改訂するv04
+
+`remix_bgm_v04.py` は旧音声原本と配置を維持し、共通 `tools/studio/music_mix.py` の音量カーブでBGMの通常部・頭尾・発話中の減音を制御する。共通 `music_bright()` の任意フェード指定を使い、既定値は互換のまま保持。v03の映像をstream copyし、新しいミックスだけAACへ符号化する。`verify_bgm_v04.py` は旧ミックスの再構築と声成分の一致、最終AACのラウドネス・true peakを検査する。追加生成やStudio UI／API変更はなく、設定・PCMステム・検査・共有受領記録を `release/v04/` へ独立保存する。

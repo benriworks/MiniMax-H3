@@ -1,5 +1,9 @@
 # Architecture
 
+## BGMの音量カーブと音声だけの差し替え（2026-10-31）
+
+`tools/studio/music_mix.py` はBGMの頭尾強調と滑らかな発話中の減音を共通処理にする。`longform_audio.music_bright()` は従来のフェード既定値を保ち、任意のフェード時間を受け取る。Proニュースの `remix_bgm_v04.py` は声原本を維持し、映像をstream copyしてBGMだけを変えたAACへ差し替える。旧ミックス再構築・声PCM一致・映像bitstream一致・全編decode・音量検査を分ける。Studio UIとHTTP API、外部生成、公開処理は追加しない。[案件の音量改訂記録](productions/content-projects/CONTENT_20261030_chatgpt_pro_usage_news/AUDIO_REVISION_V04_JA.md)。
+
 ## Pro利用枠ニュースの相対グラフ制作（2026-10-31）
 
 `productions/content-projects/CONTENT_20261030_chatgpt_pro_usage_news/produce.py` は採用済み48秒の企画から、既存MiniMax人物動画、各プランの従来枠＝1とする相対グラフ、公開候補画面、Aoede音声を合成する。既存Geminiアダプターと明るいBGM生成器を再利用し、原本・v01・v02・技術QC・記事用画像を独立保存する。共通ContentWorkspaceへ採用原文・人物・素材を記録し、Driveは接続ツールで個別送信する。StudioのUI／HTTP APIや自動公開は追加しない。案件の[設計本文](productions/content-projects/CONTENT_20261030_chatgpt_pro_usage_news/ARCHITECTURE.md)と[図](productions/content-projects/CONTENT_20261030_chatgpt_pro_usage_news/ARCHITECTURE_DIAGRAM.md)を参照。

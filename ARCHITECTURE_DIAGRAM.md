@@ -1,5 +1,18 @@
 # Architecture diagram
 
+## BGMだけの改訂（2026-10-31）
+
+```mermaid
+flowchart LR
+    Voice[保存済みの声原本と時刻表] --> Mix[音声だけを再ミックス]
+    Music[同じBGMと任意フェード] --> Gain[共通の頭尾強調と発話中減音]
+    Gain --> Mix
+    Mix --> Remux[旧映像をstream copyして音声を差替え]
+    OldVideo[旧動画v03] --> Remux
+    Remux --> Checks[声成分と映像同一性と音量検査]
+    Checks --> Review[Drive保存と利用者の最終試聴]
+```
+
 ## Pro利用枠ニュースの制作経路（2026-10-31）
 
 ```mermaid

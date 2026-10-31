@@ -17,6 +17,13 @@ flowchart TD
     AudioCopy --> QC
     QC --> Archive[原本と派生と証跡のZIPとSHA-256検査]
     Archive --> Drive
+    UserAudio[ユーザーのBGM増量依頼] --> GainEnvelope[共通の頭尾強調と発話中の減音]
+    PCM --> AudioRemix[同じ声原本とBGMを再ミックス]
+    GainEnvelope --> AudioRemix
+    AudioRemix --> V04[v03映像をcopyしてv04音声へ差替え]
+    Revision --> V04
+    V04 --> AudioQC[映像同一性と声成分一致と音量検査]
+    AudioQC --> Drive
     Transcript[表示原稿と読み原稿] --> TTS[既存Gemini Aoedeアダプター]
     TTS --> PCM[場面別PCMと検証証跡]
     PCM --> Timeline[実尺を保持して約48秒へ配置]
