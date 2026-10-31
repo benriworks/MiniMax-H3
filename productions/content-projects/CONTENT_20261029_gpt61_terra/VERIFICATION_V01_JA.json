@@ -1,0 +1,28 @@
+{
+  "video": {
+    "path": "outputs/content-projects/CONTENT_20261029_gpt61_terra/v01/gpt61-terra-short-v01-subtitle-bgm.mp4",
+    "bytes": 2185731,
+    "sha256": "0D95CDE5F6DC94144A394FB644897F281FB1CB0E76946C5529F449A97980F4F3"
+  },
+  "duration_seconds": 50,
+  "width": 1080,
+  "height": 1920,
+  "fps": 24,
+  "frames": 1200,
+  "full_decode": "passed",
+  "faststart": "passed",
+  "ai_mobile_frame_review": "8 encoded scene frames inspected; primary message and captions readable",
+  "human_listening": "pending",
+  "smartphone_device_playback": "pending",
+  "narration": "not_recorded; Aoede402 quota_exhausted; alternative choice pending",
+  "user_adoption": false,
+  "published": false,
+  "content_workspace_checks": {
+    "ready_for_production": true,
+    "blockers": [],
+    "warnings": [],
+    "technical_verified": false,
+    "human_reviewed": false,
+    "published": false
+  }
+}
