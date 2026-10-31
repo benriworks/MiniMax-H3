@@ -18,7 +18,7 @@ SHA-256：
 
 ナレーションはGemini Aoedeを12要求、全件でPCM原本・実尺・request・submission・verifiedを保存。追加の画像生成・MiniMax生成0。人物は元の来歴とhashを照合してコピーした。音素単位のリップシンクを新規生成した動画ではない。
 
-Driveに最新動画2本と記事素材ZIPを保存し、ファイル名、MIME、容量、My Driveの親、所有者権限を接続ツールでreadback照合。公開共有の権限追加はしていない。URLと受領はignoredの `drive-upload.json` に保存する。S3への二重送信はしない。
+Driveに最新動画2本と記事素材ZIPを保存し、ファイル名、MIME、容量、My Driveの親、所有者権限を接続ツールでreadback照合。公開共有の権限追加はしていない。URLと受領はignoredの `drive-upload.json` に保存する。このPCではDriveプレーヤーが読み込み中のままで、再読込でも再生開始を確認できなかった。Driveが利用困難な場合の代替指定に従い、S3upで動画2本だけの予備を送信。dry-run後、Status=verified、inline/video/mp4、完全GETの容量・hash一致を確認した。設定を拡大せず既存の送信許可範囲へ独立コピーを置き、原本とhash照合した。S3リンクは標準1時間、共有URLとオブジェクトキーは本記録に保存しない。実スマホの再生とは別。
 
 記事素材ZIPは17メンバー、368,705 bytes、SHA-256 `e0e9a37762730123bfa21274797f4da93827e23464414a17844cd839fcd40f8b`。各メンバーのhashとCRCを検査。記事2本、説明図3枚（PNGとSVG）、公式抜粋5点、出典・案内・台帳・manifestを収録した。私的撮影原本、API応答、キー、Drive IDは含めない。
 
