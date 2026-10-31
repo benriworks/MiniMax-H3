@@ -26,7 +26,7 @@ BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_J
 
 ## 案件・素材の再開入口
 
-2026-10-30、初回に35単位の再開入口を整備し、その後Pro利用枠ニュース1件を追加した。現在の索引は36単位。シリーズは各回の原稿・台帳をまとめる親単位、人物素材は再利用元の単位としている。順序は現在の制作判断を探しやすくするためのもので、全案件が制作中・完了・採用済みという意味ではない。
+2026-10-30、初回に35単位の再開入口を整備し、その後Pro利用枠ニュース1件を追加した。その後10/31ニュース2本の共通案件を追加し、現在の索引は37単位。シリーズは各回の原稿・台帳をまとめる親単位、人物素材は再利用元の単位としている。順序は現在の制作判断を探しやすくするためのもので、全案件が制作中・完了・採用済みという意味ではない。
 
 各再開記録には照合元の文書をリンクする。今回の整理は文書の照合であり、媒体の再生・全decode、Driveのアクセス、公開URL、最新の製品仕様を新たに検証したものではない。別ブランチ・別cloneだけにある案件は、対象ブランチを確認してから同じ形式で追加する。
 
@@ -34,6 +34,7 @@ BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_J
 
 | 案件・素材 | 再開時の入口 |
 | --- | --- |
+| 10/31ニュース：Claude Ultra 47秒v01とChatGPTスマホ2アカウント48秒v02（動画2本と記事素材をDrive共有） | [content-projects/CONTENT_20261031_ai_news_ultra_accounts](../../productions/content-projects/CONTENT_20261031_ai_news_ultra_accounts/RESUME_AND_KNOWHOW_JA.md) |
 | ChatGPT Pro：Work・Codex利用枠拡大ニュース（新規H3人物6本を使う48秒、BGM調整版v04をDrive共有、試聴待ち） | [content-projects/CONTENT_20261030_chatgpt_pro_usage_news](../../productions/content-projects/CONTENT_20261030_chatgpt_pro_usage_news/RESUME_AND_KNOWHOW_JA.md) |
 | dots：Excelから案件管理へ自動転記する詳細動画 | [LONG_20261026_dots_transfer_detail](../../productions/LONG_20261026_dots_transfer_detail/RESUME_AND_KNOWHOW_JA.md) |
 | Claude Docs：メモから文書へ、動画と記事の共用 | [content-projects/CONTENT_20261023_claude_docs_reuse](../../productions/content-projects/CONTENT_20261023_claude_docs_reuse/RESUME_AND_KNOWHOW_JA.md) |

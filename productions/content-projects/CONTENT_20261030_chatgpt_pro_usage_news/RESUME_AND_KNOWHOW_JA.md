@@ -6,7 +6,7 @@
 
 ## 現在地と次の作業
 
-2026-10-31追加：ユーザーが「今調整したBGMの音量などを既定にして下さい」と指定。[共通既定](../../../docs/video-production/BGM_DEFAULTS_JA.md)へ採用し、Shorts・長尺の両共通処理とAGENTSへ反映した。音量設定の採用であり、動画全体の最終採用・公開ではない。
+2026-10-31追加：ユーザーが「今調整したBGMの音量などを既定にして下さい」と指定。[共通既定](../../../docs/video-production/BGM_DEFAULTS_JA.md)へ採用し、Shorts・長尺の両共通処理とAGENTSへ反映した。原文は `bgm-default-feedback-20261031.json`、共通台帳revision 29へ保存。音量設定の採用であり、動画全体の最終採用・公開ではない。
 
 最新はBGM調整版v04。ユーザーはv03へ「よいと思います」と肯定的に返答し、BGM全体と頭尾を大きくするよう依頼した。[原文](bgm-feedback-20261031.json)を共通台帳revision 28へ保存。映像はv03のH.264をstream copyし、ナレーション原本・配置・音量を保持してBGMを改訂、Driveへ保存・readback照合した。[音量設定・検査](AUDIO_REVISION_V04_JA.md)。v04の最終試聴・採用・実スマホ・公開は未確認。
 
