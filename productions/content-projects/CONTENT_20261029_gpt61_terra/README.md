@@ -1,5 +1,7 @@
 # GPT-6.1 Terra発表ショート
 
+**最新はv03の直立対話・文字配置修正版。** [v03改訂記録](REVISION_V03_JA.md)を参照。女性の前傾を直し二人が直立して対話。見出し・字幕・帯を実グリフ範囲で中央配置した。全26字幕状態の実画素検査で中央誤差最大1px、元PCM・AAC一致を確認。v02を保持し、ナレーションは再生成していない。出力は `outputs/content-projects/CONTENT_20261029_gpt61_terra/v03/terra-explained-v03.mp4`。人物素材の姿勢編集はbuilt-in image_gen、会話は音声包絡による口形差分。新規MiniMax動画生成ではない。
+
 **最新版候補は2026-10-31のv02会話版。** 既存の二人、Charon／Aoedeの音声、MiniMaxの冒頭と簡易口パク、用途の図、実画像の比較を組み合わせて再制作した。[改訂記録](REVISION_V02_JA.md)と[記事草稿v02](article-draft-v02.md)を参照。出力は `outputs/content-projects/CONTENT_20261029_gpt61_terra/v02/terra-explained-v02.mp4`。以下のv01記録は過去版として保持する。完成物の採用・人の試聴・公開とは区別する。
 
 2026-10-29。単発1本、縦1080×1920、24fps。初稿は50秒の字幕・自作BGM版。ナレーションは未収録。

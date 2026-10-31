@@ -1,5 +1,22 @@
 # Terraショート制作の構成図
 
+## v03姿勢と文字配置
+
+```mermaid
+flowchart LR
+  Reference[既存二人の参照画像] --> Edit[Image Generationで直立差分]
+  Edit --> Atlas[閉口と話者ごとの口形]
+  PCM[v02の元PCMと時刻] --> Gate[音声包絡の口形制御]
+  Atlas --> Gate
+  Font[実フォントの描画マスク] --> Bounds[文字の非ゼロ領域]
+  Bounds --> Center[左右と上下中央配置]
+  Gate --> Movie[v03 MP4]
+  Center --> Movie
+  Movie --> Pixels[全字幕状態の実画素検査]
+  PCM --> Audio[PCMとAAC一致検査]
+  Movie --> Audio
+```
+
 ## v02会話版
 
 ```mermaid
