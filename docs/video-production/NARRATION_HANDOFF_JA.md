@@ -186,7 +186,7 @@ $env:GEMINI_API_KEY = [Environment]::GetEnvironmentVariable('GEMINI_API_KEY', 'U
 
 映像だけを修正する場合は採用音声の再利用を優先し、v04ではv03のAACをコピーして抽出音声のSHA-256一致を確認した。新しい導入説明を追加する場合は追加台詞だけを別版で生成し、後続の時刻表・字幕・BGM・動画尺を更新する。音声が増えた改訂を「音声は完全に同一」と記録しない。
 
-2026-10-31のProニュースv04はBGMだけの改訂例。声原本6件・配置・ピーク基準を保ち、`tools/studio/music_mix.py` で通常部と頭尾、発話中の減音を調整した。`music_bright()` は既定の曲とフェードを保ちながら任意フェードを指定できる。BGMを変えた後のAAC全体は旧版と一致しないため、声成分のPCM一致、映像のbitstream一致、最終ミックスのラウドネスとtrue peakを別々に確認する。設定と実測は[案件の音量改訂](../../productions/content-projects/CONTENT_20261030_chatgpt_pro_usage_news/AUDIO_REVISION_V04_JA.md)。
+2026-10-31、ユーザーがProニュースv04のBGM音量を今後の既定へ採用した。[BGM既定設定](BGM_DEFAULTS_JA.md)の `explanation_v1` を使い、声は従来の採用原本を維持する。以下のProニュースv04はその根拠となるBGMだけの改訂例。声原本6件・配置・ピーク基準を保ち、`tools/studio/music_mix.py` で通常部と頭尾、発話中の減音を調整した。`music_bright()` は既定の曲とフェードを保ちながら任意フェードを指定できる。BGMを変えた後のAAC全体は旧版と一致しないため、声成分のPCM一致、映像のbitstream一致、最終ミックスのラウドネスとtrue peakを別々に確認する。設定と実測は[案件の音量改訂](../../productions/content-projects/CONTENT_20261030_chatgpt_pro_usage_news/AUDIO_REVISION_V04_JA.md)。
 
 ## 9. 別の編集ソフトで組み込む場合
 

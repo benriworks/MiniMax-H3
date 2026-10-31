@@ -1,5 +1,18 @@
 # Architecture diagram
 
+## BGMの共通既定
+
+```mermaid
+flowchart LR
+    Profile[explanation_v1 共通設定] --> Bed[フェードと頭尾強調と発話中減音]
+    Raw[フェード前の選択曲] --> Bed
+    Speech[声の実発話区間] --> Bed
+    Bed --> Shorts[Shorts制作と設定記録]
+    Bed --> Long[長尺制作と設定記録]
+    Old[過去のpreparationにIDなし] --> Legacy[legacyと判定]
+    Legacy --> Gate[新既定へ古いミックスを再利用しない]
+```
+
 ## BGMだけの改訂（2026-10-31）
 
 ```mermaid

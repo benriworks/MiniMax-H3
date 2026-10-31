@@ -3,6 +3,7 @@ import math
 import wave
 from pathlib import Path
 import numpy as np
+from tools.studio.music_mix import DEFAULT_BGM_PROFILE, BGM_MIX_PROFILES, default_bgm_bed
 
 SR = 24000
 
@@ -47,7 +48,7 @@ def write_pcm(path, samples):
         stream.writeframes((np.clip(samples, -.999, .999)*32767).astype('<i2').tobytes())
 
 
-def music(seconds):
+def music(seconds, *, fade_in_seconds=.8, fade_out_seconds=3.):
     """Original 88 BPM piano-like plucks/pads; no samples or external music."""
     n = round(seconds*SR)
     result = np.zeros((n,2), dtype=np.float32)
@@ -73,8 +74,8 @@ def music(seconds):
         kick=np.sin(2*np.pi*(48*q+2.3*(1-np.exp(-q*35))))*np.exp(-q*24)*.045
         add(bar*beat*4,kick)
         add((bar*4+2)*beat,kick*.6)
-    result *= np.minimum(np.arange(n)/SR/.8,1)[:,None]
-    result *= np.minimum((n-np.arange(n))/SR/3,1)[:,None]
+    if fade_in_seconds:result *= np.minimum(np.arange(n)/SR/fade_in_seconds,1)[:,None]
+    if fade_out_seconds:result *= np.minimum((n-np.arange(n))/SR/fade_out_seconds,1)[:,None]
     return result
 
 
@@ -114,18 +115,21 @@ def music_bright(seconds, *, fade_in_seconds=.7, fade_out_seconds=3.):
     return result
 
 
-def assemble_audio(plan, out, *, music_style='calm'):
+def assemble_audio(plan, out, *, music_style='calm', bgm_mix_profile=DEFAULT_BGM_PROFILE['id']):
     if music_style not in {'calm','bright'}:raise ValueError('Unknown music profile')
+    if bgm_mix_profile not in BGM_MIX_PROFILES:raise ValueError('Unknown BGM mix profile')
     out=Path(out);out.mkdir(parents=True,exist_ok=True)
     n=round(plan['seconds']*SR)
     narration=np.zeros(n,dtype=np.float32)
     duck=np.ones(n,dtype=np.float32)
+    speech_spans=[]
     for chapter in plan['chapters']:
         for turn in chapter['turns']:
             samples=read_voice(turn['voice_path'])
             a=round(turn['start']*SR);b=a+len(samples)
             if b>n:raise ValueError('Speech exceeds the timeline')
             narration[a:b] += samples
+            speech_spans.append((a/SR,b/SR))
             # Duck 7 dB under each voice with gentle 120 ms ramps.
             lo=max(0,a-round(.12*SR));hi=min(n,b+round(.2*SR))
             gain=.32 if music_style=='bright' else .45
@@ -134,13 +138,20 @@ def assemble_audio(plan, out, *, music_style='calm'):
             if hi>b:env[b-lo:]=np.linspace(gain,1,hi-b)
             duck[lo:hi]=np.minimum(duck[lo:hi],env)
     bgm=music_bright(plan['seconds']) if music_style=='bright' else music(plan['seconds'])
+    if bgm_mix_profile!='legacy':
+        generator=music_bright if music_style=='bright' else music
+        bgm=generator(plan['seconds'],fade_in_seconds=0,fade_out_seconds=0)
+        music_mix=default_bgm_bed(bgm,plan['seconds'],speech_spans,sample_rate=SR)
+    else:music_mix=bgm*duck[:,None]
     write_pcm(out/'narration.wav',narration)
     write_pcm(out/'music-original.wav',bgm)
+    write_pcm(out/'music-mixed.wav',music_mix)
     # The stem remains separate; normalize the final mix with measured loudnorm.
-    mixed=narration[:,None]*np.ones((1,2),dtype=np.float32)+bgm*duck[:,None]
+    mixed=narration[:,None]*np.ones((1,2),dtype=np.float32)+music_mix
     peak=float(np.max(np.abs(mixed)))
     if peak>.96:mixed*=.96/peak
     write_pcm(out/'mix-premaster.wav',mixed)
     return dict(original_music=True,bpm=112 if music_style=='bright' else 88,samples=n,sample_rate=SR,
-        duck_gain=.32 if music_style=='bright' else .45,peak_before_normalization=peak,
+        duck_gain=(.32 if music_style=='bright' else .45) if bgm_mix_profile=='legacy' else DEFAULT_BGM_PROFILE['duck_gain'],peak_before_normalization=peak,
+        bgm_mix_profile=bgm_mix_profile,bgm_settings=dict(DEFAULT_BGM_PROFILE) if bgm_mix_profile!='legacy' else None,
         music_style=music_style,tonality='C major' if music_style=='bright' else 'original calm progression')

@@ -22,6 +22,7 @@ import struct
 from urllib.parse import urlsplit
 
 import numpy as np
+from tools.studio.music_mix import DEFAULT_BGM_PROFILE, BGM_MIX_PROFILES, default_bgm_bed
 
 ROOT = Path(__file__).resolve().parents[2]
 FLAGS = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
@@ -199,6 +200,8 @@ def validate_story(story):
     music_preset=story.get('music_preset','electro_pop_v1')
     if not isinstance(music_preset,str) or music_preset not in MUSIC_PRESETS:
         raise ValueError('Unknown music preset')
+    if story.get('bgm_mix_profile',DEFAULT_BGM_PROFILE['id']) not in BGM_MIX_PROFILES:
+        raise ValueError('Unknown BGM mix profile')
     if not re.fullmatch(r'[A-Za-z0-9_-]{1,80}',story.get('id','')):
         raise ValueError('Invalid production id')
     scenes = story.get('scenes')
@@ -309,9 +312,11 @@ def bright_groove(total, sr, duration):
             add(start,pad*np.minimum(tt/.08,1)*np.exp(-tt*2)*.026)
     return track
 
-def sound_design(out, scenes, speech, duration, music_preset='electro_pop_v1'):
-    """Original selectable score; legacy default and edit accents stay deterministic."""
+def sound_design(out, scenes, speech, duration, music_preset='electro_pop_v1',
+                 bgm_mix_profile=DEFAULT_BGM_PROFILE['id']):
+    """Original score with the adopted BGM mix; legacy is explicit for reproduction."""
     if music_preset not in MUSIC_PRESETS:raise ValueError('Unknown music preset')
+    if bgm_mix_profile not in BGM_MIX_PROFILES:raise ValueError('Unknown BGM mix profile')
     sr=48000; total=round(duration*sr); t_all=np.arange(total)/sr
     music=np.zeros((total,2)); fx=np.zeros_like(music); rng=np.random.default_rng(930)
     def tone(track,start,length,freq,amp,pan=0,decay=5):
@@ -351,13 +356,16 @@ def sound_design(out, scenes, speech, duration, music_preset='electro_pop_v1'):
     for a,b in speech:
         duck=np.minimum(duck,1-.66*np.clip((t_all-a+.075)/.075,0,1)*np.clip((b+.20-t_all)/.20,0,1))
     fade=np.minimum(t_all/.05,1)*np.clip((duration-t_all)/.30,0,1)
-    music*= (duck*fade)[:,None];fx*=fade[:,None]
+    if bgm_mix_profile=='legacy':music*= (duck*fade)[:,None]
+    else:music=default_bgm_bed(music,duration,speech,sample_rate=sr)
+    fx*=fade[:,None]
     pcm_write(out/'music.wav',music,sr);pcm_write(out/'effects.wav',fx,sr)
 
 def audio_signature(story):
     """Only visual changes may keep a previous edit's speech, cuts and score."""
     return {**{k:story.get(k) for k in ['id','duration_seconds','voice','rate','pronunciations']},
             'music_preset':story.get('music_preset','electro_pop_v1'),
+            'bgm_mix_profile':story.get('bgm_mix_profile',DEFAULT_BGM_PROFILE['id']),
             'scenes':[{'narration':s['narration'],'captions':s['captions'],
                        'kind':s['kind'],'item_count':len(s.get('items',[]))} for s in story['scenes']]}
 
@@ -373,7 +381,10 @@ def load_reusable_audio(story, prior):
         item=next((r for r in prep['sources'] if (ROOT/r['path']).resolve()==prior/name),None)
         if item is None:raise ValueError('Missing verified audio input: '+name)
         files[name]=check(item)
-    if audio_signature(read(files['story.json']))!=audio_signature(story):
+    prior_story=read(files['story.json'])
+    # A missing marker in an old preparation means the old, quieter mix.
+    prior_story['bgm_mix_profile']=prep.get('bgm_mix_profile','legacy')
+    if audio_signature(prior_story)!=audio_signature(story):
         raise ValueError('Audio input changed; generate new narration and music')
     delivery=check(proof['delivery'])
     if delivery!=prior/'shorts-creator.mp4':raise ValueError('Unexpected previous delivery')
@@ -541,7 +552,7 @@ def prepare(story_path,reuse_audio=None,narration_source=None):
             captions.append({'start':part_start,'end':part_end,'text':part});part_start=part_end
         cursor+=duration
     pcm_write(out/'narration.wav',voice_track,sr)
-    sound_design(out,scenes,[(x['start_ms']/1000,x['end_ms']/1000) for x in timings],story['duration_seconds'],story.get('music_preset','electro_pop_v1'))
+    sound_design(out,scenes,[(x['start_ms']/1000,x['end_ms']/1000) for x in timings],story['duration_seconds'],story.get('music_preset','electro_pop_v1'),story.get('bgm_mix_profile',DEFAULT_BGM_PROFILE['id']))
     write(out/'timings.json',{'policy':'measured_speech_frame_scenes_v1','segments':timings,'captions':'phrase durations distributed by display units within measured speech'})
     def srt_time(frame):
         ms=round(frame*1000/FPS);return f'{ms//3600000:02}:{ms//60000%60:02}:{ms//1000%60:02},{ms%1000:03}'
@@ -559,6 +570,8 @@ def prepare(story_path,reuse_audio=None,narration_source=None):
                 raise ValueError('Audio layout changed; cannot reuse '+name)
     sources.extend(record(out/n) for n in ['story.json','props.json','narration.wav','music.wav','effects.wav','timings.json','captions.srt'])
     write(out/'preparation.json',{'sources':sources,'audio_reuse':audio_reuse,'music_preset':story.get('music_preset','electro_pop_v1'),
+        'bgm_mix_profile':story.get('bgm_mix_profile',DEFAULT_BGM_PROFILE['id']),
+        'bgm_settings':dict(DEFAULT_BGM_PROFILE) if story.get('bgm_mix_profile',DEFAULT_BGM_PROFILE['id'])!='legacy' else None,
         'new_generation':supplied is not None,'new_video_generation':False,'narration_provider':voice['provider'],
         'external_api_calls':voice.get('external_api_calls',0) if supplied else 0,'on_screen_tool_credit':False})
     print(json.dumps({'event':'prepared','output':str(out),'scene_durations':[round(n/FPS,2) for n in durations]}),flush=True)

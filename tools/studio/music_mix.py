@@ -1,9 +1,33 @@
 """Reusable music gain automation; narration is a separate, unchanged stem."""
 import math
+from types import MappingProxyType
 import numpy as np
 
+DEFAULT_BGM_PROFILE = MappingProxyType(dict(
+    id='explanation_v1', base_gain=1.3*10**(4/20), duck_gain=.2,
+    edge_boost_db=3., intro_seconds=1.4, outro_seconds=2.2,
+    attack_seconds=.12, release_seconds=.25,
+    fade_in_seconds=.08, fade_out_seconds=.25))
+BGM_MIX_PROFILES = frozenset({DEFAULT_BGM_PROFILE['id'], 'legacy'})
+
+
+def default_bgm_bed(samples, seconds, speech_spans, *, sample_rate=24000):
+    """Apply the user-adopted Pro news v04 settings to an unfaded music stem."""
+    profile=dict(DEFAULT_BGM_PROFILE)
+    profile.pop('id')
+    fade_in=profile.pop('fade_in_seconds');fade_out=profile.pop('fade_out_seconds')
+    result=np.array(samples,copy=True)
+    if result.shape != (round(seconds*sample_rate),2):
+        raise ValueError('Expected a stereo music stem matching the timeline')
+    n=len(result);t=np.arange(n)/sample_rate
+    result*=np.minimum(t/fade_in,1)[:,None]
+    result*=np.minimum((n-np.arange(n))/sample_rate/fade_out,1)[:,None]
+    result*=music_gain_envelope(seconds,speech_spans,sample_rate=sample_rate,**profile)[:,None]
+    return result
+
+
 def music_gain_envelope(seconds, speech_spans, *, sample_rate=24000,
-                        base_gain=1., duck_gain=.2, edge_boost_db=3.,
+                        base_gain=DEFAULT_BGM_PROFILE['base_gain'], duck_gain=.2, edge_boost_db=3.,
                         intro_seconds=1.4, outro_seconds=2.2,
                         attack_seconds=.12, release_seconds=.25):
     values=(seconds,base_gain,duck_gain,edge_boost_db,intro_seconds,outro_seconds,attack_seconds,release_seconds)

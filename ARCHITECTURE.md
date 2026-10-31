@@ -1,5 +1,9 @@
 # Architecture
 
+## 制作BGMの共通既定（2026-10-31）
+
+`music_mix.DEFAULT_BGM_PROFILE` がユーザー採用の `explanation_v1` を保持する。フェード前の音楽へ `default_bgm_bed()` が頭尾強調・発話中減音・フェードを適用し、Shortsと長尺の両入口が既定利用する。曲の生成と声・効果音は独立。Shortsのpreparationと音声署名にプロファイルIDを記録し、IDなしの過去ミックスはlegacyとして新既定への誤流用を拒否する。`legacy` は旧版再現用として保持。[設定と検査](docs/video-production/BGM_DEFAULTS_JA.md)。
+
 ## BGMの音量カーブと音声だけの差し替え（2026-10-31）
 
 `tools/studio/music_mix.py` はBGMの頭尾強調と滑らかな発話中の減音を共通処理にする。`longform_audio.music_bright()` は従来のフェード既定値を保ち、任意のフェード時間を受け取る。Proニュースの `remix_bgm_v04.py` は声原本を維持し、映像をstream copyしてBGMだけを変えたAACへ差し替える。旧ミックス再構築・声PCM一致・映像bitstream一致・全編decode・音量検査を分ける。Studio UIとHTTP API、外部生成、公開処理は追加しない。[案件の音量改訂記録](productions/content-projects/CONTENT_20261030_chatgpt_pro_usage_news/AUDIO_REVISION_V04_JA.md)。
