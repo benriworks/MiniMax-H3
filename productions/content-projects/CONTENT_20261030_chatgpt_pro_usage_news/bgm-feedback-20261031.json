@@ -1,0 +1,7 @@
+{
+  "feedback_id": "feedback_bgm_revision_20261031",
+  "proposal_id": "proposal_pro_usage_v01",
+  "kind": "comment",
+  "text": "よいと思います。BGMはもう少し音量を高めにして、動画の最初と最後はもっと大きめにしたいですね。",
+  "interpretation": "v03の人物・映像に肯定的評価があり、その映像を維持してBGMを調整する。通常部を約4dB上げ、冒頭と終わりを強調し、発話中は減音する。ナレーション原本・配置・音量、映像の圧縮bitstreamは維持する。調整後v04の最終試聴・採用・公開は別とし、追加TTS・人物生成はしない。"
+}

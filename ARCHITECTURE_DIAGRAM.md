@@ -1,5 +1,54 @@
 # Architecture diagram
 
+## BGMの共通既定
+
+```mermaid
+flowchart LR
+    Profile[explanation_v1 共通設定] --> Bed[フェードと頭尾強調と発話中減音]
+    Raw[フェード前の選択曲] --> Bed
+    Speech[声の実発話区間] --> Bed
+    Bed --> Shorts[Shorts制作と設定記録]
+    Bed --> Long[長尺制作と設定記録]
+    Old[過去のpreparationにIDなし] --> Legacy[legacyと判定]
+    Legacy --> Gate[新既定へ古いミックスを再利用しない]
+```
+
+## BGMだけの改訂（2026-10-31）
+
+```mermaid
+flowchart LR
+    Voice[保存済みの声原本と時刻表] --> Mix[音声だけを再ミックス]
+    Music[同じBGMと任意フェード] --> Gain[共通の頭尾強調と発話中減音]
+    Gain --> Mix
+    Mix --> Remux[旧映像をstream copyして音声を差替え]
+    OldVideo[旧動画v03] --> Remux
+    Remux --> Checks[声成分と映像同一性と音量検査]
+    Checks --> Review[Drive保存と利用者の最終試聴]
+```
+
+## Pro利用枠ニュースの制作経路（2026-10-31）
+
+```mermaid
+flowchart LR
+    Approval[構成と既存人物の採用] --> Ledger[共通ContentWorkspace]
+    Ledger --> Driver[案件専用ドライバー]
+    Motion[既存MiniMax人物動画] --> Driver
+    PoseRequest[男女各3動作の追加依頼] --> LocalH3[専用H3で新規ポーズ生成]
+    LocalH3 --> PoseQC[成功historyとhashと動作の確認]
+    PoseQC --> Revision[v03編集と旧AACのコピー]
+    Video --> Revision
+    Revision --> QC
+    TTS[既存Gemini Aoedeアダプター] --> Driver
+    Driver --> Video[従来比グラフと48秒MP4]
+    Driver --> Article[記事草稿と比較図]
+    Video --> QC[全編decodeと実フレーム確認]
+    QC --> Drive[接続ツールによるDrive保存]
+    Article --> Drive
+    Drive --> Review[ユーザーの試聴と採用]
+```
+
+詳細は案件の[独立したMermaid図](productions/content-projects/CONTENT_20261030_chatgpt_pro_usage_news/ARCHITECTURE_DIAGRAM.md)。枠の絶対量・仕事数の保証・自動公開を表す経路ではない。
+
 ## dots第5〜9回の改訂経路（2026-10-23）
 
 ```mermaid

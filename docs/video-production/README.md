@@ -1,6 +1,6 @@
 # 動画・関連記事の制作索引
 
-更新日：2026-10-30。このリポジトリの制作情報は、索引・総覧・案件ごとの再開履歴兼ノウハウの3種類を入口に管理する。チャット履歴がない別チャット・別担当者も、ここから再開する。
+更新日：2026-10-31。このリポジトリの制作情報は、索引・総覧・案件ごとの再開履歴兼ノウハウの3種類を入口に管理する。チャット履歴がない別チャット・別担当者も、ここから再開する。
 
 ## 最初に読む3種類
 
@@ -11,6 +11,8 @@
 | 3 | 下の案件一覧にある `RESUME_AND_KNOWHOW_JA.md` | 現在地、採用範囲、最新版・素材、未完了依頼、次の作業、案件固有の学び |
 
 運用の規定はルートの [AGENTS.md](../../AGENTS.md)。参照資料、対象案件・版、採用済み事項、次の作業を短く報告して着手する。ユーザーに過去の説明や長いフォーム入力をやり直してもらわず、助手が根拠資料から復元する。
+
+BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_JA.md)を参照。Proニュースv04を基に `explanation_v1` を採用した。
 
 ## 参照・更新の手順
 
@@ -24,7 +26,7 @@
 
 ## 案件・素材の再開入口
 
-2026-10-30、Git管理下の `productions/` を検索し、次の35単位へ再開入口を整備した。シリーズは各回の原稿・台帳をまとめる親単位、人物素材は再利用元の単位としている。順序は現在の制作判断を探しやすくするためのもので、全案件が制作中・完了・採用済みという意味ではない。
+2026-10-30、初回に35単位の再開入口を整備し、その後Pro利用枠ニュース1件を追加した。現在の索引は36単位。シリーズは各回の原稿・台帳をまとめる親単位、人物素材は再利用元の単位としている。順序は現在の制作判断を探しやすくするためのもので、全案件が制作中・完了・採用済みという意味ではない。
 
 各再開記録には照合元の文書をリンクする。今回の整理は文書の照合であり、媒体の再生・全decode、Driveのアクセス、公開URL、最新の製品仕様を新たに検証したものではない。別ブランチ・別cloneだけにある案件は、対象ブランチを確認してから同じ形式で追加する。
 
@@ -32,6 +34,7 @@
 
 | 案件・素材 | 再開時の入口 |
 | --- | --- |
+| ChatGPT Pro：Work・Codex利用枠拡大ニュース（新規H3人物6本を使う48秒、BGM調整版v04をDrive共有、試聴待ち） | [content-projects/CONTENT_20261030_chatgpt_pro_usage_news](../../productions/content-projects/CONTENT_20261030_chatgpt_pro_usage_news/RESUME_AND_KNOWHOW_JA.md) |
 | dots：Excelから案件管理へ自動転記する詳細動画 | [LONG_20261026_dots_transfer_detail](../../productions/LONG_20261026_dots_transfer_detail/RESUME_AND_KNOWHOW_JA.md) |
 | Claude Docs：メモから文書へ、動画と記事の共用 | [content-projects/CONTENT_20261023_claude_docs_reuse](../../productions/content-projects/CONTENT_20261023_claude_docs_reuse/RESUME_AND_KNOWHOW_JA.md) |
 | PHP2Shell：概要と対策を説明するショート | [content-projects/CONTENT_20261024_php2shell_overview](../../productions/content-projects/CONTENT_20261024_php2shell_overview/RESUME_AND_KNOWHOW_JA.md) |
