@@ -1,0 +1,24 @@
+{
+  "version": "v07",
+  "music_preset": "sunny_guitar_loop_v1",
+  "composition": "original, no external samples",
+  "bpm": 124,
+  "key": "D major",
+  "bars": 8,
+  "loop_seconds": 15.483875,
+  "instruments": ["plucked guitar-like chords", "light melodic keys", "soft bass", "kick and handclap-like percussion", "shaker"],
+  "mix_profile": "explanation_v1",
+  "scope": "this production only; global music choice unchanged",
+  "cues": {
+    "reset": "physical click followed by a rising recovery tone",
+    "bank": "paper movement followed by a soft deposit pop",
+    "improvement": "bright ascending two-note confirmation"
+  },
+  "alignment": "day intervals and depicted contact/store timing, not tempo quantization",
+  "speech_effects_gain": 0.63,
+  "forecast_bank_gain": 0.55,
+  "final_video": "outputs/content-projects/CONTENT_20261101_tibo_28day_recap/tibo-recap/release/v07/tibo-recap-v07.mp4",
+  "visual_source_version": "v06",
+  "new_tts_requests": 0,
+  "video_stream_reencoded": false
+}

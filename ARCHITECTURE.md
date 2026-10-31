@@ -1,5 +1,17 @@
 # Architecture
 
+## 任意の明るいループと分類別SE（2026-11-01）
+
+`tools/studio/audio_motifs.py` は外部サンプルを使わない任意の `sunny_guitar_loop_v1` とreset/bank/improvementの3種SEを生成する。8小節の音の余韻を循環させてループ境界を測定し、BGMの音量設計は既存 `explanation_v1` を継続する。今回専用の選択であり全体の曲の既定・Studio UIは変更しない。Tibo案件の `remix_audio.py` は実フレームからSE配置を決め、映像stream copyとナレーションのhash一致を確認して音だけを差し替える。音源・配置表・mixを分離して保存する。
+
+## ボタンの実グリフ配置と称賛の締め（2026-11-01）
+
+`tools/studio/text_layout.py` の `visible_glyph_bbox` はPillowの実ラスタのink範囲を測り、`box_text_layout` はfont bearingを差し引いた描画原点を返す。1行は上下左右中央、明示複数行は上寄せとし、文字を縮めず収まらない場合は文言・領域の修正を要求する。既存の `fit_explicit_lines` の意味別改行と最小サイズは変更しない。Tibo動画v06でDAY表示・図の選択ボタン等へ適用し、配置台帳と実フォントの画像検査を残す。最後の称賛はユーザー指定の編集表現で、日別の事実確認や完結の根拠とは分離する。
+
+## Tiboの期間ものニュースを振り返る独立制作・初稿v04（2026-11-01）
+
+`productions/content-projects/CONTENT_20261101_tibo_28day_recap/` は本人の原投稿・公式Help・PCの実画面を照合し、Day26までの発表と最後の2日間の予告を区別する。既存MiniMax人物、場面別Aoede、共通BGMを再利用し、新規のボタン押下と券の保管を自作2Dモーションとして日別タイムラインへ組み込む。受取だけで利用枠を回復させず、実際のリセット使用はしない。短い引用、記事草稿・日別表・図、旧版と入力snapshot、実MP4の検査を別保存し、共通ContentWorkspaceへ制作依頼の範囲と根拠を登録する。Studio共通機能・自動公開は改修しない。独立した[設計本文](productions/content-projects/CONTENT_20261101_tibo_28day_recap/ARCHITECTURE.md)と[Mermaid図](productions/content-projects/CONTENT_20261101_tibo_28day_recap/ARCHITECTURE_DIAGRAM.md)を参照。
+
 ## 10/31ニュース2本の独立制作（2026-10-31）
 
 `productions/content-projects/CONTENT_20261031_ai_news_ultra_accounts/` はユーザー指定のUltra条件とスマホ2アカウントを、公式引用・図解・既存人物・Aoedeで作る。PC撮影と端末接続を確認し、未実証の個別反映を仕様の説明と分ける。共通BGM既定を利用し、音声の実尺・版付き動画・記事用図・引用を保存する。`register_workspace.py` は二題材の依頼の採用範囲と、根拠・撮影不足・絵コンテ・記事節を共通台帳へ記録する。Driveは個別送信で照合し、自動公開やUI/API契約は追加しない。独立した[設計本文](productions/content-projects/CONTENT_20261031_ai_news_ultra_accounts/ARCHITECTURE.md)と[図](productions/content-projects/CONTENT_20261031_ai_news_ultra_accounts/ARCHITECTURE_DIAGRAM.md)を参照。
