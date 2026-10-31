@@ -1,4 +1,4 @@
-"""Bounded Aoede requests for the two user-specified news briefs; no automatic retry."""
+"""Bounded Aoede requests for the Tibo recap; reuse successes, no automatic retry."""
 from pathlib import Path
 import importlib.util,json,os,sys,time
 

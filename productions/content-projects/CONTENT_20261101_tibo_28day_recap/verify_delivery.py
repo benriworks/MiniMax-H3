@@ -61,4 +61,4 @@ def listening(version):
     save(folder/'review.json',result);print(json.dumps(result,ensure_ascii=False))
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('command',choices=['frames','listening']);p.add_argument('--version',default='v03');a=p.parse_args();globals()[a.command](a.version)
+    p=argparse.ArgumentParser();p.add_argument('command',choices=['frames','listening']);p.add_argument('--version',default='v04');a=p.parse_args();globals()[a.command](a.version)
