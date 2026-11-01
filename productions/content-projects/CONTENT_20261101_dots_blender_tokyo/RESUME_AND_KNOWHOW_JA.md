@@ -13,6 +13,7 @@
 - 共通企画台帳revision29、準備上のblocker・warningなし。出典・撮影不足・採用範囲・2本の絵コンテ・記事を記録。台帳は媒体検査を自動取込しないためtechnical_verified=falseのまま。実際の媒体検証は各qc.jsonとtechnical-summary-v01.json。
 - Driveは本人のMy Driveへ動画2本と記事ZIPを保存し、名前・容量・親・本人所有を読戻し。ブラウザープレーヤーは読み込み中で、再生成功やスマホ確認とはしない。S3代替は両動画Status=verified（HEADと全GET・hash検証）、標準1時間。署名URL・ObjectKeyは文書へ残さず、受領情報はignored領域に保存。
 - 次はユーザーの試聴。修正があれば対象時刻を記録し別版へ改訂する。YouTubeの関連動画・登録の実要素設定、記事の導線先、最終採用・公開、mainマージは今回行わない。
+- Git：個人forkの `codex/dots-blender-tokyo-20261101` へ制作コード・資料19ファイルをpush。確認入口は [Draft PR #12](https://github.com/benriworks/MiniMax-H3/pull/12)。baseは `codex/tibo-full-video-20261101` で、本件だけを差分にする。媒体本体はGitへ含めず、mainへのマージも行っていない。
 
 ## 初回着手時の記録（当時の判断・作業前）
 
