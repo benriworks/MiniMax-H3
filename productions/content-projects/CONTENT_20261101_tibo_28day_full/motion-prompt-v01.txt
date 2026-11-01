@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] A single continuous five-second 16:9 stylized anime cinematic. Preserve the exact two fictional adult colleagues in Picture 1: the young adult man in the charcoal hoodie and blue shirt stands at center-left; the young adult woman with a neat black bob, ivory hoodie and blue shirt stands at center-right. Preserve their adult faces, hair, body proportions, jeans, shoes, dark navy studio, cyan and magenta rim light, full-body framing and floor. From 0.0 to 1.0 seconds, both turn gently toward the camera, smiling warmly, while lifting their two hands to chest level. From 1.0 to 4.2 seconds, both give three small gentle rounds of applause, their own palms meeting naturally in front of their own chest, hands kept separate from their faces and from each other. The man remains left and the woman remains right. From 4.2 to 5.0 seconds, they lower their hands slightly and share a satisfied appreciative smile. Keep exactly two people, exactly two coherent arms per person and natural small hands. The camera is fixed and both complete heads and bodies stay visible. No speech, no exaggerated cheering, no generated letters, logos, watermarks, added props, confetti or changes of clothing. This is appreciation for continuing improvements, not a victory ceremony.
+
+overall_soundscape: Quiet indoor ambience and gentle natural handclaps. No speech, narration or vocalizations.
+
+non_diegetic_music: N/A

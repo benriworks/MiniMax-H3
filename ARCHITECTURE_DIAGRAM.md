@@ -1829,3 +1829,33 @@ flowchart LR
     Fork --> State[技術検証・人の採用・公開を別に記録]
     Local --> State
 ```
+
+## Tiboフル動画の素材と音声の統合（2026-11-01）
+
+```mermaid
+flowchart LR
+    Prior[v01の不変カットと同一音声] --> V2[v02の末尾改訂]
+    Closing[closing_visuals CPUの光と顔保護] --> V2
+    Slate[10秒の関連動画と登録の余白] --> V2
+    V2 --> QC2[prefix hashと全decodeと改訂箇所の検査]
+    Slate --> Manual[YouTube Studioの実要素配置は別]
+```
+
+```mermaid
+flowchart LR
+    Research[原投稿・公式Help・実機撮影] --> Script[9章36セリフ]
+    Script --> TTS[Gemini Aoede / Charon]
+    TTS --> PCM[成功PCMと実尺]
+    PCM --> Render[1920x1080 CPU図解と人物合成]
+    Motion[確認済みMiniMax動画と表情アトラス] --> Render
+    Research --> Excerpt[短い引用と公開用切り出し]
+    Excerpt --> Render
+    H3[追加H3試行] --> Failure[失敗・圧迫停止を保存して不採用]
+    Render --> Segments[hash付きセリフ別MP4]
+    Segments --> Full[全編H264とAAC]
+    Music[明るいループと3種SEと共通減音] --> Full
+    Full --> Verify[全decode・音量・実画像・独立音声点検]
+    Render --> Blog[記事草稿と1920px図]
+    Verify --> Share[Drive優先のレビュー共有]
+    Blog --> Share
+```
