@@ -26,7 +26,7 @@ BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_J
 
 ## 案件・素材の再開入口
 
-2026-10-30、初回に35単位の再開入口を整備し、その後Pro利用枠ニュース、10/31ニュース2本の共通案件、Tiboチャレンジのショートとフル版を追加し、現在の索引は39単位。シリーズは各回の原稿・台帳をまとめる親単位、人物素材は再利用元の単位としている。順序は現在の制作判断を探しやすくするためのもので、全案件が制作中・完了・採用済みという意味ではない。
+2026-10-30、初回に35単位の再開入口を整備し、その後Pro利用枠ニュース、10/31ニュース2本の共通案件、Tiboチャレンジのショートとフル版、dotsとBlenderの東京駅模型を追加し、現在の索引は40単位。シリーズは各回の原稿・台帳をまとめる親単位、人物素材は再利用元の単位としている。順序は現在の制作判断を探しやすくするためのもので、全案件が制作中・完了・採用済みという意味ではない。
 
 各再開記録には照合元の文書をリンクする。今回の整理は文書の照合であり、媒体の再生・全decode、Driveのアクセス、公開URL、最新の製品仕様を新たに検証したものではない。別ブランチ・別cloneだけにある案件は、対象ブランチを確認してから同じ形式で追加する。
 
@@ -34,6 +34,7 @@ BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_J
 
 | 案件・素材 | 再開時の入口 |
 | --- | --- |
+| dots×Blender：東京駅の簡略模型。提供済み工程画面と完成CGをショート約30秒・フル約2分26秒へ再編集。記事素材も準備、最終試聴待ち | [content-projects/CONTENT_20261101_dots_blender_tokyo](../../productions/content-projects/CONTENT_20261101_dots_blender_tokyo/RESUME_AND_KNOWHOW_JA.md) |
 | Tiboの28日間チャレンジ：横長7分24秒v02。v01内容に肯定、称賛の光を強化し終了画面10秒を追加。Day27本人投稿まで、Day28は未発表時点の版。修正版試聴待ち | [content-projects/CONTENT_20261101_tibo_28day_full](../../productions/content-projects/CONTENT_20261101_tibo_28day_full/RESUME_AND_KNOWHOW_JA.md) |
 | Tiboの28日間チャレンジ：84秒v07。中央揃え・称賛ときらめく締め、明るい8小節ループ・3種SE（新版試聴待ち、Day27・28は予告扱い） | [content-projects/CONTENT_20261101_tibo_28day_recap](../../productions/content-projects/CONTENT_20261101_tibo_28day_recap/RESUME_AND_KNOWHOW_JA.md) |
 | 10/31ニュース：Claude Ultra 47秒v01とChatGPTスマホ2アカウント48秒v02（動画2本と記事素材をDrive共有） | [content-projects/CONTENT_20261031_ai_news_ultra_accounts](../../productions/content-projects/CONTENT_20261031_ai_news_ultra_accounts/RESUME_AND_KNOWHOW_JA.md) |

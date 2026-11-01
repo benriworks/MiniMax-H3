@@ -1,5 +1,21 @@
 # Architecture diagram
 
+## 提供済みBlender素材から縦横動画と記事へ
+
+```mermaid
+flowchart LR
+    Source[元38ファイルを読み取り検査] --> Derive[実画面静止画と完成CGの公開派生]
+    Script[短尺とフルの原稿] --> Voice[Geminiの実PCM]
+    Voice --> Edit[共通人物とBGMで縦横編集]
+    Derive --> Edit
+    Edit --> QC[全decodeと実画像と独立音声点検]
+    Source --> Unchanged[原本hash再照合]
+    Derive --> Blog[記事草稿と画像と出典]
+    QC --> Share[Drive優先と必要時S3代替]
+    Blog --> Share
+    Share --> Human[人の試聴と採用と公開は別]
+```
+
 ## 映像を再圧縮せず音を更新
 
 ```mermaid
