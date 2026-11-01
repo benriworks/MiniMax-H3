@@ -17,7 +17,7 @@
 - Driveの動画とZIPをmetadataで照合。Drive動画は「まだ再生処理中」と表示されたため、S3へ同じhashのMP4を代替共有し、CLIの完全GETとhash照合を確認。リンク・受領ログ・署名URLはGitに保存しない。ローカルの `_private/delivery-v01.json` を参照。Driveの現在の処理状態とS3期限は再開時に確認する。
 - 次：ユーザーが人物の大きさ、掛け合い、説明の分かりやすさ、BGMを試聴する。Day28発表後に公開する場合は公式発表を再照合し、必要箇所だけ版を上げる。動画・記事の採用と公開は別の指示に基づく。
 - コード：`productions/content-projects/CONTENT_20261101_tibo_28day_full/`。媒体：同IDの `outputs/content-projects/`。元ショートと過去の素材を上書きしない。
-- Git：`codex/tibo-full-video-20261101`。個人forkへ軽量な記録とコードを保存し、動画・音声・私的原本・署名URLはGitへ入れない。main未マージ。
+- Git：個人forkの `codex/tibo-full-video-20261101` へ制作コミット `ea665e2` をpush済み。[Draft PR #11](https://github.com/benriworks/MiniMax-H3/pull/11)、baseは直前の `codex/tibo-28day-recap-20261101`。この共有記録も同じブランチへ保存する。動画・音声・私的原本・署名URLはGitへ入れていない。公式upstreamへ書き込みなし、main未マージ。
 
 ## 採用・検証の境界
 
@@ -33,6 +33,7 @@
 | 2026-11-01 設計確認 | 9章36セリフ、26図、実フォント配置。初期の頭切れを修正し、途中版を保持 | 共有依存の21テスト成功。最終PCM・完成媒体検査は作業中 |
 | 2026-11-01 フルv01 | 434.333秒、1080p横長を完成。全decode・音量・108サンプル・独立音声点検と記事ZIP全hashを確認 | 検証詳細はVALIDATION。人の最終試聴と採用は未確認 |
 | 2026-11-01 共有v01 | Drive動画とZIPをmetadata照合。動画が処理中のためS3プレビューを代替としてverifiedまで確認 | スマホ実機再生・媒体公開は未確認。署名URLはGitへ入れない |
+| 2026-11-01 Git保存 | 制作コード・原稿・出典・検証・索引と総覧・独立設計を個人forkへpush。Draft PR #11を作成し、head/base/Draftを照合 | 重い媒体・私的原本は対象外。mainマージ・動画と記事の公開はなし |
 
 ## 案件のノウハウと補足資料
 
