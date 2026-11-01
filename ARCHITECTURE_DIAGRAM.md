@@ -1834,6 +1834,15 @@ flowchart LR
 
 ```mermaid
 flowchart LR
+    Prior[v01の不変カットと同一音声] --> V2[v02の末尾改訂]
+    Closing[closing_visuals CPUの光と顔保護] --> V2
+    Slate[10秒の関連動画と登録の余白] --> V2
+    V2 --> QC2[prefix hashと全decodeと改訂箇所の検査]
+    Slate --> Manual[YouTube Studioの実要素配置は別]
+```
+
+```mermaid
+flowchart LR
     Research[原投稿・公式Help・実機撮影] --> Script[9章36セリフ]
     Script --> TTS[Gemini Aoede / Charon]
     TTS --> PCM[成功PCMと実尺]

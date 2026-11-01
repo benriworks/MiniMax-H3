@@ -34,7 +34,7 @@ BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_J
 
 | 案件・素材 | 再開時の入口 |
 | --- | --- |
-| Tiboの28日間チャレンジ：横長7分14秒v01、9章36セリフ。Drive共有、処理中のためS3代替。Day27本人投稿まで確認、Day28は未発表。試聴・採用待ち | [content-projects/CONTENT_20261101_tibo_28day_full](../../productions/content-projects/CONTENT_20261101_tibo_28day_full/RESUME_AND_KNOWHOW_JA.md) |
+| Tiboの28日間チャレンジ：横長7分24秒v02。v01内容に肯定、称賛の光を強化し終了画面10秒を追加。Day27本人投稿まで、Day28は未発表時点の版。修正版試聴待ち | [content-projects/CONTENT_20261101_tibo_28day_full](../../productions/content-projects/CONTENT_20261101_tibo_28day_full/RESUME_AND_KNOWHOW_JA.md) |
 | Tiboの28日間チャレンジ：84秒v07。中央揃え・称賛ときらめく締め、明るい8小節ループ・3種SE（新版試聴待ち、Day27・28は予告扱い） | [content-projects/CONTENT_20261101_tibo_28day_recap](../../productions/content-projects/CONTENT_20261101_tibo_28day_recap/RESUME_AND_KNOWHOW_JA.md) |
 | 10/31ニュース：Claude Ultra 47秒v01とChatGPTスマホ2アカウント48秒v02（動画2本と記事素材をDrive共有） | [content-projects/CONTENT_20261031_ai_news_ultra_accounts](../../productions/content-projects/CONTENT_20261031_ai_news_ultra_accounts/RESUME_AND_KNOWHOW_JA.md) |
 | ChatGPT Pro：Work・Codex利用枠拡大ニュース（新規H3人物6本を使う48秒、BGM調整版v04をDrive共有、試聴待ち） | [content-projects/CONTENT_20261030_chatgpt_pro_usage_news](../../productions/content-projects/CONTENT_20261030_chatgpt_pro_usage_news/RESUME_AND_KNOWHOW_JA.md) |

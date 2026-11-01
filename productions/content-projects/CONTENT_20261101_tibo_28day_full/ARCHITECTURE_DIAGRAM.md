@@ -1,5 +1,26 @@
 # Tiboフル動画の構成図
 
+## 末尾改訂 v02
+
+```mermaid
+flowchart LR
+  V1[v01の36セリフと34カットを再利用] --> Copy[先頭413秒のvideo hash一致]
+  V1 --> Pair[称賛の2カットだけ描き直す]
+  Shared[closing_visuals 共通CPU部品] --> Pair
+  Shared --> Tail[10秒の関連動画と登録の余白]
+  Pair --> Mask[光の帯と粒子 / 顔と字幕を保護]
+  Mask --> Mux[v02 444.333秒]
+  Tail --> Mux
+  Copy --> Mux
+  PCM[同一ナレーションとループとSE] --> Audio[末尾を延長し音楽をフェード]
+  Audio --> Mux
+  Mux --> QC[全decode / 音量 / 15画像 / 31秒抜粋]
+  QC --> Review[Drive優先でレビュー]
+  Tail --> Guide[YouTube Studioで実要素を後から配置]
+```
+
+## v01の全体構成
+
 ```mermaid
 flowchart TD
   Short[採用範囲とショートv07の記録] --> Research[本人投稿と公式Helpの再調査]
