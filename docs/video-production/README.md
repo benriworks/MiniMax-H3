@@ -22,6 +22,8 @@ BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_J
 4. **終了・引き継ぎ**：次に何を見て何をするか、完了を示す根拠、Git同期状態まで残す。動画と記事の採用・公開は分ける。
 5. **共通化**：他案件にも役立つ学びは条件と証拠を添えて総覧へ反映する。専門別冊へ実務の詳細、案件へ固有の数値・失敗例を残し、索引から結ぶ。
 
+記録の振り分けは [共通規約](../../AGENTS.md)、[総覧の記録基準](PRODUCTION_KNOWHOW_JA.md)、[動画別の記録ひな形](templates/PRODUCTION_RECORD_JA.md)を参照。複数動画を含む案件では、案件の入口に加えて各動画の履歴へ直接たどれるようにする。後から届いた返答の記録だけでは、採用・公開状態を変更しない。
+
 最新版の判断と過去の検証を分ける。過去の「未投稿」を後の公開申告より優先せず、後のユーザー申告もURL・公開範囲・実投稿日時の独立検証と混同しない。資料が読めない・素材がない場合は不足と影響を記録する。
 
 ## 案件・素材の再開入口
@@ -34,7 +36,7 @@ BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_J
 
 | 案件・素材 | 再開時の入口 |
 | --- | --- |
-| dots×Blender：東京駅の簡略模型。提供済み工程画面と完成CGをショート約30秒・フル約2分26秒へ再編集。記事素材も準備、最終試聴待ち | [content-projects/CONTENT_20261101_dots_blender_tokyo](../../productions/content-projects/CONTENT_20261101_dots_blender_tokyo/RESUME_AND_KNOWHOW_JA.md) |
+| dots×Blender：東京駅の簡略模型。ショート約30秒・フル約2分26秒と記事素材。後着の回答で「操作の流れと修正」を重視すると確認。最終試聴待ち | [案件・現在地](../../productions/content-projects/CONTENT_20261101_dots_blender_tokyo/RESUME_AND_KNOWHOW_JA.md)／[ショート履歴](../../productions/content-projects/CONTENT_20261101_dots_blender_tokyo/RESUME_AND_KNOWHOW_JA.md#short-v01)／[フル履歴](../../productions/content-projects/CONTENT_20261101_dots_blender_tokyo/RESUME_AND_KNOWHOW_JA.md#full-v01) |
 | Tiboの28日間チャレンジ：横長7分24秒v02。v01内容に肯定、称賛の光を強化し終了画面10秒を追加。Day27本人投稿まで、Day28は未発表時点の版。修正版試聴待ち | [content-projects/CONTENT_20261101_tibo_28day_full](../../productions/content-projects/CONTENT_20261101_tibo_28day_full/RESUME_AND_KNOWHOW_JA.md) |
 | Tiboの28日間チャレンジ：84秒v07。中央揃え・称賛ときらめく締め、明るい8小節ループ・3種SE（新版試聴待ち、Day27・28は予告扱い） | [content-projects/CONTENT_20261101_tibo_28day_recap](../../productions/content-projects/CONTENT_20261101_tibo_28day_recap/RESUME_AND_KNOWHOW_JA.md) |
 | 10/31ニュース：Claude Ultra 47秒v01とChatGPTスマホ2アカウント48秒v02（動画2本と記事素材をDrive共有） | [content-projects/CONTENT_20261031_ai_news_ultra_accounts](../../productions/content-projects/CONTENT_20261031_ai_news_ultra_accounts/RESUME_AND_KNOWHOW_JA.md) |
