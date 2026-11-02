@@ -1,5 +1,22 @@
 # Architecture diagram
 
+## 利用枠ニュース：予定と現在の観察を分ける
+
+```mermaid
+flowchart LR
+    Official[公式本文と確認日] --> Planned[予定と未記載条件]
+    Current[現在のUsageを撮影] --> Entry[公開用の入口だけ]
+    Planned --> Diagram[共通文字配置と模式モーション]
+    Voice[Gemini実PCMと既存人物] --> Edit[47秒ショート]
+    Diagram --> Edit
+    Entry --> Edit
+    Edit --> QC[全decodeと25画像と音量とAI音声]
+    Diagram --> Article[記事草稿と1920px図]
+    QC --> Review[Drive優先と必要時S3代替]
+    Article --> Review
+    Review --> Human[試聴と採用と公開は別]
+```
+
 ## 提供済みBlender素材から縦横動画と記事へ
 
 ```mermaid

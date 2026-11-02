@@ -1,0 +1,93 @@
+{
+  "title": "【ChatGPT】Codexと12月から利用枠を共通化へ！Instantは対象外、何が変わる？",
+  "turns": [
+    {
+      "id": "n01",
+      "speaker": "female",
+      "visual": "merge",
+      "heading": "ChatGPT × Codex",
+      "sub": "12月から利用枠を共通化へ",
+      "text": "十二月、チャットジーピーティーとコーデックスの利用枠が共通になる予定です。",
+      "display": "12月、ChatGPTとCodexの利用枠が共通になる予定です。",
+      "captions": [
+        "12月、ChatGPTとCodexの\n利用枠が共通になる予定です。"
+      ]
+    },
+    {
+      "id": "n02",
+      "speaker": "male",
+      "visual": "question",
+      "heading": "両方を使うと…？",
+      "sub": "同じ利用枠から消費する仕組みへ",
+      "text": "両方を使うと、同じ枠から減るの？",
+      "display": "両方を使うと、同じ枠から減るの？"
+    },
+    {
+      "id": "n03",
+      "speaker": "female",
+      "visual": "plans",
+      "heading": "Plus・Pro・Business",
+      "sub": "Workのエージェント機能も統合予定",
+      "text": "対象はプラス、プロ、ビジネス。ワークのエージェント機能も、メインのチャットジーピーティーへ統合予定です。",
+      "display": "対象はPlus・Pro・Business。Workのエージェント機能も、メインのChatGPTへ統合予定です。",
+      "captions": [
+        "対象は\nPlus・Pro・Business。",
+        "Workのエージェント機能も、\nメインのChatGPTへ統合予定。"
+      ]
+    },
+    {
+      "id": "n04",
+      "speaker": "female",
+      "visual": "tokens",
+      "heading": "消費は、モデルと作業次第",
+      "sub": "利用量をトークンで計測",
+      "text": "利用量はトークンで計測。高度なモデルや複雑な作業ほど、多く使う傾向があります。",
+      "display": "利用量はトークンで計測。高度なモデルや複雑な作業ほど、多く使う傾向があります。"
+    },
+    {
+      "id": "n05",
+      "speaker": "female",
+      "visual": "instant",
+      "heading": "Instant chatは対象外",
+      "sub": "この共通枠を消費しない",
+      "text": "ただし、インスタントチャットは、この共通枠を消費しません。",
+      "display": "ただし、Instant chatは、この共通枠を消費しません。",
+      "captions": [
+        "ただし、Instant chatは、",
+        "この共通枠を消費しません。"
+      ]
+    },
+    {
+      "id": "n06",
+      "speaker": "female",
+      "visual": "usage",
+      "heading": "残量とリセット時刻を一か所で",
+      "sub": "設定 → Usage（使用状況）",
+      "text": "残量とリセット時刻は、設定のユーセージで、まとめて確認できる予定です。",
+      "display": "残量とリセット時刻は、設定のUsageで、まとめて確認できる予定です。"
+    },
+    {
+      "id": "n07",
+      "speaker": "male",
+      "visual": "question2",
+      "heading": "値上げ？ 枠が減る？",
+      "sub": "今回の説明だけでは断定できない",
+      "text": "値上げや、枠が減るってこと？",
+      "display": "値上げや、枠が減るってこと？"
+    },
+    {
+      "id": "n08",
+      "speaker": "female",
+      "visual": "unknown",
+      "heading": "開始日・具体枠は未記載",
+      "sub": "提供後に、実際の消費を検証したい",
+      "text": "そこはまだ断定できません。開始日や枠の量は、今回の公式説明には未記載。提供後に、実際の減り方も確かめましょう。",
+      "display": "そこはまだ断定できません。開始日や枠の量は、今回の公式説明には未記載。提供後に、実際の減り方も確かめましょう。"
+    }
+  ],
+  "fact_checked_on": "2026-11-02",
+  "source_url": "https://help.openai.com/en/articles/20001625-understanding-chatgpt-and-codex-usage-limits",
+  "future_change_not_demonstrated": true,
+  "characters": "reuse approved adult duo; no new character generation",
+  "diagram_is_not_a_quantity_or_rate_measurement": true
+}
