@@ -1,5 +1,20 @@
 # Architecture diagram
 
+## 文節字幕と成果物の改訂
+
+```mermaid
+flowchart LR
+    Reading[表示と読みの別原稿] --> Phrases[BudouXと保護語]
+    Phrases --> Width[実グリフ幅と固定サイズ字幕]
+    Old[4本の原版と素材とPCM] --> Revision[成果物拡大と同位置比較]
+    Width --> Revision
+    Faces[顔高と目線と意図別表情] --> Revision
+    Revision --> Videos[ワイン縦横と東京駅fullとTibo full]
+    Videos --> Verify[全decodeと197字幕状態と423画像]
+    Verify --> Review[Driveレビューと3案件記録]
+    Revision --> Article[既存記事と新しい比較素材と字幕]
+```
+
 ## 利用枠ニュース：予定と現在の観察を分ける
 
 ```mermaid

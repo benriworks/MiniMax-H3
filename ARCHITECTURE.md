@@ -1,5 +1,11 @@
 # Architecture
 
+## 文節字幕と成果物中心の改訂（2026-11-03）
+
+`tools/studio/editorial_captions.py` はBudouX0.10.2・保護語・実グリフ幅を使い、表示原稿と読み原稿を分けて固定サイズの2行字幕を作る。読み辞書は明示指定を優先し、小数の自動読みは1桁整数部に限定。旧wrapと旧完成品を自動変更しない。`editorial_presenters.py` は既存400px男女アトラスの顔高・目線を均等スケールでそろえ、台詞意図を表情へ対応させる。全身動画や別キャラへの一般的な顔認識機能ではない。
+
+`productions/content-projects/CONTENT_20261103_editorial_revision/` はワイン2本・東京駅full・Tibo fullを独立した新しい出力へ改訂する。成果物の拡大、縦の同位置切り替え、側面の切り出しを扱い、ワイン変更4台詞だけTTS。東京駅とTiboは元AACのhash一致を確認する。197字幕状態、完成動画423画像、全decode・音量・原版不変を記録し、記事草稿・比較素材・字幕も同時に渡す。StudioのUIをユーザーの前提作業にせず、共通台帳へ新版の絵コンテを保存する。独立した設計とMermaid図は案件内。
+
 ## 任意の明るいループと分類別SE（2026-11-01）
 
 `tools/studio/audio_motifs.py` は外部サンプルを使わない任意の `sunny_guitar_loop_v1` とreset/bank/improvementの3種SEを生成する。8小節の音の余韻を循環させてループ境界を測定し、BGMの音量設計は既存 `explanation_v1` を継続する。今回専用の選択であり全体の曲の既定・Studio UIは変更しない。Tibo案件の `remix_audio.py` は実フレームからSE配置を決め、映像stream copyとナレーションのhash一致を確認して音だけを差し替える。音源・配置表・mixを分離して保存する。

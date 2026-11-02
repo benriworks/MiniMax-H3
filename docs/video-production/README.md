@@ -1,6 +1,6 @@
 # 動画・関連記事の制作索引
 
-更新日：2026-11-02。このリポジトリの制作情報は、索引・総覧・案件ごとの再開履歴兼ノウハウの3種類を入口に管理する。チャット履歴がない別チャット・別担当者も、ここから再開する。
+更新日：2026-11-03。このリポジトリの制作情報は、索引・総覧・案件ごとの再開履歴兼ノウハウの3種類を入口に管理する。チャット履歴がない別チャット・別担当者も、ここから再開する。
 
 ## 最初に読む3種類
 
@@ -28,7 +28,7 @@ BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_J
 
 ## 案件・素材の再開入口
 
-2026-10-30、初回に35単位の再開入口を整備し、その後Pro利用枠ニュース、10/31ニュース2本の共通案件、Tiboチャレンジのショートとフル版、dotsとBlenderの東京駅模型、12月のChatGPT・Codex利用枠共通化ニュース、dotsとBlenderのワインCGを追加し、現在の索引は42単位。シリーズは各回の原稿・台帳をまとめる親単位、人物素材は再利用元の単位としている。順序は現在の制作判断を探しやすくするためのもので、全案件が制作中・完了・採用済みという意味ではない。
+2026-10-30、初回に35単位の再開入口を整備し、その後Pro利用枠ニュース、10/31ニュース2本の共通案件、Tiboチャレンジのショートとフル版、dotsとBlenderの東京駅模型、12月のChatGPT・Codex利用枠共通化ニュース、dotsとBlenderのワインCG、字幕と成果物の見せ方の4本改訂を追加し、現在の索引は43単位。シリーズは各回の原稿・台帳をまとめる親単位、人物素材は再利用元の単位としている。順序は現在の制作判断を探しやすくするためのもので、全案件が制作中・完了・採用済みという意味ではない。
 
 各再開記録には照合元の文書をリンクする。今回の整理は文書の照合であり、媒体の再生・全decode、Driveのアクセス、公開URL、最新の製品仕様を新たに検証したものではない。別ブランチ・別cloneだけにある案件は、対象ブランチを確認してから同じ形式で追加する。
 
@@ -36,10 +36,11 @@ BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_J
 
 | 案件・素材 | 再開時の入口 |
 | --- | --- |
-| dots×Blender：ワインCG。注ぎ終わりと瓶の比率を2段階で修正。ショート約30秒・フル約2分30秒と記事素材。Driveへ共有、最終試聴待ち | [案件・現在地](../../productions/content-projects/CONTENT_20261102_dots_blender_wine/RESUME_AND_KNOWHOW_JA.md)／[ショート履歴](../../productions/content-projects/CONTENT_20261102_dots_blender_wine/RESUME_AND_KNOWHOW_JA.md#short-v01)／[フル履歴](../../productions/content-projects/CONTENT_20261102_dots_blender_wine/RESUME_AND_KNOWHOW_JA.md#full-v01) |
+| 字幕と成果物の見せ方の改訂：ワイン縦横v02・東京駅full v02・Tibo full v03。表示/読み分離、文節字幕、成果物拡大、縦の同位置切り替え。旧版公開申告、新版は比較レビュー待ち | [案件・現在地](../../productions/content-projects/CONTENT_20261103_editorial_revision/RESUME_AND_KNOWHOW_JA.md)／[4本の履歴](../../productions/content-projects/CONTENT_20261103_editorial_revision/RESUME_AND_KNOWHOW_JA.md#動画別の履歴) |
+| dots×Blender：ワインCG。旧v01は公開済みとの申告。比較候補v02は約33秒・約2分30秒。字幕と見せ方を改訂し記事素材も保持、新版は未採用・未公開 | [案件・現在地](../../productions/content-projects/CONTENT_20261102_dots_blender_wine/RESUME_AND_KNOWHOW_JA.md)／[新版履歴](../../productions/content-projects/CONTENT_20261103_editorial_revision/RESUME_AND_KNOWHOW_JA.md#wine-short-v02) |
 | 11/2確認：12月のChatGPT・Codex利用枠共通化。Instant chatの例外を動く図解で説明する47秒v01。公式引用と現在の設定入口、記事素材を準備。最終試聴待ち | [案件・現在地](../../productions/content-projects/CONTENT_20261102_chatgpt_codex_shared_usage/RESUME_AND_KNOWHOW_JA.md)／[動画履歴](../../productions/content-projects/CONTENT_20261102_chatgpt_codex_shared_usage/RESUME_AND_KNOWHOW_JA.md#short-v01) |
-| dots×Blender：東京駅の簡略模型。ショート約30秒・フル約2分26秒と記事素材。後着の回答で「操作の流れと修正」を重視すると確認。最終試聴待ち | [案件・現在地](../../productions/content-projects/CONTENT_20261101_dots_blender_tokyo/RESUME_AND_KNOWHOW_JA.md)／[ショート履歴](../../productions/content-projects/CONTENT_20261101_dots_blender_tokyo/RESUME_AND_KNOWHOW_JA.md#short-v01)／[フル履歴](../../productions/content-projects/CONTENT_20261101_dots_blender_tokyo/RESUME_AND_KNOWHOW_JA.md#full-v01) |
-| Tiboの28日間チャレンジ：横長7分24秒v02。v01内容に肯定、称賛の光を強化し終了画面10秒を追加。Day27本人投稿まで、Day28は未発表時点の版。修正版試聴待ち | [content-projects/CONTENT_20261101_tibo_28day_full](../../productions/content-projects/CONTENT_20261101_tibo_28day_full/RESUME_AND_KNOWHOW_JA.md) |
+| dots×Blender：東京駅の簡略模型。fullの旧版公開申告。full v02約2分26秒で側面拡大と文節字幕。元shortと記事は保持、新版はレビュー待ち | [案件・現在地](../../productions/content-projects/CONTENT_20261101_dots_blender_tokyo/RESUME_AND_KNOWHOW_JA.md)／[新版履歴](../../productions/content-projects/CONTENT_20261103_editorial_revision/RESUME_AND_KNOWHOW_JA.md#tokyo-full-v02) |
+| Tiboの28日間チャレンジ：旧full公開申告。full v03約7分24秒で字幕と人物表示を改訂。情報時点は11/1のまま、新版は未採用・未公開 | [案件・現在地](../../productions/content-projects/CONTENT_20261101_tibo_28day_full/RESUME_AND_KNOWHOW_JA.md)／[新版履歴](../../productions/content-projects/CONTENT_20261103_editorial_revision/RESUME_AND_KNOWHOW_JA.md#tibo-full-v03) |
 | Tiboの28日間チャレンジ：84秒v07。中央揃え・称賛ときらめく締め、明るい8小節ループ・3種SE（新版試聴待ち、Day27・28は予告扱い） | [content-projects/CONTENT_20261101_tibo_28day_recap](../../productions/content-projects/CONTENT_20261101_tibo_28day_recap/RESUME_AND_KNOWHOW_JA.md) |
 | 10/31ニュース：Claude Ultra 47秒v01とChatGPTスマホ2アカウント48秒v02（動画2本と記事素材をDrive共有） | [content-projects/CONTENT_20261031_ai_news_ultra_accounts](../../productions/content-projects/CONTENT_20261031_ai_news_ultra_accounts/RESUME_AND_KNOWHOW_JA.md) |
 | ChatGPT Pro：Work・Codex利用枠拡大ニュース（新規H3人物6本を使う48秒、BGM調整版v04をDrive共有、試聴待ち） | [content-projects/CONTENT_20261030_chatgpt_pro_usage_news](../../productions/content-projects/CONTENT_20261030_chatgpt_pro_usage_news/RESUME_AND_KNOWHOW_JA.md) |
