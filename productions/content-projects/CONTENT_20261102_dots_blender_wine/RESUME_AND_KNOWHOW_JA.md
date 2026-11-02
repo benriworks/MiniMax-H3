@@ -17,7 +17,7 @@
 - 共通台帳revision22で出典・追加撮影不足・2本の絵コンテ・記事を登録。ready_for_production=true、blocker/warningなし。台帳のtechnical_verified=falseは固定フィールドであり、実際の媒体QCとは別。最終採用とは扱わない。
 - 次：ユーザーが2本を試聴し、注ぎ終わり比較・瓶の比率・掛け合いとBGMを確認。修正は対象シーンを絞って次版へ。YouTube投稿・記事公開・mainマージは別の指示を待つ。
 - 保存：制作コード・文書はこの案件、原本・展開・API応答・媒体・共有受領は同IDのoutputs以下。元Driveの整理・権限・ファイルは変更しない。重い媒体、ZIP、私的原本、APIキー、署名URLはGitへ入れない。
-- Git：codex/dots-wine-videos-20261102。baseは直前の利用枠ニュース制作ブランチ。個人forkのみへ文書とコードを保存し、mainマージとYouTube／記事公開は別とする。
+- Git：codex/dots-wine-videos-20261102。個人forkへ制作コード・記録・入口文書を保存し、[Draft PR #14](https://github.com/benriworks/MiniMax-H3/pull/14) を作成。baseは直前の利用枠ニュース制作ブランチ `codex/chatgpt-codex-shared-usage-20261102`。mainマージとYouTube／記事公開は別とする。
 
 ## 履歴
 
