@@ -978,6 +978,8 @@ Shortsのgraphic列挙に `web-services` と `web-flow` を追加し、`WebRunti
 
 ## 提供済みBlender素材の縦横編集（2026-11-01）
 
+2026-11-02の `productions/content-projects/CONTENT_20261102_dots_blender_wine/` は同じ縦横編集を再利用し、初版/v2の同時刻比較とv2/v3の同カメラ比較、工程静止画、手続き型液体の説明を追加する。元blend・提供コード・現在の別シーンを変更せず、22ターンの成功PCMからショート30.292秒とフル149.5秒を組み立てる。2-pass音量正規化後のAACを再実測し、記事画像・字幕・出典のZIPも検証する。共通台帳に2本と記事を登録。個別の独立設計・Mermaid図は同案件内にあり、自動公開や新Studio UIではない。
+
 `productions/content-projects/CONTENT_20261101_dots_blender_tokyo/` は、元素材の読み取り検査、公開用派生、実PCMに基づく縦横2媒体、記事の同時受け渡しを扱う。既存のナレーション・アバター・BGM・終了画面の共通処理を再利用し、元blendと現在の未保存Blenderを変更しない。実画面静止画、完成CG、依頼例を分け、全decode・音量・実フレーム・原本不変・独立音声点検で候補を確認。共通企画台帳へ出典・撮影不足・2本の絵コンテ・記事を記録する。自動公開やStudio UIの追加実装ではなく、独立設計とMermaid図は案件内に保存する。
 
 ## Tiboフル動画の横長制作（2026-11-01）

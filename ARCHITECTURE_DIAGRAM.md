@@ -1892,3 +1892,19 @@ flowchart LR
     Verify --> Share[Drive優先のレビュー共有]
     Blog --> Share
 ```
+
+## ワインCGの比較と記事への派生（2026-11-02）
+
+```mermaid
+flowchart LR
+    DriveWine[提供ワインCGと修正履歴] --> WineInspect[12原本と64展開ファイルのhash]
+    WineInspect --> WineEvidence[同時刻の動きと同カメラの比率比較]
+    WineEvidence --> WineRender[実PCMと既存男女と共通Canvas]
+    WineRender --> WineShort[縦30秒]
+    WineRender --> WineFull[横150秒と10秒終了画面]
+    WineShort --> WineQC[全decodeとAAC音量と独立音声点検]
+    WineFull --> WineQC
+    WineEvidence --> WineArticle[記事草稿と画像と字幕のZIP]
+    WineQC --> WineDrive[Driveへ共有してPC再生を確認]
+    WineArticle --> WineDrive
+```
