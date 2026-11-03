@@ -22,7 +22,7 @@
 - 共通台帳revision39へ今回の依頼とfull絵コンテ・記事を記録。制作blockerなし。旧企画の約146秒と実155秒の尺差warningは残す。媒体の同期検査と想定尺の差、台帳固定のtechnical_verified=falseは区別する。
 - 新版は未採用・未公開。次はユーザーが、女性の語尾と返答の自然さ、男性の疑問から視聴者への説明につながるか、3D/簡略モデルという用語を試聴する。変更は東京駅fullの対象台詞だけ別版へ。ワイン・Tibo・東京駅shortを一括変更しない。
 - Driveへ動画15,235,665Bと記事素材ZIP1,655,632Bを保存し、名前・容量・親・所有者をreadback確認。PCで再生を試みても読込spinnerが続いたため、このv03だけS3へ代替共有。exit0/Status=verified、HEADと全体GET・hash一致。初回標準1時間の期限は2026-11-03 10:18:11 JST。署名URLとObjectKeyは保存せず、受領の非秘密項目だけignoredの_private/sharing-v03-soft-dialogue.jsonへ残す。スマホ実機は未検証。
-- 共通規約、編集基準、総覧、案件記録、索引と独立アーキテクチャを更新。Gitは `codex/tokyo-soft-dialogue-v03-20261103`、baseは直前の `codex/editorial-quality-revision-20261103`。軽量コードと文書のみ個人forkへ保存し、mainマージと媒体公開は行わない。
+- 共通規約、編集基準、総覧、案件記録、索引と独立アーキテクチャを更新。個人forkの `codex/tokyo-soft-dialogue-v03-20261103` へ保存し、[Draft PR #16](https://github.com/benriworks/MiniMax-H3/pull/16) を作成。baseは直前の `codex/editorial-quality-revision-20261103`。軽量コードと文書のみを送り、mainマージと媒体公開は行っていない。
 
 ## 2026-11-03追記：full公開申告とv02比較候補
 
