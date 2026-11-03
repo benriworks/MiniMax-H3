@@ -1,0 +1,26 @@
+{
+  "date_jst": "2026-11-03",
+  "qualified_channels": 20,
+  "unique_videos": 20,
+  "whole_video_input_success": 20,
+  "focused_input_success": 20,
+  "requested_sample_seconds_each": 30,
+  "requested_focus_fps": 4,
+  "whole_video_model_report_seconds_approx": 23026,
+  "ui_screenshot_channels": 8,
+  "ui_screenshot_files": 12,
+  "ui_screenshot_non_explanatory_frames": 2,
+  "curated_techniques": 60,
+  "excluded_out_of_window_annotations": 1,
+  "relative_markdown_links_checked": 18,
+  "python_syntax_checked": [
+    "analyze_video.py",
+    "build_report.py",
+    "focus_audit.py"
+  ],
+  "initial_schema_http_400_receipts": 20,
+  "human_full_listening": false,
+  "frame_exact_cut_statistics": false,
+  "analytics_causal_evaluation": false,
+  "public_media_reuse": false
+}

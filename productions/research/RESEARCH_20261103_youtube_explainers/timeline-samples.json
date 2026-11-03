@@ -1,0 +1,1322 @@
+[
+  {
+    "id": "01-fireship",
+    "url": "https://www.youtube.com/watch?v=nEaJMdM1djM",
+    "requested_window": {
+      "label": "A:中盤の30秒",
+      "start": 85.0,
+      "end": 115.0
+    },
+    "requested_fps": 4,
+    "events": [
+      {
+        "absolute_seconds": 85.25,
+        "kind": "diagram_step",
+        "description": "黒背景図解の右上に紫色の「AI COMPANY」ブロックが出現 (approx)"
+      },
+      {
+        "absolute_seconds": 87.75,
+        "kind": "diagram_step",
+        "description": "NVIDIAからAI COMPANYへ向かう緑の矢印「INVESTMENT」と「$」マークが追加 (approx)"
+      },
+      {
+        "absolute_seconds": 90.75,
+        "kind": "diagram_step",
+        "description": "AI COMPANYからNVIDIAへ向かう紫の矢印「EQUITY」が追加 (approx)"
+      },
+      {
+        "absolute_seconds": 92.25,
+        "kind": "diagram_step",
+        "description": "NVIDIA直下にあったチップアイコンが中央へ移動し表示更新 (approx)"
+      },
+      {
+        "absolute_seconds": 95.75,
+        "kind": "diagram_step",
+        "description": "AI COMPANY下の表記が「$ _ _」に変化 (approx)"
+      },
+      {
+        "absolute_seconds": 97.75,
+        "kind": "diagram_step",
+        "description": "画面下部に水色の「WALL STREET」ブロックが出現 (approx)"
+      },
+      {
+        "absolute_seconds": 98.75,
+        "kind": "diagram_step",
+        "description": "WALL STREETからAI COMPANYへ向かう青い矢印「LOAN」が追加 (approx)"
+      },
+      {
+        "absolute_seconds": 102.0,
+        "kind": "diagram_step",
+        "description": "WALL STREETから中央チップへ向かう破線と「CLAIM」枠が追加 (approx)"
+      },
+      {
+        "absolute_seconds": 102.75,
+        "kind": "character_reaction",
+        "description": "画面右下に疑念の表情を浮かべる男児ミーム画像がポップアップ出現 (approx)"
+      },
+      {
+        "absolute_seconds": 107.0,
+        "kind": "diagram_step",
+        "description": "NVIDIAからWALL STREETへ向かう緑破線矢印「PLEDGE」が追加 (approx)"
+      },
+      {
+        "absolute_seconds": 108.5,
+        "kind": "character_reaction",
+        "description": "男児ミームが切り替わり、両手を広げる男性ミーム画像が出現 (approx)"
+      },
+      {
+        "absolute_seconds": 109.5,
+        "kind": "diagram_step",
+        "description": "AI COMPANYから中央チップへ向かう矢印「OWNS」が追加 (approx)"
+      },
+      {
+        "absolute_seconds": 110.5,
+        "kind": "diagram_step",
+        "description": "男性ミーム画像が退場し、中央チップからNVIDIAへ向かう矢印「RENTS」が追加 (approx)"
+      },
+      {
+        "absolute_seconds": 112.75,
+        "kind": "diagram_step",
+        "description": "NVIDIAブロックを指し示す黄色い指差しアイコンが出現 (approx)"
+      },
+      {
+        "absolute_seconds": 114.5,
+        "kind": "diagram_step",
+        "description": "AI COMPANYからNVIDIAへ向かう矢印「GPU PURCHASE」が追加 (approx)"
+      }
+    ],
+    "counts_are_annotations_not_exhaustive_cut_measurement": true,
+    "pacing_observation_ai": "区間Aは画面全体のカット切り替え（hard_cut）を行わず、黒背景の図解キャンバスをワンカットとして維持。ナレーションの進行に厳密に連動して矢印やテキスト、チップ等の要素を約1〜3秒刻みで逐次追加・更新（diagram_step）し、さらに要所で下部に短いミーム画像をオーバーレイ挿入することで、視覚的な退屈を防ぎつつテンポよく解説を展開している。",
+    "tail_window": {
+      "label": "B:ファイル末尾の約40秒",
+      "start": 284.0,
+      "end": 324.0
+    }
+  },
+  {
+    "id": "02-3blue1brown",
+    "url": "https://www.youtube.com/watch?v=GlYgs6v2YfU",
+    "requested_window": {
+      "label": "A:中盤の30秒",
+      "start": 645.0,
+      "end": 675.0
+    },
+    "requested_fps": 4,
+    "events": [
+      {
+        "absolute_seconds": 647.5,
+        "kind": "diagram_step",
+        "description": "approx。同一画面内で数式と棒グラフを維持したまま、下部の数直線上のq1マーカーが動いて青色の棒の高さが連続変化する"
+      },
+      {
+        "absolute_seconds": 650.5,
+        "kind": "diagram_step",
+        "description": "approx。画面左側のEntropy of Q要素がフェードアウトし、Cross Entropy要素が左へ移動、右側に新たな直交座標軸が展開される"
+      },
+      {
+        "absolute_seconds": 652.0,
+        "kind": "diagram_step",
+        "description": "同一画面内でp1の位置に固定ピン（押しピンのグラフィック）が追加表示される"
+      },
+      {
+        "absolute_seconds": 654.5,
+        "kind": "diagram_step",
+        "description": "approx。右側の座標系に交差エントロピーの関数曲線（青いU字型曲線）がアニメーション描画される"
+      },
+      {
+        "absolute_seconds": 656.25,
+        "kind": "diagram_step",
+        "description": "曲線上に青いプロット点が現れ、q1の位置変化に合わせて曲線に沿って移動する"
+      },
+      {
+        "absolute_seconds": 659.25,
+        "kind": "diagram_step",
+        "description": "曲線の最小値を示す下向き矢印と「min」の文字が座標系内にアニメーション出現する"
+      },
+      {
+        "absolute_seconds": 663.25,
+        "kind": "diagram_step",
+        "description": "approx。左側のp1数直線が複製されて右側のq1数直線の直下へと移動し、最小値でp1とq1が一致する様子を視覚化する"
+      },
+      {
+        "absolute_seconds": 672.25,
+        "kind": "diagram_step",
+        "description": "approx。左側の数式・グラフ領域が更新され、交差エントロピーの概念を示す上下の矢印と層状ブロックのアニメーションへと変化する"
+      }
+    ],
+    "counts_are_annotations_not_exhaustive_cut_measurement": true,
+    "pacing_observation_ai": "実写のカット割りやカメラ切り替えによるハードカットは行われず、黒背景上で数式・グラフ・インジケーター等の幾何アニメーション要素が同一画面内で滑らかに移動・変形・補足描画（diagram_step）され続けるテンポ感。短いカットで視点を切り替えるのではなく、1つの数理モデルを連続的な変形アニメーションによって切らずに見せている。",
+    "tail_window": {
+      "label": "B:ファイル末尾の約40秒",
+      "start": 1990.0,
+      "end": 2030.0
+    }
+  },
+  {
+    "id": "03-computerphile",
+    "url": "https://www.youtube.com/watch?v=cI8IquVEyVY",
+    "requested_window": {
+      "label": "A:中盤の30秒",
+      "start": 305.0,
+      "end": 335.0
+    },
+    "requested_fps": 4,
+    "events": [
+      {
+        "absolute_seconds": 306.75,
+        "kind": "hard_cut",
+        "description": "話者のバストショットから、手元の紙と付箋を俯瞰するトップダウンカメラへ切り替え"
+      },
+      {
+        "absolute_seconds": 310.5,
+        "kind": "hard_cut",
+        "description": "手元俯瞰から話者正面のミディアムショットへ切り替え"
+      },
+      {
+        "absolute_seconds": 315.75,
+        "kind": "hard_cut",
+        "description": "話者正面から手元俯瞰カメラへ切り替え、緑のマーカーで紙と付箋を繋ぐ矢印を描画"
+      },
+      {
+        "absolute_seconds": 323.25,
+        "kind": "hard_cut",
+        "description": "手元俯瞰から話者正面ショットへ切り替え、身振り手振りを交えて説明"
+      },
+      {
+        "absolute_seconds": 325.5,
+        "kind": "hard_cut",
+        "description": "話者正面から手元俯瞰カメラへ切り替え、付箋を剥がす動作を見せる"
+      },
+      {
+        "absolute_seconds": 331.25,
+        "kind": "hard_cut",
+        "description": "手元俯瞰から話者正面ショットへ切り替え"
+      }
+    ],
+    "counts_are_annotations_not_exhaustive_cut_measurement": true,
+    "pacing_observation_ai": "区間Aでは、解説者正面のミディアムショットと紙・付箋を使った手元俯瞰ショットをハードカットで交互に切り替える構成。手元の図解・書き込みや付箋の貼り替えといった物理的な実演動作はカットを細かく割らずに一連の動作として持続させて見せており、概念の口頭説明時には話者ショットに戻すという明確な役割分担がなされている。",
+    "tail_window": {
+      "label": "B:ファイル末尾の約40秒",
+      "start": 1117.0,
+      "end": 1157.0
+    }
+  },
+  {
+    "id": "04-twominutepapers",
+    "url": "https://www.youtube.com/watch?v=CWdTBLsbaQs",
+    "requested_window": {
+      "label": "A:中盤の30秒",
+      "start": 284.0,
+      "end": 314.0
+    },
+    "requested_fps": 4,
+    "events": [
+      {
+        "absolute_seconds": 287.0,
+        "kind": "diagram_step",
+        "description": "巡回セールスマン問題の地図上で配達ルートの点線と車の巡回アニメーションが開始される同一画面内の更新"
+      },
+      {
+        "absolute_seconds": 292.25,
+        "kind": "caption_change",
+        "description": "地図カードの左上に「Traveling Salesperson」のラベルタグが表示される"
+      },
+      {
+        "absolute_seconds": 293.5,
+        "kind": "diagram_step",
+        "description": "前のカードが縮小して左上に移動し、中央に夜空と電波塔が描かれた新しい図解カード（グラフ彩色問題）が重なって展開する"
+      },
+      {
+        "absolute_seconds": 295.0,
+        "kind": "diagram_step",
+        "description": "電波塔同士を結ぶ干渉波とカラーサークルの周波数割り当てアニメーションが順次描画される"
+      },
+      {
+        "absolute_seconds": 300.5,
+        "kind": "caption_change",
+        "description": "電波塔カードの左上に「Graph Coloring」のラベルタグが表示される"
+      },
+      {
+        "absolute_seconds": 302.5,
+        "kind": "diagram_step",
+        "description": "電波塔カードが左上奥へ退き、パイプラインとセンサーの図解カードが中央にオーバーレイ表示される"
+      },
+      {
+        "absolute_seconds": 303.25,
+        "kind": "diagram_step",
+        "description": "センサー監視範囲の円が順次拡大し、チェックマークが付与される配置アニメーションが進む"
+      },
+      {
+        "absolute_seconds": 307.0,
+        "kind": "caption_change",
+        "description": "センサー配置カードの左上に「Set Cover」のラベルタグが表示加算される"
+      },
+      {
+        "absolute_seconds": 308.0,
+        "kind": "diagram_step",
+        "description": "前カードが左下へ移動し、宇宙船に機材を積載するナップサック問題のカードが中央にスライドインする"
+      },
+      {
+        "absolute_seconds": 308.5,
+        "kind": "diagram_step",
+        "description": "下部の選択肢から観測機材アイコンが宇宙船のカーゴスペースへ移動・格納される"
+      }
+    ],
+    "counts_are_annotations_not_exhaustive_cut_measurement": true,
+    "pacing_observation_ai": "区間Aはハードカットによる画面全体の切り替えを行わず、背景のグラデーション空間を固定したまま、中央のカードUIが奥へ縮小スライドして次の課題のカードが手前に現れるスタック型のトランジションを採用している。各カード内ではナレーションの具体例提示に合わせて約4〜6秒単位で図解の要素追加・ラベル表示がリズミカルに連続展開する。",
+    "tail_window": {
+      "label": "B:ファイル末尾の約40秒",
+      "start": 401.0,
+      "end": 441.0
+    }
+  },
+  {
+    "id": "05-kurzgesagt",
+    "url": "https://www.youtube.com/watch?v=ujkD4SxPKOI",
+    "requested_window": {
+      "label": "A:中盤の30秒",
+      "start": 270.0,
+      "end": 300.0
+    },
+    "requested_fps": 4,
+    "events": [
+      {
+        "absolute_seconds": 272.75,
+        "kind": "diagram_step",
+        "description": "中央ディスプレイ内に「1+1=2」の数式が完成し、直後に緑の旗アイコンが下部に接続表示される（同一画面内のグラフィック更新）"
+      },
+      {
+        "absolute_seconds": 275.0,
+        "kind": "hard_cut",
+        "description": "緑系の端末画面から赤系のGUIウィンドウ画面へと背景ごと切り替わる"
+      },
+      {
+        "absolute_seconds": 277.0,
+        "kind": "diagram_step",
+        "description": "赤系GUI画面の中央に「PANIC」の警告バナーがポップアップ表示される"
+      },
+      {
+        "absolute_seconds": 279.75,
+        "kind": "hard_cut",
+        "description": "ノートPCに向かい作業する2人組のキャラクターの暗い部屋の構図へ切り替わる"
+      },
+      {
+        "absolute_seconds": 282.25,
+        "kind": "character_reaction",
+        "description": "右側のキャラクターが顎に手を当て、頭上に吹き出しとクエスチョンマークが出現する"
+      },
+      {
+        "absolute_seconds": 285.0,
+        "kind": "hard_cut",
+        "description": "暗青の空間に切り替わり、3つのキューブ型迷路がラインアニメーションで順次形成される"
+      },
+      {
+        "absolute_seconds": 290.75,
+        "kind": "diagram_step",
+        "description": "中央の迷路に消しゴムツールが現れ、内部の迷路壁を消去する"
+      },
+      {
+        "absolute_seconds": 294.0,
+        "kind": "diagram_step",
+        "description": "3つの迷路それぞれに対し、正規ルートを無視・ショートカットする光の矢印パスが順次描画される"
+      },
+      {
+        "absolute_seconds": 297.75,
+        "kind": "camera_move",
+        "description": "画面全体が後退（ズームアウト）し、右下に小さな丸型アイコンが入り込む"
+      },
+      {
+        "absolute_seconds": 299.25,
+        "kind": "caption_change",
+        "description": "迷路の上部にグリッチ演出を伴って「Reward Hacking」のテキストタイトルが現れ、300.0秒（05:00.000）で確定する"
+      }
+    ],
+    "counts_are_annotations_not_exhaustive_cut_measurement": true,
+    "pacing_observation_ai": "区間Aは解説ナレーションのリズムに合わせて2.5秒〜5秒間隔でシーンがハードカットされ、各シーンの内部では迷路の壁消去や迂回路の矢印描画などのステップアニメーションが連続してテンポよく展開されている。",
+    "tail_window": {
+      "label": "B:ファイル末尾の約40秒",
+      "start": 1262.0,
+      "end": 1302.0
+    }
+  },
+  {
+    "id": "06-branched",
+    "url": "https://www.youtube.com/watch?v=9kM3mnxrMMM",
+    "requested_window": {
+      "label": "A:中盤の30秒",
+      "start": 135.0,
+      "end": 165.0
+    },
+    "requested_fps": 4,
+    "events": [
+      {
+        "absolute_seconds": 136.5,
+        "kind": "diagram_step",
+        "description": "同一3D空間内で、背景に円形ウェハーと半導体ファブ（工場）の俯瞰図パネルがスライド出現する（画面切り替えなしの要素追加）"
+      },
+      {
+        "absolute_seconds": 142.25,
+        "kind": "camera_move",
+        "description": "奥のファブ図およびウェハーが退場し、手前の積層ブロック表面へ急激にドリーイン・クローズアップするカメラ移動"
+      },
+      {
+        "absolute_seconds": 146.5,
+        "kind": "diagram_step",
+        "description": "積層構造の断面において、シリコン酸化膜とシリコン窒化膜の交互積層が下から順次アニメーション描画される"
+      },
+      {
+        "absolute_seconds": 150.5,
+        "kind": "caption_change",
+        "description": "最上層にグレーの膜が堆積すると同時に、画面右上に補足注記『Note: All the process steps are substantially more complicated.』のテキストが表示される"
+      },
+      {
+        "absolute_seconds": 156.75,
+        "kind": "diagram_step",
+        "description": "青い光条の垂直エッチングシミュレーションが天面全体へ照射され、多層膜内部へ貫通する工程描写へ移行する"
+      },
+      {
+        "absolute_seconds": 161.75,
+        "kind": "camera_move",
+        "description": "エッチング光条の奥側へ視点を潜り込ませ、穿孔された円柱状ホールのアレイを透視するアングルへカメラがチルト・前進する"
+      }
+    ],
+    "counts_are_annotations_not_exhaustive_cut_measurement": true,
+    "pacing_observation_ai": "区間Aではハードカットによるシーン切断を極力排し、単一の3Dグラフィックス空間内でカメラのドリー・チルト移動およびオブジェクトの積層・エッチングアニメーションをシームレスに継続展開している。製造工程の順序性と物理的積層関係を直感的に理解させるため、カットを割らずにワンカット風の長回しモーショングラフィックスで維持する構成が採られている。",
+    "tail_window": {
+      "label": "B:ファイル末尾の約40秒",
+      "start": 326.0,
+      "end": 366.0
+    }
+  },
+  {
+    "id": "07-veritasium",
+    "url": "https://www.youtube.com/watch?v=NiCgcUTL9_Q",
+    "requested_window": {
+      "label": "A:中盤の30秒",
+      "start": 523.0,
+      "end": 553.0
+    },
+    "requested_fps": 4,
+    "events": [
+      {
+        "absolute_seconds": 523.5,
+        "kind": "hard_cut",
+        "description": "実写のレーザー水流実験映像から、2層媒質の屈折を説明する2Dグラフィック図解画面へ切り替わり"
+      },
+      {
+        "absolute_seconds": 527.0,
+        "kind": "diagram_step",
+        "description": "単一の光線から波面（平行な緑色のストライプ列）の表現へ展開"
+      },
+      {
+        "absolute_seconds": 529.5,
+        "kind": "diagram_step",
+        "description": "波面に直交する進行方向の矢印線が追加表示される"
+      },
+      {
+        "absolute_seconds": 532.0,
+        "kind": "diagram_step",
+        "description": "矢印線が消え、波面が境界に向かって斜めに進入するアニメーションに切り替わる"
+      },
+      {
+        "absolute_seconds": 535.25,
+        "kind": "diagram_step",
+        "description": "境界に最初に進入した波面の一端が黄色く強調表示される"
+      },
+      {
+        "absolute_seconds": 540.0,
+        "kind": "caption_change",
+        "description": "画面左側に『Faster』、続いて『Slower』のテキストラベルが順次フェードイン"
+      },
+      {
+        "absolute_seconds": 544.25,
+        "kind": "diagram_step",
+        "description": "屈折後の進行方向を示す黒い光線軸が波面中央に再出現"
+      },
+      {
+        "absolute_seconds": 548.0,
+        "kind": "diagram_step",
+        "description": "境界垂線（破線）が出現し、入射角θ1および屈折角θ2の幾何学表示が追加される"
+      }
+    ],
+    "counts_are_annotations_not_exhaustive_cut_measurement": true,
+    "pacing_observation_ai": "区間Aでは、冒頭0.5秒のみ実写実験を見せた後、同一の図解背景（青系2分割）を約29.5秒間にわたり画面全体を切り替えることなく長回しで保持。カットを細かく割る代わりに、波面の変化、ハイライト、テキスト、幾何角度などの視覚要素をナレーションの進行に合わせて同一画面上で段階的に追加・更新していくテンポ設計となっている。",
+    "tail_window": {
+      "label": "B:ファイル末尾の約40秒",
+      "start": 2031.0,
+      "end": 2071.0
+    }
+  },
+  {
+    "id": "08-techconnections",
+    "url": "https://www.youtube.com/watch?v=I1rlK3BKmyA",
+    "requested_window": {
+      "label": "A:中盤の30秒",
+      "start": 285.0,
+      "end": 315.0
+    },
+    "requested_fps": 4,
+    "events": [
+      {
+        "absolute_seconds": 289.9,
+        "kind": "dissolve",
+        "description": "4分割画面（各社バッテリーホルダー）からWalmart Great Valueバッテリーと計測メーターの画面へディゾルブ（approx）"
+      },
+      {
+        "absolute_seconds": 296.8,
+        "kind": "dissolve",
+        "description": "Walmart計測画面からRayovacバッテリーの真上アングルへディゾルブ（approx）"
+      },
+      {
+        "absolute_seconds": 299.8,
+        "kind": "camera_move",
+        "description": "同一画面内でRayovacバッテリーから上方の計測メーター表示へカメラをチルトアップ移動"
+      },
+      {
+        "absolute_seconds": 304.9,
+        "kind": "dissolve",
+        "description": "Rayovac計測メーターからEnergizer MAXバッテリーとメーターの画面へディゾルブ（approx）"
+      },
+      {
+        "absolute_seconds": 307.8,
+        "kind": "camera_move",
+        "description": "同一画面内でEnergizerの計測ディスプレイへカメラをズームイン"
+      },
+      {
+        "absolute_seconds": 311.3,
+        "kind": "hard_cut",
+        "description": "Energizerメーター拡大からDuracellバッテリー画面へ切り替え（approx）"
+      },
+      {
+        "absolute_seconds": 313.6,
+        "kind": "camera_move",
+        "description": "同一画面内でDuracellバッテリーから上方の計測メーターへチルトアップ移動"
+      }
+    ],
+    "counts_are_annotations_not_exhaustive_cut_measurement": true,
+    "pacing_observation_ai": "区間Aでは、各電池ブランドの検証結果を約5〜7秒の均等な間隔で順に紹介。画面の切り替えにはクロスディゾルブを用い、各カット内部では電池パックから接続された測定器液晶画面へカメラワーク（チルトアップやズーム）でシームレスに視線を誘導して計測数値を提示している。",
+    "tail_window": {
+      "label": "B:ファイル末尾の約40秒",
+      "start": 1778.0,
+      "end": 1818.0
+    }
+  },
+  {
+    "id": "09-beneater",
+    "url": "https://www.youtube.com/watch?v=ou2RFTK86eA",
+    "requested_window": {
+      "label": "A:中盤の30秒",
+      "start": 523.0,
+      "end": 553.0
+    },
+    "requested_fps": 4,
+    "events": [
+      {
+        "absolute_seconds": 523.0,
+        "kind": "hold",
+        "description": "オシロスコープとブレッドボードを正面から捉えた固定カメラアングル。カット割りなくワンカットで継続。"
+      },
+      {
+        "absolute_seconds": 524.0,
+        "kind": "diagram_step",
+        "description": "approx。手元のタクトスイッチ押下に伴い、オシロスコープ画面上のトリガー波形がチャタリング波形に更新される。"
+      },
+      {
+        "absolute_seconds": 530.7,
+        "kind": "hold",
+        "description": "approx。話者の指が画面上の波形（チャタリングノイズ部分）を指し示しながら解説を継続。"
+      },
+      {
+        "absolute_seconds": 534.7,
+        "kind": "hold",
+        "description": "両手を画面中央に掲げてスイッチ内部の接点動作を身振りで解説。"
+      },
+      {
+        "absolute_seconds": 539.7,
+        "kind": "diagram_step",
+        "description": "approx。波形のパルススパイク群を指で順に辿りながら、不要なカウントが生じる理由を解説。"
+      }
+    ],
+    "counts_are_annotations_not_exhaustive_cut_measurement": true,
+    "pacing_observation_ai": "区間Aではカメラの切り替え（hard_cut）やズーム・パン等は一切行われず、オシロスコープ画面と手元スイッチを同一フレーム内に収めたまま長回しで実演解説している。短いカットでテンポよく進める編集スタイルではなく、波形のリアルタイムな挙動と解説の同期を重視したじっくり見せる構成となっている。",
+    "tail_window": {
+      "label": "B:ファイル末尾の約40秒",
+      "start": 1180.0,
+      "end": 1220.0
+    }
+  },
+  {
+    "id": "10-codingtrain",
+    "url": "https://www.youtube.com/watch?v=d0GgzjCFWq0",
+    "requested_window": {
+      "label": "A:中盤の30秒",
+      "start": 555.0,
+      "end": 585.0
+    },
+    "requested_fps": 4,
+    "events": [
+      {
+        "absolute_seconds": 555.4,
+        "kind": "hard_cut",
+        "description": "ドキュメント画面（ワイプ付き）から、大型ディスプレイ前に立つ話者の実写スタジオ全景へ切り替え（approx）"
+      },
+      {
+        "absolute_seconds": 564.0,
+        "kind": "diagram_step",
+        "description": "「I」の右側に手書きで「sampleFactor」と書き足す"
+      },
+      {
+        "absolute_seconds": 567.7,
+        "kind": "diagram_step",
+        "description": "その下に手書きで「simplifyThreshold」と書き足す"
+      },
+      {
+        "absolute_seconds": 571.7,
+        "kind": "diagram_step",
+        "description": "画面左側に手書きでパラメータ範囲「0.1 <-> 1.0」を書き足す"
+      },
+      {
+        "absolute_seconds": 577.8,
+        "kind": "diagram_step",
+        "description": "その下にサンプリング対象となる直線セグメントを縦に一本描く"
+      },
+      {
+        "absolute_seconds": 581.8,
+        "kind": "diagram_step",
+        "description": "「1.0」をペンで丸く囲む"
+      },
+      {
+        "absolute_seconds": 584.2,
+        "kind": "diagram_step",
+        "description": "縦線上にサンプリング点を示すドットを打ち始める"
+      }
+    ],
+    "counts_are_annotations_not_exhaustive_cut_measurement": true,
+    "pacing_observation_ai": "区間A冒頭（555.4秒付近）でスタジオ全景に切り替わって以降はカットを割らず、固定カメラのワンカット内で話者がホワイトボードに手書きで概念図を書き足しながら解説する様子をじっくりと見せている。短いカットでテンポよく繋ぐのではなく、思考の流れや描画プロセスを切らずに見せる長回し構成となっている。",
+    "tail_window": {
+      "label": "B:ファイル末尾の約40秒",
+      "start": 1211.0,
+      "end": 1251.0
+    }
+  },
+  {
+    "id": "11-lambda",
+    "url": "https://www.youtube.com/watch?v=S-H43sECuNQ",
+    "requested_window": {
+      "label": "A:中盤の30秒",
+      "start": 93.0,
+      "end": 123.0
+    },
+    "requested_fps": 4,
+    "events": [
+      {
+        "absolute_seconds": 93.25,
+        "kind": "hard_cut",
+        "description": "スライド画面からユニクロのセルフレジ実機・カゴの俯瞰映像に切り替わり"
+      },
+      {
+        "absolute_seconds": 94.0,
+        "kind": "caption_change",
+        "description": "下部字幕が「置かれたカゴの中身だけを」に更新"
+      },
+      {
+        "absolute_seconds": 95.25,
+        "kind": "diagram_step",
+        "description": "実写上のカゴ開口部枠に緑色の発光エフェクトが合成される"
+      },
+      {
+        "absolute_seconds": 95.75,
+        "kind": "diagram_step",
+        "description": "カゴ内部に球状のワイヤーフレーム（電磁波のイメージCG）が出現し拡大開始"
+      },
+      {
+        "absolute_seconds": 100.75,
+        "kind": "hard_cut",
+        "description": "セルフレジ映像からホワイトボードに同心円を手書きする実写映像へ切り替わり"
+      },
+      {
+        "absolute_seconds": 103.25,
+        "kind": "hard_cut",
+        "description": "ホワイトボードから店舗内で他人が会計している実写映像（電磁波CG重畳）に切り替わり"
+      },
+      {
+        "absolute_seconds": 105.75,
+        "kind": "hard_cut",
+        "description": "陳列商品を整理する店員の手元実写映像（電磁波CG重畳）に切り替わり"
+      },
+      {
+        "absolute_seconds": 108.75,
+        "kind": "diagram_step",
+        "description": "右下に「×××」マークが出現し、字幕「使い物になりません」が赤字強調表示"
+      },
+      {
+        "absolute_seconds": 110.0,
+        "kind": "hard_cut",
+        "description": "特許電子図書館（J-PlatPat）のブラウザ画面へ切り替わり"
+      },
+      {
+        "absolute_seconds": 110.75,
+        "kind": "diagram_step",
+        "description": "特許図面ウィンドウが前面にポップアップ表示される"
+      },
+      {
+        "absolute_seconds": 111.75,
+        "kind": "diagram_step",
+        "description": "図面のカゴ設置部開口部の周りに赤枠ラインが引かれる"
+      },
+      {
+        "absolute_seconds": 112.5,
+        "kind": "hard_cut",
+        "description": "図面画面からセルフレジの実機カゴ投入部クローズアップ実写へ切り替わり"
+      },
+      {
+        "absolute_seconds": 113.75,
+        "kind": "hard_cut",
+        "description": "実写から特許公報の断面図および本文テキスト画面へ切り替わり"
+      },
+      {
+        "absolute_seconds": 114.25,
+        "kind": "diagram_step",
+        "description": "特許本文の電波吸収・反射材に関する段落へ画面が拡大・マーカー強調される"
+      },
+      {
+        "absolute_seconds": 115.75,
+        "kind": "diagram_step",
+        "description": "断面図ウィンドウが拡大表示される"
+      },
+      {
+        "absolute_seconds": 117.0,
+        "kind": "diagram_step",
+        "description": "断面図の側壁・底面シールド部分に赤枠ラインが引かれる"
+      },
+      {
+        "absolute_seconds": 119.75,
+        "kind": "hard_cut",
+        "description": "特許図面からホワイトボード実写へ切り替わり、手で下側の電波領域を消去する動作"
+      },
+      {
+        "absolute_seconds": 121.25,
+        "kind": "diagram_step",
+        "description": "上部タグにマゼンタの丸印、横のタグに×印が順次追加される"
+      }
+    ],
+    "counts_are_annotations_not_exhaustive_cut_measurement": true,
+    "pacing_observation_ai": "ホワイトボードの実演や特許文献の確認などロジックの核心部分は切らずに長めのテイクで手元やマーキング動作を見せる一方、誤認識の危険性や店舗内のシチュエーション提示は1〜2秒台の短い実写カットとCGグラフィックの連続でテンポよく場面転換させている。",
+    "tail_window": {
+      "label": "B:ファイル末尾の約40秒",
+      "start": 224.0,
+      "end": 264.0
+    }
+  },
+  {
+    "id": "12-yurucom",
+    "url": "https://www.youtube.com/watch?v=YhdxvGZUxsA",
+    "requested_window": {
+      "label": "A:中盤の30秒",
+      "start": 150.0,
+      "end": 180.0
+    },
+    "requested_fps": 4,
+    "events": [
+      {
+        "absolute_seconds": 150.75,
+        "kind": "diagram_step",
+        "description": "approx。会話に合わせて画面下部に「ゆる学び」のリスト形式の図解ウィンドウが表示される"
+      },
+      {
+        "absolute_seconds": 153.25,
+        "kind": "diagram_step",
+        "description": "図解リストの「1〜2 … エッチ.jpg」の行に赤下線が引かれる"
+      },
+      {
+        "absolute_seconds": 160.0,
+        "kind": "diagram_step",
+        "description": "赤下線が次の行「3〜8 … ゆるコン.mp4」へと移動する"
+      },
+      {
+        "absolute_seconds": 165.0,
+        "kind": "diagram_step",
+        "description": "赤下線が「9〜 … 空き」へと移動する"
+      },
+      {
+        "absolute_seconds": 167.5,
+        "kind": "diagram_step",
+        "description": "approx。図解ウィンドウが消去され、会話のテロップ「パソコンの中にある住所録を参照して」に切り替わる"
+      },
+      {
+        "absolute_seconds": 171.75,
+        "kind": "caption_change",
+        "description": "既存テロップの上に「ファイルの存在を認識している」のテロップが追加表示される"
+      },
+      {
+        "absolute_seconds": 176.5,
+        "kind": "caption_change",
+        "description": "聞き手の発言に合わせて下部テロップが「その住所録も01でパソコンの中にある？」へと更新される"
+      }
+    ],
+    "counts_are_annotations_not_exhaustive_cut_measurement": true,
+    "pacing_observation_ai": "区間Aではカメラアングルのカット切り替え（hard_cut）は一切行われず、固定カメラで2名のトークを長回し（hold）で見せています。視覚的なテンポはカット割りではなく、同一構図上にオーバーレイされる図解の要素更新（赤下線の移動）や話者交代に伴うテロップの書き換えによって形成されています。",
+    "tail_window": {
+      "label": "B:ファイル末尾の約40秒",
+      "start": 1932.0,
+      "end": 1972.0
+    }
+  },
+  {
+    "id": "13-yobinori",
+    "url": "https://www.youtube.com/watch?v=X2VZC0rjIK4",
+    "requested_window": {
+      "label": "A:中盤の30秒",
+      "start": 525.0,
+      "end": 555.0
+    },
+    "requested_fps": 4,
+    "events": [
+      {
+        "absolute_seconds": 525.0,
+        "kind": "hold",
+        "description": "固定カメラによる黒板前講義の長回し映像が継続"
+      },
+      {
+        "absolute_seconds": 529.75,
+        "kind": "caption_change",
+        "description": "画面下部に白文字・黒縁の解説テロップ「生き残ってるやつだけで見たら9:1ぐらい」が出現（approx）"
+      },
+      {
+        "absolute_seconds": 543.75,
+        "kind": "diagram_step",
+        "description": "講師が黒板右上にチョークで「3 : 1」の比率を書き込み始める（approx）"
+      },
+      {
+        "absolute_seconds": 551.25,
+        "kind": "caption_change",
+        "description": "画面下部に強調デザインテロップ「9:1になる」がポップアップ表示される（approx）"
+      },
+      {
+        "absolute_seconds": 551.75,
+        "kind": "diagram_step",
+        "description": "講師が黒板の図の横に矢印と「9 : 1」の数値を追記する（approx）"
+      }
+    ],
+    "counts_are_annotations_not_exhaustive_cut_measurement": true,
+    "pacing_observation_ai": "画面切り替え（カット）を行わず、黒板全体と講師の全身・上半身をワンカットで固定撮影し続けている。テンポの調整はカット割りではなく、講師の発話リズム、黒板へのリアルタイムな板書更新、要所でのテロップ出現によって維持されている。",
+    "tail_window": {
+      "label": "B:ファイル末尾の約40秒",
+      "start": 1125.0,
+      "end": 1165.0
+    }
+  },
+  {
+    "id": "14-ichiken",
+    "url": "https://www.youtube.com/watch?v=LNsyqlrq1cY",
+    "requested_window": {
+      "label": "A:中盤の30秒",
+      "start": 187.0,
+      "end": 217.0
+    },
+    "requested_fps": 4,
+    "events": [
+      {
+        "absolute_seconds": 188.75,
+        "kind": "caption_change",
+        "description": "ギアモータCG画面のまま、上部テロップが「ハイガードモーター」から「小さなモーター＋大きな減速比(約100:1)」に更新"
+      },
+      {
+        "absolute_seconds": 189.5,
+        "kind": "diagram_step",
+        "description": "ギアモータの3Dモデルがパーツごとに分解されるアニメーションが開始"
+      },
+      {
+        "absolute_seconds": 192.25,
+        "kind": "diagram_step",
+        "description": "分解された3Dパーツ各部に「モーター」「1段目」「2段目」「出力」の引出線とラベルが順次追加"
+      },
+      {
+        "absolute_seconds": 195.5,
+        "kind": "hard_cut",
+        "description": "DDモーター（ダイレクトドライブ）の外観CGおよびテロップ表示画面へ切り替え"
+      },
+      {
+        "absolute_seconds": 197.0,
+        "kind": "caption_change",
+        "description": "上部テロップが「ギアなし:ロータがそのまま出力」に変化"
+      },
+      {
+        "absolute_seconds": 197.75,
+        "kind": "diagram_step",
+        "description": "DDモーターの内部構造が分解・展開されるアニメーションが開始"
+      },
+      {
+        "absolute_seconds": 200.75,
+        "kind": "diagram_step",
+        "description": "展開パーツに「基板」「ハウジング」「ステータ」「ロータ+出力」「ベアリング」のラベルが順次表示"
+      },
+      {
+        "absolute_seconds": 202.5,
+        "kind": "hard_cut",
+        "description": "机上にモーターを置き解説する人物のスタジオトーク実写へ切り替え"
+      },
+      {
+        "absolute_seconds": 211.5,
+        "kind": "hard_cut",
+        "description": "QDDモーター実機およびパッケージ箱の物撮りクローズアップ映像へ切り替え（緩やかなカメラワーク）"
+      },
+      {
+        "absolute_seconds": 216.75,
+        "kind": "hard_cut",
+        "description": "人物のスタジオトーク実写画面へ切り戻し"
+      }
+    ],
+    "counts_are_annotations_not_exhaustive_cut_measurement": true,
+    "pacing_observation_ai": "概念や構造の解説パートでは3DCGの分解アニメーションとラベル表示を1カットの中で数秒間シームレスに展開させ、実写の解説パートに移ると人物トークと実機インサートカットを数秒単位のハードカットで交互にテンポよく繋いでいます。",
+    "tail_window": {
+      "label": "B:ファイル末尾の約40秒",
+      "start": 1208.0,
+      "end": 1248.0
+    }
+  },
+  {
+    "id": "15-ruiscience",
+    "url": "https://www.youtube.com/watch?v=lpeD_mSmSlE",
+    "requested_window": {
+      "label": "A:中盤の30秒",
+      "start": 720.0,
+      "end": 750.0
+    },
+    "requested_fps": 4,
+    "events": [
+      {
+        "absolute_seconds": 722.5,
+        "kind": "caption_change",
+        "description": "同一図解画面のまま、聞き手キャラクターの発話に合わせて下部字幕が更新（approx）"
+      },
+      {
+        "absolute_seconds": 723.5,
+        "kind": "dissolve",
+        "description": "図解画面からランニング実写背景映像へディゾルブトランジションで切り替え"
+      },
+      {
+        "absolute_seconds": 727.75,
+        "kind": "caption_change",
+        "description": "背景映像を保持したまま、聞き手のリアクション字幕へ更新（approx）"
+      },
+      {
+        "absolute_seconds": 729.0,
+        "kind": "caption_change",
+        "description": "解説側の発話字幕へ更新"
+      },
+      {
+        "absolute_seconds": 730.5,
+        "kind": "diagram_step",
+        "description": "同一背景上に『狩猟採集民 運動量大』のピクトグラムと文字がポップアップ表示"
+      },
+      {
+        "absolute_seconds": 732.0,
+        "kind": "diagram_step",
+        "description": "同一背景上に『先進国 運動量小』のピクトグラムと文字が追加表示"
+      },
+      {
+        "absolute_seconds": 734.5,
+        "kind": "caption_change",
+        "description": "配置された図解と背景を固定したまま、解説字幕を更新"
+      },
+      {
+        "absolute_seconds": 739.0,
+        "kind": "character_reaction",
+        "description": "背景・図解を維持したまま聞き手の発話・リアクション字幕へ更新"
+      },
+      {
+        "absolute_seconds": 742.75,
+        "kind": "caption_change",
+        "description": "解説側の発話字幕へ更新"
+      },
+      {
+        "absolute_seconds": 748.25,
+        "kind": "caption_change",
+        "description": "同一構図のまま解説字幕が次の文へ更新"
+      }
+    ],
+    "counts_are_annotations_not_exhaustive_cut_measurement": true,
+    "pacing_observation_ai": "カット全体の画面転換（ディゾルブ等）は頻繁には行われず、背景映像や図解配置を数秒から十数秒間保持（hold）し続ける。そのベース画面上でピクトグラムの段階的出現（diagram_step）や発話ごとの短い字幕更新（caption_change）を重ねることでテンポ感を維持している。",
+    "tail_window": {
+      "label": "B:ファイル末尾の約40秒",
+      "start": 1461.0,
+      "end": 1501.0
+    }
+  },
+  {
+    "id": "16-sumasapo",
+    "url": "https://www.youtube.com/watch?v=krrHg36E_jg",
+    "requested_window": {
+      "label": "A:中盤の30秒",
+      "start": 505.0,
+      "end": 535.0
+    },
+    "requested_fps": 4,
+    "events": [
+      {
+        "absolute_seconds": 507.75,
+        "kind": "caption_change",
+        "description": "同一のスライド表示のまま、下部字幕が「例えば、スマホの顔認証や指紋認証 画面ロックのPINなどを使ってログイン」へ更新"
+      },
+      {
+        "absolute_seconds": 514.75,
+        "kind": "caption_change",
+        "description": "下部字幕が「パスワードを覚える必要もなく、SMSなどの認証コードを入力する手間も省けます」へ更新"
+      },
+      {
+        "absolute_seconds": 520.25,
+        "kind": "hard_cut",
+        "description": "楽天証券のログイン画面キャプチャへ切り替わり、指差しアイコンでパスキーログイン箇所を指示"
+      },
+      {
+        "absolute_seconds": 525.75,
+        "kind": "hard_cut",
+        "description": "Windowsセキュリティのパスキー選択ダイアログと認証アイコン群の図解画面へ切り替わり"
+      },
+      {
+        "absolute_seconds": 527.5,
+        "kind": "diagram_step",
+        "description": "画面右側に赤い矢印とともにQRコードをスマホで読み取るイラストが追加表示"
+      },
+      {
+        "absolute_seconds": 531.25,
+        "kind": "hard_cut",
+        "description": "パスキーの概念スライド（スマートフォンとPCの図）画面へ戻る"
+      }
+    ],
+    "counts_are_annotations_not_exhaustive_cut_measurement": true,
+    "pacing_observation_ai": "概念説明スライドは約15秒間継続して見せ、文字情報の更新（字幕）のみで行う一方、具体例の操作手順に入ると5秒〜2秒前後の短いカットや図解ステップの追加でリズミカルにテンポを早めている。",
+    "tail_window": {
+      "label": "B:ファイル末尾の約40秒",
+      "start": 1096.0,
+      "end": 1136.0
+    }
+  },
+  {
+    "id": "17-wachi",
+    "url": "https://www.youtube.com/watch?v=1T-nMY7s__o",
+    "requested_window": {
+      "label": "A:中盤の30秒",
+      "start": 553.0,
+      "end": 583.0
+    },
+    "requested_fps": 4,
+    "events": [
+      {
+        "absolute_seconds": 553.25,
+        "kind": "caption_change",
+        "description": "下部字幕が「一つ、簡単な例を参考に、ご説明します。」に更新"
+      },
+      {
+        "absolute_seconds": 556.75,
+        "kind": "camera_move",
+        "description": "Excelワークシートの表周辺へズームイン表示に切り替え（同一画面の拡大構図変更）"
+      },
+      {
+        "absolute_seconds": 561.75,
+        "kind": "character_reaction",
+        "description": "右下の立ち絵キャラクターが別のキャラクターに切り替わり、字幕が台詞に合わせて更新"
+      },
+      {
+        "absolute_seconds": 565.0,
+        "kind": "hard_cut",
+        "description": "Excel画面からWindows PowerShell（ターミナル操作画面）へ全画面カット切り替え"
+      },
+      {
+        "absolute_seconds": 566.25,
+        "kind": "caption_change",
+        "description": "プロンプト入力に伴い画面下部の字幕が更新開始"
+      },
+      {
+        "absolute_seconds": 571.75,
+        "kind": "hard_cut",
+        "description": "ターミナル画面から元のExcel表画面へカット切り替え"
+      },
+      {
+        "absolute_seconds": 572.5,
+        "kind": "hard_cut",
+        "description": "Excel表画面から再度ターミナル画面へカット切り替え"
+      },
+      {
+        "absolute_seconds": 575.5,
+        "kind": "hard_cut",
+        "description": "ターミナル画面からExcelの保存確認ダイアログ画面へ切り替え"
+      },
+      {
+        "absolute_seconds": 576.75,
+        "kind": "hard_cut",
+        "description": "グラフや表が多数配置された別のExcelワークシート画面へ切り替え"
+      },
+      {
+        "absolute_seconds": 577.5,
+        "kind": "diagram_step",
+        "description": "Windowsタスクスイッチャー（Alt+Tab）が表示されウィンドウ一覧がオーバーレイ表示"
+      },
+      {
+        "absolute_seconds": 577.75,
+        "kind": "hard_cut",
+        "description": "ターミナル画面へウィンドウ切り替え、MCPツールの確認プロンプトが表示"
+      },
+      {
+        "absolute_seconds": 578.75,
+        "kind": "caption_change",
+        "description": "下部字幕が「頑張れ頑張れAI！」に更新され、キャラクター立ち絵が応援ポーズに変化"
+      },
+      {
+        "absolute_seconds": 581.0,
+        "kind": "diagram_step",
+        "description": "ターミナル内で次の処理（read_data_from_excel）のコマンド確認テキストへ更新"
+      },
+      {
+        "absolute_seconds": 582.5,
+        "kind": "diagram_step",
+        "description": "ターミナル画面内で実行結果ログが出力されスクロール更新"
+      }
+    ],
+    "counts_are_annotations_not_exhaustive_cut_measurement": true,
+    "pacing_observation_ai": "区間Aでは、ターミナルへのテキスト打ち込みやコマンド実行の待機プロセスの要所要所をカットしてテンポよく繋ぎつつ、入力の要点やツールの応答画面は数秒間保持して見せている。短いカットでExcelとターミナルを往復させる場面と、ターミナル内の処理を数秒見せる緩急がつけられている。",
+    "tail_window": {
+      "label": "B:ファイル末尾の約40秒",
+      "start": 805.0,
+      "end": 845.0
+    }
+  },
+  {
+    "id": "18-kinocode",
+    "url": "https://www.youtube.com/watch?v=ocsNiCbVhGM",
+    "requested_window": {
+      "label": "A:中盤の30秒",
+      "start": 480.0,
+      "end": 510.0
+    },
+    "requested_fps": 4,
+    "events": [
+      {
+        "absolute_seconds": 480.75,
+        "kind": "caption_change",
+        "description": "テロップが「書いたものがあります」に更新"
+      },
+      {
+        "absolute_seconds": 482.0,
+        "kind": "diagram_step",
+        "description": "エクスプローラー画面右上に吹き出しグラフィック「決めた理由」がポップアップ出現"
+      },
+      {
+        "absolute_seconds": 485.75,
+        "kind": "hard_cut",
+        "description": "「戦略」フォルダ画面から「MTG / DX定例」フォルダ一覧画面へ切り替え"
+      },
+      {
+        "absolute_seconds": 487.75,
+        "kind": "diagram_step",
+        "description": "画面右上に吹き出しグラフィック「発言内容 決定までの経緯」が出現"
+      },
+      {
+        "absolute_seconds": 492.25,
+        "kind": "hard_cut",
+        "description": "「DX定例」一覧画面から「開発」フォルダ一覧画面へ切り替え"
+      },
+      {
+        "absolute_seconds": 495.25,
+        "kind": "diagram_step",
+        "description": "画面右上に吹き出しグラフィック「作る/作らない」が出現"
+      },
+      {
+        "absolute_seconds": 498.75,
+        "kind": "hard_cut",
+        "description": "「開発」フォルダ画面から「CS対応」フォルダ一覧画面へ切り替え"
+      },
+      {
+        "absolute_seconds": 501.5,
+        "kind": "diagram_step",
+        "description": "画面右上に吹き出しグラフィック「問い合わせ内容 回答履歴」が出現"
+      },
+      {
+        "absolute_seconds": 509.25,
+        "kind": "hard_cut",
+        "description": "作業フォルダ画面から本棚前の話者実写バストショットへ切り替え"
+      }
+    ],
+    "counts_are_annotations_not_exhaustive_cut_measurement": true,
+    "pacing_observation_ai": "区間Aではフォルダ構造のUIキャプチャをベースに約6〜7秒の等間隔ピッチでフォルダカテゴリ（戦略→MTG→開発→CS対応）を順次切り替えており、各画面内で2〜3秒後に要約吹き出しグラフィックを追加表示する規則正しいテンポで情報提示が行われています。509.25秒で話者実写へ戻ることで話題の区切りを明確に示しています。",
+    "tail_window": {
+      "label": "B:ファイル末尾の約40秒",
+      "start": 1155.0,
+      "end": 1195.0
+    }
+  },
+  {
+    "id": "19-yoshida",
+    "url": "https://www.youtube.com/watch?v=qg08z3VJ2ns",
+    "requested_window": {
+      "label": "A:中盤の30秒",
+      "start": 984.0,
+      "end": 1014.0
+    },
+    "requested_fps": 4,
+    "events": [
+      {
+        "absolute_seconds": 984.0,
+        "kind": "hold",
+        "description": "Discordチャット画面の表示維持"
+      },
+      {
+        "absolute_seconds": 984.25,
+        "kind": "hard_cut",
+        "description": "Discord画面からCrystalDiskMark測定画面へ画面切り替え（右上テロップ「2.5G LAN」、左上転送速度表）"
+      },
+      {
+        "absolute_seconds": 984.5,
+        "kind": "diagram_step",
+        "description": "CrystalDiskMarkのSequential Read 1段目の数値が268.81に更新"
+      },
+      {
+        "absolute_seconds": 985.0,
+        "kind": "diagram_step",
+        "description": "Sequential Read 1段目の数値が280.57に更新"
+      },
+      {
+        "absolute_seconds": 987.0,
+        "kind": "diagram_step",
+        "description": "Sequential Read 2段目の数値が216.40に更新"
+      },
+      {
+        "absolute_seconds": 988.0,
+        "kind": "diagram_step",
+        "description": "Sequential Read 2段目の数値が220.40に更新"
+      },
+      {
+        "absolute_seconds": 989.5,
+        "kind": "diagram_step",
+        "description": "Random Read 3段目の数値が85.49に更新"
+      },
+      {
+        "absolute_seconds": 990.0,
+        "kind": "diagram_step",
+        "description": "Random Read 3段目の数値が93.27に更新"
+      },
+      {
+        "absolute_seconds": 992.0,
+        "kind": "diagram_step",
+        "description": "Random Read 4段目の数値が13.34に更新"
+      },
+      {
+        "absolute_seconds": 992.5,
+        "kind": "diagram_step",
+        "description": "Random Read 4段目の数値が14.42に更新"
+      },
+      {
+        "absolute_seconds": 994.5,
+        "kind": "diagram_step",
+        "description": "Sequential Write 1段目の数値が256.35に更新"
+      },
+      {
+        "absolute_seconds": 995.0,
+        "kind": "diagram_step",
+        "description": "Sequential Write 1段目の数値が291.83に更新"
+      },
+      {
+        "absolute_seconds": 997.0,
+        "kind": "diagram_step",
+        "description": "Sequential Write 2段目の数値が191.16に更新"
+      },
+      {
+        "absolute_seconds": 999.75,
+        "kind": "diagram_step",
+        "description": "Random Write 3段目の数値が41.36に更新"
+      },
+      {
+        "absolute_seconds": 1002.25,
+        "kind": "diagram_step",
+        "description": "Random Write 4段目の数値が9.56に更新"
+      },
+      {
+        "absolute_seconds": 1002.5,
+        "kind": "diagram_step",
+        "description": "Random Write 4段目の数値が9.76に更新"
+      },
+      {
+        "absolute_seconds": 1003.25,
+        "kind": "diagram_step",
+        "description": "全項目の計測が完了し、CrystalDiskMarkのボタンが初期状態に戻り結果全体が確定表示"
+      },
+      {
+        "absolute_seconds": 1003.5,
+        "kind": "hold",
+        "description": "1014.0秒までベンチマーク測定結果確定画面をそのまま維持し、音声で数値の解説を継続"
+      }
+    ],
+    "counts_are_annotations_not_exhaustive_cut_measurement": true,
+    "pacing_observation_ai": "984.25秒から1003.25秒まではカットを割らず、同一画面上でCrystalDiskMarkのベンチマークが進行して数値が順次埋まるステップ表示をテンポよく見せている。計測完了後の1003.25秒から1014.0秒までは画面を切り替えずに静止状態で維持（hold）し、音声による結果解説に尺を割り当てている。",
+    "tail_window": {
+      "label": "B:ファイル末尾の約40秒",
+      "start": 1346.0,
+      "end": 1386.0
+    }
+  },
+  {
+    "id": "20-physics",
+    "url": "https://www.youtube.com/watch?v=Ny785mLbPA4",
+    "requested_window": {
+      "label": "A:中盤の30秒",
+      "start": 122.0,
+      "end": 152.0
+    },
+    "requested_fps": 4,
+    "events": [
+      {
+        "absolute_seconds": 122.6,
+        "kind": "hard_cut",
+        "description": "全体アングルからスティックボム端部の3D近接アングルへと画面が切り替わる（直前にグリッチノイズ演出あり）"
+      },
+      {
+        "absolute_seconds": 123.5,
+        "kind": "diagram_step",
+        "description": "画面中央上部に『←進行方向』の矢印が表示され、下部に説明字幕『波ができた側は「進行方向にある棒の端が上に重なる」ように編まれている』が追加"
+      },
+      {
+        "absolute_seconds": 124.5,
+        "kind": "diagram_step",
+        "description": "重なり合っている棒の端部に紫色のリングマーカーが複数出現"
+      },
+      {
+        "absolute_seconds": 130.3,
+        "kind": "caption_change",
+        "description": "下部字幕および矢印・マーカーがフェードアウトして非表示になる"
+      },
+      {
+        "absolute_seconds": 131.7,
+        "kind": "diagram_step",
+        "description": "手前の白い棒を指す白い矢印が出現し、下部に『このとき、曲がりが解消されるとこの白い棒は』のテロップが表示"
+      },
+      {
+        "absolute_seconds": 137.2,
+        "kind": "hold",
+        "description": "画面アングルは固定のまま、スティックボムの拘束が解けて白い棒が跳ね上がる物理シミュレーション挙動が開始"
+      },
+      {
+        "absolute_seconds": 138.7,
+        "kind": "diagram_step",
+        "description": "白い矢印が消え、回転の向きを示す円弧状の緑色矢印が出現。字幕が『手前の黒い棒を下に飛ばす方向に回転する』に更新"
+      },
+      {
+        "absolute_seconds": 145.0,
+        "kind": "caption_change",
+        "description": "画面右上に吹き出しテロップ『次の棒も、その次の棒も…同じように回転。』が追加表示され、連鎖的にスティックが弾け飛ぶ挙動が継続"
+      },
+      {
+        "absolute_seconds": 151.7,
+        "kind": "hard_cut",
+        "description": "グリッチノイズを挟み、次の別視点カットへと切り替わる"
+      }
+    ],
+    "counts_are_annotations_not_exhaustive_cut_measurement": true,
+    "pacing_observation_ai": "スティックボムの噛み合わせと回転の力学的メカニズムを解説する部分では、カメラを完全固定した状態で図解マーカーや矢印、字幕を段階的に追加・切り替えて思考を促し、その後の弾け飛ぶ物理連鎖シミュレーションは途中でカットを割らずに一連のモーションを長めのワンカットで見せ切る構成をとっている。",
+    "tail_window": {
+      "label": "B:ファイル末尾の約40秒",
+      "start": 274.0,
+      "end": 314.0
+    }
+  }
+]
