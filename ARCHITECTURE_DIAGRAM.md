@@ -1,5 +1,19 @@
 # Architecture diagram
 
+## 東京駅のみのやわらかい会話への改訂
+
+```mermaid
+flowchart LR
+    Wording[返答と視聴者案内の台詞] --> Aoede[女性10台詞を同じ声で生成]
+    Previous[v02構図と男性5台詞と原素材] --> TokyoV3[東京駅full v03]
+    Aoede --> TokyoV3
+    Terms[3Dと簡略モデルの表示と読み] --> TokyoV3
+    TokyoV3 --> AudioQC[全decodeと実字幕と独立音声点検]
+    Terms --> ArticleV3[記事用語の別版と原素材]
+    AudioQC --> ReviewV3[Drive優先の候補共有]
+    ArticleV3 --> ReviewV3
+```
+
 ## 文節字幕と成果物の改訂
 
 ```mermaid
