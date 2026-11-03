@@ -1954,7 +1954,7 @@ flowchart LR
     WineArticle --> WineDrive
 ```
 
-## モデル競争の調査・企画資料（2026-11-03）
+## モデル競争の動画と記事（2026-11-03）
 
 ```mermaid
 flowchart LR
@@ -1964,11 +1964,16 @@ flowchart LR
     Ledger --> RaceArticle[共通の記事草稿]
     Ledger --> RaceCLI[共通CLIへの企画v01登録]
     PrepareRace --> RaceCLI
-    RaceCLI --> RacePending[構成への返答待ち]
-    RacePending -.採用後に実施.-> RaceAV[音声と縦横映像の制作]
-    RaceDraft -.-> RaceAV
-    RaceArticle --> RaceReview[企画資料のDriveレビュー]
-    PrepareRace --> RaceReview
+    RaceCLI --> RaceAccepted[構成の大筋採用と公式用語への改訂]
+    RaceAccepted --> RaceAV[台詞別音声と実尺による縦横合成]
+    RaceDraft --> RaceAV
+    PrepareRace --> RaceAV
+    RaceAV --> RaceQC[最終MP4のdecodeと音量とAI補助AV確認]
+    RaceQC -->|誤読の台詞のみ| RaceRepair[別版の音声を生成]
+    RaceRepair --> RaceAV
+    RaceArticle --> RaceReview[記事キットとDriveレビュー]
+    RaceQC --> RaceReview
+    RaceReview --> RaceRecord[案件記録と総覧と索引をfork保存]
 ```
 
-独立した詳細設計とMermaid図は`productions/content-projects/CONTENT_20261103_model_race/`。企画資料の準備を、本番動画の完成とはしない。
+独立した詳細設計とMermaid図は`productions/content-projects/CONTENT_20261103_model_race/`。構成採用後の台詞別TTS、実音声の尺、縦横合成、最終MP4検査、記事キット、Drive読戻しまでを分離して記録する。AI補助視聴で発見した誤読は初回出力を保持して該当台詞を再生成し、完成候補とユーザー採用・公開を区別する。

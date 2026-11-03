@@ -986,7 +986,7 @@ Shortsのgraphic列挙に `web-services` と `web-flow` を追加し、`WebRunti
 
 ## モデル競争の調査・企画準備（2026-11-03）
 
-2026-11-03のモデル競争企画は、`productions/content-projects/CONTENT_20261103_model_race/`の独立設計を参照。`prepare.py`が明示座標の公式引用と原本hash、自作図の実グリフ検査を保存し、`draft_script.py`が表示と読みの草稿を分離する。共通CLIへの調査・撮影可否・素材・企画保存までを実施。構成v01への返答待ちで、本番TTS・動画生成・自動公開を実装済みとはしない。
+2026-11-03のモデル競争制作は、`productions/content-projects/CONTENT_20261103_model_race/`の独立設計を参照。企画v01の大筋を採用後、公式用語と具体例へ改訂し、51台詞のGemini音声、既存人物6動作、公式引用、動く図を縦横専用に合成する。`editorial_captions.caption_pages/timed_captions`は任意の保護語を後方互換のキーワード引数で受け取り、複合モデル名の改行を防ぐ。実音声の尺、全字幕状態、最終MP4の全decodeとAAC音量を検査。実AVのAI補助確認で検出したf02の誤読は、別版へ該当台詞だけを再生成した。記事用素材と出典、ZIP内hashも共用し、共通CLIへ実尺の絵コンテを保存する。Drive送信、ユーザー採用、公開は独立工程で、自動公開は実装しない。
 
 ## 将来の利用枠ニュースと文字配置（2026-11-02）
 

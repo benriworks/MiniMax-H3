@@ -63,17 +63,17 @@ def phrase_lines(value,max_width,font_size,protected=PROTECTED):
     assert ''.join(lines)==value.replace('\n','')
     return lines
 
-def caption_pages(value,max_width,font_size,max_lines=2):
+def caption_pages(value,max_width,font_size,max_lines=2,*,protected=PROTECTED):
     # Sentence boundaries are useful page boundaries, not hard character limits.
     pages=[]
     for sentence in re.findall(r'[^。？！]+[。？！]?|[。？！]',value):
-        lines=phrase_lines(sentence,max_width,font_size)
+        lines=phrase_lines(sentence,max_width,font_size,protected=protected)
         pages.extend('\n'.join(lines[i:i+max_lines]) for i in range(0,len(lines),max_lines))
     if not pages:raise ValueError('Empty caption')
     return pages
 
-def timed_captions(value,start,seconds,max_width,font_size):
-    pages=caption_pages(value,max_width,font_size);weights=[len(s.replace('\n','')) for s in pages];total=sum(weights);cursor=start;result=[]
+def timed_captions(value,start,seconds,max_width,font_size,*,protected=PROTECTED):
+    pages=caption_pages(value,max_width,font_size,protected=protected);weights=[len(s.replace('\n','')) for s in pages];total=sum(weights);cursor=start;result=[]
     for i,(page,weight) in enumerate(zip(pages,weights)):
         end=start+seconds if i==len(pages)-1 else cursor+seconds*weight/total
         result.append(dict(start=cursor,end=end,text=page));cursor=end

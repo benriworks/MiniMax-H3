@@ -1,0 +1,12 @@
+{
+  "checked_at":"2026-11-03",
+  "scope":"Assistant editorial wording changes requested by user; structure v01 accepted, completed media not approved.",
+  "entries":[
+    {"id":"fable5","old":"長い仕事へ","display":"複雑なタスクを\n長時間、自律実行","official_terms":["longer and more complex","work autonomously"],"source_url":"https://www.anthropic.com/news/claude-fable-5-mythos-5","kind":"Japanese paraphrase of official capability description"},
+    {"id":"opus5","old":"日常で使う効率","display":"コーディング・\nナレッジワークを強化","official_terms":["coding and knowledge work","used every day"],"source_url":"https://www.anthropic.com/news/claude-opus-5","kind":"Japanese paraphrase"},
+    {"id":"fable51","old":"能力と運用の改善","display":"コーディングや\n長時間の問題解決を強化","official_terms":["coding","knowledge work","long-running problem-solving tasks"],"source_url":"https://www.anthropic.com/claude-fable-and-mythos-5-1","kind":"Japanese paraphrase"},
+    {"id":"opus55","old":"5.5ファミリー","display":"多くの業務で\nFable 5.1と同水準","official_terms":["at the level of Claude Fable 5.1 on most work"],"source_url":"https://www.anthropic.com/claude-opus-5-5","kind":"Attributed vendor comparison, not independent benchmark"},
+    {"id":"astra","old":"画面操作と仕事","display":"ブラウザやアプリを操作し、\nタスクを完了","official_terms":["コンピューター操作","ブラウジング"],"source_url":"https://openai.com/ja-JP/index/gpt-6-astra/","kind":"Plain Japanese paraphrase using official terms; no independent demonstration"},
+    {"id":"sol61","old":"能力と費用の両立","display":"Astraに迫る性能を\n5分の1のAPI単価で","official_terms":["Astra に迫る性能を5分の1の価格で","標準入力・出力トークン料金"],"source_url":"https://openai.com/ja-JP/index/introducing-gpt-6-1-sol/","kind":"Official headline paraphrase with explicit API scope"}
+  ]
+}

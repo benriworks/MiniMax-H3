@@ -53,6 +53,7 @@ def prepare():
 
 def diagram(kind):
     c=Canvas();im=Image.new('RGB',(1920,1080),PAPER);d=ImageDraw.Draw(im)
+    wording={x['id']:x['display'] for x in json.loads((HERE/'wording-v03.json').read_text(encoding='utf-8'))['entries']}
     c.text(im,'AI MODEL RACE 2026',(60,25,1860,85),34,TEAL,False)
     if kind=='timeline':
         c.text(im,'2社の競争を、主要な転機で見る',(60,100,1860,185),62,INK,False)
@@ -63,12 +64,12 @@ def diagram(kind):
         for y,color,name in [(425,COPPER,'Anthropic'),(735,TEAL,'OpenAI')]:
             c.text(im,name,(60,y-28,310,y+28),36,color,False)
             d.line((330,y,1800,y),fill=color,width=8)
-        for x,y,head,body,color in [(370,425,'6/9  Fable 5','長い仕事へ',COPPER),(690,425,'7/24  Opus 5','日常で使う効率',COPPER),(1130,425,'9月  Fable 5.1','能力と運用の改善',COPPER),(1590,425,'9/22  Opus 5.5','5.5ファミリー',COPPER),(1130,735,'9/3  GPT-6 Astra','画面操作と仕事',TEAL),(1590,735,'9/29  GPT-6.1 Sol','能力と費用の両立',TEAL)]:
+        for x,y,head,body,color in [(370,425,'6/9  Fable 5',wording['fable5'],COPPER),(690,425,'7/24  Opus 5',wording['opus5'],COPPER),(1130,425,'9月  Fable 5.1',wording['fable51'],COPPER),(1590,425,'9/22  Opus 5.5',wording['opus55'],COPPER),(1130,735,'9/3  GPT-6 Astra',wording['astra'],TEAL),(1590,735,'9/29  GPT-6.1 Sol',wording['sol61'],TEAL)]:
             w=395 if x>800 else 300
             d.ellipse((x-12,y-12,x+12,y+12),fill=color)
-            box(im,(x-w/2,y+33,x+w/2,y+155),'white',17,outline=color)
+            box(im,(x-w/2,y+33,x+w/2,y+185),'white',17,outline=color)
             c.text(im,head,(x-w/2+10,y+44,x+w/2-10,y+96),28,color)
-            c.text(im,body,(x-w/2+10,y+105,x+w/2-10,y+143),28,INK)
+            c.text(im,body,(x-w/2+10,y+103,x+w/2-10,y+175),28,INK)
         c.text(im,'Fable 5は6/12停止→7/1再開。Fable 5.1は日付表記差のため月まで。',(60,945,1860,1000),30,INK,False)
         c.text(im,'主要な転機の整理。横幅は日数・性能を表さない。出典：各社公式発表／API更新履歴。2026-11-03確認。',(60,1015,1860,1055),25,'#4D6272',False)
     elif kind=='prices':
@@ -92,17 +93,17 @@ def diagram(kind):
             c.text(im,detail,(90,top+100,1790,top+147),35,INK,False)
         c.text(im,'2026-11-03時点。正式発表・一般提供・自分の利用可能状態は、それぞれ別。',(60,945,1860,1002),34,INK,False)
         c.text(im,'出典：The Information公開見出し／WSJ公開導入／TokenGremlinの原投稿と補足。一般提供・性能・日付は未確認。',(60,1015,1860,1055),25,'#4D6272',False)
-    save(OUT/'research-figures'/(kind+'-v02-layout.json'),list(c.audit.values()))
-    dest=OUT/'research-figures'/(kind+'-v02.png');dest.parent.mkdir(parents=True,exist_ok=True);im.save(dest)
+    save(OUT/'research-figures'/(kind+'-v03-layout.json'),list(c.audit.values()))
+    dest=OUT/'research-figures'/(kind+'-v03.png');dest.parent.mkdir(parents=True,exist_ok=True);im.save(dest)
     return dest
 
 def review_texts():
-    dest=OUT/'review/v02';dest.mkdir(parents=True,exist_ok=True)
-    for source,name in [('PROPOSAL_JA.md','01_企画v01.txt'),('ARTICLE_DRAFT_JA.md','07_記事草稿v01.txt')]:
+    dest=OUT/'review/v03';dest.mkdir(parents=True,exist_ok=True)
+    for source,name in [('PROPOSAL_JA.md','01_企画v01_回答反映.txt'),('ARTICLE_DRAFT_V03_JA.md','07_記事草稿v03.txt')]:
         (dest/name).write_text((HERE/source).read_text(encoding='utf-8'),encoding='utf-8')
     for kind,name in [('short','05_ショート会話草稿.txt'),('full','06_フル会話草稿.txt')]:
-        script=json.loads((HERE/f'{kind}-dialogue-v02-draft.json').read_text(encoding='utf-8'))
-        text='会話草稿v02／構成は企画v01と同じ。元投稿の出所情報を更新。音声未生成・実尺未測定。\n\n'
+        script=json.loads((HERE/f'{kind}-dialogue-v03.json').read_text(encoding='utf-8'))
+        text='会話原稿v03／企画v01の大筋をユーザー確認。公式表現に基づく見出しと原稿へ修正。完成動画の採用・公開は別。\n\n'
         for t in script['turns']:
             text+=f"{t['id']}／第{t['chapter']}章／{'男性' if t['speaker']=='male' else '女性'}\n{t['display']}\n\n"
         (dest/name).write_text(text,encoding='utf-8')
