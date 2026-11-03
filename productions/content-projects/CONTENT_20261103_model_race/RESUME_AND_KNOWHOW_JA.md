@@ -53,4 +53,4 @@ S3代替は現行設定の許可範囲外でdry-run拒否、AWS送信0件。設�
 | 同日 ショートv01 | 7台詞、実尺59.75秒、動く標準API価格、公式画像、既存人物。全decodeと音量、AI補助AV確認 | 人の試聴、Drive再生進行、採用 |
 | 同日 フルv01→v02 | 44台詞、誤読1台詞のみ修正。実尺578.958秒、終了画面10秒。全decode、音量、全字幕状態、AI補助AV確認 | 同上。記事組み込み、公開は別 |
 
-専用ブランチcodex/model-race-short-full-20261103、個人fork benriworks/MiniMax-H3の[Draft PR #18](https://github.com/benriworks/MiniMax-H3/pull/18)へ軽量資料を保存する。baseは20チャンネル比較のcodex/youtube-20channel-benchmark-20261103（PR #17）。実際のcommitとpush照合は今回の保存結果を下に追記する。公式upstreamへの書き込み、mainマージ、媒体公開は行わない。
+専用ブランチcodex/model-race-short-full-20261103、個人fork benriworks/MiniMax-H3の[Draft PR #18](https://github.com/benriworks/MiniMax-H3/pull/18)へ本体commit `8be98df`をpushし、リモートSHAとPRのhead一致を確認。[Git保存結果](GIT_SAVE_JA.md)を参照。baseは20チャンネル比較のcodex/youtube-20channel-benchmark-20261103（PR #17）。この保存結果の追記も同じbranchへ保存する。公式upstreamへの書き込み、mainマージ、媒体公開は未実施。
