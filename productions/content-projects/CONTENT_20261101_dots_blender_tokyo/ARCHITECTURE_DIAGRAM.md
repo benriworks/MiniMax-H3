@@ -1,5 +1,21 @@
 # 構成図
 
+## full v03の会話改訂
+
+```mermaid
+flowchart LR
+    Request[やわらかな返答と3Dの用語] --> Female[女性10台詞の新しい表示と読み]
+    Female --> TTS[同じAoedeで生成]
+    Old[v02の構図と素材と男性PCM] --> Timeline[実尺と文節字幕と口パク]
+    TTS --> Timeline
+    Timeline --> Render[TokyoRendererと用語の描画変換]
+    Render --> Full[full v03と10秒終了画面]
+    Full --> QC[全decodeと実画像と独立音声点検]
+    Female --> Article[記事の用語改訂と字幕と原素材]
+    QC --> Review[Drive優先レビュー]
+    Article --> Review
+```
+
 ```mermaid
 flowchart LR
     User[ユーザー指定の既存素材] --> Inspect[読み取り検査と原本hash]
