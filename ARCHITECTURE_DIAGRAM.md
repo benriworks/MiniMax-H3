@@ -1953,3 +1953,22 @@ flowchart LR
     WineQC --> WineDrive[Driveへ共有してPC再生を確認]
     WineArticle --> WineDrive
 ```
+
+## モデル競争の調査・企画資料（2026-11-03）
+
+```mermaid
+flowchart LR
+    Official[公式発表と一次報道] --> Ledger[出典と未確認事項の台帳]
+    BrowserCapture[Computer Useの撮影原本] --> PrepareRace[明示座標の引用と自作図]
+    Ledger --> RaceDraft[表示原稿と読み原稿の草稿]
+    Ledger --> RaceArticle[共通の記事草稿]
+    Ledger --> RaceCLI[共通CLIへの企画v01登録]
+    PrepareRace --> RaceCLI
+    RaceCLI --> RacePending[構成への返答待ち]
+    RacePending -.採用後に実施.-> RaceAV[音声と縦横映像の制作]
+    RaceDraft -.-> RaceAV
+    RaceArticle --> RaceReview[企画資料のDriveレビュー]
+    PrepareRace --> RaceReview
+```
+
+独立した詳細設計とMermaid図は`productions/content-projects/CONTENT_20261103_model_race/`。企画資料の準備を、本番動画の完成とはしない。
