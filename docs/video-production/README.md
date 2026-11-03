@@ -28,7 +28,7 @@ BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_J
 
 ## 案件・素材の再開入口
 
-2026-10-30、初回に35単位の再開入口を整備し、その後Pro利用枠ニュース、10/31ニュース2本の共通案件、Tiboチャレンジのショートとフル版、dotsとBlenderの東京駅模型、12月のChatGPT・Codex利用枠共通化ニュース、dotsとBlenderのワインCG、字幕と成果物の見せ方の4本改訂を追加し、現在の索引は43単位。シリーズは各回の原稿・台帳をまとめる親単位、人物素材は再利用元の単位としている。順序は現在の制作判断を探しやすくするためのもので、全案件が制作中・完了・採用済みという意味ではない。
+2026-10-30、初回に35単位の再開入口を整備し、その後Pro利用枠ニュース、10/31ニュース2本の共通案件、Tiboチャレンジのショートとフル版、dotsとBlenderの東京駅模型、12月のChatGPT・Codex利用枠共通化ニュース、dotsとBlenderのワインCG、字幕と成果物の見せ方の4本改訂、技術・キャラクター解説20チャンネルの比較調査を追加し、現在の索引は44単位。シリーズは各回の原稿・台帳をまとめる親単位、人物素材は再利用元の単位としている。順序は現在の制作判断を探しやすくするためのもので、全案件が制作中・完了・採用済みという意味ではない。
 
 各再開記録には照合元の文書をリンクする。今回の整理は文書の照合であり、媒体の再生・全decode、Driveのアクセス、公開URL、最新の製品仕様を新たに検証したものではない。別ブランチ・別cloneだけにある案件は、対象ブランチを確認してから同じ形式で追加する。
 
@@ -36,6 +36,7 @@ BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_J
 
 | 案件・素材 | 再開時の入口 |
 | --- | --- |
+| 技術・キャラクター解説20チャンネル比較：公開登録者10万人以上を確認、各1本の映像音声と30秒標本・終盤を分析。60技法と編集レビュー票へ整理。制作への適用と維持率の効果は別途確認 | [案件・現在地](../../productions/research/RESEARCH_20261103_youtube_explainers/RESUME_AND_KNOWHOW_JA.md)／[比較報告](research/YOUTUBE_EXPLAINERS_20_20261103_JA.md) |
 | 字幕と成果物の見せ方の改訂：ワイン縦横v02・東京駅full v02・Tibo full v03。表示/読み分離、文節字幕、成果物拡大、縦の同位置切り替え。旧版公開申告、新版は比較レビュー待ち | [案件・現在地](../../productions/content-projects/CONTENT_20261103_editorial_revision/RESUME_AND_KNOWHOW_JA.md)／[4本の履歴](../../productions/content-projects/CONTENT_20261103_editorial_revision/RESUME_AND_KNOWHOW_JA.md#動画別の履歴) |
 | dots×Blender：ワインCG。旧v01は公開済みとの申告。比較候補v02は約33秒・約2分30秒。字幕と見せ方を改訂し記事素材も保持、新版は未採用・未公開 | [案件・現在地](../../productions/content-projects/CONTENT_20261102_dots_blender_wine/RESUME_AND_KNOWHOW_JA.md)／[新版履歴](../../productions/content-projects/CONTENT_20261103_editorial_revision/RESUME_AND_KNOWHOW_JA.md#wine-short-v02) |
 | 11/2確認：12月のChatGPT・Codex利用枠共通化。Instant chatの例外を動く図解で説明する47秒v01。公式引用と現在の設定入口、記事素材を準備。最終試聴待ち | [案件・現在地](../../productions/content-projects/CONTENT_20261102_chatgpt_codex_shared_usage/RESUME_AND_KNOWHOW_JA.md)／[動画履歴](../../productions/content-projects/CONTENT_20261102_chatgpt_codex_shared_usage/RESUME_AND_KNOWHOW_JA.md#short-v01) |
@@ -103,6 +104,8 @@ BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_J
 | --- | --- |
 | [全工程の引き継ぎ](VIDEO_PRODUCTION_HANDOFF_JA.md) | 人物確認、構成、保存、レビュー、GitHub運用の具体的な実務 |
 | [題名・結論ファースト・人物と掛け合い](EDITORIAL_PATTERNS_JA.md) | 冒頭、質問役と実務役、全面表示とPIP、編集の確認項目 |
+| [演出・編集プレイブック](EXPLAINER_EDITING_PLAYBOOK_JA.md) | 20チャンネル比較から整理した60技法、適用条件と尺の検証案。全技法の同時適用や効果保証ではない |
+| [20チャンネルの比較報告](research/YOUTUBE_EXPLAINERS_20_20261103_JA.md) | チャンネル・登録者表示・動画リンク・時刻・画面／音声の確認範囲、カットと更新の標本 |
 | [ナレーションの別冊](NARRATION_HANDOFF_JA.md) | 担当者へ単体で渡せる原稿・声・読み・生成・再開・費用・試聴手順 |
 | [会話とBGM](DIALOGUE_NARRATION_JA.md) | 質問→回答→実演の進行、音声実尺、返答後の間、明るい伴奏 |
 | [実画面の撮影と公式引用](SCREEN_CAPTURE_AND_QUOTES_JA.md) | 撮影前の実機確認、原本と切り出し、記事解像度、来歴・出典 |
@@ -139,6 +142,7 @@ BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_J
 | [再開履歴兼ノウハウ](templates/PRODUCTION_RECORD_JA.md) | 案件内の `RESUME_AND_KNOWHOW_JA.md` として作る。現在地と次の作業を先頭、詳細根拠と追記履歴を後半へ |
 | [人物設定](templates/CHARACTER_BIBLE_JA.md) | 外見、ペルソナ、衣装、役割、ストーリー、採用範囲 |
 | [レビュー依頼](templates/REVIEW_REQUEST_JA.md) | 人物、初稿、修正版、最終確認。対象版と2〜3点の確認事項 |
+| [編集レビュー票](templates/EDITING_REVIEW_JA.md) | 助手が疑問・画面の役割・人物表示・保持と切替の理由・字幕の分担を記入 |
 | [素材台帳の記載例](templates/asset-catalog.example.json) | ID・版・親素材・相対パス・hashを整理する例。自動登録ツールではない |
 | [共通企画の記載例](templates/content-project.example.json) | 動画と記事の事実・素材を結ぶ例。稼働する台帳・版管理は企画ワークスペースの仕様を参照 |
 

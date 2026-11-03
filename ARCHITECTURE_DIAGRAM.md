@@ -1,5 +1,21 @@
 # Architecture diagram
 
+## 公開解説20チャンネルの比較と文書への適用
+
+```mermaid
+flowchart LR
+    PublicChannels[公開チャンネルと対象動画] --> BrowserEvidence[Computer Useで登録者と実画面を確認]
+    PublicChannels --> VideoAnalysis[全編の映像音声と区間の追加分析]
+    BrowserEvidence --> CuratedResearch[助手が20件の観察と条件を整理]
+    VideoAnalysis --> CuratedResearch
+    CuratedResearch --> ResearchCheck[対象件数と窓内時刻を検査]
+    ResearchCheck --> EditingGuide[比較報告と60項目とレビュー票]
+    EditingGuide --> Knowledge[AGENTSと総覧と索引]
+    Knowledge --> NextProduction[次の絵コンテで適用]
+    BrowserEvidence --> LocalOnly[私的原本はローカルのみ]
+    VideoAnalysis --> LocalOnly
+```
+
 ## 東京駅のみのやわらかい会話への改訂
 
 ```mermaid

@@ -1,5 +1,9 @@
 # Architecture
 
+## 公開解説動画の比較調査と制作への参照（2026-11-03）
+
+`productions/research/RESEARCH_20261103_youtube_explainers/`の補助CLIは、Computer Useでの公開登録者・動画確認、Geminiの全編映像音声分析20件、4fps指定の区間分析20件、助手による手整理、窓内時刻・対象20件の検査を経て、比較報告・60項目のプレイブック・編集レビュー票へ結ぶ。私的画面・API生応答はignoredの`outputs/`、軽量な要約とコードはGitへ分離する。試験1件の成功を区間分析の一括実行前に要求し、既存受領は自動再送しない。Studioの自動編集・動画生成・Analytics連携の追加ではない。独立設計・Mermaid図は同調査フォルダーに保存する。
+
 ## 東京駅full v03の会話口調改訂（2026-11-03）
 
 `productions/content-projects/CONTENT_20261101_dots_blender_tokyo/revise_v03_soft_dialogue.py` は、女性10台詞をやわらかな返答と視聴者への案内へ直し、同じAoedeで生成する。男性5台詞、v02の構図・側面拡大・文節字幕・顔高/目線・10秒終了画面は継承。表示と読みを分離し、見出し・注釈・依頼例も3D/簡略モデルへそろえる。PCM実尺から編集し直し、記事用語と素材も別版に整える。他動画や旧版の媒体・元Blenderは変更しない。独立設計・Mermaid図は同案件内。
