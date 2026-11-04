@@ -1,6 +1,6 @@
 # 動画・関連記事の制作索引
 
-更新日：2026-11-03。このリポジトリの制作情報は、索引・総覧・案件ごとの再開履歴兼ノウハウの3種類を入口に管理する。チャット履歴がない別チャット・別担当者も、ここから再開する。
+更新日：2026-11-04。このリポジトリの制作情報は、索引・総覧・案件ごとの再開履歴兼ノウハウの3種類を入口に管理する。チャット履歴がない別チャット・別担当者も、ここから再開する。
 
 ## 最初に読む3種類
 
@@ -28,7 +28,7 @@ BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_J
 
 ## 案件・素材の再開入口
 
-2026-10-30、初回に35単位の再開入口を整備し、その後Pro利用枠ニュース、10/31ニュース2本の共通案件、Tiboチャレンジのショートとフル版、dotsとBlenderの東京駅模型、12月のChatGPT・Codex利用枠共通化ニュース、dotsとBlenderのワインCG、字幕と成果物の見せ方の4本改訂、技術・キャラクター解説20チャンネルの比較調査、OpenAI×Anthropicモデル競争の重点企画を追加し、現在の索引は45単位。シリーズは各回の原稿・台帳をまとめる親単位、人物素材は再利用元の単位としている。順序は現在の制作判断を探しやすくするためのもので、全案件が制作中・完了・採用済みという意味ではない。
+2026-10-30、初回に35単位の再開入口を整備し、その後Pro利用枠ニュース、10/31ニュース2本の共通案件、Tiboチャレンジのショートとフル版、dotsとBlenderの東京駅模型、12月のChatGPT・Codex利用枠共通化ニュース、dotsとBlenderのワインCG、字幕と成果物の見せ方の4本改訂、技術・キャラクター解説20チャンネルの比較調査、OpenAI×Anthropicモデル競争の重点企画、Anthropic関係者の退社を考えるショート企画を追加し、現在の索引は46単位。シリーズは各回の原稿・台帳をまとめる親単位、人物素材は再利用元の単位としている。順序は現在の制作判断を探しやすくするためのもので、全案件が制作中・完了・採用済みという意味ではない。
 
 各再開記録には照合元の文書をリンクする。今回の整理は文書の照合であり、媒体の再生・全decode、Driveのアクセス、公開URL、最新の製品仕様を新たに検証したものではない。別ブランチ・別cloneだけにある案件は、対象ブランチを確認してから同じ形式で追加する。
 
@@ -36,6 +36,7 @@ BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_J
 
 | 案件・素材 | 再開時の入口 |
 | --- | --- |
+| Anthropic関係者の退社を考えるショート1本：直近のClaude Code関係者3人を本人投稿で確認。事実と、製品作りの知見の継承という考察を分ける。草稿8場面、記事草稿・横図2枚・公開素材をDrive保存、PC画像表示を確認。企画v01の返答待ち、本番音声・動画は未生成 | [案件・現在地](../../productions/content-projects/CONTENT_20261104_anthropic_departures/RESUME_AND_KNOWHOW_JA.md)／[企画v01](../../productions/content-projects/CONTENT_20261104_anthropic_departures/PROPOSAL_JA.md)／[草稿の検証](../../productions/content-projects/CONTENT_20261104_anthropic_departures/DRAFT_QC_JA.md) |
 | OpenAI×Anthropicモデル競争：企画v01の大筋採用、公式用語と動作へ改訂。ショートv01は59.75秒、フルv02は約9分39秒。技術確認済み・未採用、Drive保存済み（再生進行は未確認）。公式引用・動く図・既存6動作、Gemini対話、記事v03と素材包装v04。個人fork PR #18へ保存 | [案件・現在地](../../productions/content-projects/CONTENT_20261103_model_race/RESUME_AND_KNOWHOW_JA.md)／[表現改訂](../../productions/content-projects/CONTENT_20261103_model_race/WORDING_REVISION_JA.md)／[記事v03](../../productions/content-projects/CONTENT_20261103_model_race/ARTICLE_DRAFT_V03_JA.md) |
 | 技術・キャラクター解説20チャンネル比較：公開登録者10万人以上を確認、各1本の映像音声と30秒標本・終盤を分析。60技法と編集レビュー票へ整理。制作への適用と維持率の効果は別途確認 | [案件・現在地](../../productions/research/RESEARCH_20261103_youtube_explainers/RESUME_AND_KNOWHOW_JA.md)／[比較報告](research/YOUTUBE_EXPLAINERS_20_20261103_JA.md) |
 | 字幕と成果物の見せ方の改訂：ワイン縦横v02・東京駅full v02・Tibo full v03。表示/読み分離、文節字幕、成果物拡大、縦の同位置切り替え。旧版公開申告、新版は比較レビュー待ち | [案件・現在地](../../productions/content-projects/CONTENT_20261103_editorial_revision/RESUME_AND_KNOWHOW_JA.md)／[4本の履歴](../../productions/content-projects/CONTENT_20261103_editorial_revision/RESUME_AND_KNOWHOW_JA.md#動画別の履歴) |

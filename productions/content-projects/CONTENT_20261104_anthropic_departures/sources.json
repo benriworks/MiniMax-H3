@@ -1,0 +1,14 @@
+{
+  "checked_at": "2026-11-04",
+  "date_policy": "映像の日付はJST。投稿の公表日と最終勤務日を分ける。Xの確認日時は表示された分単位で記録し、秒を補わない。",
+  "sources": [
+    {"source_id":"thariq-post","kind":"first_hand","title":"Thariq Shihipar本人の退社発表","url":"https://x.com/trq212/status/2113844051938054167","published_at_jst":"2026-10-24T13:04+09:00","verification":"web取得403後、ユーザーPCのChromeで本文と日時を直接確認、原本保存。Claude Codeに1年以上関わったこと、休息後に新しいことへ進む意向、会社の使命と同僚への信頼を記載。共通退社原因は述べていない。","capture":"thariq-original.png","quote":"I've left Anthropic after more than a year of working on Claude Code and seeing it scale larger than I ever imagined."},
+    {"source_id":"anthony-post","kind":"first_hand","title":"Anthony Morris本人の退社発表","url":"https://x.com/amorriscode/status/2113972174524674247","published_at_jst":"2026-10-24T21:33+09:00","verification":"web取得403後、Chromeで本文と日時を直接確認。前日が最終勤務日、デスクトップ版を作ったと説明。後続投稿ではフィードバックの案内先も提示。共通原因や競合への移籍を発表したとは扱わない。","capture":"anthony-original.png","quote":"Yesterday was my last day at Anthropic."},
+    {"source_id":"cat-post","kind":"first_hand","title":"Cat Wu本人の退社発表","url":"https://x.com/_catwu/status/2117731934340337676","published_at_jst":"2026-11-04T06:33+09:00","verification":"web取得403後、Chromeで全文と日時を直接確認。直前の金曜が最終勤務日。チームとユーザーへの感謝、製品開発の振り返り。退社理由を明言していない。UTCでは11/3。","capture":"cat-wu-original.png","quote":"Friday was my last day at Anthropic."},
+    {"source_id":"cat-official-role","kind":"official","title":"Product management on the AI exponential","url":"https://claude.com/resources/articles/product-management-on-the-ai-exponential","published_at":"2026-03-19","verification":"公式本文を読了。Cat WuをClaude CodeのHead of Productと紹介。試作、ユーザーの反応、短い開発周期など製品作りの役割を説明する資料。退社発表そのものではない。"},
+    {"source_id":"cat-bi","kind":"first_hand","title":"Cat Wu, a face of the blockbuster app Claude Code, leaves Anthropic","url":"https://www.businessinsider.com/claude-code-leader-cat-wu-exits-anthropic-before-big-ipo-2026-11","published_at":"2026-11-03T23:55:09.310Z","verification":"取材記事の公開本文を取得。Anthropicが退社を確認したと報道。理由は本人が説明していない。Cowork担当も報道。本文転載や写真流用は行わない。"},
+    {"source_id":"two-departures-report","kind":"secondary","title":"Claude Code engineers Thariq Shihipar and Anthony Morris leave Anthropic","url":"https://runtimewire.com/article/thariq-shihipar-and-anthony-morris-have-potentially-departed-anthropic","published_at":"2026-10-24","verification":"原投稿を発見するため参照。後に両本人投稿を実ブラウザで照合。報道ページ画像は素材にしない。"},
+    {"source_id":"techmeme-links","kind":"secondary","title":"TechmemeのCat Wu退社関連記事と本人投稿へのリンク","url":"https://techmeme.com/?article_id=435141360.0","verification":"3人の本人投稿とBusiness Insider原記事への到達用。集約記事の論評を本人発言としない。"},
+    {"source_id":"coxon-context","kind":"first_hand","title":"Anthropic researcher resigns with warning about the dangers of AI development","url":"https://apnews.com/article/2ed549e07f2f941600a135070487d83d","published_at":"2026-09-09","verification":"背景調査のみ。安全性を理由にした研究者の事例と、直近の製品関係者3人の理由を同一視しない。映像の中心は直近3人。"}
+  ]
+}

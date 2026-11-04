@@ -1977,3 +1977,21 @@ flowchart LR
 ```
 
 独立した詳細設計とMermaid図は`productions/content-projects/CONTENT_20261103_model_race/`。構成採用後の台詞別TTS、実音声の尺、縦横合成、最終MP4検査、記事キット、Drive読戻しまでを分離して記録する。AI補助視聴で発見した誤読は初回出力を保持して該当台詞を再生成し、完成候補とユーザー採用・公開を区別する。
+
+## 退社発表ショートの準備（2026-11-04）
+
+```mermaid
+flowchart LR
+    DepartPosts[本人3投稿と会社の役割説明] --> DepartResearch[出典と日付と未確認事項]
+    DepartBrowser[実ブラウザの撮影原本] --> DepartCrop[短い公開引用と元hash]
+    DepartResearch --> DepartDraft[6台詞と8場面の構成草稿]
+    DepartCrop --> DepartDraft
+    DepartDraft --> DepartReview[構成確認と共通CLIの未採用記録]
+    DepartResearch --> DepartArticle[記事草稿と横図2枚]
+    DepartCrop --> DepartPackage[公開画像6枚とhash付き包装]
+    DepartArticle --> DepartPackage
+    DepartPackage --> DepartReview
+    DepartReview -. 返答後 .-> DepartAV[Gemini音声と縦動画と媒体検査]
+```
+
+独立した設計・Mermaid図は`productions/content-projects/CONTENT_20261104_anthropic_departures/`。現在は準備資料の確認段階で、TTS・最終動画・人の試聴・公開は未実施。
