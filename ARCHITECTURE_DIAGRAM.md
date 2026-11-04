@@ -1998,6 +1998,12 @@ flowchart LR
     DepartAV --> DepartAI[完成動画のAI補助AV確認]
     DepartAI --> DepartDrive[Drive保存と名前と容量の読戻し]
     DepartDrive --> DepartLimit[Work設定でブラウザ制御無効 再生未確認]
+    LocalBgm[ローカル音源と公式利用条件] --> LocalGain[原曲hashと入力レベルの調整]
+    DepartAV --> V01Copy[映像ストリームと元ナレーションを維持]
+    LocalGain --> BgmRemix[BGMのみ再ミックス]
+    V01Copy --> BgmRemix
+    BgmRemix --> BgmV02[45.75秒v02 全decodeと不変性とAAC検査]
+    BgmV02 --> DepartDrive
 ```
 
 独立した設計・Mermaid図は`productions/content-projects/CONTENT_20261104_anthropic_departures/`。技術確認済み候補の保存まで実施し、人の最終試聴・完成品採用・公開は未実施。

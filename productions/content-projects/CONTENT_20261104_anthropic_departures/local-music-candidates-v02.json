@@ -1,0 +1,10 @@
+{
+  "checked_at": "2026-11-04",
+  "terms_url": "https://amachamusic.chagasi.com/terms.html",
+  "use_scope": "映像のBGMとして商用・YouTube利用と編集が可能。音源だけの再配布とContent ID登録は不可。説明欄へ曲名・サイト名・配布ページを記載する。原曲を共有素材ZIPやGitへ含めない。",
+  "candidates": [
+    {"id":"blue-neon","file":"blueneon1.mp3","title":"ブルーネオンⅠ","artist":"甘茶の音楽工房","page_url":"https://amachamusic.chagasi.com/music_blueneon1.html","source_sha256":"d1cfbe589472e1714f1df9297c4f7c7d04ee7fea1b55ced556a1e9159473d68c","start_seconds":0},
+    {"id":"evening-campus","file":"yuugurenocampus.mp3","title":"夕暮れのキャンパス","artist":"甘茶の音楽工房","page_url":"https://amachamusic.chagasi.com/music_yuugurenocampus.html","source_sha256":"19fd42bf8e542fe345e7b1209c4bcf227eaf8a572944022774fa0ff3e6a3bf66","start_seconds":0},
+    {"id":"good-day","file":"nichinichikorekoujitsu.mp3","title":"日々是好日","artist":"甘茶の音楽工房","page_url":"https://amachamusic.chagasi.com/music_nichinichikorekoujitsu.html","source_sha256":"c665e20b826b5a13a9ea26500cf8a68cd0dbd81b2a7126a38d1409a31c4b7abf","start_seconds":0}
+  ]
+}

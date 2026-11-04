@@ -34,6 +34,16 @@ flowchart TD
   Share -.-> Human[人の最終試聴と完成品採用]
   Article --> Review
   Package --> Review
+  LocalMusic[SSD内のローカル音源] --> License[配布元の条件と原曲hashを照合]
+  License --> MusicLevel[曲の入力レベルと共通の減音]
+  Voice --> KeepVoice[元のナレーションを維持]
+  KeepVoice --> Remix[新しいミックス]
+  MusicLevel --> Remix
+  Render --> KeepVideo[H264ストリームをコピー]
+  KeepVideo --> V02[45.75秒のBGM差替版v02]
+  Remix --> V02
+  V02 --> BgmQC[映像と声の不変 全decode AAC音量 最終音声確認]
+  BgmQC --> Share
 ```
 
 記事v02の包装は15ペイロードとhash manifest。動画と記事の保存を、人の試聴や完成品採用・公開の証明へ読み替えない。

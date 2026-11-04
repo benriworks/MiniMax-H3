@@ -1,6 +1,6 @@
 # 個人forkへの保存
 
-2026-11-04。ショート構成の準備から、技術確認済みの本番v01・記事草稿v02までを同じbranchへ保存する。
+2026-11-04。ショート構成の準備から、本番v01・BGM差し替えv02・記事草稿v02までを同じbranchへ保存する。
 
 - 実remoteを照合：forkはbenriworks/MiniMax-H3、originはMiniMax-AI/MiniMax-H3。今回の送信先はforkのみ。
 - branch：codex/anthropic-departures-short-20261104。制作資料の一次保存は3a39d98（Prepare sourced Anthropic departures short and article draft）。
@@ -11,3 +11,5 @@
 - mainへのマージ、完成動画・記事の採用と公開は行わない。Driveへの保存と、ブラウザ制御が無効のため再生未確認である点も区別する。
 
 この保存記録と参照先の追記は同じbranchへ保存する。後続の正確なheadはPRとbranchで確認し、本文へ自身のcommit hashを書き込む循環を作らない。
+
+BGM v02では選曲・利用条件・依頼原文・ストリームコピーによる改訂コード・検証を追記する。ローカル原曲、比較用音声、ナレーション、MP4、Drive受領はGitへ含めない。曲の配布条件を確認し、素材の再配布をしない。共通規約の追加は不要と判断し、具体的な方法は総覧とローカル音源の別冊へ保存する。

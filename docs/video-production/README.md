@@ -36,7 +36,7 @@ BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_J
 
 | 案件・素材 | 再開時の入口 |
 | --- | --- |
-| Anthropic関係者の退社を考えるショート1本：企画v01採用。本人投稿3件と考察を分け、既存男女・MiniMax2動作・Gemini6台詞で45.75秒v01を制作。全decode・12字幕状態・音量・AI補助AV確認済み。動画と記事v02・6公開素材をDrive保存、ブラウザ操作設定が無効のため動画再生は未確認。人の試聴・完成品採用待ち。個人fork Draft PR #19 | [案件・現在地](../../productions/content-projects/CONTENT_20261104_anthropic_departures/RESUME_AND_KNOWHOW_JA.md)／[媒体検証](../../productions/content-projects/CONTENT_20261104_anthropic_departures/DELIVERY_QC_JA.md)／[記事v02](../../productions/content-projects/CONTENT_20261104_anthropic_departures/ARTICLE_DRAFT_V02_JA.md) |
+| Anthropic退社考察ショート：v01の内容に肯定的評価、BGM修正依頼。最新v02はローカルの「夕暮れのキャンパス」へ差し替えた45.75秒。映像・声は同一hashで維持、音量・全decode・最終音声のAI補助確認済み。動画とクレジット付き説明欄をDrive保存、ブラウザ設定の制約で再生未確認。記事v02と6画像は継続。新曲の採用待ち、個人fork PR #19 | [案件・現在地](../../productions/content-projects/CONTENT_20261104_anthropic_departures/RESUME_AND_KNOWHOW_JA.md)／[BGM改訂v02](../../productions/content-projects/CONTENT_20261104_anthropic_departures/BGM_REVISION_V02_JA.md)／[記事v02](../../productions/content-projects/CONTENT_20261104_anthropic_departures/ARTICLE_DRAFT_V02_JA.md) |
 | OpenAI×Anthropicモデル競争：企画v01の大筋採用、公式用語と動作へ改訂。ショートv01は59.75秒、フルv02は約9分39秒。技術確認済み・未採用、Drive保存済み（再生進行は未確認）。公式引用・動く図・既存6動作、Gemini対話、記事v03と素材包装v04。個人fork PR #18へ保存 | [案件・現在地](../../productions/content-projects/CONTENT_20261103_model_race/RESUME_AND_KNOWHOW_JA.md)／[表現改訂](../../productions/content-projects/CONTENT_20261103_model_race/WORDING_REVISION_JA.md)／[記事v03](../../productions/content-projects/CONTENT_20261103_model_race/ARTICLE_DRAFT_V03_JA.md) |
 | 技術・キャラクター解説20チャンネル比較：公開登録者10万人以上を確認、各1本の映像音声と30秒標本・終盤を分析。60技法と編集レビュー票へ整理。制作への適用と維持率の効果は別途確認 | [案件・現在地](../../productions/research/RESEARCH_20261103_youtube_explainers/RESUME_AND_KNOWHOW_JA.md)／[比較報告](research/YOUTUBE_EXPLAINERS_20_20261103_JA.md) |
 | 字幕と成果物の見せ方の改訂：ワイン縦横v02・東京駅full v02・Tibo full v03。表示/読み分離、文節字幕、成果物拡大、縦の同位置切り替え。旧版公開申告、新版は比較レビュー待ち | [案件・現在地](../../productions/content-projects/CONTENT_20261103_editorial_revision/RESUME_AND_KNOWHOW_JA.md)／[4本の履歴](../../productions/content-projects/CONTENT_20261103_editorial_revision/RESUME_AND_KNOWHOW_JA.md#動画別の履歴) |
@@ -110,6 +110,7 @@ BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_J
 | [20チャンネルの比較報告](research/YOUTUBE_EXPLAINERS_20_20261103_JA.md) | チャンネル・登録者表示・動画リンク・時刻・画面／音声の確認範囲、カットと更新の標本 |
 | [ナレーションの別冊](NARRATION_HANDOFF_JA.md) | 担当者へ単体で渡せる原稿・声・読み・生成・再開・費用・試聴手順 |
 | [会話とBGM](DIALOGUE_NARRATION_JA.md) | 質問→回答→実演の進行、音声実尺、返答後の間、明るい伴奏 |
+| [ローカルのフリー音源](LOCAL_MUSIC_LIBRARY_JA.md) | SSD内の曲庫、出典・条件・hashの照合、入力音量の調整、BGMだけの差し替え、原曲を再配布しない保存 |
 | [実画面の撮影と公式引用](SCREEN_CAPTURE_AND_QUOTES_JA.md) | 撮影前の実機確認、原本と切り出し、記事解像度、来歴・出典 |
 | [動画とブログの共通工程](VIDEO_TO_BLOG_WORKFLOW_JA.md) | 同時草稿・素材収集、動画→詳細記事、blog／note、記事素材の受け渡し |
 | [企画ワークスペース](../../STUDIO_CONTENT_WORKSPACE_JA.md) | 助手の先行調査、本数と概要の提案、ユーザー返答、根拠・素材・絵コンテ、実装範囲 |
