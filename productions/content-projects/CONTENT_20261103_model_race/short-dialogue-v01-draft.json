@@ -1,0 +1,77 @@
+{
+  "status": "dialogue_draft_pending_proposal_acceptance",
+  "checked_at": "2026-11-03",
+  "format": "short",
+  "voice_profile": "conversational_v3",
+  "voices": {
+    "male": "Charon",
+    "female": "Aoede"
+  },
+  "turns": [
+    {
+      "id": "s01",
+      "speaker": "female",
+      "chapter": "01",
+      "display": "AI競争、変わったのは賢さだけじゃない。長い仕事、費用、人の意図を守ること。この3つだよ。",
+      "reading": "AI競争、変わったのは賢さだけじゃない。長い仕事、費用、人の意図を守ること。このみっつだよ。",
+      "source_ids": []
+    },
+    {
+      "id": "s02",
+      "speaker": "male",
+      "chapter": "01",
+      "display": "Fable 5からGPT-6へ、何が変わったの？",
+      "reading": "フェイブルファイブからGPT-6へ、何が変わったの？",
+      "source_ids": []
+    },
+    {
+      "id": "s03",
+      "speaker": "female",
+      "chapter": "02",
+      "display": "6月のFable 5は、長く複雑な仕事へ。9月のGPT-6 Astraは、ブラウザや画面を使う仕事も強く打ち出した。",
+      "reading": "6月のフェイブルファイブは、長く複雑な仕事へ。9月のジーピーティーシックス アストラは、ブラウザや画面を使う仕事も強く打ち出した。",
+      "source_ids": [
+        "fable5",
+        "astra"
+      ]
+    },
+    {
+      "id": "s04",
+      "speaker": "female",
+      "chapter": "03",
+      "display": "GPT-6.1 Solは、Astraに迫る能力と、標準API単価5分の1を訴求。月額や仕事の総額が5分の1、という意味ではないよ。",
+      "reading": "ジーピーティーろくてんいち ソルは、アストラに迫る能力と、標準エーピーアイ単価ごぶんのいちを訴求。月額や仕事の総額がごぶんのいち、という意味ではないよ。",
+      "source_ids": [
+        "sol61"
+      ]
+    },
+    {
+      "id": "s05",
+      "speaker": "male",
+      "chapter": "04",
+      "display": "次のFable 5.5やAstraは、もう出るの？",
+      "reading": "次のフェイブルごーてんごやアストラは、もう出るの？",
+      "source_ids": []
+    },
+    {
+      "id": "s06",
+      "speaker": "female",
+      "chapter": "04",
+      "display": "11月3日時点で、Fable 5.5やAstra 6.2は未確認情報。Astra 6.1は公開見送りの報道がある。噂と正式発表は分けて見よう。",
+      "reading": "じゅういちがつみっか時点で、フェイブルごーてんごやアストラ ろくてんには未確認情報。アストラ ろくてんいちは公開見送りの報道がある。噂と正式発表は分けて見よう。",
+      "source_ids": [
+        "fable-next-report",
+        "astra61-wsj",
+        "astra62-report"
+      ]
+    },
+    {
+      "id": "s07",
+      "speaker": "female",
+      "chapter": "05",
+      "display": "自分の仕事で、成果、費用、確認の境界を見る。競争の転機と噂の根拠は、フル動画で詳しく見ていこう。",
+      "reading": "自分の仕事で、成果、費用、確認の境界を見る。競争の転機と噂の根拠は、フル動画で詳しく見ていこう。",
+      "source_ids": []
+    }
+  ]
+}

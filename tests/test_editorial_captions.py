@@ -43,4 +43,13 @@ class EditorialCaptionTests(unittest.TestCase):
     def test_ascii_space_does_not_become_invisible_glyph_error(self):
         value='Blender Pythonの操作。'
         self.assertEqual(''.join(phrase_lines(value,1000,48)),value)
+
+    def test_case_specific_model_names_stay_together_through_timing(self):
+        value='今度はGPT-6.1 SolとGPT-6 Astraを比べます。'
+        subs=timed_captions(value,2,7,610,48,protected=('GPT-6.1 Sol','GPT-6 Astra'))
+        lines=[line for sub in subs for line in sub['text'].splitlines()]
+        for name in ['GPT-6.1 Sol','GPT-6 Astra']:
+            self.assertTrue(any(name in line for line in lines),name)
+        self.assertEqual(''.join(lines),value)
+        self.assertEqual(subs[0]['start'],2);self.assertEqual(subs[-1]['end'],9)
 if __name__=='__main__':unittest.main()
