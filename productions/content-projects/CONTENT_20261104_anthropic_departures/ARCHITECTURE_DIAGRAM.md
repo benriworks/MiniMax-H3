@@ -1,6 +1,6 @@
-# 退社発表ショート準備のアーキテクチャ図
+# 退社発表ショートのアーキテクチャ図
 
-2026-11-04。本文は[ARCHITECTURE.md](ARCHITECTURE.md)。点線は構成確認後の予定工程。
+2026-11-04。本文は[ARCHITECTURE.md](ARCHITECTURE.md)。点線は未実施の人による最終確認。
 
 ```mermaid
 flowchart TD
@@ -20,12 +20,20 @@ flowchart TD
   Sources --> CLI[共通CLIとSQLite]
   Crop --> CLI
   Prepare --> Review[構成v01の確認]
-  Review -. 返答後 .-> Voice[Gemini台詞別音声]
-  Voice -.-> Render[実音声の尺と縦動画]
-  Render -.-> QC[decodeと音量と字幕と実AV確認]
-  QC -.-> Share[Drive優先のレビュー]
+  Review --> Accept[実際の採用返答と共通CLI]
+  Accept --> Voice[Gemini台詞別音声6件]
+  Voice --> Listen[音声単体のAI補助聴取]
+  Listen --> Timing[人物ごとの字幕節と話題時刻]
+  Voice --> Render[実音声の尺と45.75秒の縦動画]
+  Timing --> Render
+  Prior --> Render
+  Render --> QC[全decodeとAAC音量と12字幕状態]
+  QC --> AV[完成動画のAI補助AV確認]
+  AV --> Share[Drive保存とメタデータ読戻し]
+  Share --> Limited[Work設定でブラウザ制御が無効 再生未確認]
+  Share -.-> Human[人の最終試聴と完成品採用]
   Article --> Review
   Package --> Review
 ```
 
-確認前の依頼を、構成の採用や公開許可へ読み替えない。技術検査、AI補助、人の試聴、完成品採用、公開は別の記録として残す。
+記事v02の包装は15ペイロードとhash manifest。動画と記事の保存を、人の試聴や完成品採用・公開の証明へ読み替えない。
