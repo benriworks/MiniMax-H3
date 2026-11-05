@@ -15,7 +15,7 @@
 - BGMはユーザーSSDの「夕暮れのキャンパス」／甘茶。許諾を確認、原曲hashを照合。今回は低い一定BGM、頭尾boostなし。共通の `explanation_v1` は変更せず。**Content ID登録なし**。原曲単体は共有物・Gitへ含めない。
 - 次はユーザーによる両動画の最終試聴と採用。スマホ実機の再生・媒体公開・blog固有の仕上げは未確認。[最終媒体QCと引き継ぎ](FINAL_REVIEW_QC_V01_JA.md)を参照。共通CLIはrevision44、25素材・9/36場面と記事を保存。共有URLと受領はignoredの `_private/drive/`。自分の8192番専用サービスは空キュー・PID・出力先を照合して停止済み。
 - コードは本worktree、ローカル実行環境とモデルは別MiniMaxH3。cloneのみではignoredの原画像・音声・動画・モデル・認証は付属しない。
-- Git保存は `codex/ai-bert-gpt-history-20261106` から、実際のremoteを確認した個人 `fork` へ。mainマージ・公式upstream書込みは対象外。結果はPRと作業報告を参照。
+- Git保存は個人forkの[ドラフトPR #20](https://github.com/benriworks/MiniMax-H3/pull/20)。ブランチ `codex/ai-bert-gpt-history-20261106`、親制作ブランチをbaseとする。初回候補の保存 `5c9e0a5`、完成媒体QC・記事・台帳の保存 `c0530fe` をpushし、リモートHEADとPRのhead一致を確認。最新HEADはPRを参照。mainマージと公式upstream書込みは対象外。
 
 ## 動画別の状態
 
