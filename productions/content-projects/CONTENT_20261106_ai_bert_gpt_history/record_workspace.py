@@ -54,16 +54,26 @@ def record():
             people = turn['visual'] in {'hook','closing','not_chat'} or (kind=='full' and turn['id'] in {'f04','f08','f18','f33','f35'}) or (kind=='short' and turn['id']=='s05')
             scene=dict(scene_id=turn['id'],purpose='視聴者の疑問と、'+turn['visual']+'の説明',
                        narration=turn['display'],visual=turn['visual']+'／同じ実尺timeline・字幕・原本来歴を参照',
-                       duration_seconds=turn['end']-turn['start'],source_ids=sources,asset_ids=[],
+                       duration_seconds=turn['end']-turn['start'],source_ids=sources,
+                       asset_ids=['ai-history-'+kind+'-'+REVISIONS[kind]],
                        beat='problem' if index==0 else 'try' if index==1 else 'insight' if index==2 else 'action' if turn['visual'] in {'gpt','bert','example','masked'} else 'evidence')
             if people:
+                reactions={'f04':('sadness','frustration'),'f08':('thinking','sadness'),
+                           'f18':('frustration','thinking'),'f33':('joy','enjoyment'),'f35':('enjoyment','enjoyment')}
+                left,right=reactions.get(turn['id'],(turn['emotion'] if turn['speaker']=='male' else 'thinking',
+                                                    turn['emotion'] if turn['speaker']=='female' else 'thinking'))
+                known={'joy','frustration','sadness','enjoyment','thinking'}
+                left=left if left in known else 'joy'
+                right=right if right in known else 'thinking'
+                scene['asset_ids'].extend(['ai-history-male-'+left,'ai-history-female-'+right])
                 scene.update(character_ids=['ai-history-toru','ai-history-rin'],presenter_layout='fullscreen',
                              face_caption_separated=True,character_action='左の透が具体的に尋ね、右の凛が応答。生成リアクションを最初の数秒に表示して図へ退避。音素同期のPIPではない。')
             scenes.append(scene)
         scenes.append(dict(scene_id='ending',purpose='本編への導線' if kind=='short' else 'YouTube終了画面用の余白',
                            narration='無発話、BGMと終了表示',visual='完成した終了表示を保持',
-                           duration_seconds=timeline['ending_seconds'],beat='transition'))
-        apply('storyboard',kind+'-storyboard-'+REVISIONS[kind],dict(episode_id='ai-bert-gpt-history-'+kind,scenes=scenes))
+                           duration_seconds=timeline['ending_seconds'],beat='transition',
+                           asset_ids=['ai-history-'+kind+'-'+REVISIONS[kind]]))
+        apply('storyboard',kind+'-storyboard-'+REVISIONS[kind]+'-linked-v01',dict(episode_id='ai-bert-gpt-history-'+kind,scenes=scenes))
     apply('article','article-v03',dict(slug='ai-language-model-history-bert-gpt',
           draft_path=(HERE/'ARTICLE_DRAFT_V03_JA.md').relative_to(ROOT).as_posix(),published=False,
           sections=[dict(section_id='history-and-context',title='単語表現からAttentionへ',source_ids=sources,
@@ -78,7 +88,8 @@ def record():
                  characters_approved=all(c['approval'] for c in final['project']['characters']),
                  accepted_proposal=final['project']['accepted_proposal']['proposal_id'],
                  scenes={e['episode_id']:len(e['storyboard']) for e in final['project']['episodes']},
-                 actual_render_seconds={k:json.loads((dest(k)/'qc.json').read_text())['seconds'] for k in ['short','full']},
+                 actual_render_seconds={k:json.loads((dest(k)/'qc.json').read_text(encoding='utf-8'))['seconds'] for k in ['short','full']},
+                 workflow_blockers=final['checks']['blockers'],workflow_warnings=final['checks']['warnings'],
                  article_draft='ARTICLE_DRAFT_V03_JA.md',publication=False,
                  note='Shared workflow registration is distinct from MP4 QC. Proposed approximate duration is preserved; actual timelines differ. Public export and publication not performed.')
     save(HERE/'workspace-review-summary-v03.json',summary)

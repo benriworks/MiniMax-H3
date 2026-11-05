@@ -1,0 +1,22 @@
+{
+  "revision": 44,
+  "assets": 25,
+  "characters_approved": true,
+  "accepted_proposal": "proposal-v01",
+  "scenes": {
+    "ai-bert-gpt-history-short": 9,
+    "ai-bert-gpt-history-full": 36
+  },
+  "actual_render_seconds": {
+    "short": 58.5,
+    "full": 425.625
+  },
+  "workflow_blockers": [],
+  "workflow_warnings": [
+    "想定尺と場面尺の合計を調整: ai-bert-gpt-history-short",
+    "想定尺と場面尺の合計を調整: ai-bert-gpt-history-full"
+  ],
+  "article_draft": "ARTICLE_DRAFT_V03_JA.md",
+  "publication": false,
+  "note": "Shared workflow registration is distinct from MP4 QC. Proposed approximate duration is preserved; actual timelines differ. Public export and publication not performed."
+}
