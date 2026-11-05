@@ -1,0 +1,7 @@
+{
+  "checked_at": "2026-11-04",
+  "s03_person_topic_seconds": [0.0, 2.7, 4.9],
+  "basis": "6台詞の実音声のAI補助聴取。s03の人物に係る説明句の開始を概測。名前単体の発音開始とは区別。",
+  "receipt": "outputs/content-projects/CONTENT_20261104_anthropic_departures/_private/media-review/audio-six-lines-v01/review.json",
+  "limits": "音素の強制アラインメントではない。最終映像音声でも対応を確認する。"
+}

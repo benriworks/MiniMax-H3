@@ -1977,3 +1977,33 @@ flowchart LR
 ```
 
 独立した詳細設計とMermaid図は`productions/content-projects/CONTENT_20261103_model_race/`。構成採用後の台詞別TTS、実音声の尺、縦横合成、最終MP4検査、記事キット、Drive読戻しまでを分離して記録する。AI補助視聴で発見した誤読は初回出力を保持して該当台詞を再生成し、完成候補とユーザー採用・公開を区別する。
+
+## 退社発表ショートの制作（2026-11-04）
+
+```mermaid
+flowchart LR
+    DepartPosts[本人3投稿と会社の役割説明] --> DepartResearch[出典と日付と未確認事項]
+    DepartBrowser[実ブラウザの撮影原本] --> DepartCrop[短い公開引用と元hash]
+    DepartResearch --> DepartDraft[6台詞と8場面の構成草稿]
+    DepartCrop --> DepartDraft
+    DepartDraft --> DepartReview[構成確認と共通CLIの未採用記録]
+    DepartResearch --> DepartArticle[記事草稿と横図2枚]
+    DepartCrop --> DepartPackage[公開画像6枚とhash付き包装]
+    DepartArticle --> DepartPackage
+    DepartPackage --> DepartReview
+    DepartReview --> DepartAccept[実際の採用返答と共通CLI]
+    DepartAccept --> DepartVoice[Gemini音声6件と単体の補助聴取]
+    DepartVoice --> DepartTiming[人物ごとの字幕節と実音声の話題時刻]
+    DepartTiming --> DepartAV[45.75秒の縦動画と媒体検査]
+    DepartAV --> DepartAI[完成動画のAI補助AV確認]
+    DepartAI --> DepartDrive[Drive保存と名前と容量の読戻し]
+    DepartDrive --> DepartLimit[Work設定でブラウザ制御無効 再生未確認]
+    LocalBgm[ローカル音源と公式利用条件] --> LocalGain[原曲hashと入力レベルの調整]
+    DepartAV --> V01Copy[映像ストリームと元ナレーションを維持]
+    LocalGain --> BgmRemix[BGMのみ再ミックス]
+    V01Copy --> BgmRemix
+    BgmRemix --> BgmV02[45.75秒v02 全decodeと不変性とAAC検査]
+    BgmV02 --> DepartDrive
+```
+
+独立した設計・Mermaid図は`productions/content-projects/CONTENT_20261104_anthropic_departures/`。技術確認済み候補の保存まで実施し、人の最終試聴・完成品採用・公開は未実施。

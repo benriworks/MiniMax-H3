@@ -1,0 +1,13 @@
+{
+  "revision":"v01-draft",
+  "status":"awaiting_outline_feedback",
+  "voices":{"male":"Charon","female":"Aoede"},
+  "turns":[
+    {"id":"s01","speaker":"female","display":"Claude Codeの開発に関わる3人が、相次いでAnthropicを退社。今後も改善を続けられるか、そこが気になるよ。","reading":"クロードコードの開発に関わるさんにんが、相次いでアンソロピックを退社。今後も改善を続けられるか、そこが気になるよ。","basis":"fact_and_editorial_question","source_ids":["thariq-post","anthony-post","cat-post"]},
+    {"id":"s02","speaker":"male","display":"どんな人たちが離れたの？","reading":"どんな人たちが離れたの？","basis":"question","source_ids":[]},
+    {"id":"s03","speaker":"female","display":"開発に携わったThariqさんと、デスクトップ版を作ったAnthonyさん。さらに、製品責任者のCat Wuさんも、退社を発表した。","reading":"開発に携わったタリクさんと、デスクトップ版を作ったアンソニーさん。さらに、製品責任者のキャット・ウーさんも、退社を発表した。","basis":"first_hand","source_ids":["thariq-post","anthony-post","cat-post","cat-official-role"]},
+    {"id":"s04","speaker":"male","display":"Claude Codeへの影響は、どう考えればいいかな？","reading":"クロードコードへの影響は、どう考えればいいかな？","basis":"question","source_ids":[]},
+    {"id":"s05","speaker":"female","display":"ここからは考察ね。モデルが賢くても、頼み方や確認の仕組みで、使い心地は変わる。だから私は、製品作りのノウハウを、チームが引き継げるかが気になる。","reading":"ここからは考察ね。モデルが賢くても、頼み方や確認の仕組みで、使い心地は変わる。だから私は、製品作りのノウハウを、チームが引き継げるかが気になる。","basis":"editorial_analysis","source_ids":["cat-official-role"]},
+    {"id":"s06","speaker":"female","display":"ただ、退社の共通原因も、開発への影響も、まだ分からない。今後の機能改善、使い勝手、安定性を見ていこう。","reading":"ただ、退社の共通原因も、開発への影響も、まだ分からない。今後の機能改善、使い勝手、安定性を見ていこう。","basis":"limits_and_next_observation","source_ids":["thariq-post","anthony-post","cat-post"]}
+  ]
+}
