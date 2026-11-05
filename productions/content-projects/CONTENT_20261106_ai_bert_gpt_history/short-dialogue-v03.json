@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "revision": "v03",
+  "status": "accepted_outline_script_ready_for_tts",
+  "voices": {
+    "female": "Aoede",
+    "male": "Charon"
+  },
+  "voice_profile": "conversational_v3",
+  "turns": [
+    {
+      "id": "s01",
+      "speaker": "male",
+      "visual": "hook",
+      "display": "GPTとBERTって、何が違うの？",
+      "spoken": "ジーピーティーとバートって、何が違うの？",
+      "emotion": "thinking",
+      "chapter": "short"
+    },
+    {
+      "id": "s02",
+      "speaker": "female",
+      "visual": "hook",
+      "display": "同じTransformerを土台に、学び方を変えたんだ。まずは、生まれるまでを見てみよう。",
+      "spoken": "同じトランスフォーマーを土台に、学び方を変えたんだ。まずは、生まれるまでを見てみよう。",
+      "emotion": "enjoyment",
+      "chapter": "short"
+    },
+    {
+      "id": "s03",
+      "speaker": "female",
+      "visual": "transformer",
+      "display": "単語を数字で表し、文脈を扱う研究が積み重なって、2017年にTransformerが登場。離れた言葉の関係も、Attentionで結び付ける。",
+      "spoken": "単語を数字で表し、文脈を扱う研究が積み重なって、2017年にトランスフォーマーが登場。離れた言葉の関係も、アテンションで結び付ける。",
+      "emotion": "thinking",
+      "chapter": "short"
+    },
+    {
+      "id": "s04",
+      "speaker": "male",
+      "visual": "compare",
+      "display": "それで、二つは何を練習したの？",
+      "spoken": "それで、二つは何を練習したの？",
+      "emotion": "thinking",
+      "chapter": "short"
+    },
+    {
+      "id": "s05",
+      "speaker": "female",
+      "visual": "gpt_bert",
+      "display": "2018年6月のGPTは、前の言葉から次を予測。10月のBERT論文は、前後の文脈から隠した部分を予測する学習を取り入れたんだ。",
+      "spoken": "2018年6月のジーピーティーは、前の言葉から次を予測。10月のバート論文は、前後の文脈から隠した部分を予測する学習を取り入れたんだ。",
+      "emotion": "joy",
+      "chapter": "short"
+    },
+    {
+      "id": "s08",
+      "speaker": "female",
+      "visual": "example",
+      "display": "例えば「昨日、図書館で本を借りた」。GPT型なら、まだ見ていない文の続きを予測。BERT型なら、隠した「本」を前後の文脈から予測するイメージだね。",
+      "spoken": "例えば「昨日、図書館で本を借りた」。ジーピーティー型なら、まだ見ていない文の続きを予測。バート型なら、隠した「本」を前後の文脈から予測するイメージだね。",
+      "emotion": "understanding",
+      "chapter": "short"
+    },
+    {
+      "id": "s06",
+      "speaker": "male",
+      "visual": "compare",
+      "display": "暗記する量だけじゃなくて、練習の仕方も違うんだね。",
+      "spoken": "暗記する量だけじゃなくて、練習の仕方も違うんだね。",
+      "emotion": "joy",
+      "chapter": "short"
+    },
+    {
+      "id": "s09",
+      "speaker": "female",
+      "visual": "closing",
+      "display": "そうだね。詳しい流れと仕組みは、本編で一緒に見ていこう。",
+      "spoken": "そうだね。詳しい流れと仕組みは、本編で一緒に見ていこう。",
+      "emotion": "enjoyment",
+      "chapter": "short"
+    }
+  ],
+  "revision_reason": "AI-assisted actual listening twice heard an unclear ending in s07; regenerate only that turn as s09 and preserve the old audio."
+}

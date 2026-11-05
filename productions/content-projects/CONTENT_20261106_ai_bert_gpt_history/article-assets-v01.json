@@ -1,0 +1,182 @@
+{
+  "checked_at": "2026-11-06",
+  "items": [
+    {
+      "asset_id": "transformer-2017-paper-title-quote",
+      "source_id": "transformer-2017",
+      "source_url": "https://arxiv.org/pdf/1706.03762v1",
+      "checked_at": "2026-11-06",
+      "method": "PDF clip rendered directly without rewriting text",
+      "page_number": 1,
+      "clip_pdf_points": [
+        193.48800659179688,
+        87.8338394165039,
+        417.89349365234375,
+        129.0492401123047
+      ],
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/article/v01/assets/transformer-2017-paper-title-quote.png",
+      "dimensions": [
+        1401,
+        259
+      ],
+      "sha256": "c75e4d92fee2c665e8f2ed0d5d392340ed8953792f7bbbd37a3c2054e2c20f5e",
+      "bytes": 16405,
+      "parent_pdf_sha256": "0a9bff1be3575cf9fe26a4a3d3a9175bc791ecec90de8b9deba4cff75d2b9476",
+      "caption_required": true,
+      "render_scale": 6.238706630298509
+    },
+    {
+      "asset_id": "gpt-2018-paper-title-quote",
+      "source_id": "gpt-2018",
+      "source_url": "https://cdn.openai.com/research-covers/language-unsupervised/language_understanding_paper.pdf",
+      "checked_at": "2026-11-06",
+      "method": "PDF clip rendered directly without rewriting text",
+      "page_number": 1,
+      "clip_pdf_points": [
+        153.3679962158203,
+        87.8338394165039,
+        458.6341857910156,
+        148.97422790527344
+      ],
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/article/v01/assets/gpt-2018-paper-title-quote.png",
+      "dimensions": [
+        1401,
+        282
+      ],
+      "sha256": "fd291fb46d35c0a04f669a39e97604662609739126433841e651c0d7c94ab94b",
+      "bytes": 27785,
+      "parent_pdf_sha256": "eb81a65e0856bd38e855e1f1de6ee12e7c3eb92ae05c8270d345a475beb631d0",
+      "caption_required": true,
+      "render_scale": 4.586161349700151
+    },
+    {
+      "asset_id": "bert-2018-paper-title-quote",
+      "source_id": "bert-2018",
+      "source_url": "https://arxiv.org/pdf/1810.04805v1",
+      "checked_at": "2026-11-06",
+      "method": "PDF clip rendered directly without rewriting text",
+      "page_number": 1,
+      "clip_pdf_points": [
+        98.51899719238281,
+        58.6820068359375,
+        499.02740478515625,
+        112.96820831298828
+      ],
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/article/v01/assets/bert-2018-paper-title-quote.png",
+      "dimensions": [
+        1403,
+        191
+      ],
+      "sha256": "093321c844fbfbbc15da989a06b52244ebe19e08517a85d315170ff62605aeb7",
+      "bytes": 20161,
+      "parent_pdf_sha256": "58534a3c000cbcc60ed64e999a2d9ed839edc2d9894e4449e9d79e1118b5e5ba",
+      "caption_required": true,
+      "render_scale": 3.5
+    },
+    {
+      "asset_id": "article-history-timeline",
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/article/v01/assets/article-history-timeline.png",
+      "dimensions": [
+        1920,
+        875
+      ],
+      "bytes": 75904,
+      "sha256": "95ea59e0f35f013d14ce6a1b6f07efda3dfd295a89d2c0022e89e6cfcddae144",
+      "alt": "ニューラル言語モデル、word2vec、Transformer、初代GPTとBERTの代表的な年表",
+      "origin": "Original diagram rendered directly at article resolution, not extracted from MP4.",
+      "visual_for": "f34"
+    },
+    {
+      "asset_id": "article-bank-context",
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/article/v01/assets/article-bank-context.png",
+      "dimensions": [
+        1920,
+        875
+      ],
+      "bytes": 61904,
+      "sha256": "56b88582f6554b607da72e66dde41eae08d23c062a9908a693526315b6f0c32f",
+      "alt": "同じ英語のbankが文脈により銀行と川岸を表す例",
+      "origin": "Original diagram rendered directly at article resolution, not extracted from MP4.",
+      "visual_for": "f08"
+    },
+    {
+      "asset_id": "article-word-vectors",
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/article/v01/assets/article-word-vectors.png",
+      "dimensions": [
+        1920,
+        875
+      ],
+      "bytes": 62634,
+      "sha256": "1acf27154efd611ab461f9522d043b58d64042ff7ff406c3ee5c66dc03c872f1",
+      "alt": "単語の表現を数値の関係で扱う模式図。実測した単語ベクトルではない",
+      "origin": "Original diagram rendered directly at article resolution, not extracted from MP4.",
+      "visual_for": "f07"
+    },
+    {
+      "asset_id": "article-self-attention",
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/article/v01/assets/article-self-attention.png",
+      "dimensions": [
+        1920,
+        875
+      ],
+      "bytes": 66111,
+      "sha256": "519e1c8fb421a329c72a87ff7b4cd934a0e9bcaf83df46bdbe3fd7bb5a15dede",
+      "alt": "語同士の関係を重み付きで扱う説明図。Attentionの実測値ではない",
+      "origin": "Original diagram rendered directly at article resolution, not extracted from MP4.",
+      "visual_for": "f13"
+    },
+    {
+      "asset_id": "article-transformer-branches",
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/article/v01/assets/article-transformer-branches.png",
+      "dimensions": [
+        1920,
+        875
+      ],
+      "bytes": 79336,
+      "sha256": "d91a7bd2c1d88a833a5a7b817665db679e92de4fa758f94a39735d4220200889",
+      "alt": "Transformerを共通の土台として初代GPTとBERTの学習方法が異なることを示す図",
+      "origin": "Original diagram rendered directly at article resolution, not extracted from MP4.",
+      "visual_for": "f26"
+    },
+    {
+      "asset_id": "article-gpt-next",
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/article/v01/assets/article-gpt-next.png",
+      "dimensions": [
+        1920,
+        875
+      ],
+      "bytes": 85337,
+      "sha256": "039d79bc74d8e4a3a16cc812a003c75e92bada2fea3052e0e88d63a23dd3e7c9",
+      "alt": "前のトークンから次を予測する学習の説明例",
+      "origin": "Original diagram rendered directly at article resolution, not extracted from MP4.",
+      "visual_for": "f22"
+    },
+    {
+      "asset_id": "article-bert-mask",
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/article/v01/assets/article-bert-mask.png",
+      "dimensions": [
+        1920,
+        875
+      ],
+      "bytes": 98322,
+      "sha256": "c665abcf701a582563c13eae1efa0fa6ade1b19bf7054c9212c02756bbd8db97",
+      "alt": "前後の文脈から隠した部分を予測する学習の説明例",
+      "origin": "Original diagram rendered directly at article resolution, not extracted from MP4.",
+      "visual_for": "f28"
+    },
+    {
+      "asset_id": "article-initial-gpt-vs-bert",
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/article/v01/assets/article-initial-gpt-vs-bert.png",
+      "dimensions": [
+        1920,
+        875
+      ],
+      "bytes": 97721,
+      "sha256": "067296c4025e4451082c2612a10c57b89e9a970d2864a50ba7920d224bff38a7",
+      "alt": "初代GPTとBERTの主な学習目標と発表順の比較",
+      "origin": "Original diagram rendered directly at article resolution, not extracted from MP4.",
+      "visual_for": "f31"
+    }
+  ],
+  "status": "source_assets_for_article; blog-specific layout and publishing remain pending"
+}
