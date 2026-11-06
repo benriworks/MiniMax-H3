@@ -1,0 +1,41 @@
+{
+  "version": "v01",
+  "brief_date": "2026-10-31",
+  "production_authority": "ユーザーが具体的な2題材と切り口を示し、動画二本の作成を依頼。45秒は助手の編集目安で、完成物の採用・公開は別。",
+  "voice": "Aoede",
+  "bgm_mix_profile": "explanation_v1",
+  "episodes": [
+    {
+      "id": "claude-ultra",
+      "title": "【Claude】Ultraで5時間制限なし！認証条件と週上限を確認",
+      "conclusion": "認証済みUltraでは5時間制限がなくなるが、週の上限は残る。",
+      "source_url": "https://support.claude.com/en/articles/17728952-what-is-the-ultra-plan",
+      "source_label": "Claude公式ヘルプ / 2026.10.31確認",
+      "character": "claude-shiori",
+      "scenes": [
+        {"seconds": 6, "kind": "hero", "pose": "shiori", "headline": "5時間制限、なし。\nただし条件つき", "text": "Claude Ultraは、認証済みなら5時間制限なし。でも、使い放題ではありません。", "spoken": "クロード・ウルトラは、にんしょう済みなら、ごじかん制限なし。でも、使い放題ではありません。", "captions": ["認証済みのUltraが対象", "使い放題ではありません"]},
+        {"seconds": 7, "kind": "price", "headline": "Max 20x → Ultra\nWeb月額は据え置き", "text": "Max 20xがUltraへ自動移行。Webの月額は200ドルのままです。", "spoken": "マックス・トゥエンティ・エックスが、ウルトラへ自動移行。ウェブの月額は、にひゃくドルのままです。", "captions": ["既存Max 20xから自動移行", "Web月額200ドルは据え置き"]},
+        {"seconds": 8, "kind": "limits", "headline": "なくなるのは5時間枠\n週の上限は残る", "text": "短い時間に集中して使いやすくなりますが、週の上限は残ります。Claude Codeも、その範囲で使います。", "spoken": "短い時間に集中して使いやすくなりますが、週の上限は残ります。クロード・コードも、その範囲で使います。", "captions": ["認証済みUltra：5時間枠なし", "週の上限の範囲内で利用"]},
+        {"seconds": 8, "kind": "verify", "headline": "認証は自動\n電話番号認証とは別", "text": "認証は、利用や支払いの履歴などから自動で行われます。まだなら、一時的な制限が適用されます。", "spoken": "にんしょうは、利用や支払いの履歴などから自動で行われます。まだなら、いちじてきな制限が適用されます。", "captions": ["利用・支払い履歴などで自動認証", "未認証なら一時的な制限あり"]},
+        {"seconds": 9, "kind": "usage", "headline": "設定 → 使用量\nセッション欄を確認", "text": "Ultraの設定から使用量へ。Current sessionのバーがなければ、認証済みの目安です。週の使用量も確認しましょう。", "spoken": "ウルトラの設定から、使用量へ。カレント・セッションのバーがなければ、にんしょう済みの目安です。週の使用量も確認しましょう。", "captions": ["Ultraの「設定 → 使用量」", "Current sessionの有無と週使用量"]},
+        {"seconds": 7, "kind": "closing", "pose": "shiori", "headline": "集中できる時間が変わる\n上限の確認は続けよう", "text": "変わるのは、集中して使える時間の配分。自分のプランと、残る週上限を確認しましょう。", "spoken": "変わるのは、集中して使える時間の配分。自分のプランと、残る週上限を確認しましょう。", "captions": ["認証済みUltraの条件を確認", "週の上限は残ります"]}
+      ]
+    },
+    {
+      "id": "chatgpt-accounts",
+      "title": "【ChatGPT】スマホで2アカウント切り替え！仕事用と個人用を使い分け",
+      "conclusion": "スマホで最大2アカウントを切り替えられ、会話・メモリ・ファイル・契約は分かれたまま。",
+      "source_url": "https://help.openai.com/en/articles/20001068-using-multiple-chatgpt-accounts-on-web-and-mobile",
+      "source_label": "OpenAI公式ヘルプ / 2026.10.31確認",
+      "character": "dots-duo",
+      "scenes": [
+        {"seconds": 6, "kind": "hero", "pose": "female-happy", "headline": "仕事用 ↔ 個人用\nスマホで切り替え", "text": "ChatGPTのスマホアプリで、仕事用と個人用を、ログアウトせず切り替えられるようになります。", "spoken": "チャットジーピーティーのスマホアプリで、仕事用と個人用を、ログアウトせず切り替えられるようになります。", "captions": ["ChatGPTのスマホ版", "ログアウトせずアカウント切り替え"]},
+        {"seconds": 7, "kind": "official", "headline": "ログイン状態は最大2つ\n同時に使うのは1つ", "text": "ログインしたままにできるのは、最大2アカウント。使うときは、どちらか一方を選びます。", "spoken": "ログインしたままにできるのは、最大ふたつのアカウント。使うときは、どちらか一方を選びます。", "captions": ["最大2アカウントでログイン維持", "現在使うアカウントは1つ"]},
+        {"seconds": 8, "kind": "steps", "headline": "設定 → Switch account\n使うアカウントを選ぶ", "text": "設定でSwitch accountを開き、使うアカウントを選択。初めて追加するときは、Add accountへ進みます。", "spoken": "設定で、スイッチ・アカウントを開き、使うアカウントを選択。初めて追加するときは、アド・アカウントへ進みます。", "captions": ["設定 → Switch account → 選択", "初回の追加はAdd accountから"]},
+        {"seconds": 9, "kind": "separate", "headline": "切り替えても\nデータは別々", "text": "会話、メモリ、ファイル、契約は別々。仕事の会話を個人用へ移したり、有料プランを共有したりする機能ではありません。", "spoken": "会話、メモリ、ファイル、契約は別々。仕事の会話を個人用へ移したり、有料プランを共有したりする機能ではありません。", "captions": ["会話・メモリ・ファイル・契約は別", "会話の移動・有料プラン共有はしない"]},
+        {"seconds": 8, "kind": "rollout", "headline": "iOS・Androidへ\n順次提供", "text": "10月30日発表。iOSとAndroidへ順次提供です。項目が見つからない場合は、まだ使えない可能性があります。", "spoken": "じゅうがつ、さんじゅうにち発表。アイオーエスと、アンドロイドへ順次提供です。項目が見つからない場合は、まだ使えない可能性があります。", "captions": ["2026年10月30日発表・順次提供", "項目がなければ未提供の可能性"]},
+        {"seconds": 7, "kind": "closing", "pose": "male-understanding", "headline": "話し始める前に\n今のアカウントを確認", "text": "仕事の相談を始める前に、今どちらのアカウントか確認。切り替えて、使い分けましょう。", "spoken": "仕事の相談を始める前に、今どちらのアカウントか確認。切り替えて、使い分けましょう。", "captions": ["相談や購入の前にアカウントを確認", "仕事用と個人用を使い分け"]}
+      ]
+    }
+  ]
+}

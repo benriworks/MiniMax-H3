@@ -1,5 +1,191 @@
 # Architecture diagram
 
+## 公開解説20チャンネルの比較と文書への適用
+
+```mermaid
+flowchart LR
+    PublicChannels[公開チャンネルと対象動画] --> BrowserEvidence[Computer Useで登録者と実画面を確認]
+    PublicChannels --> VideoAnalysis[全編の映像音声と区間の追加分析]
+    BrowserEvidence --> CuratedResearch[助手が20件の観察と条件を整理]
+    VideoAnalysis --> CuratedResearch
+    CuratedResearch --> ResearchCheck[対象件数と窓内時刻を検査]
+    ResearchCheck --> EditingGuide[比較報告と60項目とレビュー票]
+    EditingGuide --> Knowledge[AGENTSと総覧と索引]
+    Knowledge --> NextProduction[次の絵コンテで適用]
+    BrowserEvidence --> LocalOnly[私的原本はローカルのみ]
+    VideoAnalysis --> LocalOnly
+```
+
+## 東京駅のみのやわらかい会話への改訂
+
+```mermaid
+flowchart LR
+    Wording[返答と視聴者案内の台詞] --> Aoede[女性10台詞を同じ声で生成]
+    Previous[v02構図と男性5台詞と原素材] --> TokyoV3[東京駅full v03]
+    Aoede --> TokyoV3
+    Terms[3Dと簡略モデルの表示と読み] --> TokyoV3
+    TokyoV3 --> AudioQC[全decodeと実字幕と独立音声点検]
+    Terms --> ArticleV3[記事用語の別版と原素材]
+    AudioQC --> ReviewV3[Drive優先の候補共有]
+    ArticleV3 --> ReviewV3
+```
+
+## 文節字幕と成果物の改訂
+
+```mermaid
+flowchart LR
+    Reading[表示と読みの別原稿] --> Phrases[BudouXと保護語]
+    Phrases --> Width[実グリフ幅と固定サイズ字幕]
+    Old[4本の原版と素材とPCM] --> Revision[成果物拡大と同位置比較]
+    Width --> Revision
+    Faces[顔高と目線と意図別表情] --> Revision
+    Revision --> Videos[ワイン縦横と東京駅fullとTibo full]
+    Videos --> Verify[全decodeと197字幕状態と423画像]
+    Verify --> Review[Driveレビューと3案件記録]
+    Revision --> Article[既存記事と新しい比較素材と字幕]
+```
+
+## 利用枠ニュース：予定と現在の観察を分ける
+
+```mermaid
+flowchart LR
+    Official[公式本文と確認日] --> Planned[予定と未記載条件]
+    Current[現在のUsageを撮影] --> Entry[公開用の入口だけ]
+    Planned --> Diagram[共通文字配置と模式モーション]
+    Voice[Gemini実PCMと既存人物] --> Edit[47秒ショート]
+    Diagram --> Edit
+    Entry --> Edit
+    Edit --> QC[全decodeと25画像と音量とAI音声]
+    Diagram --> Article[記事草稿と1920px図]
+    QC --> Review[Drive優先と必要時S3代替]
+    Article --> Review
+    Review --> Human[試聴と採用と公開は別]
+```
+
+## 提供済みBlender素材から縦横動画と記事へ
+
+```mermaid
+flowchart LR
+    Source[元38ファイルを読み取り検査] --> Derive[実画面静止画と完成CGの公開派生]
+    Script[短尺とフルの原稿] --> Voice[Geminiの実PCM]
+    Voice --> Edit[共通人物とBGMで縦横編集]
+    Derive --> Edit
+    Edit --> QC[全decodeと実画像と独立音声点検]
+    Source --> Unchanged[原本hash再照合]
+    Derive --> Blog[記事草稿と画像と出典]
+    QC --> Share[Drive優先と必要時S3代替]
+    Blog --> Share
+    Share --> Human[人の試聴と採用と公開は別]
+```
+
+## 映像を再圧縮せず音を更新
+
+```mermaid
+flowchart LR
+    Prior[確認済みの映像とナレーション] --> Reuse[video stream copyとWAV一致]
+    Loop[8小節の循環原曲] --> Mix[共通BGM音量と発話中減音]
+    Frames[実フレームの押下と保管と改善表示] --> Effects[reset bank improvementの3種SE]
+    Effects --> Mix
+    Mix --> New[新しいAACを多重化]
+    Reuse --> New
+    New --> Check[映像hash一致と全decodeと音声点検]
+```
+
+## 1行の中央配置と明示複数行の上寄せ
+
+```mermaid
+flowchart LR
+    Label[明示されたボタン文言と領域] --> Ink[実フォントのink範囲とbearing]
+    Ink --> Layout[1行は中央 複数行は上寄せ]
+    Layout --> Fit[文字サイズを保ち領域内を検査]
+    Fit --> Draw[描画原点と配置台帳]
+    Draw --> Frame[実MP4のボタンと字幕を確認]
+```
+
+## 発表の確度とリセットの違いを保つ振り返り
+
+```mermaid
+flowchart LR
+    Sources[本人投稿と公式条件] --> Verify[現地日付と予告と反映を区別]
+    Verify --> Plan[日別原稿と対象条件]
+    PC[PCの実画面と私的原本] --> Quote[短い引用と公開用の切出し]
+    Plan --> Motion[ボタン押下と券の保管]
+    Voice[Aoedeと既存MiniMax人物と共通BGM] --> Render[版付き縦動画]
+    Motion --> Render
+    Quote --> Render
+    Plan --> Blog[記事と日別表と原投稿URL]
+    Render --> QC[全decodeと音量と実フレームとAI音声点検]
+    QC --> Review[Drive優先のレビュー]
+    Blog --> Review
+```
+
+## 公式引用を使うニュース2本
+
+```mermaid
+flowchart LR
+    Brief[二題材の制作依頼] --> Research[公式本文と実画面の照合]
+    Research --> Bounds[実証範囲と撮影不足を記録]
+    Bounds --> Plan[企画と表示原稿と読み原稿]
+    Plan --> Media[既存人物と公式引用と自作図]
+    Plan --> Voice[場面別AoedeとPCM実尺]
+    Voice --> Render[版付き本編2本]
+    Media --> Render
+    Default[共通BGM explanation_v1] --> Render
+    Render --> QC[全decodeと音量と実フレーム検査]
+    Plan --> Blog[記事草稿2本と共通素材]
+    QC --> Drive[Driveレビュー]
+    Blog --> Drive
+```
+
+## BGMの共通既定
+
+```mermaid
+flowchart LR
+    Profile[explanation_v1 共通設定] --> Bed[フェードと頭尾強調と発話中減音]
+    Raw[フェード前の選択曲] --> Bed
+    Speech[声の実発話区間] --> Bed
+    Bed --> Shorts[Shorts制作と設定記録]
+    Bed --> Long[長尺制作と設定記録]
+    Old[過去のpreparationにIDなし] --> Legacy[legacyと判定]
+    Legacy --> Gate[新既定へ古いミックスを再利用しない]
+```
+
+## BGMだけの改訂（2026-10-31）
+
+```mermaid
+flowchart LR
+    Voice[保存済みの声原本と時刻表] --> Mix[音声だけを再ミックス]
+    Music[同じBGMと任意フェード] --> Gain[共通の頭尾強調と発話中減音]
+    Gain --> Mix
+    Mix --> Remux[旧映像をstream copyして音声を差替え]
+    OldVideo[旧動画v03] --> Remux
+    Remux --> Checks[声成分と映像同一性と音量検査]
+    Checks --> Review[Drive保存と利用者の最終試聴]
+```
+
+## Pro利用枠ニュースの制作経路（2026-10-31）
+
+```mermaid
+flowchart LR
+    Approval[構成と既存人物の採用] --> Ledger[共通ContentWorkspace]
+    Ledger --> Driver[案件専用ドライバー]
+    Motion[既存MiniMax人物動画] --> Driver
+    PoseRequest[男女各3動作の追加依頼] --> LocalH3[専用H3で新規ポーズ生成]
+    LocalH3 --> PoseQC[成功historyとhashと動作の確認]
+    PoseQC --> Revision[v03編集と旧AACのコピー]
+    Video --> Revision
+    Revision --> QC
+    TTS[既存Gemini Aoedeアダプター] --> Driver
+    Driver --> Video[従来比グラフと48秒MP4]
+    Driver --> Article[記事草稿と比較図]
+    Video --> QC[全編decodeと実フレーム確認]
+    QC --> Drive[接続ツールによるDrive保存]
+    Article --> Drive
+    Drive --> Review[ユーザーの試聴と採用]
+```
+
+詳細は案件の[独立したMermaid図](productions/content-projects/CONTENT_20261030_chatgpt_pro_usage_news/ARCHITECTURE_DIAGRAM.md)。枠の絶対量・仕事数の保証・自動公開を表す経路ではない。
+
 ## dots第5〜9回の改訂経路（2026-10-23）
 
 ```mermaid
@@ -1721,3 +1907,103 @@ flowchart LR
     Fork --> State[技術検証・人の採用・公開を別に記録]
     Local --> State
 ```
+
+## Tiboフル動画の素材と音声の統合（2026-11-01）
+
+```mermaid
+flowchart LR
+    Prior[v01の不変カットと同一音声] --> V2[v02の末尾改訂]
+    Closing[closing_visuals CPUの光と顔保護] --> V2
+    Slate[10秒の関連動画と登録の余白] --> V2
+    V2 --> QC2[prefix hashと全decodeと改訂箇所の検査]
+    Slate --> Manual[YouTube Studioの実要素配置は別]
+```
+
+```mermaid
+flowchart LR
+    Research[原投稿・公式Help・実機撮影] --> Script[9章36セリフ]
+    Script --> TTS[Gemini Aoede / Charon]
+    TTS --> PCM[成功PCMと実尺]
+    PCM --> Render[1920x1080 CPU図解と人物合成]
+    Motion[確認済みMiniMax動画と表情アトラス] --> Render
+    Research --> Excerpt[短い引用と公開用切り出し]
+    Excerpt --> Render
+    H3[追加H3試行] --> Failure[失敗・圧迫停止を保存して不採用]
+    Render --> Segments[hash付きセリフ別MP4]
+    Segments --> Full[全編H264とAAC]
+    Music[明るいループと3種SEと共通減音] --> Full
+    Full --> Verify[全decode・音量・実画像・独立音声点検]
+    Render --> Blog[記事草稿と1920px図]
+    Verify --> Share[Drive優先のレビュー共有]
+    Blog --> Share
+```
+
+## ワインCGの比較と記事への派生（2026-11-02）
+
+```mermaid
+flowchart LR
+    DriveWine[提供ワインCGと修正履歴] --> WineInspect[12原本と64展開ファイルのhash]
+    WineInspect --> WineEvidence[同時刻の動きと同カメラの比率比較]
+    WineEvidence --> WineRender[実PCMと既存男女と共通Canvas]
+    WineRender --> WineShort[縦30秒]
+    WineRender --> WineFull[横150秒と10秒終了画面]
+    WineShort --> WineQC[全decodeとAAC音量と独立音声点検]
+    WineFull --> WineQC
+    WineEvidence --> WineArticle[記事草稿と画像と字幕のZIP]
+    WineQC --> WineDrive[Driveへ共有してPC再生を確認]
+    WineArticle --> WineDrive
+```
+
+## モデル競争の動画と記事（2026-11-03）
+
+```mermaid
+flowchart LR
+    Official[公式発表と一次報道] --> Ledger[出典と未確認事項の台帳]
+    BrowserCapture[Computer Useの撮影原本] --> PrepareRace[明示座標の引用と自作図]
+    Ledger --> RaceDraft[表示原稿と読み原稿の草稿]
+    Ledger --> RaceArticle[共通の記事草稿]
+    Ledger --> RaceCLI[共通CLIへの企画v01登録]
+    PrepareRace --> RaceCLI
+    RaceCLI --> RaceAccepted[構成の大筋採用と公式用語への改訂]
+    RaceAccepted --> RaceAV[台詞別音声と実尺による縦横合成]
+    RaceDraft --> RaceAV
+    PrepareRace --> RaceAV
+    RaceAV --> RaceQC[最終MP4のdecodeと音量とAI補助AV確認]
+    RaceQC -->|誤読の台詞のみ| RaceRepair[別版の音声を生成]
+    RaceRepair --> RaceAV
+    RaceArticle --> RaceReview[記事キットとDriveレビュー]
+    RaceQC --> RaceReview
+    RaceReview --> RaceRecord[案件記録と総覧と索引をfork保存]
+```
+
+独立した詳細設計とMermaid図は`productions/content-projects/CONTENT_20261103_model_race/`。構成採用後の台詞別TTS、実音声の尺、縦横合成、最終MP4検査、記事キット、Drive読戻しまでを分離して記録する。AI補助視聴で発見した誤読は初回出力を保持して該当台詞を再生成し、完成候補とユーザー採用・公開を区別する。
+
+## 退社発表ショートの制作（2026-11-04）
+
+```mermaid
+flowchart LR
+    DepartPosts[本人3投稿と会社の役割説明] --> DepartResearch[出典と日付と未確認事項]
+    DepartBrowser[実ブラウザの撮影原本] --> DepartCrop[短い公開引用と元hash]
+    DepartResearch --> DepartDraft[6台詞と8場面の構成草稿]
+    DepartCrop --> DepartDraft
+    DepartDraft --> DepartReview[構成確認と共通CLIの未採用記録]
+    DepartResearch --> DepartArticle[記事草稿と横図2枚]
+    DepartCrop --> DepartPackage[公開画像6枚とhash付き包装]
+    DepartArticle --> DepartPackage
+    DepartPackage --> DepartReview
+    DepartReview --> DepartAccept[実際の採用返答と共通CLI]
+    DepartAccept --> DepartVoice[Gemini音声6件と単体の補助聴取]
+    DepartVoice --> DepartTiming[人物ごとの字幕節と実音声の話題時刻]
+    DepartTiming --> DepartAV[45.75秒の縦動画と媒体検査]
+    DepartAV --> DepartAI[完成動画のAI補助AV確認]
+    DepartAI --> DepartDrive[Drive保存と名前と容量の読戻し]
+    DepartDrive --> DepartLimit[Work設定でブラウザ制御無効 再生未確認]
+    LocalBgm[ローカル音源と公式利用条件] --> LocalGain[原曲hashと入力レベルの調整]
+    DepartAV --> V01Copy[映像ストリームと元ナレーションを維持]
+    LocalGain --> BgmRemix[BGMのみ再ミックス]
+    V01Copy --> BgmRemix
+    BgmRemix --> BgmV02[45.75秒v02 全decodeと不変性とAAC検査]
+    BgmV02 --> DepartDrive
+```
+
+独立した設計・Mermaid図は`productions/content-projects/CONTENT_20261104_anthropic_departures/`。技術確認済み候補の保存まで実施し、人の最終試聴・完成品採用・公開は未実施。

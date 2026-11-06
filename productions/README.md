@@ -2,7 +2,7 @@
 
 ## 再開の入口（2026-10-30）
 
-共通の入口は [制作索引](../docs/video-production/README.md) → [ノウハウ総覧](../docs/video-production/PRODUCTION_KNOWHOW_JA.md) → 対象案件の `RESUME_AND_KNOWHOW_JA.md`。35単位を含む完全な案件一覧は制作索引へ集約した。このファイルの過去の4件表と状態遷移は当時の記録であり、全案件の現在地を示さない。
+共通の入口は [制作索引](../docs/video-production/README.md) → [ノウハウ総覧](../docs/video-production/PRODUCTION_KNOWHOW_JA.md) → 対象案件の `RESUME_AND_KNOWHOW_JA.md`。全案件の一覧は制作索引へ集約した。このファイルの過去の4件表と状態遷移は当時の記録であり、全案件の現在地を示さない。
 
 新規案件は [ひな形](../docs/video-production/templates/PRODUCTION_RECORD_JA.md) から再開記録を作り、索引へ追加する。再開・修正・生成・レビュー・採用・終了時に先頭の現在地と次の作業を更新し、履歴へ追記する。既存のREADME、制作台帳、台本、JSONは詳細の根拠として保持する。
 

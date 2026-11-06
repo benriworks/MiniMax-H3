@@ -1,0 +1,18 @@
+{
+  "short": {
+    "version": "v07",
+    "recommended": "【AI】GPTは続きを予測、BERTは穴埋め！学び方の違いを図解",
+    "alternatives": [
+      "【AI】GPTとBERT、何が違う？同じ一文で学び方を比較",
+      "【AI】ChatGPTの原点へ！GPTとBERTが生まれるまで"
+    ]
+  },
+  "full": {
+    "version": "v05",
+    "recommended": "【AI】GPTとBERTはどう生まれた？言葉の数値化からTransformerまで図解",
+    "alternatives": [
+      "【AI】GPTとBERTの違いがわかる！言葉を学ぶAIの進化を図解",
+      "【AI】丸暗記だけじゃない！GPT・BERT誕生までの仕組みと歴史"
+    ]
+  }
+}

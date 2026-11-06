@@ -1,0 +1,253 @@
+{
+  "schema_version": 1,
+  "series": "【AI】",
+  "style": "Original adult anime scientists, white coats, male teal and female coral accents",
+  "characters": [
+    {
+      "character_id": "ai-history-toru",
+      "fictional_adult": true,
+      "name": "朝倉 透",
+      "age": 28,
+      "role": "視聴者の具体的な疑問を尋ねる",
+      "series": "【AI】",
+      "visual_revision": "v02_scientists",
+      "reference_sheet": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/characters/v02/ai-history-duo-scientists-v02.png",
+      "reference_sheet_sha256": "5ed6ae0174b30a28fd7facd1632ccee07cc3716175f150b42d3bab7b6a3de328",
+      "input_derivative": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/characters/v02/male-reference-input-v02.png",
+      "input_sha256": "9366f0e4b2a4b28badd99bca22a12d488b9010b7f40eba560c6a4b024128f4df",
+      "crop_xyxy": [
+        370,
+        0,
+        700,
+        690
+      ],
+      "voice_source": "Gemini conversational_v3 used in this episode; final user listening/adoption remains separate.",
+      "approved_by": "白衣版・この構成で進める",
+      "approved_at": "2026-11-06",
+      "source_project": "CONTENT_20261106_ai_bert_gpt_history",
+      "resume_record": "productions/content-projects/CONTENT_20261106_ai_bert_gpt_history/RESUME_AND_KNOWHOW_JA.md",
+      "voice_used": "Charon"
+    },
+    {
+      "character_id": "ai-history-rin",
+      "fictional_adult": true,
+      "name": "篠宮 凛",
+      "age": 30,
+      "role": "例と図へ案内するやわらかい解説",
+      "series": "【AI】",
+      "visual_revision": "v02_scientists",
+      "reference_sheet": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/characters/v02/ai-history-duo-scientists-v02.png",
+      "reference_sheet_sha256": "5ed6ae0174b30a28fd7facd1632ccee07cc3716175f150b42d3bab7b6a3de328",
+      "input_derivative": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/characters/v02/female-reference-input-v02.png",
+      "input_sha256": "59ff3c561cfdbcd19fd7abf06fa0b924020a432064e4256e08056d32f29b625f",
+      "crop_xyxy": [
+        700,
+        45,
+        1144,
+        690
+      ],
+      "voice_source": "Gemini conversational_v3 used in this episode; final user listening/adoption remains separate.",
+      "approved_by": "白衣版・この構成で進める",
+      "approved_at": "2026-11-06",
+      "source_project": "CONTENT_20261106_ai_bert_gpt_history",
+      "resume_record": "productions/content-projects/CONTENT_20261106_ai_bert_gpt_history/RESUME_AND_KNOWHOW_JA.md",
+      "voice_used": "Aoede"
+    }
+  ],
+  "continuity": "Same faces, hair, white coats, roles and conversational tone. Raw images, voices and motion stay under ignored outputs, not Git.",
+  "motion_provenance": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motion-provenance-v01.json",
+  "motion_assets": [
+    {
+      "job": "female-enjoyment",
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/female-enjoyment/MiniMax_H3_female_enjoyment_00001_.mp4",
+      "sha256": "f35877587022fdf09346bf68d621e3bf00f69d299684340cc4de713595ed09b1",
+      "cache": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motion-cache/female-enjoyment",
+      "framed_cache": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motion-framed-cache/female-enjoyment",
+      "framing_applied": false,
+      "framing_scale_range": [
+        1.0,
+        1.0
+      ],
+      "proof": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/female-enjoyment/verification.json"
+    },
+    {
+      "job": "female-frustration",
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/female-frustration/MiniMax_H3_female_frustration_00001_.mp4",
+      "sha256": "c825726a1af42efa93d7824c991f2cb0a9c5e0ac11bda4cfb06186245f93a5ca",
+      "cache": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motion-cache/female-frustration",
+      "framed_cache": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motion-framed-cache/female-frustration",
+      "framing_applied": false,
+      "framing_scale_range": [
+        1.0,
+        1.0
+      ],
+      "proof": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/female-frustration/verification.json"
+    },
+    {
+      "job": "female-joy",
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/female-joy/MiniMax_H3_female_joy_00001_.mp4",
+      "sha256": "22e7bca90346e02b224c42d0efb14fbe47425da82d9c3d855613c378fa8f35af",
+      "cache": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motion-cache/female-joy",
+      "framed_cache": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motion-framed-cache/female-joy",
+      "framing_applied": true,
+      "framing_scale_range": [
+        1.0,
+        1.45
+      ],
+      "proof": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/female-joy/verification.json"
+    },
+    {
+      "job": "female-sadness",
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/female-sadness/MiniMax_H3_female_sadness_00001_.mp4",
+      "sha256": "423ed8f21581c04c9ecf84e0ab612ca42defa9772ccc3cf5193b3f2e58f87935",
+      "cache": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motion-cache/female-sadness",
+      "framed_cache": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motion-framed-cache/female-sadness",
+      "framing_applied": false,
+      "framing_scale_range": [
+        1.0,
+        1.0
+      ],
+      "proof": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/female-sadness/verification.json"
+    },
+    {
+      "job": "female-thinking",
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/female-thinking/MiniMax_H3_female_thinking_00001_.mp4",
+      "sha256": "1ce04e2f5d922a262c09d77491c7697f968ab94e25b6acd33d265d7b2bb9a1bc",
+      "cache": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motion-cache/female-thinking",
+      "framed_cache": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motion-framed-cache/female-thinking",
+      "framing_applied": true,
+      "framing_scale_range": [
+        1.0,
+        1.5
+      ],
+      "proof": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/female-thinking/verification.json"
+    },
+    {
+      "job": "male-enjoyment",
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/male-enjoyment/MiniMax_H3_male_enjoyment_00001_.mp4",
+      "sha256": "37d504f2f24c5bed856464b3fbe5b76b6fe05e2f2edae5754300b5bb5f7f61e1",
+      "cache": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motion-cache/male-enjoyment",
+      "framed_cache": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motion-framed-cache/male-enjoyment",
+      "framing_applied": false,
+      "framing_scale_range": [
+        1.0,
+        1.0
+      ],
+      "proof": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/male-enjoyment/verification.json"
+    },
+    {
+      "job": "male-frustration",
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/male-frustration/MiniMax_H3_male_frustration_00001_.mp4",
+      "sha256": "4fcbf109feda129700bad89ce6df12c6d590353bd95850916700b432f02f263d",
+      "cache": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motion-cache/male-frustration",
+      "framed_cache": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motion-framed-cache/male-frustration",
+      "framing_applied": false,
+      "framing_scale_range": [
+        1.0,
+        1.0
+      ],
+      "proof": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/male-frustration/verification.json"
+    },
+    {
+      "job": "male-joy",
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/male-joy/MiniMax_H3_male_joy_00001_.mp4",
+      "sha256": "8cdf06498be5d35791bdca19a9fbf7ad13e8ad1634c1ac9a8b18977586337b00",
+      "cache": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motion-cache/male-joy",
+      "framed_cache": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motion-framed-cache/male-joy",
+      "framing_applied": false,
+      "framing_scale_range": [
+        1.0,
+        1.0
+      ],
+      "proof": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/male-joy/verification.json"
+    },
+    {
+      "job": "male-sadness",
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/male-sadness/MiniMax_H3_male_sadness_00001_.mp4",
+      "sha256": "c8faeeda39e50d78e2a678c4ce5c33da2a631dd3c78bfc8d533c406f72f9526c",
+      "cache": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motion-cache/male-sadness",
+      "framed_cache": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motion-framed-cache/male-sadness",
+      "framing_applied": false,
+      "framing_scale_range": [
+        1.0,
+        1.0
+      ],
+      "proof": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/male-sadness/verification.json"
+    },
+    {
+      "job": "male-thinking",
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/male-thinking/MiniMax_H3_male_thinking_00001_.mp4",
+      "sha256": "31d6a15c7c41f7414291add1f3bf699e2ae98a5b1f47b6df9c93674ce1a38c33",
+      "cache": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motion-cache/male-thinking",
+      "framed_cache": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motion-framed-cache/male-thinking",
+      "framing_applied": false,
+      "framing_scale_range": [
+        1.0,
+        1.0
+      ],
+      "proof": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/male-thinking/verification.json"
+    }
+  ],
+  "motion_notes": "Ten native local MiniMax clips: joy, frustration, sadness, enjoyment, thinking per adult. Raw assets preserved; separate character-only head framing; mouths not phoneme-synchronized.",
+  "additional_close_reactions": [
+    {
+      "job": "female-close-insight",
+      "source": {
+        "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v04-closeups/input/female-close-insight/keyframe.png",
+        "bytes": 382758,
+        "sha256": "F1E206E2A5B4C32854C389CC89A827298EC78EB06119EA44FDDD4D084240448F"
+      },
+      "approved_identity_parent": {
+        "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/characters/v02/ai-history-duo-scientists-v02.png",
+        "bytes": 1582428,
+        "sha256": "5ED6AE0174B30A28FD7FACD1632CCEE07CC3716175F150B42D3BAB7B6A3DE328"
+      },
+      "artifact_path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v04-closeups/female-close-insight/MiniMax_H3_female_close_insight_00001_.mp4",
+      "sha256": "AEEACAB84171D903D1874A91F38374C5343F62CD54D888C5699728927FC832B7",
+      "native": [
+        480,
+        864,
+        124,
+        24
+      ],
+      "elapsed_seconds": 287.329,
+      "edit_crop": [
+        0,
+        0,
+        480,
+        642
+      ],
+      "reason": "Exclude unwanted generated text below the chosen chest-up image region; preserve raw output."
+    },
+    {
+      "job": "male-close-thinking",
+      "source": {
+        "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v04-closeups/input/male-close-thinking/keyframe.png",
+        "bytes": 372641,
+        "sha256": "440D73E9F8FDB57DFA2AC3582C4958C7B4F744A878C9DF9954E7C2E7F96FD8FA"
+      },
+      "approved_identity_parent": {
+        "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/characters/v02/ai-history-duo-scientists-v02.png",
+        "bytes": 1582428,
+        "sha256": "5ED6AE0174B30A28FD7FACD1632CCEE07CC3716175F150B42D3BAB7B6A3DE328"
+      },
+      "artifact_path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v04-closeups/male-close-thinking/MiniMax_H3_male_close_thinking_00001_.mp4",
+      "sha256": "55308079DDE07DBAA35F4F7A813BFC5C4E31B952E6B477BE9A6D04B023A7BC6C",
+      "native": [
+        480,
+        864,
+        124,
+        24
+      ],
+      "elapsed_seconds": 305.338,
+      "edit_crop": [
+        0,
+        0,
+        480,
+        642
+      ],
+      "reason": "Exclude unwanted generated text below the chosen chest-up image region; preserve raw output."
+    }
+  ],
+  "closeup_approval_scope": "Same adopted adult faces and white coats; new pose/framing derivatives made for the user-requested editorial correction. Completed-video adoption remains pending."
+}

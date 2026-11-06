@@ -1,0 +1,24 @@
+{
+  "title": "【ChatGPT】dots×Blenderで東京駅を3Dに！依頼・制作・確認・修正まで",
+  "scope": "Tokyo full only; keep male voices and v02 visual composition",
+  "female_voice": "Aoede",
+  "voice_profile": "conversational_v3",
+  "turns": [
+    {"id":"f01","display":"見て、この東京駅の3Dモデル。dotsにBlenderを動かして作ってもらったんだ。角度を変えると、屋根や壁も見られるよ。"},
+    {"id":"f03","display":"うん、画像だけじゃなくて、あとから動かせる3Dモデルだよ。dotsが使うクラウドPCの中で、Blenderを操作して作っているんだ。"},
+    {"id":"f05","display":"たとえば、『赤レンガとドーム屋根が分かる簡略モデルを作って』と頼んでみよう。何に使うのかも添えると、仕上がりのイメージを伝えやすいね。"},
+    {"id":"f06","display":"じゃあ、作る流れを見てみよう。これは実際の制作画面を、工程ごとに残した静止画だよ。まず敷地と建物、その次に屋根とドーム。大きな形から整えていくんだ。"},
+    {"id":"f08","display":"一つずつじゃなくて、今回はBlenderのPythonで、窓や柱をまとめて並べているよ。画面は作業の節目に残したものだから、連続した操作の録画とは分けて見てね。"},
+    {"id":"f09","display":"そこへ白い装飾や屋根の飾り、駅前の広場を足していくんだ。大きな形から少しずつ細部へ進めると、途中の仕上がりも確認しやすいね。"},
+    {"id":"f11","display":"うん、横からも見ておきたいね。ここでは側面の窓を追加して、レンガの向きも直しているよ。気になる場所を見つけたら、『ここをこう変えて』と具体的に伝えてみよう。"},
+    {"id":"f12","display":"仕上がった3Dモデルも、近くで見てみよう。ドームに寄ったり、壁に沿って動いたりできるんだ。実物を空撮した映像じゃなくて、モデルの中でカメラを動かしているよ。"},
+    {"id":"f14","display":"まず、使いたい目的に合っているか。別の角度で気になるところがないかも見てみよう。今回は東京駅の雰囲気を表した簡略モデルだから、正確な建築復元とは分けて考えてね。保存したモデルも忘れずに確認しよう。"},
+    {"id":"f15","display":"そう、dotsに形にしてもらって、人が見て、また直していく。お願いして終わりじゃなくて、一緒に仕上げる感じだね。クラウドPCでアプリを使うと、こんな作り方もできるんだ。"}
+  ],
+  "style": {
+    "principle": "Answer the male character while guiding viewers through the evidence",
+    "endings": ["見られるよ", "作っているんだ", "伝えやすいね", "見てみよう", "分けて考えてね"],
+    "avoid": ["repeated formal desu/masu endings", "repeating dayo on every sentence", "childish or exaggerated feminine language"],
+    "display_terms": {"立体":"3D", "模型":"モデル"}
+  }
+}

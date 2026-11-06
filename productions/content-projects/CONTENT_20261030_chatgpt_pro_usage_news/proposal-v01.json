@@ -1,0 +1,16 @@
+{
+  "proposal_id": "proposal_pro_usage_v01",
+  "count_reason": "1本を推奨。Pro200の条件分岐という一つの結論に絞り、対象と確認先を約45〜50秒で示す。Business PremiumとChat側の細かな変更は記事で補い、未実演の性能比較で本数を増やさない。",
+  "episodes": [
+    {
+      "episode_id": "pro_usage_01",
+      "title": "【ChatGPT】ProのWork・Codex枠が拡大！2倍になる人・変わらない人",
+      "overview": "対象プラン別の変化、Pro200の削減撤回、自動適用、Plus据え置き、確認先を説明する。",
+      "intended_message": "枠拡大は対象別。自分のプランと従来枠を確認し、全制限・仕事数が一律2倍と受け取らない。",
+      "duration_seconds": 48,
+      "demo_idea": "このPCのプラン名・使用状況の読取画面を、確認場所の紹介として使用。増量前後の実証や同条件の消費量実験は行わない。",
+      "article_role": "対象別の表、Chat週間枠の補足、Business Premiumの発表と一次確認範囲、確認手順、検証範囲を読む。",
+      "capture_inspection_id": "inspect_pro_settings_20261030"
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "received_at": "2026-11-06",
+  "messages": [
+    {
+      "order": 1,
+      "text": "【AI】シリーズとして、BERTやGPTが生まれるまでをショートとフル動画で解説したい。\n新しい男性と女性キャラを作り、これまで同様の掛け合いを基本としたい。\nキャラクターは、アトラスのペルソナシリーズのようなキャラクターを再生し、ローカルMiniMaxで喜怒哀楽を生成して使いたい。",
+      "interpretation": "新シリーズ、ショートとフル、男女の掛け合い、画風の参考、ローカルMiniMaxの人物動作を明示。後から提示する構成や画像そのものの採用とはしない。"
+    },
+    {
+      "order": 2,
+      "text": "2人の画像が見られない",
+      "target": "人物候補v01",
+      "interpretation": "閲覧の問題。採用ではない。DriveへPNGを保存し、名前・容量・親を読戻ししてリンクを渡した。"
+    },
+    {
+      "order": 3,
+      "text": "見られました。キャラクターはこの雰囲気でよいので、科学者のような服装にできる？",
+      "target": "人物候補v01",
+      "interpretation": "v01の閲覧と顔立ち・雰囲気への肯定的評価。科学者風の衣装への変更を依頼。白衣版v02を作成してDriveへ保存し提示。v02の採用・本番人物動画・構成・完成品・公開へ拡張しない。"
+    },
+    {
+      "order": 4,
+      "text": "白衣版・この構成で進める",
+      "target": "白衣版v02とproposal-v01",
+      "interpretation": "提示した人物とショート・フルの構成を採用。本番制作を進める。完成品や公開は別。"
+    }
+  ],
+  "current_state": {
+    "visual_direction": "v01 atmosphere accepted; scientist clothing requested",
+    "latest_character_candidate": "v02 lab coats",
+    "latest_character_approved": true,
+    "proposal_version": "proposal-v01",
+    "proposal_accepted": true,
+    "local_motion_generated": 3,
+    "tts_generated": 44,
+    "finished_videos": 0,
+    "published": false,
+    "production_state": "accepted and in production; local motion generation continues",
+    "tts_used": 43,
+    "snapshot_utc": "2026-11-05T17:58:30.323116+00:00"
+  }
+}

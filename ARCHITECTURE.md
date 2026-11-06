@@ -1,5 +1,55 @@
 # Architecture
 
+## 退社発表の調査とショートの制作（2026-11-04）
+
+`productions/content-projects/CONTENT_20261104_anthropic_departures/`は本人3投稿、会社公式の役割説明、取材報道を区別し、実ブラウザの撮影原本から明示座標の短い引用を作る。構成採用後、共通Gemini6台詞、Canvas・文節字幕・男女の顔合わせ、既存MiniMax2動作、既定BGMを再利用して45.75秒の縦動画を制作した。人物ごとの字幕節と実音声の話題時刻を使い、全字幕12状態・音量・全decode・実AV補助確認、記事v02と6公開画像のhash包装、共通CLI登録、Drive保存読戻しを分離する。ブラウザ制御がWork設定で無効のため動画再生は未確認。原本・媒体・共有受領をignoredのoutputsへ、文書と処理をGitへ分ける。旧モデル競争動画は変更しない。独立設計とMermaid図は同案件内。
+
+同案件の`remix_local_music.py`はBGMだけのv02改訂。SSDの音源を原曲hashと配布条件で照合し、入力音量を調整して共通の減音へ渡す。元ナレーションWAVと符号化映像を維持し、ストリームコピーで新しいAACと結合する。原曲・旧版・声・映像の不変、全decodeと最終音量を検査。曲単体は共有せず、制作動画とクレジットを渡す。自動曲庫検索・許諾判定・Studio UIの追加ではない。
+
+## 公開解説動画の比較調査と制作への参照（2026-11-03）
+
+`productions/research/RESEARCH_20261103_youtube_explainers/`の補助CLIは、Computer Useでの公開登録者・動画確認、Geminiの全編映像音声分析20件、4fps指定の区間分析20件、助手による手整理、窓内時刻・対象20件の検査を経て、比較報告・60項目のプレイブック・編集レビュー票へ結ぶ。私的画面・API生応答はignoredの`outputs/`、軽量な要約とコードはGitへ分離する。試験1件の成功を区間分析の一括実行前に要求し、既存受領は自動再送しない。Studioの自動編集・動画生成・Analytics連携の追加ではない。独立設計・Mermaid図は同調査フォルダーに保存する。
+
+## 東京駅full v03の会話口調改訂（2026-11-03）
+
+`productions/content-projects/CONTENT_20261101_dots_blender_tokyo/revise_v03_soft_dialogue.py` は、女性10台詞をやわらかな返答と視聴者への案内へ直し、同じAoedeで生成する。男性5台詞、v02の構図・側面拡大・文節字幕・顔高/目線・10秒終了画面は継承。表示と読みを分離し、見出し・注釈・依頼例も3D/簡略モデルへそろえる。PCM実尺から編集し直し、記事用語と素材も別版に整える。他動画や旧版の媒体・元Blenderは変更しない。独立設計・Mermaid図は同案件内。
+
+## 文節字幕と成果物中心の改訂（2026-11-03）
+
+`tools/studio/editorial_captions.py` はBudouX0.10.2・保護語・実グリフ幅を使い、表示原稿と読み原稿を分けて固定サイズの2行字幕を作る。読み辞書は明示指定を優先し、小数の自動読みは1桁整数部に限定。旧wrapと旧完成品を自動変更しない。`editorial_presenters.py` は既存400px男女アトラスの顔高・目線を均等スケールでそろえ、台詞意図を表情へ対応させる。全身動画や別キャラへの一般的な顔認識機能ではない。
+
+`productions/content-projects/CONTENT_20261103_editorial_revision/` はワイン2本・東京駅full・Tibo fullを独立した新しい出力へ改訂する。成果物の拡大、縦の同位置切り替え、側面の切り出しを扱い、ワイン変更4台詞だけTTS。東京駅とTiboは元AACのhash一致を確認する。197字幕状態、完成動画423画像、全decode・音量・原版不変を記録し、記事草稿・比較素材・字幕も同時に渡す。StudioのUIをユーザーの前提作業にせず、共通台帳へ新版の絵コンテを保存する。独立した設計とMermaid図は案件内。
+
+## 任意の明るいループと分類別SE（2026-11-01）
+
+`tools/studio/audio_motifs.py` は外部サンプルを使わない任意の `sunny_guitar_loop_v1` とreset/bank/improvementの3種SEを生成する。8小節の音の余韻を循環させてループ境界を測定し、BGMの音量設計は既存 `explanation_v1` を継続する。今回専用の選択であり全体の曲の既定・Studio UIは変更しない。Tibo案件の `remix_audio.py` は実フレームからSE配置を決め、映像stream copyとナレーションのhash一致を確認して音だけを差し替える。音源・配置表・mixを分離して保存する。
+
+## ボタンの実グリフ配置と称賛の締め（2026-11-01）
+
+`tools/studio/text_layout.py` の `visible_glyph_bbox` はPillowの実ラスタのink範囲を測り、`box_text_layout` はfont bearingを差し引いた描画原点を返す。1行は上下左右中央、明示複数行は上寄せとし、文字を縮めず収まらない場合は文言・領域の修正を要求する。既存の `fit_explicit_lines` の意味別改行と最小サイズは変更しない。Tibo動画v06でDAY表示・図の選択ボタン等へ適用し、配置台帳と実フォントの画像検査を残す。最後の称賛はユーザー指定の編集表現で、日別の事実確認や完結の根拠とは分離する。
+
+## Tiboの期間ものニュースを振り返る独立制作・初稿v04（2026-11-01）
+
+`productions/content-projects/CONTENT_20261101_tibo_28day_recap/` は本人の原投稿・公式Help・PCの実画面を照合し、Day26までの発表と最後の2日間の予告を区別する。既存MiniMax人物、場面別Aoede、共通BGMを再利用し、新規のボタン押下と券の保管を自作2Dモーションとして日別タイムラインへ組み込む。受取だけで利用枠を回復させず、実際のリセット使用はしない。短い引用、記事草稿・日別表・図、旧版と入力snapshot、実MP4の検査を別保存し、共通ContentWorkspaceへ制作依頼の範囲と根拠を登録する。Studio共通機能・自動公開は改修しない。独立した[設計本文](productions/content-projects/CONTENT_20261101_tibo_28day_recap/ARCHITECTURE.md)と[Mermaid図](productions/content-projects/CONTENT_20261101_tibo_28day_recap/ARCHITECTURE_DIAGRAM.md)を参照。
+
+## 10/31ニュース2本の独立制作（2026-10-31）
+
+`productions/content-projects/CONTENT_20261031_ai_news_ultra_accounts/` はユーザー指定のUltra条件とスマホ2アカウントを、公式引用・図解・既存人物・Aoedeで作る。PC撮影と端末接続を確認し、未実証の個別反映を仕様の説明と分ける。共通BGM既定を利用し、音声の実尺・版付き動画・記事用図・引用を保存する。`register_workspace.py` は二題材の依頼の採用範囲と、根拠・撮影不足・絵コンテ・記事節を共通台帳へ記録する。Driveは個別送信で照合し、自動公開やUI/API契約は追加しない。独立した[設計本文](productions/content-projects/CONTENT_20261031_ai_news_ultra_accounts/ARCHITECTURE.md)と[図](productions/content-projects/CONTENT_20261031_ai_news_ultra_accounts/ARCHITECTURE_DIAGRAM.md)を参照。
+
+## 制作BGMの共通既定（2026-10-31）
+
+`music_mix.DEFAULT_BGM_PROFILE` がユーザー採用の `explanation_v1` を保持する。フェード前の音楽へ `default_bgm_bed()` が頭尾強調・発話中減音・フェードを適用し、Shortsと長尺の両入口が既定利用する。曲の生成と声・効果音は独立。Shortsのpreparationと音声署名にプロファイルIDを記録し、IDなしの過去ミックスはlegacyとして新既定への誤流用を拒否する。`legacy` は旧版再現用として保持。[設定と検査](docs/video-production/BGM_DEFAULTS_JA.md)。
+
+## BGMの音量カーブと音声だけの差し替え（2026-10-31）
+
+`tools/studio/music_mix.py` はBGMの頭尾強調と滑らかな発話中の減音を共通処理にする。`longform_audio.music_bright()` は従来のフェード既定値を保ち、任意のフェード時間を受け取る。Proニュースの `remix_bgm_v04.py` は声原本を維持し、映像をstream copyしてBGMだけを変えたAACへ差し替える。旧ミックス再構築・声PCM一致・映像bitstream一致・全編decode・音量検査を分ける。Studio UIとHTTP API、外部生成、公開処理は追加しない。[案件の音量改訂記録](productions/content-projects/CONTENT_20261030_chatgpt_pro_usage_news/AUDIO_REVISION_V04_JA.md)。
+
+## Pro利用枠ニュースの相対グラフ制作（2026-10-31）
+
+`productions/content-projects/CONTENT_20261030_chatgpt_pro_usage_news/produce.py` は採用済み48秒の企画から、既存MiniMax人物動画、各プランの従来枠＝1とする相対グラフ、公開候補画面、Aoede音声を合成する。既存Geminiアダプターと明るいBGM生成器を再利用し、原本・v01・v02・技術QC・記事用画像を独立保存する。共通ContentWorkspaceへ採用原文・人物・素材を記録し、Driveは接続ツールで個別送信する。StudioのUI／HTTP APIや自動公開は追加しない。案件の[設計本文](productions/content-projects/CONTENT_20261030_chatgpt_pro_usage_news/ARCHITECTURE.md)と[図](productions/content-projects/CONTENT_20261030_chatgpt_pro_usage_news/ARCHITECTURE_DIAGRAM.md)を参照。
+
+同日の追加改訂では `generate_motion.py` が既存の耐久H3ランナーを利用して男女の思考・喜び・納得を各3本生成する。`render_motion_revision.py` は成功・hash確認済みの新規素材を使い分け、旧AACをstream copyする。`register_motion_revision.py` は実際に生成・AI確認した本数だけを共通台帳へ登録し、6本の予定を完了数にしない。専用ローカルサービスと出力を分離し、旧主映像を保持する。
+
 ## dots第5〜9回の仕上げ改訂（2026-10-23）
 
 `productions/SERIES_20261023_dots_final_delivery/produce.py`は第5回の文脈保持と第7回の定期実行の使い方を独立IDで改訂する。既存原稿に一致するGemini Aoede発話だけを再利用し、変更分を既存TTSアダプターで生成して共通Shorts処理へ渡す。旧dotsのMiniMax人物動画・公式引用証跡を保ち、第6・8・9回の検証済み動画と合わせて独立フォルダーへ集約する。Driveへの共有は接続ツールによる個別操作。UI・API・DB・実schedule登録経路は追加しない。詳細は[専用アーキテクチャ](productions/SERIES_20261023_dots_final_delivery/ARCHITECTURE.md)。
@@ -939,3 +989,27 @@ Shortsのgraphic列挙に `web-services` と `web-flow` を追加し、`WebRunti
 制作コード・台本・出典・プロンプト・ペルソナ・検証要約は個人forkで管理する。実メディア・私的キャプチャ・共有受領・API生応答・描画bundleはローカル／指定共有ストレージで保持する。Gitのmain統合、生成・撮影・人の採用、媒体公開は独立した状態である。統合記録は `docs/video-production/GITHUB_SYNC_20261028_JA.md`。
 
 画像の安全性テストは架空PNGと証明レコード、TTSの拒否・再送防止テストは独立一時フォルダーとモックを利用し、非公開の撮影素材や既存outputsを初回テストの前提にしない。ファイル差し替え検知のテストは同一サイズを保ったまま更新時刻を明示して検査する。
+
+## モデル競争の調査・企画準備（2026-11-03）
+
+2026-11-03のモデル競争制作は、`productions/content-projects/CONTENT_20261103_model_race/`の独立設計を参照。企画v01の大筋を採用後、公式用語と具体例へ改訂し、51台詞のGemini音声、既存人物6動作、公式引用、動く図を縦横専用に合成する。`editorial_captions.caption_pages/timed_captions`は任意の保護語を後方互換のキーワード引数で受け取り、複合モデル名の改行を防ぐ。実音声の尺、全字幕状態、最終MP4の全decodeとAAC音量を検査。実AVのAI補助確認で検出したf02の誤読は、別版へ該当台詞だけを再生成した。記事用素材と出典、ZIP内hashも共用し、共通CLIへ実尺の絵コンテを保存する。Drive送信、ユーザー採用、公開は独立工程で、自動公開は実装しない。
+
+## 将来の利用枠ニュースと文字配置（2026-11-02）
+
+`tools/studio/explainer_canvas.py` は、実グリフに基づく中央揃え、はみ出し検出、改行時の英数字語境界を扱う、新規制作向けの共通部品。自動縮小や既存動画の再描画は行わない。製品名分断防止・実ラスタの中央配置・はみ出し拒否の3テストで確認する。
+
+`productions/content-projects/CONTENT_20261102_chatgpt_codex_shared_usage/` は、将来予定の模式モーション、短い公式引用、現在の設定入口、既存男女と実PCMを47秒のショートへ合成し、記事用1920px図・草稿を同時に準備する。実際の消費実験と予定の解説を分け、全decode・音量・25画像・独立AI音声点検を保存する。制作CLIと共通台帳を利用し、Studio UIや自動公開の新機能とはしない。独立設計・Mermaid図は案件内に保存する。
+
+## 提供済みBlender素材の縦横編集（2026-11-01）
+
+2026-11-02の `productions/content-projects/CONTENT_20261102_dots_blender_wine/` は同じ縦横編集を再利用し、初版/v2の同時刻比較とv2/v3の同カメラ比較、工程静止画、手続き型液体の説明を追加する。元blend・提供コード・現在の別シーンを変更せず、22ターンの成功PCMからショート30.292秒とフル149.5秒を組み立てる。2-pass音量正規化後のAACを再実測し、記事画像・字幕・出典のZIPも検証する。共通台帳に2本と記事を登録。個別の独立設計・Mermaid図は同案件内にあり、自動公開や新Studio UIではない。
+
+`productions/content-projects/CONTENT_20261101_dots_blender_tokyo/` は、元素材の読み取り検査、公開用派生、実PCMに基づく縦横2媒体、記事の同時受け渡しを扱う。既存のナレーション・アバター・BGM・終了画面の共通処理を再利用し、元blendと現在の未保存Blenderを変更しない。実画面静止画、完成CG、依頼例を分け、全decode・音量・実フレーム・原本不変・独立音声点検で候補を確認。共通企画台帳へ出典・撮影不足・2本の絵コンテ・記事を記録する。自動公開やStudio UIの追加実装ではなく、独立設計とMermaid図は案件内に保存する。
+
+## Tiboフル動画の横長制作（2026-11-01）
+
+v02の `tools/studio/closing_visuals.py` は、顔と字幕を保護するCPUの光演出と、関連動画2領域・登録1領域を空けた終了画面を共通部品として提供する。個別の `revise_v02.py` から使用し、既存34カットを保持して称賛2カットと末尾10秒だけを改訂。YouTube Studioのクリック要素の設定・投稿や、Studio UIの自動操作を追加したものではない。映像prefix、同一ナレーションPCM、音楽mixの不変区間を独立して照合する。新規2テストは顔・字幕領域の保護と終了画面の安定領域を確認する。
+
+`productions/content-projects/CONTENT_20261101_tibo_28day_full/` はショートv07を保持したまま、9章36セリフの横長詳細編を制作する。新規Gemini Aoede/CharonのPCM実尺、既存の人物動画・音量駆動の口パク、公式抜粋、CPU上の図解とモーション、明るいループと3種SEを統合する。完了した連続区間をセリフ単位で先に描画し、hashとコード同一性を照合して全編へ連結する。字幕句内の時刻は文字数による推定で、単語単位の整列を保証しない。
+
+追加H3カット3条件の失敗・圧迫停止は記録を残して不採用とし、確認済み人物素材とCPU描画で進める。実機の設定撮影、Day27本人投稿、Day28未発表を区別し、個人の残量や保有数は公開用から除く。記事の1920px図と短い引用も同じ制作から派生する。これは共通API・Studio UIの新機能や、自動投稿の実装ではない。独立した設計と図は案件内の `ARCHITECTURE.md` / `ARCHITECTURE_DIAGRAM.md`。

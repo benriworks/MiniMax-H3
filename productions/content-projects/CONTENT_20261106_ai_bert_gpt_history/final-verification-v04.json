@@ -1,0 +1,122 @@
+{
+  "checked_at": "2026-11-06",
+  "status": "technical_checks_passed_human_editorial_review_pending",
+  "media": [
+    {
+      "kind": "short",
+      "revision": "v07",
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/release/v07/short/ai-bert-gpt-history-short-v07.mp4",
+      "bytes": 6455447,
+      "sha256": "9c0f19d1514475eca4d583f4cd299d2f64fee3e84025c97bb1db61d89faff415",
+      "seconds": 58.5,
+      "frames": 1404,
+      "full_decode": true,
+      "caption_states": 17,
+      "text_box_states": 86,
+      "text_boxes_fit": true,
+      "body_shots": 18,
+      "ending_seconds": 1.0,
+      "final_aac_lufs": -16.0,
+      "final_aac_true_peak_dbtp": -2.71,
+      "pcm": [
+        {
+          "file": "mix.wav",
+          "sha256": "7b8d1bbe8ce23f26fe074c053c4a8bf975b018bce4fed93bb47cbf0f89ac183b",
+          "identical_to": "v03"
+        },
+        {
+          "file": "narration.wav",
+          "sha256": "0322114f6be92b1d10d7275a2b73f9564b52545fd5f9fd7cfe21457cd4f873bb",
+          "identical_to": "v03"
+        },
+        {
+          "file": "music-mixed.wav",
+          "sha256": "334acf3068ac266f8ae8528086c1a5995da6c3ee75c6015fc007bfaf4dd38c8a",
+          "identical_to": "v03"
+        }
+      ]
+    },
+    {
+      "kind": "full",
+      "revision": "v05",
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/release/v05/full/ai-bert-gpt-history-full-v05.mp4",
+      "bytes": 26506075,
+      "sha256": "9c1440b1ce74c2e03d79be86fe8f6d3784cb610a421d97493aebbf7a4960d763",
+      "seconds": 425.625,
+      "frames": 10215,
+      "full_decode": true,
+      "caption_states": 90,
+      "text_box_states": 302,
+      "text_boxes_fit": true,
+      "body_shots": 74,
+      "ending_seconds": 10,
+      "final_aac_lufs": -16.04,
+      "final_aac_true_peak_dbtp": -1.32,
+      "pcm": [
+        {
+          "file": "mix.wav",
+          "sha256": "e2f61eed0f9d3783d6fb4014ca40c122fcbd55e2c6c811d7e49497f478ecf154",
+          "identical_to": "v02"
+        },
+        {
+          "file": "narration.wav",
+          "sha256": "844f6b187a1c1409bd413440f0c3d3009ca68a4c5173ee409dd3410cf0d3c163",
+          "identical_to": "v02"
+        },
+        {
+          "file": "music-mixed.wav",
+          "sha256": "ba1eb9df533404b9bbfc9e13fe0ee1a0c2812cbd19459af9014133065d2c0e05",
+          "identical_to": "v02"
+        }
+      ]
+    }
+  ],
+  "article": {
+    "revision": "v04",
+    "images": 11,
+    "original_diagrams": 7,
+    "official_quotes": 4,
+    "zip": {
+      "bytes": 2471305,
+      "sha256": "4c0babd869082b1ddbe8a6e61fe4888a6a085c68157ec7f68539863b356d06a6",
+      "checked_members": 15
+    },
+    "pdf": {
+      "file": "08_記事草稿_図入り_v06.pdf",
+      "bytes": 4180708,
+      "sha256": "84fa89c18d660581692281851d52dad8a0c1d39d409e9abdea42c068d0f15d7e",
+      "pages": 7,
+      "japanese_text_extractable": true,
+      "image_instances": 11,
+      "images_per_page": [
+        1,
+        1,
+        2,
+        1,
+        2,
+        2,
+        2
+      ],
+      "generation": "Offline ReportLab, embedded Japanese font; fixed-size figures; browser and mobile not verified"
+    }
+  },
+  "drive": {
+    "files_uploaded_and_metadata_readback": 8,
+    "name_size_parent_mime_checked": true,
+    "public_permissions_added": false,
+    "mobile_playback_verified": false,
+    "receipts": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/_private/drive/"
+  },
+  "source_checks": {
+    "python_ast_files": 16,
+    "json_files": 25
+  },
+  "limits": [
+    "User rejected old editing; these are new review candidates, not adopted final videos",
+    "Final revision has representative decoded frame inspection, not a new full-video AI all-clear",
+    "Human final listening, mobile playback and publication remain unverified",
+    "Character reactions use native video but are not phoneme-synchronized",
+    "Official image downloads and PDF renders are not PC browser screenshots",
+    "Blog-specific MDX, cover, banner, site checks and publishing remain pending"
+  ]
+}

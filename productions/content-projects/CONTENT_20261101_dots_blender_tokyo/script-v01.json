@@ -1,0 +1,31 @@
+{
+  "short_title": "【ChatGPT】dotsがBlenderを操作！東京駅の3D模型を作って修正",
+  "full_title": "【ChatGPT】dots×Blenderで東京駅を3Dに！依頼・制作・確認・修正まで",
+  "turns": [
+    {"id":"s01","speaker":"female","visual":"hero","heading":"dotsがBlenderを操作","sub":"東京駅を題材にした3D模型","text":"この東京駅の模型、ドッツにブレンダーを操作して作ってもらいました。"},
+    {"id":"s02","speaker":"male","visual":"cloud","heading":"画像を作るだけ？","sub":"クラウドPCでアプリを操作","text":"画像を作るだけじゃなく、アプリを動かすの？"},
+    {"id":"s03","speaker":"female","visual":"build","heading":"クラウドPCのBlenderで制作","sub":"躯体 → 屋根 → 窓","text":"そう。クラウドパソコンのブレンダーで、建物、屋根、窓を段階的に組み立てています。"},
+    {"id":"s04","speaker":"female","visual":"fix","heading":"確認して、修正も依頼","sub":"側面の窓・レンガの向きを見直す","text":"確認して、側面の窓やレンガの向きも修正。今回は、正確な建築復元ではなく簡略模型です。"},
+    {"id":"s05","speaker":"female","visual":"result","heading":"お願い → 確認 → 修正","sub":"制作の流れはフル動画へ","text":"仕上がりは自分でもチェック。ドッツと一緒に作る流れは、フル動画で紹介します。"},
+    {"id":"f01","speaker":"female","visual":"hero","heading":"dotsがBlenderを操作","sub":"完成模型から、制作の流れを見てみよう","text":"この東京駅の模型、ドッツにブレンダーを操作して作ってもらいました。完成したモデルを、こんなふうに別の角度から眺められます。"},
+    {"id":"f02","speaker":"male","visual":"question","heading":"完成画像だけでなく、3Dモデルへ","sub":"あとから角度や細部を確認できる","text":"前回はどら焼きだったけど、今回は建物なんだね。これは完成画像を生成しただけじゃないの？"},
+    {"id":"f03","speaker":"female","visual":"cloud","heading":"dotsと使う、クラウドのPC","sub":"その中でBlenderを操作する","text":"ドッツはクラウドのパソコンを使えるアシスタント。今回は、その中のブレンダーという、立体を作るアプリを操作した制作例です。"},
+    {"id":"f04","speaker":"male","visual":"request","heading":"まず、どんな模型にしたいか伝える","sub":"対象・雰囲気・欲しい完成物","text":"何をお願いすればいいの？ 東京駅を作って、だけで伝わるかな？"},
+    {"id":"f05","speaker":"female","visual":"request","heading":"依頼例：完成像を具体的に","sub":"赤レンガ・ドーム屋根・簡略模型","text":"たとえば、赤レンガとドーム屋根が分かる簡略模型を作って、という具合。正確な設計図なのか、雰囲気を伝える模型なのか、目的を先に決めます。"},
+    {"id":"f06","speaker":"female","visual":"build","heading":"① 大きな形から組み立てる","sub":"敷地 → 建物 → ドーム屋根","text":"ここからは、実際の制作画面を工程ごとの静止画で見せます。まず敷地と建物の大きな形。次に屋根とドーム。全体のバランスを作っていきます。"},
+    {"id":"f07","speaker":"male","visual":"windows","heading":"窓や柱が、一気に増えた！","sub":"繰り返す形をまとめて配置","text":"窓や柱まで増えてきたね。一つずつ手で並べているの？"},
+    {"id":"f08","speaker":"female","visual":"windows","heading":"② Pythonで繰り返す形を配置","sub":"Blender内でコードを段階的に実行","text":"今回はブレンダーのパイソンを使い、繰り返す窓や柱をまとめて配置しています。ずっとマウス操作を録画した映像ではなく、節目の画面記録です。"},
+    {"id":"f09","speaker":"female","visual":"ornament","heading":"③ 装飾と広場を加える","sub":"大きな形から、細部へ","text":"そこへ白い装飾や屋根の飾り、駅前の広場を追加。いきなり完成を狙わず、大きな形から細部へ進めると、途中でも確認しやすいですね。"},
+    {"id":"f10","speaker":"male","visual":"fix","heading":"正面が良くても、側面は？","sub":"別の角度から確認する","text":"正面がよければ、これで完成？ 横から見たときも気になるな。"},
+    {"id":"f11","speaker":"female","visual":"fix","heading":"④ 見つけた点を、具体的に修正","sub":"側面の窓を追加・レンガの向きを調整","text":"そこが確認のポイント。工程記録では、側面の窓を追加し、レンガの向きも見直しています。気になる場所と、どう直したいかを具体的に伝えます。"},
+    {"id":"f12","speaker":"female","visual":"detail","heading":"完成CGで、細部を見てみよう","sub":"ドーム・レンガ・窓の並び","text":"こちらが仕上がった模型のシージーです。ドームに近づいたり、壁沿いに動いたり。実物の空撮ではなく、模型の中でカメラを動かしています。"},
+    {"id":"f13","speaker":"male","visual":"limits","heading":"完成したら、人もチェック","sub":"形・資料との違い・保存ファイル","text":"お願いして終わりじゃなくて、一緒に確認しながら作るんだね。最後に何を見ておくといい？"},
+    {"id":"f14","speaker":"female","visual":"limits","heading":"簡略模型と、正確な復元は別","sub":"用途に合うか・別の角度・保存データ","text":"今回は東京駅を題材にした独自の簡略模型で、正確な建築復元ではありません。用途に合うか、別の角度で破綻がないか、保存したモデルも確認しましょう。"},
+    {"id":"f15","speaker":"female","visual":"result","heading":"dotsと、お願い → 確認 → 修正","sub":"クラウドPCのアプリで、制作を進める","text":"ドッツがアプリを使って形にし、人が仕上がりを確かめて、修正を重ねる。クラウドのパソコンは、そんな共同作業にも使えるんです。"}
+  ],
+  "short_ids":["s01","s02","s03","s04","s05"],
+  "full_ids":["f01","f02","f03","f04","f05","f06","f07","f08","f09","f10","f11","f12","f13","f14","f15"],
+  "request_example_is_reconstructed":true,
+  "actual_operation_is_checkpoint_stills":true,
+  "model_is_interpretive_not_measured":true
+}

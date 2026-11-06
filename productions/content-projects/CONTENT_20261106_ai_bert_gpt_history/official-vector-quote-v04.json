@@ -1,0 +1,16 @@
+{
+  "asset_id": "bert-paper-architecture-vector-v04",
+  "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/official/v04/bert-paper-architecture-vector-v04.png",
+  "source_url": "https://arxiv.org/pdf/1810.04805v1",
+  "page": 3,
+  "clip_points": [
+    72.0,
+    42.0,
+    524.0,
+    177.0
+  ],
+  "render_scale": 5,
+  "source_sha256": "58534a3c000cbcc60ed64e999a2d9ed839edc2d9894e4449e9d79e1118b5e5ba",
+  "sha256": "22093a0face381cb3ea4db0659fdc09ba6defb12e393af0e9cf6228f0750c4bb",
+  "method": "Direct vector-PDF rendering of Figure 1; no text repainting"
+}

@@ -1,0 +1,1 @@
+【AI】GPTとBERTはどう生まれた？言葉の数値化からTransformerまで図解

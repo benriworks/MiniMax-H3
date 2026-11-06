@@ -1,0 +1,60 @@
+[
+  {
+    "job": "female-close-insight",
+    "source": {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v04-closeups/input/female-close-insight/keyframe.png",
+      "bytes": 382758,
+      "sha256": "F1E206E2A5B4C32854C389CC89A827298EC78EB06119EA44FDDD4D084240448F"
+    },
+    "approved_identity_parent": {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/characters/v02/ai-history-duo-scientists-v02.png",
+      "bytes": 1582428,
+      "sha256": "5ED6AE0174B30A28FD7FACD1632CCEE07CC3716175F150B42D3BAB7B6A3DE328"
+    },
+    "artifact_path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v04-closeups/female-close-insight/MiniMax_H3_female_close_insight_00001_.mp4",
+    "sha256": "AEEACAB84171D903D1874A91F38374C5343F62CD54D888C5699728927FC832B7",
+    "native": [
+      480,
+      864,
+      124,
+      24
+    ],
+    "elapsed_seconds": 287.329,
+    "edit_crop": [
+      0,
+      0,
+      480,
+      642
+    ],
+    "reason": "Exclude unwanted generated text below the chosen chest-up image region; preserve raw output."
+  },
+  {
+    "job": "male-close-thinking",
+    "source": {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v04-closeups/input/male-close-thinking/keyframe.png",
+      "bytes": 372641,
+      "sha256": "440D73E9F8FDB57DFA2AC3582C4958C7B4F744A878C9DF9954E7C2E7F96FD8FA"
+    },
+    "approved_identity_parent": {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/characters/v02/ai-history-duo-scientists-v02.png",
+      "bytes": 1582428,
+      "sha256": "5ED6AE0174B30A28FD7FACD1632CCEE07CC3716175F150B42D3BAB7B6A3DE328"
+    },
+    "artifact_path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v04-closeups/male-close-thinking/MiniMax_H3_male_close_thinking_00001_.mp4",
+    "sha256": "55308079DDE07DBAA35F4F7A813BFC5C4E31B952E6B477BE9A6D04B023A7BC6C",
+    "native": [
+      480,
+      864,
+      124,
+      24
+    ],
+    "elapsed_seconds": 305.338,
+    "edit_crop": [
+      0,
+      0,
+      480,
+      642
+    ],
+    "reason": "Exclude unwanted generated text below the chosen chest-up image region; preserve raw output."
+  }
+]

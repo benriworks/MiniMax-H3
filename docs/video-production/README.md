@@ -1,6 +1,6 @@
 # 動画・関連記事の制作索引
 
-更新日：2026-10-30。このリポジトリの制作情報は、索引・総覧・案件ごとの再開履歴兼ノウハウの3種類を入口に管理する。チャット履歴がない別チャット・別担当者も、ここから再開する。
+更新日：2026-11-07。このリポジトリの制作情報は、索引・総覧・案件ごとの再開履歴兼ノウハウの3種類を入口に管理する。チャット履歴がない別チャット・別担当者も、ここから再開する。
 
 ## 最初に読む3種類
 
@@ -12,6 +12,10 @@
 
 運用の規定はルートの [AGENTS.md](../../AGENTS.md)。参照資料、対象案件・版、採用済み事項、次の作業を短く報告して着手する。ユーザーに過去の説明や長いフォーム入力をやり直してもらわず、助手が根拠資料から復元する。
 
+BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_JA.md)を参照。Proニュースv04を基に `explanation_v1` を採用した。
+
+編集の再現例は[BERT/GPTの手順](../../productions/content-projects/CONTENT_20261106_ai_bert_gpt_history/REPRODUCTION_JA.md)。139入力の版・hash、環境、APIを再実行しない経路、新しい版への出力例、依存の不足を記録した。
+
 ## 参照・更新の手順
 
 1. **着手・再開**：上の3種類を読み、必要な台本・出典・検証台帳まで確認する。コードと素材のルートを区別し、別cloneにも動画があると仮定しない。
@@ -20,11 +24,13 @@
 4. **終了・引き継ぎ**：次に何を見て何をするか、完了を示す根拠、Git同期状態まで残す。動画と記事の採用・公開は分ける。
 5. **共通化**：他案件にも役立つ学びは条件と証拠を添えて総覧へ反映する。専門別冊へ実務の詳細、案件へ固有の数値・失敗例を残し、索引から結ぶ。
 
+記録の振り分けは [共通規約](../../AGENTS.md)、[総覧の記録基準](PRODUCTION_KNOWHOW_JA.md)、[動画別の記録ひな形](templates/PRODUCTION_RECORD_JA.md)を参照。複数動画を含む案件では、案件の入口に加えて各動画の履歴へ直接たどれるようにする。後から届いた返答の記録だけでは、採用・公開状態を変更しない。
+
 最新版の判断と過去の検証を分ける。過去の「未投稿」を後の公開申告より優先せず、後のユーザー申告もURL・公開範囲・実投稿日時の独立検証と混同しない。資料が読めない・素材がない場合は不足と影響を記録する。
 
 ## 案件・素材の再開入口
 
-2026-10-30、Git管理下の `productions/` を検索し、次の35単位へ再開入口を整備した。シリーズは各回の原稿・台帳をまとめる親単位、人物素材は再利用元の単位としている。順序は現在の制作判断を探しやすくするためのもので、全案件が制作中・完了・採用済みという意味ではない。
+2026-10-30、初回に35単位の再開入口を整備し、その後Pro利用枠ニュース、10/31ニュース2本の共通案件、Tiboチャレンジのショートとフル版、dotsとBlenderの東京駅模型、12月のChatGPT・Codex利用枠共通化ニュース、dotsとBlenderのワインCG、字幕と成果物の見せ方の4本改訂、技術・キャラクター解説20チャンネルの比較調査、OpenAI×Anthropicモデル競争の重点企画、Anthropic関係者の退社を考えるショート企画、【AI】BERT・GPT誕生史を追加し、現在の索引は47単位。シリーズは各回の原稿・台帳をまとめる親単位、人物素材は再利用元の単位としている。順序は現在の制作判断を探しやすくするためのもので、全案件が制作中・完了・採用済みという意味ではない。
 
 各再開記録には照合元の文書をリンクする。今回の整理は文書の照合であり、媒体の再生・全decode、Driveのアクセス、公開URL、最新の製品仕様を新たに検証したものではない。別ブランチ・別cloneだけにある案件は、対象ブランチを確認してから同じ形式で追加する。
 
@@ -32,6 +38,18 @@
 
 | 案件・素材 | 再開時の入口 |
 | --- | --- |
+| 【AI】BERT・GPT誕生史：旧short v03／full v02の編集品質を差し戻され、**short v07／58.5秒・full v05／約7分6秒**へ改訂。主図拡大・具体例・公式原図4種・顔アップ/胸上/中景、同じ白衣人物のローカルMiniMax2素材追加。全decode・107字幕状態・音量・指定箇所の実フレーム、Drive保存読戻し済み。記事v04・図入りPDFv06。人の最終試聴・完成品採用・公開は未完了。再現手順・入力139件を記録、個人fork PR #20がmain統合先 | [案件・現在地](../../productions/content-projects/CONTENT_20261106_ai_bert_gpt_history/RESUME_AND_KNOWHOW_JA.md)／[最新QC](../../productions/content-projects/CONTENT_20261106_ai_bert_gpt_history/FINAL_REVIEW_QC_V04_JA.md)／[記事草稿](../../productions/content-projects/CONTENT_20261106_ai_bert_gpt_history/ARTICLE_DRAFT_V04_JA.md)／[人物](../../productions/content-projects/CONTENT_20261106_ai_bert_gpt_history/CHARACTERS_JA.md) |
+| Anthropic退社考察ショート：最新v02はローカル曲へ差し替えた45.75秒。技術確認・Drive保存後、ユーザーからBGMの音量変動を指摘。「作り直しは不要」の指定により今回は記録のみ、v02を維持。控えめな一定音量を今後の改善方針へ。記事v02と6画像は継続。完成品採用・公開は未確定、個人fork PR #19 | [案件・現在地](../../productions/content-projects/CONTENT_20261104_anthropic_departures/RESUME_AND_KNOWHOW_JA.md)／[BGM改訂と評価](../../productions/content-projects/CONTENT_20261104_anthropic_departures/BGM_REVISION_V02_JA.md)／[記事v02](../../productions/content-projects/CONTENT_20261104_anthropic_departures/ARTICLE_DRAFT_V02_JA.md) |
+| OpenAI×Anthropicモデル競争：企画v01の大筋採用、公式用語と動作へ改訂。ショートv01は59.75秒、フルv02は約9分39秒。技術確認済み・未採用、Drive保存済み（再生進行は未確認）。公式引用・動く図・既存6動作、Gemini対話、記事v03と素材包装v04。個人fork PR #18へ保存 | [案件・現在地](../../productions/content-projects/CONTENT_20261103_model_race/RESUME_AND_KNOWHOW_JA.md)／[表現改訂](../../productions/content-projects/CONTENT_20261103_model_race/WORDING_REVISION_JA.md)／[記事v03](../../productions/content-projects/CONTENT_20261103_model_race/ARTICLE_DRAFT_V03_JA.md) |
+| 技術・キャラクター解説20チャンネル比較：公開登録者10万人以上を確認、各1本の映像音声と30秒標本・終盤を分析。60技法と編集レビュー票へ整理。制作への適用と維持率の効果は別途確認 | [案件・現在地](../../productions/research/RESEARCH_20261103_youtube_explainers/RESUME_AND_KNOWHOW_JA.md)／[比較報告](research/YOUTUBE_EXPLAINERS_20_20261103_JA.md) |
+| 字幕と成果物の見せ方の改訂：ワイン縦横v02・東京駅full v02・Tibo full v03。表示/読み分離、文節字幕、成果物拡大、縦の同位置切り替え。旧版公開申告、新版は比較レビュー待ち | [案件・現在地](../../productions/content-projects/CONTENT_20261103_editorial_revision/RESUME_AND_KNOWHOW_JA.md)／[4本の履歴](../../productions/content-projects/CONTENT_20261103_editorial_revision/RESUME_AND_KNOWHOW_JA.md#動画別の履歴) |
+| dots×Blender：ワインCG。旧v01は公開済みとの申告。比較候補v02は約33秒・約2分30秒。字幕と見せ方を改訂し記事素材も保持、新版は未採用・未公開 | [案件・現在地](../../productions/content-projects/CONTENT_20261102_dots_blender_wine/RESUME_AND_KNOWHOW_JA.md)／[新版履歴](../../productions/content-projects/CONTENT_20261103_editorial_revision/RESUME_AND_KNOWHOW_JA.md#wine-short-v02) |
+| 11/2確認：12月のChatGPT・Codex利用枠共通化。Instant chatの例外を動く図解で説明する47秒v01。公式引用と現在の設定入口、記事素材を準備。最終試聴待ち | [案件・現在地](../../productions/content-projects/CONTENT_20261102_chatgpt_codex_shared_usage/RESUME_AND_KNOWHOW_JA.md)／[動画履歴](../../productions/content-projects/CONTENT_20261102_chatgpt_codex_shared_usage/RESUME_AND_KNOWHOW_JA.md#short-v01) |
+| dots×Blender：東京駅の簡略モデル。旧fullの公開申告。full v03約2分35秒の女性のやわらかい返答と3D/簡略モデル表記に肯定的評価。男性5台詞・v02構図を継承。最終版確定・新版公開は未確認、追加再生成なし | [案件・現在地](../../productions/content-projects/CONTENT_20261101_dots_blender_tokyo/RESUME_AND_KNOWHOW_JA.md)／[full v03履歴](../../productions/content-projects/CONTENT_20261101_dots_blender_tokyo/RESUME_AND_KNOWHOW_JA.md#full-v03) |
+| Tiboの28日間チャレンジ：旧full公開申告。full v03約7分24秒で字幕と人物表示を改訂。情報時点は11/1のまま、新版は未採用・未公開 | [案件・現在地](../../productions/content-projects/CONTENT_20261101_tibo_28day_full/RESUME_AND_KNOWHOW_JA.md)／[新版履歴](../../productions/content-projects/CONTENT_20261103_editorial_revision/RESUME_AND_KNOWHOW_JA.md#tibo-full-v03) |
+| Tiboの28日間チャレンジ：84秒v07。中央揃え・称賛ときらめく締め、明るい8小節ループ・3種SE（新版試聴待ち、Day27・28は予告扱い） | [content-projects/CONTENT_20261101_tibo_28day_recap](../../productions/content-projects/CONTENT_20261101_tibo_28day_recap/RESUME_AND_KNOWHOW_JA.md) |
+| 10/31ニュース：Claude Ultra 47秒v01とChatGPTスマホ2アカウント48秒v02（動画2本と記事素材をDrive共有） | [content-projects/CONTENT_20261031_ai_news_ultra_accounts](../../productions/content-projects/CONTENT_20261031_ai_news_ultra_accounts/RESUME_AND_KNOWHOW_JA.md) |
+| ChatGPT Pro：Work・Codex利用枠拡大ニュース（新規H3人物6本を使う48秒、BGM調整版v04をDrive共有、試聴待ち） | [content-projects/CONTENT_20261030_chatgpt_pro_usage_news](../../productions/content-projects/CONTENT_20261030_chatgpt_pro_usage_news/RESUME_AND_KNOWHOW_JA.md) |
 | dots：Excelから案件管理へ自動転記する詳細動画 | [LONG_20261026_dots_transfer_detail](../../productions/LONG_20261026_dots_transfer_detail/RESUME_AND_KNOWHOW_JA.md) |
 | Claude Docs：メモから文書へ、動画と記事の共用 | [content-projects/CONTENT_20261023_claude_docs_reuse](../../productions/content-projects/CONTENT_20261023_claude_docs_reuse/RESUME_AND_KNOWHOW_JA.md) |
 | PHP2Shell：概要と対策を説明するショート | [content-projects/CONTENT_20261024_php2shell_overview](../../productions/content-projects/CONTENT_20261024_php2shell_overview/RESUME_AND_KNOWHOW_JA.md) |
@@ -91,8 +109,12 @@
 | --- | --- |
 | [全工程の引き継ぎ](VIDEO_PRODUCTION_HANDOFF_JA.md) | 人物確認、構成、保存、レビュー、GitHub運用の具体的な実務 |
 | [題名・結論ファースト・人物と掛け合い](EDITORIAL_PATTERNS_JA.md) | 冒頭、質問役と実務役、全面表示とPIP、編集の確認項目 |
+| [演出・編集プレイブック](EXPLAINER_EDITING_PLAYBOOK_JA.md) | 20チャンネル比較から整理した60技法、適用条件と尺の検証案。全技法の同時適用や効果保証ではない |
+| [20チャンネルの比較報告](research/YOUTUBE_EXPLAINERS_20_20261103_JA.md) | チャンネル・登録者表示・動画リンク・時刻・画面／音声の確認範囲、カットと更新の標本 |
 | [ナレーションの別冊](NARRATION_HANDOFF_JA.md) | 担当者へ単体で渡せる原稿・声・読み・生成・再開・費用・試聴手順 |
 | [会話とBGM](DIALOGUE_NARRATION_JA.md) | 質問→回答→実演の進行、音声実尺、返答後の間、明るい伴奏 |
+| [ローカルのフリー音源](LOCAL_MUSIC_LIBRARY_JA.md) | SSD内の曲庫、出典・条件・hashの照合、入力音量の調整、BGMだけの差し替え、原曲を再配布しない保存 |
+| [公開前メモ：Content ID登録なし](../../productions/content-projects/CONTENT_20261104_anthropic_departures/PUBLICATION_SETTINGS_JA.md) | 今回の音源で行わない権利登録、通常投稿のライセンス・広告収益化・自動照合との区別。アカウント設定の操作やロックは未実施 |
 | [実画面の撮影と公式引用](SCREEN_CAPTURE_AND_QUOTES_JA.md) | 撮影前の実機確認、原本と切り出し、記事解像度、来歴・出典 |
 | [動画とブログの共通工程](VIDEO_TO_BLOG_WORKFLOW_JA.md) | 同時草稿・素材収集、動画→詳細記事、blog／note、記事素材の受け渡し |
 | [企画ワークスペース](../../STUDIO_CONTENT_WORKSPACE_JA.md) | 助手の先行調査、本数と概要の提案、ユーザー返答、根拠・素材・絵コンテ、実装範囲 |
@@ -127,6 +149,7 @@
 | [再開履歴兼ノウハウ](templates/PRODUCTION_RECORD_JA.md) | 案件内の `RESUME_AND_KNOWHOW_JA.md` として作る。現在地と次の作業を先頭、詳細根拠と追記履歴を後半へ |
 | [人物設定](templates/CHARACTER_BIBLE_JA.md) | 外見、ペルソナ、衣装、役割、ストーリー、採用範囲 |
 | [レビュー依頼](templates/REVIEW_REQUEST_JA.md) | 人物、初稿、修正版、最終確認。対象版と2〜3点の確認事項 |
+| [編集レビュー票](templates/EDITING_REVIEW_JA.md) | 助手が疑問・画面の役割・人物表示・保持と切替の理由・字幕の分担を記入 |
 | [素材台帳の記載例](templates/asset-catalog.example.json) | ID・版・親素材・相対パス・hashを整理する例。自動登録ツールではない |
 | [共通企画の記載例](templates/content-project.example.json) | 動画と記事の事実・素材を結ぶ例。稼働する台帳・版管理は企画ワークスペースの仕様を参照 |
 

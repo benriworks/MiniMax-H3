@@ -49,6 +49,9 @@ class CreatorShortsTests(unittest.TestCase):
             (prior/'shorts-creator.mp4').write_bytes(b'verified delivery')
             save('verification.json',{'review_status':'verified_candidate_awaiting_user_review','delivery':record(prior/'shorts-creator.mp4')})
             visual=copy.deepcopy(story);visual['scenes'][0].update(headline='新しい見出し',media={'path':'new.mp4'})
+            with self.assertRaisesRegex(ValueError,'Audio input changed'):load_reusable_audio(visual,prior)
+            # Old PCM can only be reused when explicitly preserving its old mix.
+            visual['bgm_mix_profile']='legacy'
             _,reuse,_,_=load_reusable_audio(visual,prior)
             self.assertEqual(reuse['method'],'aac_stream_copy')
             spoken=copy.deepcopy(visual);spoken['scenes'][0]['narration']='別の声。'
