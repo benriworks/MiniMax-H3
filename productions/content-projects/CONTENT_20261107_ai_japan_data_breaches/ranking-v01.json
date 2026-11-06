@@ -1,0 +1,328 @@
+{
+  "as_of": "2026-11-07",
+  "status": "proposal_not_accepted",
+  "method": "公開規模N × 事件全体の情報項目に対する編集上のインパクトI（1〜5）。実害・平均危険度・企業の責任の測定ではない。",
+  "unit_warning": "複数の公表単位と可能性範囲を使う編集上の比較。実害・日本の被害者数・統計的な危険度の順位ではない。",
+  "selected_top10_ids": [
+    "arara-message-202610",
+    "cuenote-202610",
+    "muji-app-202610",
+    "sagawa-tracking-202609",
+    "epark-peakmanager-202607",
+    "estore-shopsserve-202605",
+    "sourcenext-202610",
+    "skyticket-server-202610",
+    "kddi-isp-mail-202605",
+    "burgerking-jp-app-202610"
+  ],
+  "alternative_band_top10_ids": [
+    "muji-app-202610",
+    "epark-peakmanager-202607",
+    "skyticket-server-202610",
+    "kddi-isp-mail-202605",
+    "arara-message-202610",
+    "cuenote-202610",
+    "times-car-202609",
+    "aflac-japan-202606",
+    "estore-shopsserve-202605",
+    "sourcenext-202610"
+  ],
+  "sensitivity_limit": "Iを1事案ずつ範囲内で変えた紹介順位。全事案同時の順位保証ではない。",
+  "ranking": [
+    {
+      "incident_id": "arara-message-202610",
+      "name": "アララ メッセージ",
+      "n": 81329467,
+      "n_label": "81,329,467メールアドレス",
+      "unit": "deduplicated_email_addresses",
+      "certainty": "持ち出し確認。メールアドレス数であり人数ではない",
+      "impact": 3,
+      "score": 243988401,
+      "score_million": "243.988401",
+      "alternative_band": 5,
+      "alternative_band_score": 15,
+      "source_ids": [
+        "arara-third",
+        "arara-second"
+      ],
+      "proposed_rank": 1,
+      "alternative_band_rank": 5,
+      "one_at_a_time_impact_rank_range": [
+        1,
+        1
+      ]
+    },
+    {
+      "incident_id": "cuenote-202610",
+      "name": "Cuenote（ユミルリンク）",
+      "n": 51628280,
+      "n_label": "51,628,280件（延べ）",
+      "unit": "non_deduplicated_records",
+      "certainty": "49システムで出力・漏えいの痕跡。数量欄は漏えいのおそれの延べ件数。16システムの件数は引き続き調査",
+      "impact": 3,
+      "score": 154884840,
+      "score_million": "154.88484",
+      "alternative_band": 5,
+      "alternative_band_score": 15,
+      "source_ids": [
+        "cuenote-second"
+      ],
+      "proposed_rank": 2,
+      "alternative_band_rank": 6,
+      "one_at_a_time_impact_rank_range": [
+        2,
+        8
+      ]
+    },
+    {
+      "incident_id": "muji-app-202610",
+      "name": "MUJIアプリ（良品計画）",
+      "n": 27260000,
+      "n_label": "最大約2,726万件",
+      "unit": "reported_customer_records",
+      "certainty": "外部流出の可能性。全件流出確定ではない",
+      "impact": 4,
+      "score": 109040000,
+      "score_million": "109.04",
+      "alternative_band": 4,
+      "alternative_band_score": 16,
+      "source_ids": [
+        "muji-second",
+        "muji-card",
+        "muji-second-pdf",
+        "muji-third"
+      ],
+      "proposed_rank": 3,
+      "alternative_band_rank": 1,
+      "one_at_a_time_impact_rank_range": [
+        3,
+        5
+      ]
+    },
+    {
+      "incident_id": "sagawa-tracking-202609",
+      "name": "佐川急便のお荷物問い合わせサービス",
+      "n": 53230000,
+      "n_label": "最大約5,323万件（重複あり）",
+      "unit": "non_deduplicated_records",
+      "certainty": "流出した可能性の最大範囲。全件の外部送信を確認した件数ではない",
+      "impact": 2,
+      "score": 106460000,
+      "score_million": "106.46",
+      "alternative_band": 5,
+      "alternative_band_score": 10,
+      "source_ids": [
+        "sagawa-fifth"
+      ],
+      "proposed_rank": 4,
+      "alternative_band_rank": 13,
+      "one_at_a_time_impact_rank_range": [
+        2,
+        4
+      ]
+    },
+    {
+      "incident_id": "epark-peakmanager-202607",
+      "name": "PeakManager（EPARKリラク＆エステ）",
+      "n": 22180000,
+      "n_label": "約2,218万レコード",
+      "unit": "partially_deduplicated_records",
+      "certainty": "DB情報の外部取得・削除を確認。人数への正確な換算は困難",
+      "impact": 4,
+      "score": 88720000,
+      "score_million": "88.72",
+      "alternative_band": 4,
+      "alternative_band_score": 16,
+      "source_ids": [
+        "epark-second"
+      ],
+      "proposed_rank": 5,
+      "alternative_band_rank": 2,
+      "one_at_a_time_impact_rank_range": [
+        5,
+        7
+      ]
+    },
+    {
+      "incident_id": "estore-shopsserve-202605",
+      "name": "ショップサーブ（Eストアー）",
+      "n": 23356000,
+      "n_label": "約2,335万6,000人（概数）",
+      "unit": "reported_people_estimate",
+      "certainty": "個人情報の外部持ち出し確認。名寄せ後も重複の可能性あり",
+      "impact": 3,
+      "score": 70068000,
+      "score_million": "70.068",
+      "alternative_band": 4,
+      "alternative_band_score": 12,
+      "source_ids": [
+        "estore-final"
+      ],
+      "proposed_rank": 6,
+      "alternative_band_rank": 9,
+      "one_at_a_time_impact_rank_range": [
+        6,
+        9
+      ]
+    },
+    {
+      "incident_id": "sourcenext-202610",
+      "name": "ソースネクスト",
+      "n": 22519960,
+      "n_label": "22,519,960件",
+      "unit": "reported_member_records",
+      "certainty": "不正取得を確認。数字は流出した可能性のある対象範囲",
+      "impact": 3,
+      "score": 67559880,
+      "score_million": "67.55988",
+      "alternative_band": 4,
+      "alternative_band_score": 12,
+      "source_ids": [
+        "sourcenext-first"
+      ],
+      "proposed_rank": 7,
+      "alternative_band_rank": 10,
+      "one_at_a_time_impact_rank_range": [
+        5,
+        7
+      ]
+    },
+    {
+      "incident_id": "skyticket-server-202610",
+      "name": "skyticketのサーバーへの不正アクセス",
+      "n": 14640000,
+      "n_label": "約1,464万件",
+      "unit": "reported_customer_records",
+      "certainty": "流出確認とおそれを含む。情報区分ごとに確度が異なる",
+      "impact": 4,
+      "score": 58560000,
+      "score_million": "58.56",
+      "alternative_band": 4,
+      "alternative_band_score": 16,
+      "source_ids": [
+        "skyticket-first",
+        "skyticket-second",
+        "skyticket-third"
+      ],
+      "proposed_rank": 8,
+      "alternative_band_rank": 3,
+      "one_at_a_time_impact_rank_range": [
+        8,
+        9
+      ]
+    },
+    {
+      "incident_id": "kddi-isp-mail-202605",
+      "name": "KDDIのISP事業者向けメール基盤",
+      "n": 12231954,
+      "n_label": "12,231,954名（公式表記）",
+      "unit": "reported_people",
+      "certainty": "メールアドレスと内数のパスワードの漏えい確認",
+      "impact": 4,
+      "score": 48927816,
+      "score_million": "48.927816",
+      "alternative_band": 4,
+      "alternative_band_score": 16,
+      "source_ids": [
+        "kddi-isp",
+        "kddi-cpi-final"
+      ],
+      "proposed_rank": 9,
+      "alternative_band_rank": 4,
+      "one_at_a_time_impact_rank_range": [
+        9,
+        9
+      ]
+    },
+    {
+      "incident_id": "burgerking-jp-app-202610",
+      "name": "バーガーキング日本公式アプリ",
+      "n": 11180000,
+      "n_label": "約1,118万件",
+      "unit": "reported_member_records",
+      "certainty": "会員情報の漏えい確認",
+      "impact": 3,
+      "score": 33540000,
+      "score_million": "33.54",
+      "alternative_band": 4,
+      "alternative_band_score": 12,
+      "source_ids": [
+        "burger-king"
+      ],
+      "proposed_rank": 10,
+      "alternative_band_rank": 11,
+      "one_at_a_time_impact_rank_range": [
+        10,
+        12
+      ]
+    },
+    {
+      "incident_id": "kyuden-backup-202605",
+      "name": "九州電力送配電のバックアップSSD",
+      "n": 10030000,
+      "n_label": "個人情報約1,003万件",
+      "unit": "reported_personal_records",
+      "certainty": "媒体所在不明。外部への情報流出は確認されていない",
+      "impact": 3,
+      "score": 30090000,
+      "score_million": "30.09",
+      "alternative_band": 4,
+      "alternative_band_score": 12,
+      "source_ids": [
+        "kyuden-results",
+        "kyuden-appendix"
+      ],
+      "proposed_rank": 11,
+      "alternative_band_rank": 12,
+      "one_at_a_time_impact_rank_range": [
+        11,
+        12
+      ]
+    },
+    {
+      "incident_id": "times-car-202609",
+      "name": "タイムズカー（パーク24）",
+      "n": 6628007,
+      "n_label": "6,628,007件",
+      "unit": "reported_profile_records",
+      "certainty": "プロフィール情報等の外部送信の痕跡を確認",
+      "impact": 4,
+      "score": 26512028,
+      "score_million": "26.512028",
+      "alternative_band": 3,
+      "alternative_band_score": 12,
+      "source_ids": [
+        "times-fifth"
+      ],
+      "proposed_rank": 12,
+      "alternative_band_rank": 7,
+      "one_at_a_time_impact_rank_range": [
+        11,
+        12
+      ]
+    },
+    {
+      "incident_id": "aflac-japan-202606",
+      "name": "アフラック生命保険",
+      "n": 4400000,
+      "n_label": "契約者約440万人",
+      "unit": "reported_policyholder_people_estimate",
+      "certainty": "契約者情報等の漏えい確認",
+      "impact": 4,
+      "score": 17600000,
+      "score_million": "17.6",
+      "alternative_band": 3,
+      "alternative_band_score": 12,
+      "source_ids": [
+        "aflac-results",
+        "aflac-faq"
+      ],
+      "proposed_rank": 13,
+      "alternative_band_rank": 8,
+      "one_at_a_time_impact_rank_range": [
+        13,
+        13
+      ]
+    }
+  ]
+}
