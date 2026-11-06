@@ -1,6 +1,6 @@
 # 再開履歴兼ノウハウ：【AI】BERT・GPT誕生史
 
-更新：2026-11-06。案件ID `CONTENT_20261106_ai_bert_gpt_history`。
+更新：2026-11-07。案件ID `CONTENT_20261106_ai_bert_gpt_history`。
 
 ## 現在地と次の作業
 
@@ -17,7 +17,8 @@
 - Driveには最新MP4二本、17.54秒の冒頭プレビュー、PDF、素材ZIP、同時刻の新旧比較、サムネイル案、最新確認案内の8ファイルを保存。名前・bytes・親・MIME・非共有状態を読戻した。所有者以外への公開権限は追加せず、S3へ二重送信していない。スマホ実機での再生は未確認。URL・受領はignoredの `_private/drive/` のみ。
 - 共通CLIはrevision62、40素材、19／75場面（本編18／74＋終了画面）。[登録要約](workspace-editorial-summary-v04.json)。blockerなし、企画の約60／450秒と実尺との差のwarning2件。台帳のtechnical_verifiedは別の準備判定のため、媒体QC合格へ書換えない。human_reviewed／publishedはfalse。
 - 次はユーザーによる図・根拠の追いやすさ、人物の画角と反応、声と一定BGMの最終試聴・採否確認。[最新QCとレビュー箇所](FINAL_REVIEW_QC_V04_JA.md)を参照。YouTube終了要素の設定、媒体公開、blog固有仕上げは別工程。
-- Git保存は個人forkの[Draft PR #20](https://github.com/benriworks/MiniMax-H3/pull/20)、ブランチ `codex/ai-bert-gpt-history-20261106`。初回候補5c9e0a5、初回QC等c0530fe、その後の保存e448a94を保持し、この改訂も同じPRへ追記する。最新HEADとリモート反映はPRで確認する。mainマージ・公式upstream書込み・YouTube公開は今回の対象外。
+- 再利用時は[再現手順](REPRODUCTION_JA.md)と[入力139ファイルの台帳](reproduction-inputs-v01.json)を先に確認する。版・hash・実行環境・新しい出力先・記事の旧入力への依存、未導入のPDF依存も記録した。2026-11-07の追記ではAPI・動画生成は行わず、入力hashと共通unittest37件を確認した。
+- Git保存は個人forkの[PR #20](https://github.com/benriworks/MiniMax-H3/pull/20)、ブランチ `codex/ai-bert-gpt-history-20261106`。初回5c9e0a5、初回QC等c0530fe、その後e448a94と編集改訂55138d7を保持。2026-11-07にユーザーがノウハウの記録とmain統合を依頼したため、同PRをmainへの統合先として扱う。最新HEAD・統合結果は同PRを正とする。公式upstream書込み・YouTube公開の依頼には拡張しない。
 - 実行環境とモデルは別MiniMaxH3。cloneのみではignoredの静止画・動画・音声・モデル・認証は付属しない。原本・派生・共有とコードのルートを再確認して再開する。
 
 ## 動画別の状態
@@ -77,6 +78,7 @@
 
 | 日付・対象 | 実施・検証 | 残り |
 | --- | --- | --- |
+| 2026-11-07／「ありがとう。このノウハウを再現できるように、記録しておいて。メインにマージもお願い。」 | 編集判断と実行例を再現手順へ整理。139入力のbytes・hashと環境を保存、共通テスト37件を確認。個人forkのPR #20をmain統合先とし累積差分を点検 | 統合結果はPRを参照。動画の全編試聴・スマホ再生・公開の独立確認へ拡張しない |
 | 2026-11-06／旧short v03・full v02の差し戻し | ユーザー原文を[依頼記録](editorial-revision-request-v04.json)へ保存。5点を既存規約へ照合し、白衣・声・主題の採用は継承 | 編集品質の再確認。旧AI所見を採用根拠にしない |
 | 2026-11-06／胸上2素材追加 | 同じ顔・衣装の参照を生成し、ローカルMiniMax2本が全decode。原本の生成文字は保持し、文字のない上部を編集で使用。役割と台詞に合わせる | 完全な音素同期ではない。手指・表情の自然さは人の確認対象 |
 | 2026-11-06／short v07完成候補 | 主図拡大、縦専用の一例ずつのAttention、GPT/BERT別パネル、18本編ショット。58.5秒・17字幕状態・全decode・最終音量、該当実フレーム、Drive保存読戻し。TTS追加なし | 人の最終試聴と採否。実機再生・公開は未確認 |

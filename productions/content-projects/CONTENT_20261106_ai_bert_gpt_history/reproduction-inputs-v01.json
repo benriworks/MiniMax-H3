@@ -1,0 +1,910 @@
+{
+  "recorded_at": "2026-11-07",
+  "production_id": "CONTENT_20261106_ai_bert_gpt_history",
+  "code_baseline_commit": "55138d7def802d3cc40ddfb83b3a3ff78a5e95a2",
+  "purpose": "Frozen input inventory for read-only verification and new-revision editing; no billable generation or media rerender performed during recording",
+  "environment_observed": {
+    "python": "3.12.2",
+    "os": "Windows-11-10.0.26200-SP0",
+    "packages": {
+      "numpy": "1.26.4",
+      "Pillow": "12.3.0",
+      "PyMuPDF": "1.27.2",
+      "reportlab": null,
+      "markdown-it-py": "4.0.0",
+      "requests": "2.32.5",
+      "budoux": "0.10.2"
+    },
+    "ffmpeg": "ffmpeg version 8.1.2-full_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers",
+    "video_font_variation_axis": [
+      650
+    ],
+    "pdf_font": {
+      "locator": "Windows/Fonts/meiryo.ttc",
+      "available": true,
+      "sha256": "457b306f719a002f1d037b2a3942f2abfa8a55d7bb109bf8950341a3129adb46"
+    }
+  },
+  "inputs": [
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/_private/research/papers/bert-2018.pdf",
+      "role": "bert_source_pdf",
+      "bytes": 592173,
+      "sha256": "58534a3c000cbcc60ed64e999a2d9ed839edc2d9894e4449e9d79e1118b5e5ba"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/article/v03/index.html",
+      "role": "article_builder_previous_css_dependency",
+      "bytes": 13169,
+      "sha256": "0acb545a9ba8ed5b72811acc9ef92072e3719b8447c0877f5f49ebc854aa6699"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/characters/v02/female-reference-input-v02.png",
+      "role": "frozen_presenter_reference",
+      "bytes": 306890,
+      "sha256": "59ff3c561cfdbcd19fd7abf06fa0b924020a432064e4256e08056d32f29b625f"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/characters/v02/male-reference-input-v02.png",
+      "role": "frozen_presenter_reference",
+      "bytes": 354622,
+      "sha256": "9366f0e4b2a4b28badd99bca22a12d488b9010b7f40eba560c6a4b024128f4df"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/characters/v04/female-close-input.png",
+      "role": "frozen_minimax_close_input",
+      "bytes": 382758,
+      "sha256": "f1e206e2a5b4c32854c389cc89a827298ec78eb06119ea44fddd4d084240448f"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/characters/v04/female-close-reference.png",
+      "role": "approved_identity_close_derivative",
+      "bytes": 1708348,
+      "sha256": "9233e3b9826cece4f73f986a041656869c2391c22b888232f0f559f899c64adf"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/characters/v04/male-close-input.png",
+      "role": "frozen_minimax_close_input",
+      "bytes": 372641,
+      "sha256": "440d73e9f8fdb57dfa2ac3582c4958c7b4f744a878c9df9954e7c2e7f96fd8fa"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/characters/v04/male-close-reference.png",
+      "role": "approved_identity_close_derivative",
+      "bytes": 1704975,
+      "sha256": "a35ef8c7968df337a82ae0c7d4357ec921f565ff24d67fcdff15599e22e914a5"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/female-enjoyment/MiniMax_H3_female_enjoyment_00001_.mp4",
+      "role": "native_motion",
+      "bytes": 1288499,
+      "sha256": "f35877587022fdf09346bf68d621e3bf00f69d299684340cc4de713595ed09b1"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/female-enjoyment/verification.json",
+      "role": "motion_proof",
+      "bytes": 11808,
+      "sha256": "2158dd4c711c21abdb4c0df189baaeb01dff122214798b1148ace38465c4d5f4"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/female-frustration/MiniMax_H3_female_frustration_00001_.mp4",
+      "role": "native_motion",
+      "bytes": 1252003,
+      "sha256": "c825726a1af42efa93d7824c991f2cb0a9c5e0ac11bda4cfb06186245f93a5ca"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/female-frustration/verification.json",
+      "role": "motion_proof",
+      "bytes": 11835,
+      "sha256": "c053ca002c64a1331dc4d246988e0fc837cbf088ed624a015fc085f92f1da498"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/female-joy/MiniMax_H3_female_joy_00001_.mp4",
+      "role": "native_motion",
+      "bytes": 1934350,
+      "sha256": "22e7bca90346e02b224c42d0efb14fbe47425da82d9c3d855613c378fa8f35af"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/female-joy/verification.json",
+      "role": "motion_proof",
+      "bytes": 11717,
+      "sha256": "5c4fd72802e60b4176da1a60759a736ac8de65f40ec6f25c7417c0f38781b405"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/female-sadness/MiniMax_H3_female_sadness_00001_.mp4",
+      "role": "native_motion",
+      "bytes": 1320829,
+      "sha256": "423ed8f21581c04c9ecf84e0ab612ca42defa9772ccc3cf5193b3f2e58f87935"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/female-sadness/verification.json",
+      "role": "motion_proof",
+      "bytes": 11811,
+      "sha256": "4b01f3ad78d18bdaf1931debc47f428f13531c436420f42247b3fdc91f8ea175"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/female-thinking/MiniMax_H3_female_thinking_00001_.mp4",
+      "role": "native_motion",
+      "bytes": 1673270,
+      "sha256": "1ce04e2f5d922a262c09d77491c7697f968ab94e25b6acd33d265d7b2bb9a1bc"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/female-thinking/verification.json",
+      "role": "motion_proof",
+      "bytes": 11790,
+      "sha256": "73a393d63685d81f43b03fab4f6ff94971728805257b25e49fbf81a07d249682"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/male-enjoyment/MiniMax_H3_male_enjoyment_00001_.mp4",
+      "role": "native_motion",
+      "bytes": 1221814,
+      "sha256": "37d504f2f24c5bed856464b3fbe5b76b6fe05e2f2edae5754300b5bb5f7f61e1"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/male-enjoyment/verification.json",
+      "role": "motion_proof",
+      "bytes": 11769,
+      "sha256": "0a797e082dc7aaa26dd31a069234d7088632e6d9c01cee0911d41a71a2f9f692"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/male-frustration/MiniMax_H3_male_frustration_00001_.mp4",
+      "role": "native_motion",
+      "bytes": 1335340,
+      "sha256": "4fcbf109feda129700bad89ce6df12c6d590353bd95850916700b432f02f263d"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/male-frustration/verification.json",
+      "role": "motion_proof",
+      "bytes": 11796,
+      "sha256": "e3e10a849cd97ed56e7c68f03242047735e7ace88525fe1fd0b0d9fe48b8336b"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/male-joy/MiniMax_H3_male_joy_00001_.mp4",
+      "role": "native_motion",
+      "bytes": 1444631,
+      "sha256": "8cdf06498be5d35791bdca19a9fbf7ad13e8ad1634c1ac9a8b18977586337b00"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/male-joy/verification.json",
+      "role": "motion_proof",
+      "bytes": 11677,
+      "sha256": "fdda8b9a08db465200ac91bdce384a4a7aa256e6529202b0133c360f2ade25e2"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/male-sadness/MiniMax_H3_male_sadness_00001_.mp4",
+      "role": "native_motion",
+      "bytes": 1421124,
+      "sha256": "c8faeeda39e50d78e2a678c4ce5c33da2a631dd3c78bfc8d533c406f72f9526c"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/male-sadness/verification.json",
+      "role": "motion_proof",
+      "bytes": 11773,
+      "sha256": "270e7211704ac06da295b8dd9f4460645464980a5f7d826b81ec0023376152ee"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/male-thinking/MiniMax_H3_male_thinking_00001_.mp4",
+      "role": "native_motion",
+      "bytes": 1247415,
+      "sha256": "31d6a15c7c41f7414291add1f3bf699e2ae98a5b1f47b6df9c93674ce1a38c33"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/male-thinking/verification.json",
+      "role": "motion_proof",
+      "bytes": 11750,
+      "sha256": "1a6ae7d90e6cad39355ffc07c85b75cafaf219ddcc0cefca1026ef3ccdbca273"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v04-closeups/female-close-insight/MiniMax_H3_female_close_insight_00001_.mp4",
+      "role": "native_motion",
+      "bytes": 1477244,
+      "sha256": "aeeacab84171d903d1874a91f38374c5343f62cd54d888c5699728927fc832b7"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v04-closeups/female-close-insight/verification.json",
+      "role": "motion_proof",
+      "bytes": 11282,
+      "sha256": "48900ca855a676ca2ae8ad1fd9868e8d86102db6633a4a917db4b168c14d8871"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v04-closeups/male-close-thinking/MiniMax_H3_male_close_thinking_00001_.mp4",
+      "role": "native_motion",
+      "bytes": 1225143,
+      "sha256": "55308079dde07dbaa35f4f7a813bfc5c4e31b952e6b477be9a6d04b023a7bc6c"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v04-closeups/male-close-thinking/verification.json",
+      "role": "motion_proof",
+      "bytes": 11227,
+      "sha256": "0985a4337509999875da301d0edd17e3d456c7ebfac9c33f532c647a4f6bfe09"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/official/v04/bert-paper-architecture-vector-v04.png",
+      "role": "vector_figure_derivative",
+      "bytes": 153658,
+      "sha256": "22093a0face381cb3ea4db0659fdc09ba6defb12e393af0e9cf6228f0750c4bb"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/official/v04/google-attention-original.png",
+      "role": "official_original_download",
+      "bytes": 149627,
+      "sha256": "010f0a2551cd474b3a753e7de82e563b50274258abd94534131c339da067943f"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/official/v04/google-bert-gpt-elmo-original.png",
+      "role": "official_original_download",
+      "bytes": 91824,
+      "sha256": "e373a190beeed3bf32c1aeddc3a2cf104aa774bb49586f1dcc03563ea3017a82"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/official/v04/google-bert-mask-original.png",
+      "role": "official_original_download",
+      "bytes": 44021,
+      "sha256": "43b19eabd2bbee2e5db288fd34f7877bc303e04ca59e3013f48ce0de3fdc8d5d"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/official/v04/google-bert-next-sentence-original.png",
+      "role": "official_original_download",
+      "bytes": 99142,
+      "sha256": "049e990cbc96ff6b4cb70540dd26c29e8340851f6a6eb00726494d160813a2f7"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/official/v04/google-transformer-motion-original.gif",
+      "role": "official_original_download",
+      "bytes": 932007,
+      "sha256": "154652432cee35898f78cd3e76962a69fc403347b93993193af972e8ea1236ac"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/official/v04/openai-2018-article-image.webp",
+      "role": "official_original_download",
+      "bytes": 246594,
+      "sha256": "0e6db0e902f000b18333d8411cede8e24692ade74e0b529daa2b42a3e0ae16b5"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/release/v03/full/timeline.json",
+      "role": "article_builder_previous_timeline_dependency",
+      "bytes": 50668,
+      "sha256": "0e2b867184c9196cd6fe1a2a65c60714cbb488d9e86d22b4bc30711bd1fa198d"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/release/v05/full/audio-provenance.json",
+      "role": "frozen_audio_or_edit_ledger",
+      "bytes": 10415,
+      "sha256": "f203565fdf111a80e5d23e783ff0dc6dba1287c979825063ed3e05bcfef69e7f"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/release/v05/full/mix.wav",
+      "role": "frozen_audio_or_edit_ledger",
+      "bytes": 40860044,
+      "sha256": "e2f61eed0f9d3783d6fb4014ca40c122fcbd55e2c6c811d7e49497f478ecf154"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/release/v05/full/music-mixed.wav",
+      "role": "frozen_audio_or_edit_ledger",
+      "bytes": 40860044,
+      "sha256": "ba1eb9df533404b9bbfc9e13fe0ee1a0c2812cbd19459af9014133065d2c0e05"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/release/v05/full/narration.wav",
+      "role": "frozen_audio_or_edit_ledger",
+      "bytes": 20430044,
+      "sha256": "844f6b187a1c1409bd413440f0c3d3009ca68a4c5173ee409dd3410cf0d3c163"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/release/v05/full/shot-plan.json",
+      "role": "frozen_audio_or_edit_ledger",
+      "bytes": 26838,
+      "sha256": "38ab827d809018ebcb758173a7f7e1d691574db501b1a97ab6884c9a41394087"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/release/v05/full/timeline.json",
+      "role": "frozen_audio_or_edit_ledger",
+      "bytes": 50668,
+      "sha256": "b4c0f4789930eca03c89ef7453d288b805acf037cfd33fb876c4d72308f56bc4"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/release/v07/short/audio-provenance.json",
+      "role": "frozen_audio_or_edit_ledger",
+      "bytes": 2965,
+      "sha256": "3a970ea2608ca717269c2e065d9f2dfca32ef58021ebadc988dea26e80afedfd"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/release/v07/short/mix.wav",
+      "role": "frozen_audio_or_edit_ledger",
+      "bytes": 5616044,
+      "sha256": "7b8d1bbe8ce23f26fe074c053c4a8bf975b018bce4fed93bb47cbf0f89ac183b"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/release/v07/short/music-mixed.wav",
+      "role": "frozen_audio_or_edit_ledger",
+      "bytes": 5616044,
+      "sha256": "334acf3068ac266f8ae8528086c1a5995da6c3ee75c6015fc007bfaf4dd38c8a"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/release/v07/short/narration.wav",
+      "role": "frozen_audio_or_edit_ledger",
+      "bytes": 2808044,
+      "sha256": "0322114f6be92b1d10d7275a2b73f9564b52545fd5f9fd7cfe21457cd4f873bb"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/release/v07/short/shot-plan.json",
+      "role": "frozen_audio_or_edit_ledger",
+      "bytes": 6586,
+      "sha256": "068e4d7997ca3fc61d47e5895fe8b9dc31715663014315827a0bac46b911a7d4"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/release/v07/short/timeline.json",
+      "role": "frozen_audio_or_edit_ledger",
+      "bytes": 9113,
+      "sha256": "bad7ca67b27887698e55466fd47604beb777f857c93f742b057c6f2787f5407f"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f01/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 793,
+      "sha256": "e1b8781d429900119eaab291670b7ef64e740f54c9b2fa1640f4878a83e61e7f"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f01/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 175290,
+      "sha256": "8dbfc2b8209ff4fbabc65005e8c9c1ddf3963413d14a7f1491ffa7154ed4552b"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f02/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 796,
+      "sha256": "2e99fef3ecffa609364ac863870d737e6ff4aa65a617886039bda737cc8657e1"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f02/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 605370,
+      "sha256": "898c008538e44317b4a9d6543940b29dd747016594f0a63e4c8a7a5f6d74bebe"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f03/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 793,
+      "sha256": "262802566cfbfcb3f6857ff1a2b641a2d4668b9bf5b1d9202cefc01f92fa0580"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f03/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 159930,
+      "sha256": "045afdd605996f796a54ee2b0ccdbeede288807738a7204c46d021bcc6fad202"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f04/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 796,
+      "sha256": "1fbb9d34fd0372a1cc97cc79923cd8ab22657790d457b623de8589c5142f4eb4"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f04/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 687930,
+      "sha256": "8c18953401d3d14593ebdccbb1c3ea9842504567f89d030716540a14a02ca23c"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f05/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 796,
+      "sha256": "f21eaae30ecf64567b3873e06d5db3b8d1ecb8113695053dcd654fcbad855a79"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f05/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 668730,
+      "sha256": "29f81882b1dad9139b14a4c5f30bea31f1193b605d46f07196ec9683d4f59423"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f06/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 793,
+      "sha256": "7da123a832d1c889c8d1b6202a86e99f7c53c4c025ec3679e5f2698b0121fa08"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f06/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 152250,
+      "sha256": "f400709fabb1fbd5bf32fdb00481c481523cfe7cfd7243d3987c11dfa9618b68"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f07/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 796,
+      "sha256": "c35563aa0121023dd6ce9963b3071adf0fedc105ab773d659cb883b47200d0ad"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f07/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 718650,
+      "sha256": "e567fc8f87a23b4cd31fc6bb1c7aa63ca991973e9af01f3cca2c62ba8a23ed1a"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f08/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 796,
+      "sha256": "0c2878f55648d0d305e38db31a8cac16e8c0338551e56d3ec0747cdabca5a17c"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f08/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 553530,
+      "sha256": "8d99a761add1afddd47b2febc27baee5327784582ab863ed5cf8f82224b7dde4"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f09/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 793,
+      "sha256": "fb37e486ab0c2264d94be8bc30ed5d7610be30238a17e7ccaeb972cc6ad65d30"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f09/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 159930,
+      "sha256": "174969e74f896ab8cb3e679a179f795f63812efca338b93ed618873d0f0fc717"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f10/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 796,
+      "sha256": "4ede1a74eb4b16be3fcb63daae440139cfaf01c5b7d68db2710801a54d1783e3"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f10/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 789690,
+      "sha256": "e255f51a088834d9de1b3ee2a503c07c33dba12785fb6539f703f40f371daa71"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f11/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 796,
+      "sha256": "ea6b50b49239d6b4cc229bfe31dd7ece99ad503cc37e8eb909d1d21da5f9da39"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f11/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 808890,
+      "sha256": "6a469d3c8d750bddedec48a25c54a9b3b556091fe68fd786b0c3d14e87d239c1"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f12/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 793,
+      "sha256": "47ecd06c2c2ed4822e76ebe28a941b8dea3332463a1f51300b3d3fffc42d8068"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f12/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 161850,
+      "sha256": "c211d42e6cbd51df7d90b9ace0afcd853859336f94b9189d77a11ec44f48384b"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f13/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 796,
+      "sha256": "aa5cfe921bb585be484fe84c2a0f244f1aef62fc5ef4838371f69d2bb9101192"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f13/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 757050,
+      "sha256": "84e6da32d58c01fc89cf4d7a5c46f6fd26700407a80ac44c192abcc356902152"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f14/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 796,
+      "sha256": "2a47c344937832ebb81da281bc45c694c0a531c775948f858b11069187e04826"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f14/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 845370,
+      "sha256": "5fcd19385fb5c02a8b5ab4f9957d37fbc856504c587d923418af4f83787b33c3"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f15/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 796,
+      "sha256": "3626f701ddb66f1b097d89685750ab45aef0170cd44b48558fe3dbcd7520ca20"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f15/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 590010,
+      "sha256": "1bef1f27f6d185f3df711fbaf135deb0301ac6d275038fad43d5916892dd11ce"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f16/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 793,
+      "sha256": "454f9fdd4c2e3df540b34b4c8c908a951a2929c601b312f70a73160ed65749cd"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f16/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 123450,
+      "sha256": "1b664ece8e4b484a401660e98c29ce9b33750b02239c3c718c76cf863eea4fbd"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f17/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 796,
+      "sha256": "fa1ea790a26e749f0f633de9c07db1f798e1b23664491ed39691f42a16d2217a"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f17/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 687930,
+      "sha256": "dc49760894c1c905a3a07d1626114d6924db87476b9e8ac856e2caad9e168b57"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f18/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 793,
+      "sha256": "2c50a26dedf1a261d6d8020df9bfdce289b96da04ae78cad6a780e8a8ff2b5de"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f18/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 213690,
+      "sha256": "a63e5023a5f3fd069e4b4951462f124f2e3e3354fdc6da67bcf776c4e44c8ac5"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f19/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 796,
+      "sha256": "cbc255e99fa8a65e32f0c85e65839d16c1e53ea855547ce1c0d36cd3f9b76663"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f19/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 814650,
+      "sha256": "113b9f0f158b5b693d0783f2095f35b066e610f293d219762916db8b0871eb2e"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f20/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 796,
+      "sha256": "02460c75c4005b154059a2c1d93cbb54d96f8c3a2c205608d27b6fd7078079c9"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f20/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 707130,
+      "sha256": "b96afd3287a07345bc94a6ac100026dc13aecf4981fbbf4767a7d08b18d91eb2"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f21/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 792,
+      "sha256": "3e1f94b7f839ed361c71dee7fa3776c68e2a881618a9936a3f8b5e53140c4b45"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f21/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 158010,
+      "sha256": "0014a9fb6add4a0395fdb7cc1dea6081d573737a4fe61a31bbd9dab1a2446f9a"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f22/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 796,
+      "sha256": "b575235a96c7b4af2350dc66edf1e67ac2099bac7e23503c85efee651ee779eb"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f22/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 712890,
+      "sha256": "0774e2696dc7fc6cfc2255dff6a9b3407708691544c218f247d3bf87dc50443c"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f23/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 796,
+      "sha256": "cda9f5d8dd5b982bfbeb77e05eb407f21cdaf812a43a7d349b9c5d6b37b0c275"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f23/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 676410,
+      "sha256": "4ab194d1dc9b255a9a6f9da17b14c7c0bf4b01d7ade69dc433b7018f5f707c68"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f24/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 793,
+      "sha256": "6e6c6b42c0523d10cf4d2b6a9d129ac8edbd85948dca7c8222493db06b2cd329"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f24/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 186810,
+      "sha256": "6699a25bf9e5ff5ceccc079decd5f9c0b159ce53eb1a964ce99ee849a24df9ac"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f25/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 796,
+      "sha256": "35c7cbb8dc185f2cacf02bd29844e3ce86ccb79c513e2fea408117803e330c95"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f25/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 795450,
+      "sha256": "84015569b51779752b33f7e2cb7d2834f14dd22939d0a5b81654c6ebbacd0bf8"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f26/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 796,
+      "sha256": "8ce7aa6b2920d1c2829b384d1257bca13afb226387ee5414d48485829ce14ca6"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f26/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 783930,
+      "sha256": "ed2a4ebe1f24cd7c927461a0b0fc79b2a9567d4e8f6e44150c794bcfc36fea84"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f27/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 793,
+      "sha256": "a74cdea577e4b0e62d2ee61716b53edb0e30f2f08c70f45f90c07960365a07dc"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f27/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 150330,
+      "sha256": "3004e83f21e36bdf81a2f867831bb5d2d59e12654831bc4438b72ad7d4a92efb"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f28/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 796,
+      "sha256": "f405ab135c6a0ed865a2774f10da16984bfa3c050b33d15c550f76e6a0a02938"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f28/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 722490,
+      "sha256": "ddefccf464278101bd506216b2f083ec83c7763f98591c1f310cf662a9ffcdb8"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f29/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 796,
+      "sha256": "e31b151db16ee89a126ce9e966190c8a294a445379b33441249aed2c39941012"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f29/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 726330,
+      "sha256": "2cfa50677e0729fbd0e992379ff4cc068e1c49ae4a63f11820a0a1968de08a99"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f30/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 793,
+      "sha256": "50b494fb1c59ca5a279ea7511352fb2a0a39e3ddb595e895b6d5bd7caf5e4672"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f30/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 152250,
+      "sha256": "31674009f313ba81fa13e64d7c8ba7f77ee8519a82a08bc0a90f3a98ba2c092b"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f31/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 795,
+      "sha256": "18c40fd210c610ec5e189538e15259ee1eef238f69d72b338b72391ef444546e"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f31/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 791610,
+      "sha256": "03b2d437a9113a9524bfd1fa13dc49b6a71c087fcaa6789702e93b27aa5d2137"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f32/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 796,
+      "sha256": "885add88ce4952268094399a2a571e6793cc15ece0eccd3b186e264f950508bd"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f32/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 641850,
+      "sha256": "3a573735f254ff3cffc32e6cee9bdf2f8112daba50a158c1417ce09610ad3e58"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f33/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 793,
+      "sha256": "5ac10437817f0ec9b62a00f81245d0f50e3af81cb6e04432790981bec9c1c322"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f33/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 200250,
+      "sha256": "15e7bfaaedbe064f84e558d9e9ba7df30e62e667f3a8893a2057790de005c40d"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f34/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 796,
+      "sha256": "02b93b63f9f9cec73908f2b71d5ee592b66492fbbfb0abb8075ea5897fbd5cfe"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f34/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 853050,
+      "sha256": "5f160e7301a60a8cbc73f8451d8d73162adaed3b70e57b22b89aa855c6529637"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f35/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 796,
+      "sha256": "aa0210e8475790891484a3bfb4ce15ba99c4ae6baed94c9504234f5525df4a13"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/f35/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 651450,
+      "sha256": "d3951e7cf9dd197bd3743a693cb4e27d3fbb077c708031acd4979db114526c18"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/s01/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 793,
+      "sha256": "5615b606db21d2803a119932629906f118906185208f7b67d6c002c1930affa8"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/s01/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 119610,
+      "sha256": "8da7c57a81a3ddfa4137226f72c115270417e0e2369aded2ca2ec436c660f63a"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/s02/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 794,
+      "sha256": "88048a3c89733b5e9277ad8362f046f848051174b1ef6e69f456fb2faabae67e"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/s02/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 259770,
+      "sha256": "e48f3a34f63a8b4c933f91ef7ff1d1599f07427d9c46804c1cbe16042bc445c4"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/s03/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 795,
+      "sha256": "3de54e829c92175a9dec83e2d46c4b141ce570b88881027eea7bfbb6ef619858"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/s03/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 480570,
+      "sha256": "0a4befa5d6350486fe5f83fae5a75cc19ec6704ef5d50f438e6e4c255bb0cb99"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/s04/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 791,
+      "sha256": "c07749c880a3b6b91d78d6a3b7ac1cf0780d9e45d675ae870047c587da818bfe"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/s04/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 98490,
+      "sha256": "d397f2dd5ccb6d70e3421a7a85d4496e4841e963dee4aa571c3914af7e30380e"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/s05/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 795,
+      "sha256": "346a8d12a2973cce1a29b02718d384fb7d1cac71513d9bb0ecd95324c5b9ac5a"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/s05/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 503610,
+      "sha256": "b9d3ec3c29052bed8065398ef4f2bb1688f6b0ef907632f6be6d2227ff802d65"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/s08/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 796,
+      "sha256": "4065b667e5d0c84a560f6f57e5d113a6846eeb359055068a218150f03330a7e4"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/s08/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 526650,
+      "sha256": "a39d6307f668b2352e49d46b73ef1160779bdbf2d6e938b840432985da9a7aaa"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/s09/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 794,
+      "sha256": "cf4222eda9e3d9957158dbe069924cb5963db94452a414699d45468e81795eac"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/s09/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 209850,
+      "sha256": "7051ef9f590e05defd5e1ca8ba471916367b6abc0ac2aa24885005debdae27bf"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/s10/verified.json",
+      "role": "voice_hash_proof",
+      "bytes": 793,
+      "sha256": "8525f337aee7f2e44f057edcd712a47091afa447d3d42db58ca5f1871233f542"
+    },
+    {
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/voice/v01/s10/voice.wav",
+      "role": "frozen_active_voice",
+      "bytes": 190650,
+      "sha256": "6dbf23a97a0c616e39a44e65e6c75f10c6ae7afb04c82f3ff9c1bb06e6bf1e02"
+    },
+    {
+      "path": "studio/public/template-assets/NotoSansJP-Variable.ttf",
+      "role": "shared_font",
+      "bytes": 9589900,
+      "sha256": "c2f3b4d463500a2ddcd3849cded1fceeb9fd6d1c32e6cbecd568453ba50fc68f"
+    }
+  ],
+  "expected_counts": {
+    "active_voices": 43,
+    "native_motions_available": 12,
+    "native_motions_used_across_current_full": 8,
+    "official_downloads_available": 6,
+    "official_downloads_used": 4
+  },
+  "existing_media_baselines": [
+    {
+      "kind": "short",
+      "revision": "v07",
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/release/v07/short/ai-bert-gpt-history-short-v07.mp4",
+      "sha256": "9c0f19d1514475eca4d583f4cd299d2f64fee3e84025c97bb1db61d89faff415",
+      "bytes": 6455447,
+      "seconds": 58.5
+    },
+    {
+      "kind": "full",
+      "revision": "v05",
+      "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/release/v05/full/ai-bert-gpt-history-full-v05.mp4",
+      "sha256": "9c1440b1ce74c2e03d79be86fe8f6d3784cb610a421d97493aebbf7a4960d763",
+      "bytes": 26506075,
+      "seconds": 425.625
+    }
+  ],
+  "conditional_dependencies": {
+    "pdf_rebuild": "ReportLab was not installed in the current default Python or H3 venv on 2026-11-07; the exact earlier PDF-generation package version was not recorded. Install and verify in an isolated environment before PDF regeneration. Existing PDF v06 remains unchanged.",
+    "audio_remix": "Original licensed music and private inventory are required only when rebuilding the mix. Reusing verified PCM avoids a new TTS or original-music lookup.",
+    "new_character_generation": "Frozen approved references, graph, seed, Q3 diffusion, Q2 text encoder, Turbo 8 steps, native480x864/124frames/24fps; not guaranteed bit-identical on another runtime",
+    "article_rebuild": "The current v04 builder also reads the preserved v03 full timeline and v03 article HTML for its CSS. Do not omit these when restoring a workspace."
+  },
+  "private_boundaries": {
+    "includes_media_bytes": false,
+    "includes_keys_or_share_urls": false,
+    "receipt_metadata": "ignored outputs _private only"
+  },
+  "verification_scope": {
+    "input_paths_bytes_sha256": true,
+    "existing_media_sha256": true,
+    "shared_unittest_cases_passed_this_turn": 37,
+    "new_tts_calls": 0,
+    "new_motion_jobs": 0,
+    "media_rerendered": false,
+    "human_full_listening": false,
+    "mobile_playback": false
+  }
+}

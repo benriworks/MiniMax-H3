@@ -1,6 +1,6 @@
 # 動画・関連記事の制作索引
 
-更新日：2026-11-05。このリポジトリの制作情報は、索引・総覧・案件ごとの再開履歴兼ノウハウの3種類を入口に管理する。チャット履歴がない別チャット・別担当者も、ここから再開する。
+更新日：2026-11-07。このリポジトリの制作情報は、索引・総覧・案件ごとの再開履歴兼ノウハウの3種類を入口に管理する。チャット履歴がない別チャット・別担当者も、ここから再開する。
 
 ## 最初に読む3種類
 
@@ -13,6 +13,8 @@
 運用の規定はルートの [AGENTS.md](../../AGENTS.md)。参照資料、対象案件・版、採用済み事項、次の作業を短く報告して着手する。ユーザーに過去の説明や長いフォーム入力をやり直してもらわず、助手が根拠資料から復元する。
 
 BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_JA.md)を参照。Proニュースv04を基に `explanation_v1` を採用した。
+
+編集の再現例は[BERT/GPTの手順](../../productions/content-projects/CONTENT_20261106_ai_bert_gpt_history/REPRODUCTION_JA.md)。139入力の版・hash、環境、APIを再実行しない経路、新しい版への出力例、依存の不足を記録した。
 
 ## 参照・更新の手順
 
@@ -36,7 +38,7 @@ BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_J
 
 | 案件・素材 | 再開時の入口 |
 | --- | --- |
-| 【AI】BERT・GPT誕生史：旧short v03／full v02の編集品質を差し戻され、**short v07／58.5秒・full v05／約7分6秒**へ改訂。主図拡大・具体例・公式原図4種・顔アップ/胸上/中景、同じ白衣人物のローカルMiniMax2素材追加。全decode・107字幕状態・音量・指定箇所の実フレーム、Drive保存読戻し済み。記事v04・図入りPDFv06。人の最終試聴・完成品採用・公開は未完了、個人fork Draft PR #20 | [案件・現在地](../../productions/content-projects/CONTENT_20261106_ai_bert_gpt_history/RESUME_AND_KNOWHOW_JA.md)／[最新QC](../../productions/content-projects/CONTENT_20261106_ai_bert_gpt_history/FINAL_REVIEW_QC_V04_JA.md)／[記事草稿](../../productions/content-projects/CONTENT_20261106_ai_bert_gpt_history/ARTICLE_DRAFT_V04_JA.md)／[人物](../../productions/content-projects/CONTENT_20261106_ai_bert_gpt_history/CHARACTERS_JA.md) |
+| 【AI】BERT・GPT誕生史：旧short v03／full v02の編集品質を差し戻され、**short v07／58.5秒・full v05／約7分6秒**へ改訂。主図拡大・具体例・公式原図4種・顔アップ/胸上/中景、同じ白衣人物のローカルMiniMax2素材追加。全decode・107字幕状態・音量・指定箇所の実フレーム、Drive保存読戻し済み。記事v04・図入りPDFv06。人の最終試聴・完成品採用・公開は未完了。再現手順・入力139件を記録、個人fork PR #20がmain統合先 | [案件・現在地](../../productions/content-projects/CONTENT_20261106_ai_bert_gpt_history/RESUME_AND_KNOWHOW_JA.md)／[最新QC](../../productions/content-projects/CONTENT_20261106_ai_bert_gpt_history/FINAL_REVIEW_QC_V04_JA.md)／[記事草稿](../../productions/content-projects/CONTENT_20261106_ai_bert_gpt_history/ARTICLE_DRAFT_V04_JA.md)／[人物](../../productions/content-projects/CONTENT_20261106_ai_bert_gpt_history/CHARACTERS_JA.md) |
 | Anthropic退社考察ショート：最新v02はローカル曲へ差し替えた45.75秒。技術確認・Drive保存後、ユーザーからBGMの音量変動を指摘。「作り直しは不要」の指定により今回は記録のみ、v02を維持。控えめな一定音量を今後の改善方針へ。記事v02と6画像は継続。完成品採用・公開は未確定、個人fork PR #19 | [案件・現在地](../../productions/content-projects/CONTENT_20261104_anthropic_departures/RESUME_AND_KNOWHOW_JA.md)／[BGM改訂と評価](../../productions/content-projects/CONTENT_20261104_anthropic_departures/BGM_REVISION_V02_JA.md)／[記事v02](../../productions/content-projects/CONTENT_20261104_anthropic_departures/ARTICLE_DRAFT_V02_JA.md) |
 | OpenAI×Anthropicモデル競争：企画v01の大筋採用、公式用語と動作へ改訂。ショートv01は59.75秒、フルv02は約9分39秒。技術確認済み・未採用、Drive保存済み（再生進行は未確認）。公式引用・動く図・既存6動作、Gemini対話、記事v03と素材包装v04。個人fork PR #18へ保存 | [案件・現在地](../../productions/content-projects/CONTENT_20261103_model_race/RESUME_AND_KNOWHOW_JA.md)／[表現改訂](../../productions/content-projects/CONTENT_20261103_model_race/WORDING_REVISION_JA.md)／[記事v03](../../productions/content-projects/CONTENT_20261103_model_race/ARTICLE_DRAFT_V03_JA.md) |
 | 技術・キャラクター解説20チャンネル比較：公開登録者10万人以上を確認、各1本の映像音声と30秒標本・終盤を分析。60技法と編集レビュー票へ整理。制作への適用と維持率の効果は別途確認 | [案件・現在地](../../productions/research/RESEARCH_20261103_youtube_explainers/RESUME_AND_KNOWHOW_JA.md)／[比較報告](research/YOUTUBE_EXPLAINERS_20_20261103_JA.md) |

@@ -4,7 +4,7 @@
 
 ## 提供素材
 
-対象はDriveの「dots制作履歴 第3弾 ワイン（Blender素材）」：https://drive.google.com/drive/folders/1GIfitY8aaIZ2ICafVlQ9ep8zm3wlY_ZY 。最初に指定された別フォルダーは除草作業・列車接触の素材だったため、無関係な原本は取得せず、名前検索とREADMEで題材を照合した。
+対象はDriveの「dots制作履歴 第3弾 ワイン（Blender素材）」：（共有URLはGit外の非公開記録に保持） 。最初に指定された別フォルダーは除草作業・列車接触の素材だったため、無関係な原本は取得せず、名前検索とREADMEで題材を照合した。
 
 完成物4ファイル、工程1ファイル、履歴7ファイルの計12ファイル。動画4、PNG5、ZIP3。ローカルの `outputs/content-projects/CONTENT_20261102_dots_blender_wine/source-inventory.json` に容量・SHA-256・動画probeと展開64ファイルのhashを保存。提供スクリプトは読み取りのみ、元blendは開かず、ローカルの別の未保存シーンは変更しない。
 
