@@ -1,0 +1,34 @@
+[
+  {
+    "who": "male",
+    "reference": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/characters/v04/male-close-reference.png",
+    "reference_sha256": "a35ef8c7968df337a82ae0c7d4357ec921f565ff24d67fcdff15599e22e914a5",
+    "native_size": [
+      1086,
+      1448
+    ],
+    "input": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/characters/v04/male-close-input.png",
+    "input_size": [
+      480,
+      864
+    ],
+    "input_sha256": "440d73e9f8fdb57dfa2ac3582c4958c7b4f744a878c9df9954e7c2e7f96fd8fa",
+    "method": "Uniform resize and white technical canvas; no face repainting"
+  },
+  {
+    "who": "female",
+    "reference": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/characters/v04/female-close-reference.png",
+    "reference_sha256": "9233e3b9826cece4f73f986a041656869c2391c22b888232f0f559f899c64adf",
+    "native_size": [
+      1086,
+      1448
+    ],
+    "input": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/characters/v04/female-close-input.png",
+    "input_size": [
+      480,
+      864
+    ],
+    "input_sha256": "f1e206e2a5b4c32854c389cc89a827298ec78eb06119ea44fddd4d084240448f",
+    "method": "Uniform resize and white technical canvas; no face repainting"
+  }
+]

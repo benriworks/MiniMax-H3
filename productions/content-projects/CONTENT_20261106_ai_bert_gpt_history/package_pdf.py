@@ -18,11 +18,11 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, KeepTogether, LongTable, TableStyle
 
 
-def build():
-    folder = OUT / 'article/v03'
-    review = OUT / 'review/v03'
+def build(article_version='v03', pdf_version='v04'):
+    folder = OUT / 'article' / article_version
+    review = OUT / 'review' / article_version
     review.mkdir(parents=True, exist_ok=True)
-    target = review / '08_記事草稿_図入り_v04.pdf'
+    target = review / ('08_記事草稿_図入り_'+pdf_version+'.pdf')
     if target.exists():
         raise RuntimeError('Keep the completed PDF; use a new revision for changes')
     soup = BeautifulSoup((folder / 'index.html').read_text(encoding='utf-8'), 'html.parser')
@@ -45,10 +45,11 @@ def build():
             source = folder / element.img['src']
             with fitz.open(source) as image_doc:
                 pix = image_doc[0].get_pixmap()
-                height = width * pix.height / pix.width
+                picture_width = min(width, 285) if .95 < pix.width / pix.height < 1.05 else width
+                height = picture_width * pix.height / pix.width
             # Keep the actual desired dimensions: defer the figure to the next
             # page instead of squeezing it into the remaining page height.
-            picture = Image(str(source), width=width, height=height)
+            picture = Image(str(source), width=picture_width, height=height)
             caption = Paragraph(markup(element.figcaption), styles['caption'])
             flow.extend([KeepTogether([picture, Spacer(1,6), caption]), Spacer(1,12)])
         elif element.name == 'table':
@@ -81,10 +82,13 @@ def build():
         for page in checked:
             for image in page.get_image_info():
                 bbox = fitz.Rect(image['bbox'])
-                assert bbox.width > 490, 'Unexpected squeezed figure'
-    (review / 'article-pdf-checks-v04.json').write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding='utf-8')
+                square=.95 < image['width']/image['height'] < 1.05
+                assert bbox.width > (280 if square else 490), 'Unexpected squeezed figure'
+    (review / ('article-pdf-checks-'+pdf_version+'.json')).write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding='utf-8')
     print(json.dumps(result, ensure_ascii=False))
 
 
 if __name__ == '__main__':
-    build()
+    import argparse
+    parser=argparse.ArgumentParser();parser.add_argument('--article-version',default='v03');parser.add_argument('--pdf-version',default='v04');args=parser.parse_args()
+    build(args.article_version,args.pdf_version)

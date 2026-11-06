@@ -4,25 +4,30 @@
 
 ## 現在地と次の作業
 
-- [企画v01](PROPOSAL_V01_JA.md)と白衣版v02は「白衣版・この構成で進める」で採用。朝倉透（28・疑問役）と篠宮凛（30・解説役）で、単語の表現→文脈・Attention→Transformer→2018年GPT/BERTを説明する。完成品採用・媒体公開とは別。
-- 最新ショートは **v03／58.5秒**、1080×1920・24fps。全decode、実尺、字幕の収まり、最終AAC -16.00 LUFS／true peak -2.71 dBTPを確認。実際のAVを用いたAI補助で重大指摘なし。Driveへ保存し名前・4,560,177 bytes・親・MIMEを読戻した。ユーザーの最終試聴とスマホ再生は未確認。
-- フル **v02／425.625秒（約7分6秒）**、1920×1080・24fps。v01で内容に合わない中央見出し4か所を検出し、修正したv02の全decode・実尺・字幕・音量と実AVのAI補助を確認。重大指摘なし。音声PCMはv01と同一。最終AAC -16.04 LUFS／-1.32 dBTP、20,510,039 bytes。Drive保存・名前・容量・親・MIMEの読戻し済み。末尾10秒は終了画面用の余白。実際のYouTube終了要素を設定したものではない。
-- ローカルMiniMaxの **10素材（男女各：喜・怒・哀・楽・思考）** が完走。Q3 diffusion＋Q2 text encoder＋Turbo、8 steps、native480×864／124frames／24fps、各286.879〜295.022秒。最初の失敗2設定・資源監視・全decode・入力と原本hashを保持。原本は変更せず、単色背景の人物だけに頭部追跡による編集用画角補正を適用。指先の軽微な変形、表情の強さのばらつき、音素同期ではない口の動きがある。
-- Gemini音声は45件生成、現在使うのはショート8＋フル35＝43台詞。聞き取りが不明瞭なs07とs06だけを、s09・s10へ言い換え生成。旧音声と短編v01/v02を保持。[表示・読み分離の最新短編台本v04](short-dialogue-v04.json)、[フルv01](full-dialogue-v01.json)。声はCharon／Aoede。
-- [一次資料10件](sources.json)と原論文題名の引用3枚、記事用に直接描画した自作図8枚を共用。[最新記事草稿v03](ARTICLE_DRAFT_V03_JA.md)、[素材台帳v03](article-assets-v03.json)。HTMLと画像のZIP、図入りPDFv04（7ページ・835,811 bytes）を準備。PDFv03で図が小さくなったため固定寸法と次ページ送りへ修正。日本語抽出・11画像・全図幅、代表ページを点検。ブラウザ／実機表示の検査とは別。
-- デスクトップでの実アプリ実演が対象ではない歴史解説。論文の描画はブラウザ撮影や当時のモデル実行と呼ばない。図の日本語例・点・関係線は説明用で実測ではない。
-- blog側のAGENTS・visual-identity・tone-and-mannerを確認。共通草稿と素材の受け渡しまでで、blogの写真カバー・既存案内役バナー・MDX・配置とサイト検査は未実施。新キャラをblog全体の案内役へ自動置換しない。記事公開は別依頼。
-- BGMはユーザーSSDの「夕暮れのキャンパス」／甘茶。許諾を確認、原曲hashを照合。今回は低い一定BGM、頭尾boostなし。共通の `explanation_v1` は変更せず。**Content ID登録なし**。原曲単体は共有物・Gitへ含めない。
-- 次はユーザーによる両動画の最終試聴と採用。スマホ実機の再生・媒体公開・blog固有の仕上げは未確認。[最終媒体QCと引き継ぎ](FINAL_REVIEW_QC_V01_JA.md)を参照。共通CLIはrevision44、25素材・9/36場面と記事を保存。共有URLと受領はignoredの `_private/drive/`。自分の8192番専用サービスは空キュー・PID・出力先を照合して停止済み。
-- コードは本worktree、ローカル実行環境とモデルは別MiniMaxH3。cloneのみではignoredの原画像・音声・動画・モデル・認証は付属しない。
-- Git保存は個人forkの[ドラフトPR #20](https://github.com/benriworks/MiniMax-H3/pull/20)。ブランチ `codex/ai-bert-gpt-history-20261106`、親制作ブランチをbaseとする。初回候補の保存 `5c9e0a5`、完成媒体QC・記事・台帳の保存 `c0530fe` をpushし、リモートHEADとPRのhead一致を確認。最新HEADはPRを参照。mainマージと公式upstream書込みは対象外。
+**ユーザーが差し戻したshort v03／full v02の編集を改訂し、最新候補short v07／full v05をDriveへ保存・読戻し済み。余白、単調さ、公式情報の見せ方、人物の画角、タイトル提示の5点を修正した。完成品の採用と人の最終試聴は未完了。旧版の技術確認・AI評価を編集品質の合格へ読み替えない。**
+
+- [企画v01](PROPOSAL_V01_JA.md)と白衣版v02は「白衣版・この構成で進める」で明示採用済み。朝倉透（28・疑問役）と篠宮凛（30・解説役）の顔・衣装・役割、Charon／Aoedeの声、主題を継承した。新たな人物採用を求める改訂ではない。
+- 最新候補の映像は[改訂Renderer](produce_v04.py)。主役の図を大きくし、具体例の段階更新、顔アップ・胸上・中景・対話・人物を退避した原図を使い分ける。縦は18、横は74の本編ショット区間を明示。字幕更新数をカット数へ置き換えない。
+- 同じ人物の胸上参照2枚と、ローカルMiniMaxの胸上動画2本を追加した。Q3 diffusion＋Q2 text encoder＋Turbo8-step、native480×864／124frames／24fps、287.329／305.338秒で生成・全decode。旧10素材と合わせ12素材を保持し、今回の全編では旧6＋新2を実際に使用。全12素材を使用済みとはしない。口の動きは完全な音素同期ではない。
+- 生成原本下端の不要文字を避け、顔・手が残る上部0〜642pxから編集用に切り出した。原本・初回・改訂・hash・資源監視を保持し、文字や顔を塗り直さない。[追加生成と編集の来歴](closeup-generation-and-edit-v04.json)、[画像プロンプト](image-prompts-closeup-v04.json)、[動作プロンプト](motion-prompts-v04-closeups.json)。自分の8192番専用サービスは空キュー・PID・出力先を照合して停止済み。
+- Google Research／OpenAI公式記事にリンクされた原画像を取得し、Attention、BERT/GPT/ELMo比較、Masked LM、OpenAI2018記事画像を出典付きで使用。BERT原論文Fig.1はベクターPDFのpage3から2260×675へ直接描画し、全体→モデル別に拡大。原図内の文字を改変せず、日本語解説を図外へ分離した。[公式画像台帳](official-assets-v04.json)、[原論文描画の座標と来歴](official-vector-quote-v04.json)。取得6画像のうち2画像は未使用。
+- Computer Useは前ターンにブラウザURLを確定できず停止し、撮影原本は得られていない。本改訂は公式原画像の直接取得とPDF描画であり、PC撮影・現行アプリ実演とは呼ばない。[一次資料10件](sources.json)の年月・事実区分は継承。説明用の日本語例や関係線は実モデル出力・実測ではない。
+- 音声は[短編台本v04](short-dialogue-v04.json)の8台詞と[フルv01](full-dialogue-v01.json)の35台詞を再利用し、**追加TTSは0件**。初回からの生成計45件中、現役43件。short v03→v07、full v02→v05のmix・声・BGMのPCM hashがそれぞれ同一。BGMは「夕暮れのキャンパス」／甘茶、低めの一定音量、頭尾boostなし。共通のexplanation_v1は変更せず。**Content ID登録なし**。原曲単体を共有・Gitへ含めない。
+- [記事草稿v04](ARTICLE_DRAFT_V04_JA.md)と[素材台帳v04](article-assets-v04.json)へ同時反映。1920×872の自作図7枚＋公式引用4枚、可搬HTML/ZIP、7ページの図入りPDFv06。ZIP全member SHA、日本語抽出、11画像、代表PDFページを点検した。blog側の既存規約は継承し、写真カバー・案内役バナー・MDX・配置・サイト検査と記事公開は未実施。新キャラをblog全体の人物へ置き換えない。
+- Driveには最新MP4二本、17.54秒の冒頭プレビュー、PDF、素材ZIP、同時刻の新旧比較、サムネイル案、最新確認案内の8ファイルを保存。名前・bytes・親・MIME・非共有状態を読戻した。所有者以外への公開権限は追加せず、S3へ二重送信していない。スマホ実機での再生は未確認。URL・受領はignoredの `_private/drive/` のみ。
+- 共通CLIはrevision62、40素材、19／75場面（本編18／74＋終了画面）。[登録要約](workspace-editorial-summary-v04.json)。blockerなし、企画の約60／450秒と実尺との差のwarning2件。台帳のtechnical_verifiedは別の準備判定のため、媒体QC合格へ書換えない。human_reviewed／publishedはfalse。
+- 次はユーザーによる図・根拠の追いやすさ、人物の画角と反応、声と一定BGMの最終試聴・採否確認。[最新QCとレビュー箇所](FINAL_REVIEW_QC_V04_JA.md)を参照。YouTube終了要素の設定、媒体公開、blog固有仕上げは別工程。
+- Git保存は個人forkの[Draft PR #20](https://github.com/benriworks/MiniMax-H3/pull/20)、ブランチ `codex/ai-bert-gpt-history-20261106`。初回候補5c9e0a5、初回QC等c0530fe、その後の保存e448a94を保持し、この改訂も同じPRへ追記する。最新HEADとリモート反映はPRで確認する。mainマージ・公式upstream書込み・YouTube公開は今回の対象外。
+- 実行環境とモデルは別MiniMaxH3。cloneのみではignoredの静止画・動画・音声・モデル・認証は付属しない。原本・派生・共有とコードのルートを再確認して再開する。
 
 ## 動画別の状態
 
-| 動画ID・版 | 目的と見出し | 実尺・寸法 | 新規・再利用・検証・残り |
+| 動画ID・版 | 推奨投稿タイトル | 実尺・寸法 | 検証・残り |
 | --- | --- | --- | --- |
-| ai-bert-gpt-history-short / **v03** | 【AI】BERTとGPTはどう生まれた？違いのカギは「学び方」 | **58.5秒**・1080×1920・24fps | 新男女、Gemini8台詞、縦専用図。全17字幕状態と実AV、全decode、音量を確認。Drive保存読戻し済み。最終試聴・採用待ち |
-| ai-bert-gpt-history-full / **v02** | 【AI】AIはどうやって言葉を学んだ？単語の数値化からBERT・GPT誕生まで | **425.625秒**・1920×1080・24fps、末尾10秒込み | 同じ人物・出典、Gemini35台詞、横専用図・原論文引用。90字幕状態、全decode・音量・実AV確認で重大指摘なし。Drive保存読戻し。最終試聴・採用待ち |
+| ai-bert-gpt-history-short / **v07** | **【AI】GPTは続きを予測、BERTは穴埋め！学び方の違いを図解** | **58.5秒**・1080×1920・24fps・6,455,447 bytes | 全decode、17字幕状態、実尺・音量、改訂箇所の実フレーム、Drive読戻し済み。人の最終試聴・完成品採用待ち |
+| ai-bert-gpt-history-full / **v05** | **【AI】GPTとBERTはどう生まれた？言葉の数値化からTransformerまで図解** | **425.625秒**・1920×1080・24fps・26,506,075 bytes、末尾10秒込み | 全decode、90字幕状態、実尺・音量、改訂箇所の実フレーム、Drive読戻し済み。人の最終試聴・完成品採用待ち。終了要素は未設定 |
+
+初回short v03／full v02は技術確認済みだったが、ユーザーが編集品質を差し戻した。内部試作short v04〜v06／full v03〜v04も保持し、最新候補と混同しない。投稿タイトルは提案であり、公開時の採用は未確定。[見出しの比較案と役割分担](YOUTUBE_DRAFTS_V04_JA.md)。
 
 ## 最新版と素材
 
@@ -30,13 +35,14 @@
 
 | 種類 | 保存先 |
 | --- | --- |
-| 最新ショート | `release/v03/short/ai-bert-gpt-history-short-v03.mp4`、同フォルダーにSRT・timeline・QC・音声来歴 |
-| フル | `release/v02/full/ai-bert-gpt-history-full-v02.mp4`。同じ構成の別派生。初回約7分30秒案から実音声で約7分6秒へ |
-| 人物と動作 | `characters/v01/`・`characters/v02/`、`motions/v03-q2/`、原本と区別した`motion-framed-cache/`。共有ライブラリは[人物設定](../../characters/ai-history-guides-20261106/characters.json) |
-| 原論文・引用 | `_private/research/papers/`、`article/v01/quote-assets-v01.json`。原本URL・hashを保持 |
-| 記事受渡し | `article/v03/`（HTML・草稿・11画像・出典・SHA）、`review/v03/ai-history-article-materials-v03.zip`、`review/v03/08_記事草稿_図入り_v04.pdf` |
-| レビュー・共有 | `_private/media-review/`、`_private/drive/`。共有の読戻しと実機再生を区別 |
-| 実装と編集 | [構成](ARCHITECTURE.md)・[Mermaid図](ARCHITECTURE_DIAGRAM.md)・[編集設計](EDITING_REVIEW_V01_JA.md)・[見出しと公開メモ](TITLES_AND_PUBLICATION_JA.md) |
+| 最新ショート | `release/v07/short/ai-bert-gpt-history-short-v07.mp4`、同階層にSRT・timeline・shot-plan・字幕監査・QC・音声来歴 |
+| 最新フル | `release/v05/full/ai-bert-gpt-history-full-v05.mp4`、同階層に同種の検査・来歴 |
+| 人物と動作 | `characters/v02/`・`characters/v04/`、旧`motions/v03-q2/`・新`motions/v04-closeups/`。原本別の`motion-framed-cache/`・`motion-close-cache/`。共有[人物設定](../../characters/ai-history-guides-20261106/characters.json) |
+| 引用原本・派生 | `_private/research/papers/`・`_private/web-originals-v04/`・`official/v04/`。直接取得原図とPDF描画の来歴を分離 |
+| 記事受渡し | `article/v04/`、`review/v04/ai-history-article-materials-v04.zip`、`review/v04/08_記事草稿_図入り_v06.pdf` |
+| レビュー | `review/v04/intro-preview-full-v05.mp4`・`before-after-full-intro-v04.jpg`・`final-frames/`・`covers/`・`00_最新の確認案内_改訂版.txt`。表紙画像の旧版番号は初回作成版で、最新候補でも再利用 |
+| 共有・AI補助 | `_private/drive/`・`_private/media-review/`。AI所見の対象版と、共有読戻し・実機再生を分ける |
+| 実装と編集 | [構成](ARCHITECTURE.md)・[Mermaid図](ARCHITECTURE_DIAGRAM.md)・[改訂対応表](EDITORIAL_REVISION_V04_JA.md)・[QCと画面時刻](FINAL_REVIEW_QC_V04_JA.md) |
 
 ## この案件の学び
 
@@ -51,7 +57,7 @@
 | PDFの残り高さへ図が極小化 | 固定寸法の図とキャプションを一体化し、入らなければ次ページへ | 原HTMLのブラウザ表示を合格に置き換えない |
 | BGMの音量変動を抑える | 今回は低めの一定mix、最終AACを測定 | 共通既定や旧完成品は変更しない |
 
-## 再開・更新履歴
+## 初回候補までの再開・更新履歴（当時の確認範囲）
 
 | 日付 | 対象・依頼 | 実施したことと検証 | 残り |
 | --- | --- | --- | --- |
@@ -60,13 +66,28 @@
 | 2026-11-06 | 科学者風の服装へ | v01を参照して白衣版v02を生成。1536×1024、1,582,428 bytes、Drive読戻し。元画像・両プロンプト・hashを保持 | 白衣版と構成の確認、単体参照、最初のローカル試験 |
 | 2026-11-06 | 「白衣版・この構成で進める」 | [採用原文](adoption-v01.json)を保存、共通CLIへ明示採用・両人物の確認を登録（revision19）。元画素から一人用参照を作り、最初の切り出しの相方の手の端を修正 | 完成品採用・公開とは別に本番制作を進める |
 | 2026-11-06 | 人物の試験と媒体準備 | メモリ監視で中断した2設定を保持し、Q3＋Q2 Turboで2素材が完走。43使用台詞＋旧1台詞を保存。実尺、107字幕状態の収まり、記事用図8枚と引用3枚を確認 | 残りの動作8件、女性思考の画角調整、書き出しと媒体検査・レビュー |
-
-動画・音声・ZIP・私的原本・認証・DriveリンクはGitへ含めない。共通の新規規定は不要で、既存の新キャラ確認・保存・更新手順を適用した。
-
 | 2026-11-06 | ショートv03候補完成 | v01の図と言葉・末尾の白い切替を修正、v02で指摘されたs06をs10へ局所再生成。58.5秒、全decode、17字幕状態、実AVで重大指摘なし。Drive読戻し | 人の最終試聴・採用。フル最終QCと共有 |
 | 2026-11-06 | 感情素材10件と記事受渡し | 10件のnative5.17秒、各verification・hash。原本別の人物画角補正。記事11画像ZIPの全memberhash、図入りPDFv04の7ページ・全図幅を確認 | blog固有の仕上げ・公開は別。ブラウザ検査は未完了 |
-
 | 2026-11-06 | フルv01の実AV確認 | 全decode、-16.04 LUFS／-1.32 dBTP。4か所の内容と無関係な中央見出しを確認し、produce.pyを内容別へ修正 | v02を書出し・QC・AV確認・共有。v01原本は保持 |
-
 | 2026-11-06 | フルv02候補完成 | 内容別の中央見出しへ修正。425.625秒、全decode、90字幕状態、音量、実AVのAI補助で重大指摘なし。音声PCMはv01と同一、Drive読戻し。AIの静止画所見は実フレームの人物領域差分により不採用 | 人の最終試聴・採用。終了画面要素・動画と記事公開は別 |
 | 2026-11-06 | 2本の記録・保存 | 索引・総覧・案件履歴、人物ライブラリ、台帳revision44、独立した構成本文とMermaid図、QC要約、記事草稿・素材・章時刻を更新 | 個人forkのPRと作業報告を参照。媒体自体はGit外 |
+
+
+## 指定改訂の履歴と学び
+
+| 日付・対象 | 実施・検証 | 残り |
+| --- | --- | --- |
+| 2026-11-06／旧short v03・full v02の差し戻し | ユーザー原文を[依頼記録](editorial-revision-request-v04.json)へ保存。5点を既存規約へ照合し、白衣・声・主題の採用は継承 | 編集品質の再確認。旧AI所見を採用根拠にしない |
+| 2026-11-06／胸上2素材追加 | 同じ顔・衣装の参照を生成し、ローカルMiniMax2本が全decode。原本の生成文字は保持し、文字のない上部を編集で使用。役割と台詞に合わせる | 完全な音素同期ではない。手指・表情の自然さは人の確認対象 |
+| 2026-11-06／short v07完成候補 | 主図拡大、縦専用の一例ずつのAttention、GPT/BERT別パネル、18本編ショット。58.5秒・17字幕状態・全decode・最終音量、該当実フレーム、Drive保存読戻し。TTS追加なし | 人の最終試聴と採否。実機再生・公開は未確認 |
+| 2026-11-06／full v05完成候補 | 具体例と段階更新、原画像引用、74本編ショット、顔アップ・胸上・中景・感情を配置。425.625秒・90字幕状態・全decode・最終音量、該当実フレーム、Drive読戻し。10秒の終了余白と音声PCMは継承 | 人の最終試聴・採否。YouTube終了要素は未設定 |
+| 2026-11-06／記事v04・PDFv06 | 自作図7＋引用4、草稿、HTML/ZIP全memberhash、7ページPDF・11画像・日本語抽出・代表ページを確認しDrive保存読戻し | blog用の写真カバー・案内役バナー・MDX・サイト検査と公開 |
+| 2026-11-06／共通化とGit保存 | AGENTS.mdに新キャラでも省かない編集5点検査、総覧に失敗の理由と適用条件、索引に最新版、案件に原本・検証・次工程。独立した構成本文とMermaid図も更新。個人forkのDraft PR #20を更新 | 保存結果はPRの実HEAD・remote照合で確認。mainマージ・媒体公開は別依頼 |
+
+- 余白を背景色だけで埋めず、図の対象・原因と結果・原図の読む位置を大きくする。意味のない切替や同一反復で多様さを装わない。
+- 原図の所在を一度示し、必要なパネルへ寄り、日本語の見る要点を外に置く。低解像度PNGの拡大で不足する場合は、一次論文のベクターから直接描画し来歴を分ける。原図の文字を書き換えない。
+- 中間short v04/v05・full v03のAI補助の小さい原図という指摘を受けて、最終版では高解像度原図と個別パネルへ修正した。最終版の全AVで「重大指摘なし」と再認定した事実はない。実decode・代表実フレーム・音声同一性と、人の編集評価を分ける。
+- 動作素材を12持つことと、12使うことは別。今回は旧6＋新2の実使用、場面・画角・感情の対応を記録した。単なる素材数を演出品質の証拠にしない。
+- 投稿タイトルは【AI】をファイル・案内・返信で省略せず、冒頭見出し・サムネイル・記事題の役割と分けた。
+
+初回候補の時点では共通規約の追加を行わず、既存の新キャラ確認・保存・更新手順を適用した。後述の差し戻しでAGENTS.mdと総覧を更新した。動画・音声・ZIP・私的原本・認証・DriveリンクはGitへ含めない。

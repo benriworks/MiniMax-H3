@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "jobs": {
+    "male-close-thinking": {
+      "who": "male",
+      "source": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/characters/v04/male-close-input.png",
+      "seed": 2026110611,
+      "prompt": "For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\nintegrated_multimodal_description: [Shot 1] 0.00-5.00s. Polished original adult anime scientist, matching the first frame exactly. White lab coat, teal mock-neck, black hair. Chest-up close reaction shot with a large readable face; preserve all facial proportions. He lightly rests his hand at his chin, briefly glances toward the right-hand diagram, raises an eyebrow in curiosity, then gently nods with recognition. His gaze and fingers continue small natural motion to the end. Locked camera with absolutely no zoom or pan. Keep the head, shoulders, hand and upper torso exactly within the original framing. Plain pure white background remains unchanged. Only this single adult person. No extra body parts, no cut, no caption, no lettering, no logo, no props. Lips remain naturally closed or make only very small nonverbal expression changes, not broad speech.\n\noverall_soundscape: Silent neutral room tone, no dialogue, no audible effects.\n\nnon_diegetic_music: None.",
+      "emotion": "thinking"
+    },
+    "female-close-insight": {
+      "who": "female",
+      "source": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/characters/v04/female-close-input.png",
+      "seed": 2026110612,
+      "prompt": "For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\nintegrated_multimodal_description: [Shot 1] 0.00-5.00s. Polished original adult anime scientist, matching the first frame exactly. White lab coat, coral blouse, auburn bob and small gold earrings. Chest-up close reaction shot with a large readable face; preserve all facial proportions. She makes a small explanatory index-finger gesture, looks toward the left-hand diagram, blinks once, and smiles with a gentle nod of insight. Her hand remains anatomically stable; small breathing and eye movement continue to the end. Locked camera with absolutely no zoom or pan. Keep the head, shoulders, hand and upper torso exactly within the original framing. Plain pure white background remains unchanged. Only this single adult person. No extra body parts, no cut, no caption, no lettering, no logo, no props. Lips remain naturally closed or make only very small nonverbal expression changes, not broad speech.\n\noverall_soundscape: Silent neutral room tone, no dialogue, no audible effects.\n\nnon_diegetic_music: None.",
+      "emotion": "insight"
+    }
+  }
+}

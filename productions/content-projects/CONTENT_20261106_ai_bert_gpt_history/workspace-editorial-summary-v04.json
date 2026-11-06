@@ -1,0 +1,21 @@
+{
+  "revision": 62,
+  "assets": 40,
+  "accepted_proposal": "proposal-v01",
+  "scenes": {
+    "ai-bert-gpt-history-short": 19,
+    "ai-bert-gpt-history-full": 75
+  },
+  "checks": {
+    "ready_for_production": true,
+    "blockers": [],
+    "warnings": [
+      "想定尺と場面尺の合計を調整: ai-bert-gpt-history-short",
+      "想定尺と場面尺の合計を調整: ai-bert-gpt-history-full"
+    ],
+    "technical_verified": false,
+    "human_reviewed": false,
+    "published": false
+  },
+  "note": "Decoded-media QC is separate. Approximate planned durations are retained. User rejected old visual editing; new candidates await adoption."
+}

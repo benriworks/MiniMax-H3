@@ -1,7 +1,8 @@
+param([ValidatePattern('^v[0-9]+-[a-z0-9-]+$')][string]$MotionRevision='v03-q2')
 $ErrorActionPreference='Stop'
 $TaskRoot=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))
 $TaskRuntimeRoot='C:\Users\mono_\MiniMaxH3'
-$TaskOutput=Join-Path $TaskRoot 'outputs\content-projects\CONTENT_20261106_ai_bert_gpt_history\motions\v03-q2'
+$TaskOutput=Join-Path $TaskRoot ('outputs\content-projects\CONTENT_20261106_ai_bert_gpt_history\motions\'+$MotionRevision)
 $TaskInput=Join-Path $TaskOutput 'input'
 $TaskUser=Join-Path $TaskOutput 'comfy-user'
 New-Item -ItemType Directory -Force -Path $TaskOutput,$TaskInput,$TaskUser | Out-Null
@@ -21,7 +22,7 @@ for($TaskAttempt=0;$TaskAttempt -lt 40;$TaskAttempt++){
         if($TaskStats.system.argv -contains $TaskOutput){
             $TaskListener=Get-NetTCPConnection -LocalPort 8192 -State Listen
             @{launcher_pid=$TaskProcess.Id;serving_pid=$TaskListener.OwningProcess;port=8192;ready=$true;output=$TaskOutput}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $TaskOutput 'service-ready.json') -Encoding utf8
-            Write-Output 'Dedicated local H3 Q4 Turbo service is ready on 8192';exit 0
+            Write-Output 'Dedicated local H3 Q3/Q2 Turbo service is ready on 8192';exit 0
         }
     }catch{}
     Start-Sleep -Seconds 1
