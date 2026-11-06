@@ -253,7 +253,7 @@
       "alternative_band_rank": 11,
       "one_at_a_time_impact_rank_range": [
         10,
-        12
+        13
       ]
     },
     {
@@ -276,7 +276,7 @@
       "alternative_band_rank": 12,
       "one_at_a_time_impact_rank_range": [
         11,
-        12
+        13
       ]
     },
     {
@@ -302,6 +302,29 @@
       ]
     },
     {
+      "incident_id": "daiichi-contractor-202610",
+      "name": "第一興商の委託先端末",
+      "n": 8724000,
+      "n_label": "約8,724,000件",
+      "unit": "reported_customer_and_employee_records",
+      "certainty": "11/6の調査でも送信された個人情報の範囲・流出事実を特定できていない",
+      "impact": 3,
+      "score": 26172000,
+      "score_million": "26.172",
+      "alternative_band": 3,
+      "alternative_band_score": 9,
+      "source_ids": [
+        "daiichi-first",
+        "daiichi-final"
+      ],
+      "proposed_rank": 13,
+      "alternative_band_rank": 14,
+      "one_at_a_time_impact_rank_range": [
+        13,
+        14
+      ]
+    },
+    {
       "incident_id": "aflac-japan-202606",
       "name": "アフラック生命保険",
       "n": 4400000,
@@ -317,11 +340,11 @@
         "aflac-results",
         "aflac-faq"
       ],
-      "proposed_rank": 13,
+      "proposed_rank": 14,
       "alternative_band_rank": 8,
       "one_at_a_time_impact_rank_range": [
-        13,
-        13
+        14,
+        14
       ]
     }
   ]

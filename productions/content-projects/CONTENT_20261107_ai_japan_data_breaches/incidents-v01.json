@@ -450,25 +450,39 @@
     {
       "incident_id": "daiichi-contractor-202610",
       "name": "第一興商の委託先端末",
-      "n": null,
-      "n_label": "初報の対象数を原資料の表へ照合中",
-      "unit": "unverified_in_primary_table",
+      "n": 8724000,
+      "n_label": "約8,724,000件",
+      "unit": "reported_customer_and_employee_records",
       "certainty": "11/6の調査でも送信された個人情報の範囲・流出事実を特定できていない",
       "first_report_date": "2026-10-08",
       "latest_report_date": "2026-11-06",
-      "impact": null,
-      "impact_range": null,
-      "impact_reason": "送信対象の範囲や項目別件数の照合前に採点しない。",
-      "information": "委託業務の個人データ。項目・数量の原表を追加確認",
-      "subgroups": [],
+      "impact": 3,
+      "impact_range": [
+        2,
+        3
+      ],
+      "impact_reason": "顧客の氏名・性別・生年月日・メール・電話が可能性範囲。従業員情報の詳細を未確認のまま金融・認証情報と断定しない。",
+      "information": "顧客の氏名・性別・生年月日・メール・電話等。顧客と従業員を区別。パスワードは対象外との追記。",
+      "subgroups": [
+        {
+          "n": 8631000,
+          "unit": "customer_records",
+          "label": "顧客情報。ブランド間の重複約515,000件を控除した公表値"
+        },
+        {
+          "n": 93000,
+          "unit": "employee_records",
+          "label": "従業員情報。顧客の内数ではなく別区分"
+        }
+      ],
       "cause": "委託先PCのマルウェア感染と外部への不正通信。送信機能あり。遠隔操作の痕跡は確認されていない。",
       "cause_status": "調査結果を11/6に公表",
       "source_ids": [
         "daiichi-first",
         "daiichi-final"
       ],
-      "dedup_note": "報道の約872.4万件をそのまま確定流出件数へ採用しない。",
-      "ranking_eligible": false
+      "dedup_note": "BigEchoのmeta refresh先の公式本文で総数8,724,000件を確認。11/6続報でも外部送信された個人情報の範囲は未特定で、流出確認済みとはしない。",
+      "ranking_eligible": true
     }
   ],
   "excluded_or_separate": [

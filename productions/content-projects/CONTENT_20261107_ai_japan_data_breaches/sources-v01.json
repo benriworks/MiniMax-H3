@@ -549,7 +549,12 @@
       "bytes": 33121,
       "sha256": "73cedffab6164d2eb779b2ffa7372a6899b9c29199c3887ec9ae28edc12da937",
       "text_path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/research/primary-v01/daiichi-first/extracted.txt",
-      "retrieval_status": "original_and_text_saved"
+      "retrieval_status": "meta_refresh_destination_original_and_text_saved",
+      "body_url": "https://www.dkkaraoke.co.jp/news/newsletter/261008_2.html",
+      "body_original": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/research/primary-v01/daiichi-first/resolved-original.html",
+      "body_sha256": "17b9b1457e7a895ed8db6a3662b42d84b6042d699705be80d9f7946ab4e46c86",
+      "body_text": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/research/primary-v01/daiichi-first/resolved-extracted.txt",
+      "note": "BigEcho原ページのmeta refreshに記された公式の移動先を取得。10/26追記あり。"
     },
     {
       "source_id": "yakiniku-king",
