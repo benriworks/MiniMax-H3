@@ -1,0 +1,511 @@
+{
+  "schema_version": 1,
+  "as_of": "2026-11-07",
+  "status": "research_and_editorial_proposal_not_accepted",
+  "geography": "日本の組織・国内向けサービスの公表事案。居住国別の内訳がない公表値を日本人の人数とは呼ばない。",
+  "ranking_method": "公開規模N × 事件全体の情報項目に対する編集上のインパクトI（1〜5）。実害・平均危険度・企業の責任の測定ではない。",
+  "incidents": [
+    {
+      "incident_id": "arara-message-202610",
+      "name": "アララ メッセージ",
+      "n": 81329467,
+      "n_label": "81,329,467メールアドレス",
+      "unit": "deduplicated_email_addresses",
+      "certainty": "持ち出し確認。メールアドレス数であり人数ではない",
+      "first_report_date": "2026-10-29",
+      "latest_report_date": "2026-11-06",
+      "impact": 3,
+      "impact_range": [
+        2,
+        3
+      ],
+      "impact_reason": "連絡先に加え生年月日等の属性を含む環境がある。属性の組合せは契約企業で異なる。全アドレスに全項目があるとは扱わない。",
+      "information": "メールアドレス、一部に氏名・住所・電話・性別・生年月日・会員番号等",
+      "subgroups": [
+        {
+          "n": 34285087,
+          "unit": "email_addresses",
+          "label": "メールアドレスのみ"
+        },
+        {
+          "n": 47044380,
+          "unit": "email_addresses",
+          "label": "メールアドレスと属性情報等。各情報項目の人数は不明"
+        }
+      ],
+      "cause": "既報環境のWebサーバー脆弱性とシステム環境の問題、管理画面への不正ログイン。別環境Bは認証情報の悪用。全環境を単一の侵入経路と断定しない。",
+      "cause_status": "一部経緯公表、環境別に区別",
+      "source_ids": [
+        "arara-third",
+        "arara-second"
+      ],
+      "dedup_note": "ビックカメラ等の利用企業の内数を別事件として加算しない。旧7,700万件は第3報の集計に更新。",
+      "ranking_eligible": true
+    },
+    {
+      "incident_id": "cuenote-202610",
+      "name": "Cuenote（ユミルリンク）",
+      "n": 51628280,
+      "n_label": "51,628,280件（延べ）",
+      "unit": "non_deduplicated_records",
+      "certainty": "49システムで出力・漏えいの痕跡。数量欄は漏えいのおそれの延べ件数。16システムの件数は引き続き調査",
+      "first_report_date": "2026-10-19",
+      "latest_report_date": "2026-10-26",
+      "impact": 3,
+      "impact_range": [
+        1,
+        3
+      ],
+      "impact_reason": "宛先だけでなく氏名・生年月日等の顧客登録属性や記録を含む場合がある。項目別対象数は不明。",
+      "information": "メールアドレス、契約者の登録属性、配信記録等。サービスごとに異なる",
+      "subgroups": [],
+      "cause": "プログラム／ライブラリの脆弱性を悪用し、サポート用認証情報等を窃取。不正プログラムから複数環境に侵入。",
+      "cause_status": "公表された侵入経緯",
+      "source_ids": [
+        "cuenote-second"
+      ],
+      "dedup_note": "利用企業の通知を合算しない。延べ件数を独立した人数としない。",
+      "ranking_eligible": true
+    },
+    {
+      "incident_id": "muji-app-202610",
+      "name": "MUJIアプリ（良品計画）",
+      "n": 27260000,
+      "n_label": "最大約2,726万件",
+      "unit": "reported_customer_records",
+      "certainty": "外部流出の可能性。全件流出確定ではない",
+      "first_report_date": "2026-10-30",
+      "latest_report_date": "2026-11-06",
+      "impact": 4,
+      "impact_range": [
+        3,
+        4
+      ],
+      "impact_reason": "一般の会員データと、別区分のMUJI Card情報がある。カード情報約109万件が全2,726万件の内数とは断定しない。事件全体の情報の機微性を評価する。",
+      "information": "主たる会員データにメール・生年月日・性別・会員ID、うち約52万件は氏名・住所・電話も。別区分のMUJI Cardに全桁番号等。",
+      "cause": "第三者の不正アクセス。詳細な侵入手法は確認した原公表で未確定。",
+      "cause_status": "調査中",
+      "source_ids": [
+        "muji-second",
+        "muji-card",
+        "muji-second-pdf",
+        "muji-third"
+      ],
+      "dedup_note": "2,726万件とMUJI Card約109万件は別区分。全体の重複関係は未確定のため加算しない。有効約34.5万件のうち約16.8万件は会員基本情報と関連付け可能と公表。11/6第3報でネットストア等を一時停止、再開は予定であり実施確認ではない。",
+      "ranking_eligible": true,
+      "latest_scope_report_date": "2026-11-04",
+      "related_groups": [
+        {
+          "n": 1090000,
+          "unit": "muji_card_records",
+          "label": "MUJI Card情報（最大約109万件）",
+          "relation_to_n": "overlap_not_fully_specified"
+        },
+        {
+          "n": 345000,
+          "unit": "muji_card_records",
+          "label": "上記のうち有効な番号：約34.5万件"
+        },
+        {
+          "n": 745000,
+          "unit": "muji_card_records",
+          "label": "上記のうち無効な番号：約74.5万件"
+        }
+      ],
+      "subgroups": [
+        {
+          "n": 520000,
+          "unit": "records",
+          "label": "2,726万件の内数。氏名・住所・電話を含む"
+        }
+      ]
+    },
+    {
+      "incident_id": "sagawa-tracking-202609",
+      "name": "佐川急便のお荷物問い合わせサービス",
+      "n": 53230000,
+      "n_label": "最大約5,323万件（重複あり）",
+      "unit": "non_deduplicated_records",
+      "certainty": "流出した可能性の最大範囲。全件の外部送信を確認した件数ではない",
+      "first_report_date": "2026-09-30",
+      "latest_report_date": "2026-10-23",
+      "impact": 2,
+      "impact_range": [
+        2,
+        3
+      ],
+      "impact_reason": "依頼主・届け先の連絡先や会員ID。パスワードとカード情報は対象に含まれない。配送先との関係を装う連絡への注意。",
+      "information": "送り状の氏名・住所・電話、契約者情報、スマートクラブのメール・会員ID等",
+      "subgroups": [],
+      "cause": "第三者による不正アクセス。詳細な侵入経路は確認した第5報では未公表。",
+      "cause_status": "詳細未公表・原因究明中",
+      "source_ids": [
+        "sagawa-fifth"
+      ],
+      "dedup_note": "保管期間約100日分の送り状などに相当数の重複。手書き送り状は対象外。個人を識別しない法人情報のみの記録は集計外。",
+      "ranking_eligible": true
+    },
+    {
+      "incident_id": "epark-peakmanager-202607",
+      "name": "PeakManager（EPARKリラク＆エステ）",
+      "n": 22180000,
+      "n_label": "約2,218万レコード",
+      "unit": "partially_deduplicated_records",
+      "certainty": "DB情報の外部取得・削除を確認。人数への正確な換算は困難",
+      "first_report_date": "2026-07-31",
+      "latest_report_date": "2026-09-24",
+      "impact": 4,
+      "impact_range": [
+        3,
+        4
+      ],
+      "impact_reason": "予約顧客情報と、備考の一部に健康状態等の要配慮個人情報。全件に健康情報が含まれるとは扱わない。",
+      "information": "氏名・住所・連絡先・生年月日等、施術の申し送り等の備考",
+      "subgroups": [
+        {
+          "n": null,
+          "unit": "records",
+          "label": "健康状態等を含む備考の件数は不明"
+        },
+        {
+          "n": 5,
+          "unit": "entries",
+          "label": "カード情報の可能性のある任意記載。正確性未確認・いずれも期限切れ"
+        }
+      ],
+      "cause": "第三者によるDBへの不正アクセス。詳細な侵入経路は安全上の理由により非公表。",
+      "cause_status": "不正アクセス確認、詳細非公表",
+      "source_ids": [
+        "epark-second"
+      ],
+      "dedup_note": "初報約3,300万レコードから精査。電話・メールの一致等で可能な範囲の名寄せ。2,218万人とは呼ばない。",
+      "ranking_eligible": true
+    },
+    {
+      "incident_id": "estore-shopsserve-202605",
+      "name": "ショップサーブ（Eストアー）",
+      "n": 23356000,
+      "n_label": "約2,335万6,000人（概数）",
+      "unit": "reported_people_estimate",
+      "certainty": "個人情報の外部持ち出し確認。名寄せ後も重複の可能性あり",
+      "first_report_date": "2026-08-01",
+      "latest_report_date": "2026-10-16",
+      "impact": 3,
+      "impact_range": [
+        2,
+        3
+      ],
+      "impact_reason": "連絡先と会員認証情報等。会員パスワードの暗号化、カードが部分番号のみであることを評価の限定に含める。",
+      "information": "氏名・住所・連絡先、会員ID・暗号化されたパスワード等",
+      "subgroups": [
+        {
+          "n": 2096900,
+          "unit": "reported_people_estimate",
+          "label": "カード名義・先頭6桁と下4桁・有効期限等。全桁番号・セキュリティコードは保有せず"
+        }
+      ],
+      "cause": "アプリケーションの脆弱性から不正プログラムを設置され、DB情報を持ち出された。",
+      "cause_status": "最終調査で公表",
+      "source_ids": [
+        "estore-final"
+      ],
+      "dedup_note": "顧客・店舗側等で情報種別が異なる。約209.7万人を全桁カード漏えいとしない。",
+      "ranking_eligible": true
+    },
+    {
+      "incident_id": "sourcenext-202610",
+      "name": "ソースネクスト",
+      "n": 22519960,
+      "n_label": "22,519,960件",
+      "unit": "reported_member_records",
+      "certainty": "不正取得を確認。数字は流出した可能性のある対象範囲",
+      "first_report_date": "2026-10-15",
+      "latest_report_date": "2026-10-15",
+      "impact": 3,
+      "impact_range": [
+        3,
+        4
+      ],
+      "impact_reason": "認証情報・連絡先・生年月日・登録履歴等。パスワード保管形式を確認できていないため平文とは呼ばない。",
+      "information": "メール・パスワード・氏名・住所・電話・生年月日・会社等。登録状況で異なる",
+      "subgroups": [],
+      "cause": "会員情報取得APIの不正利用。10/9〜13に第三者が情報を取得。APIの具体的な欠陥は断定しない。",
+      "cause_status": "API悪用の経緯公表、詳細欠陥は未確認",
+      "source_ids": [
+        "sourcenext-first"
+      ],
+      "dedup_note": "カード情報は対象システムに保存されておらず対象外。",
+      "ranking_eligible": true
+    },
+    {
+      "incident_id": "skyticket-server-202610",
+      "name": "skyticketのサーバーへの不正アクセス",
+      "n": 14640000,
+      "n_label": "約1,464万件",
+      "unit": "reported_customer_records",
+      "certainty": "流出確認とおそれを含む。情報区分ごとに確度が異なる",
+      "first_report_date": "2026-10-09",
+      "latest_report_date": "2026-10-30",
+      "impact": 4,
+      "impact_range": [
+        3,
+        4
+      ],
+      "impact_reason": "主たる顧客データと、続報の別保管記録に口座・旅行保険・カード情報。第3報の対象群と1,464万件の包含・重複関係は未確定のため加算しない。",
+      "information": "氏名・連絡先・生年月日、一部にハッシュ化パスワード。続報で口座等を追加",
+      "subgroups": [
+        {
+          "n": 4130000,
+          "unit": "records",
+          "label": "第1報のハッシュ化パスワードを含む約413万件"
+        }
+      ],
+      "cause": "管理機能の不正操作から他サーバー・クラウドへアクセス。不要になったDB複製に認証情報の悪用でアクセス。詳細調査は継続。",
+      "cause_status": "複数段階の経緯公表、全容調査中",
+      "source_ids": [
+        "skyticket-first",
+        "skyticket-second",
+        "skyticket-third"
+      ],
+      "dedup_note": "同じ初報の業務管理システム17,780件、バス予約約12,000件は別経路なので1,464万件へ足さない。第3報で、特典サービスのID・パスワード流出という第2報の説明を訂正。 続報の別保管データは1,464万件との重複・包含が未確定で、内数と断定しない。",
+      "ranking_eligible": true,
+      "related_groups": [
+        {
+          "n": 6140,
+          "unit": "people_maximum",
+          "label": "過去のプレミアム会費記録の全桁カード番号等（最大6,140人）。暗号化に用いる情報も取得されたおそれ",
+          "relation_to_n": "overlap_not_fully_specified"
+        },
+        {
+          "n": 32341,
+          "unit": "records",
+          "label": "第3報の返金先銀行口座情報。流出確認",
+          "relation_to_n": "overlap_not_fully_specified"
+        },
+        {
+          "n": 936000,
+          "unit": "records",
+          "label": "第3報の部分カード情報（約41.4万人）。うち12件に全桁番号の誤入力",
+          "relation_to_n": "overlap_not_fully_specified"
+        },
+        {
+          "n": 118000,
+          "unit": "records",
+          "label": "第3報の旅行保険申込情報（約11.9万人）。流出のおそれ",
+          "relation_to_n": "overlap_not_fully_specified"
+        }
+      ]
+    },
+    {
+      "incident_id": "kddi-isp-mail-202605",
+      "name": "KDDIのISP事業者向けメール基盤",
+      "n": 12231954,
+      "n_label": "12,231,954名（公式表記）",
+      "unit": "reported_people",
+      "certainty": "メールアドレスと内数のパスワードの漏えい確認",
+      "first_report_date": "2026-06-23",
+      "latest_report_date": "2026-08-24",
+      "impact": 4,
+      "impact_range": [
+        3,
+        4
+      ],
+      "impact_reason": "メールの認証情報は他サービスの回復手段にも関係しうる。変更措置あり。全ISPが平文パスワードを漏えいしたとは説明しない。",
+      "information": "メールアドレス、内数にパスワード情報",
+      "subgroups": [
+        {
+          "n": 7616173,
+          "unit": "reported_people",
+          "label": "上記の内数としてパスワード情報。CPIの該当プランではハッシュと公表。他社へ保管形式を一般化しない"
+        }
+      ],
+      "cause": "当時ソフトウェア提供元が把握していなかった第三者製ソフトウェアの脆弱性を悪用。",
+      "cause_status": "原公表で確認",
+      "source_ids": [
+        "kddi-isp",
+        "kddi-cpi-final"
+      ],
+      "dedup_note": "ニフティ・BIGLOBE・CPI等の内数を別件に加算しない。auメール・UQ mobileメール・au one netメールは別設備で対象外。基盤全体の数値は7/21訂正、8/24はCPIの終報。",
+      "ranking_eligible": true
+    },
+    {
+      "incident_id": "burgerking-jp-app-202610",
+      "name": "バーガーキング日本公式アプリ",
+      "n": 11180000,
+      "n_label": "約1,118万件",
+      "unit": "reported_member_records",
+      "certainty": "会員情報の漏えい確認",
+      "first_report_date": "2026-10-15",
+      "latest_report_date": "2026-10-15",
+      "impact": 3,
+      "impact_range": [
+        2,
+        3
+      ],
+      "impact_reason": "氏名・電話・生年月日等の組合せ。注文履歴は有無のみで内容全体ではない。",
+      "information": "会員ID・メール・氏名・電話・性別・生年月日・登録形態・注文履歴の有無",
+      "subgroups": [],
+      "cause": "10/2〜7の不正アクセス。詳細な侵入経路は確認した原公表で調査中。",
+      "cause_status": "詳細調査中",
+      "source_ids": [
+        "burger-king"
+      ],
+      "dedup_note": "カード情報は保有せず、ログインパスワード流出の事実は確認されていない。",
+      "ranking_eligible": true
+    },
+    {
+      "incident_id": "times-car-202609",
+      "name": "タイムズカー（パーク24）",
+      "n": 6628007,
+      "n_label": "6,628,007件",
+      "unit": "reported_profile_records",
+      "certainty": "プロフィール情報等の外部送信の痕跡を確認",
+      "first_report_date": "2026-09-25",
+      "latest_report_date": "2026-10-23",
+      "impact": 4,
+      "impact_range": [
+        4,
+        5
+      ],
+      "impact_reason": "免許情報と暗号化された本人確認書類画像の内数。画像の復号や悪用が確認されたとは説明しない。保護状態を踏まえI=4を暫定採用。",
+      "information": "氏名・住所・生年月日・免許情報・連絡先等、内数に本人確認書類画像",
+      "subgroups": [
+        {
+          "n": 1464800,
+          "unit": "image_data_records",
+          "label": "暗号化された本人確認書類画像。外部送信の痕跡確認"
+        },
+        {
+          "n": 891602,
+          "unit": "image_data_records",
+          "label": "暗号化された本人確認書類画像にアクセス。外部送信の痕跡は未確認"
+        }
+      ],
+      "cause": "Webシステムの脆弱性を悪用。具体的な手法は防犯上の理由で非公表。",
+      "cause_status": "脆弱性悪用を公表、詳細非公表",
+      "source_ids": [
+        "times-fifth"
+      ],
+      "dedup_note": "公式表の6,628,007件と画像内訳を目視照合。画像を全件平文として合算しない。",
+      "ranking_eligible": true
+    },
+    {
+      "incident_id": "aflac-japan-202606",
+      "name": "アフラック生命保険",
+      "n": 4400000,
+      "n_label": "契約者約440万人",
+      "unit": "reported_policyholder_people_estimate",
+      "certainty": "契約者情報等の漏えい確認",
+      "first_report_date": "2026-06-30",
+      "latest_report_date": "2026-10-01",
+      "impact": 4,
+      "impact_range": [
+        4,
+        4
+      ],
+      "impact_reason": "保険の契約・保障・受取人等の個人情報。口座は約22万人の内数。健康診断や病歴が全員分漏れたと説明しない。",
+      "information": "氏名・生年月日・住所・保険契約・保障内容等、一部に口座",
+      "subgroups": [
+        {
+          "n": 220000,
+          "unit": "people_estimate",
+          "label": "口座情報を含む契約者の内数"
+        }
+      ],
+      "cause": "アクセス／照会制御と監視が不十分な中で、正規の照会に似た要求を第三者が実行。",
+      "cause_status": "7/31調査報告に基づく要約",
+      "source_ids": [
+        "aflac-results",
+        "aflac-faq"
+      ],
+      "dedup_note": "ID・パスワード、メール、カード、マイナンバーは対象に含まれないとのFAQ。口座番号だけで直ちに引き出せるとは説明しない。",
+      "ranking_eligible": true
+    },
+    {
+      "incident_id": "kyuden-backup-202605",
+      "name": "九州電力送配電のバックアップSSD",
+      "n": 10030000,
+      "n_label": "個人情報約1,003万件",
+      "unit": "reported_personal_records",
+      "certainty": "媒体所在不明。外部への情報流出は確認されていない",
+      "first_report_date": "2026-06-08",
+      "latest_report_date": "2026-07-08",
+      "impact": 3,
+      "impact_range": [
+        2,
+        3
+      ],
+      "impact_reason": "氏名・住所・使用電力量等。暗号化されていない保管媒体の所在不明。持ち出しが確認された事件とは区別。",
+      "information": "需要者名・供給場所・使用電力量等。一部に電話",
+      "subgroups": [],
+      "cause": "SSDの管理不備。施錠・暗号化・パスワード保護なし、具体的な保管手順の指示不足。サイバー攻撃としない。",
+      "cause_status": "管理上の原因公表、紛失経路は調査",
+      "source_ids": [
+        "kyuden-results",
+        "kyuden-appendix"
+      ],
+      "dedup_note": "総数1,354万件には法人等351万件を含むため、個人分1,003万件のみ比較へ。個人情報件数であって実人数ではない。",
+      "ranking_eligible": true
+    },
+    {
+      "incident_id": "daiichi-contractor-202610",
+      "name": "第一興商の委託先端末",
+      "n": 8724000,
+      "n_label": "約8,724,000件",
+      "unit": "reported_customer_and_employee_records",
+      "certainty": "11/6の調査でも送信された個人情報の範囲・流出事実を特定できていない",
+      "first_report_date": "2026-10-08",
+      "latest_report_date": "2026-11-06",
+      "impact": 3,
+      "impact_range": [
+        2,
+        3
+      ],
+      "impact_reason": "顧客の氏名・性別・生年月日・メール・電話が可能性範囲。従業員情報の詳細を未確認のまま金融・認証情報と断定しない。",
+      "information": "顧客の氏名・性別・生年月日・メール・電話等。顧客と従業員を区別。パスワードは対象外との追記。",
+      "subgroups": [
+        {
+          "n": 8631000,
+          "unit": "customer_records",
+          "label": "顧客情報。ブランド間の重複約515,000件を控除した公表値"
+        },
+        {
+          "n": 93000,
+          "unit": "employee_records",
+          "label": "従業員情報。顧客の内数ではなく別区分"
+        }
+      ],
+      "cause": "委託先PCのマルウェア感染と外部への不正通信。送信機能あり。遠隔操作の痕跡は確認されていない。",
+      "cause_status": "調査結果を11/6に公表",
+      "source_ids": [
+        "daiichi-first",
+        "daiichi-final"
+      ],
+      "dedup_note": "BigEchoのmeta refresh先の公式本文で総数8,724,000件を確認。11/6続報でも外部送信された個人情報の範囲は未特定で、流出確認済みとはしない。",
+      "ranking_eligible": true
+    }
+  ],
+  "excluded_or_separate": [
+    {
+      "name": "Gyazo・CAPCOM ID",
+      "reason": "公表値の世界全体と国内内訳を分離できていないため、日本指定の主ランキングへ採用しない。画像メタデータを人数・画像流出数としない。",
+      "source_ids": [
+        "gyazo-final",
+        "capcom-id"
+      ]
+    },
+    {
+      "name": "焼肉きんぐ",
+      "reason": "公式の漏えい確認数は10,788,963件。全登録10,808,784件と区別。確認した情報項目は連絡先中心で、I=2とすれば約2,157.8万点となり本案の圏外。",
+      "source_ids": [
+        "yakiniku-king"
+      ]
+    },
+    {
+      "name": "攻撃者の主張だけの巨大な件数",
+      "reason": "公式に確認できない数字は採点しない。後に公式の訂正・確認が出ていないかも公開前に再確認。",
+      "source_ids": []
+    }
+  ],
+  "ai_attribution": "どの掲載事件についても、本調査からAI利用を確認したとは主張しない。背景の観測報告を別に説明する。"
+}
