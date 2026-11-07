@@ -8,7 +8,8 @@
 | 8 | `feedback` | 「企画を承認します。作成お願いします。」を `acceptance_japan_breaches_v02` として登録 |
 | 9 | `accept` | 企画v02を採用、`capture_planning` |
 | 39 | `capture`、`asset`、人物継承、`storyboard`、`article` | 実素材20点、フル43場面とショート9場面、記事3節、`storyboard_ready`。フルの拡大引用への素材参照を追記 |
+| 54 | 修正返答、人口等の追加出典、改訂範囲、実素材と場面 | 公表件数順のv03を登録。素材24点、フル49場面とショート9場面、記事3節。ブロッカー・警告なし |
 
-台帳の警告はフルの提案尺と場面の実尺の差。実尺502.542秒は採用した約8〜9分の範囲。提案の値と媒体の実測をそれぞれ保持する。台帳チェックにはブロッカーなし。媒体検査は[媒体QC](PRODUCTION_QC_V02_JA.md)に記録し、完成品採用・公開と分ける。
+revision 39の警告はフルv02の提案尺と実尺の差。v03は最新の修正指示を改訂範囲へ関連付けた。完成品の採用はレビュー後の状態。台帳の検査と[媒体検査](REVISION_V03_JA.md)を分ける。
 
-読戻し正本は案件outputsの `_private/workspace/production-v02/state.json`。提案段階の `content-workspace-v01.json` と `content-workspace-v02.json`、採用のJSONと受領を保持。[軽量要約](workspace-production-v02.json)。
+最新の読戻し正本は案件outputsの `_private/workspace/production-v03/state.json`。[軽量要約](workspace-production-v03.json)。v02の読戻し、提案段階のJSON、採用の受領も各版のフォルダーに保持。

@@ -1,6 +1,25 @@
 # 国内情報漏えいTop10の再編集手順
 
-対象はフルv02とショートv02。作業ルートはMiniMaxH3。前提の採用範囲は[企画の返答](acceptance-v02.json)と[案件記録](RESUME_AND_KNOWHOW_JA.md)を参照する。Gitには軽量なコード・台本・来歴を保存し、原本・生成音声・人物素材・MP4はoutputsに置く。
+作業ルートはMiniMaxH3。最新は公表件数順のv03。Gitには軽量なコード・台本・来歴を保存し、原本・生成音声・人物素材・MP4はoutputsに置く。
+
+## v03を再編集する
+
+最新のユーザー指示は[共通台帳の読戻し](workspace-production-v03.json)、順位と人口の式は[件数表](ranking-volume-v03.json)。原本と確認は[改訂記録](REVISION_V03_JA.md)を参照する。既存のv02引用・人物に、`capture_v03.py` の追加原本、`dialogue-display-v03.json` と `dialogue-tts-v03.json` を使用する。再利用の台詞IDは `voice-v01`、新規分は `voice-v03` の受領を照合する。
+
+```powershell
+$p = 'productions/content-projects/CONTENT_20261107_ai_japan_data_breaches'
+python "$p/rank_volume.py"
+python "$p/produce.py" plan short --version v03
+python "$p/produce.py" audio short --version v03 --run replay-v03
+python "$p/produce.py" video short --version v03 --run replay-v03
+python "$p/produce.py" mux short --version v03 --run replay-v03
+```
+
+フルを再編集する際は `short` を `full` へ変更。元データが揃えば音声APIや人物生成を呼ばない。必要な台詞の新規生成は `generate_voices.py --short-version v03 --full-version v03 --only 台詞ID`。記事のパックは `build_article.py --version v03`。別版の原本と媒体を保持し、再現テストは `--run` で分ける。[v03入力照合表](reproduction-inputs-v03.json)
+
+## v02の再編集
+
+旧フルv02とショートv02の採用範囲は[企画の返答](acceptance-v02.json)と[案件記録](RESUME_AND_KNOWHOW_JA.md)。
 
 ## 入力と依存
 

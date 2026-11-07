@@ -23,13 +23,11 @@ def relative(path):
     return Path(path).relative_to(ROOT).as_posix()
 
 
-def record():
-    service = ContentWorkspace(ROOT, StudioDatabase(ROOT/'outputs/studio/studio.sqlite3',workspace=ROOT,recover=False))
-
+def operation_writer(service, records, prefix):
     def apply(action, identifier, data):
-        operation = 'production_v02_'+identifier
-        request = RECORDS/(operation+'-request.json')
-        result = RECORDS/(operation+'-receipt.json')
+        operation = prefix+'_'+identifier
+        request = records/(operation+'-request.json')
+        result = records/(operation+'-receipt.json')
         if result.exists():
             return
         if request.exists():
@@ -40,7 +38,12 @@ def record():
             body = dict(operation_id=operation,expected_revision=service.get(PROJECT)['project']['revision'],data=data)
             save(request,body)
         save(result,service.apply(PROJECT,action,body))
+    return apply
 
+
+def record():
+    service = ContentWorkspace(ROOT, StudioDatabase(ROOT/'outputs/studio/studio.sqlite3',workspace=ROOT,recover=False))
+    apply = operation_writer(service,RECORDS,'production_v02')
     raw = load(CAPTURES/'capture-manifest.json')
     supplements = load(CAPTURES/'selected-excerpts-v02.json')
     known_sources = {s['source_id'] for entry in service.get(PROJECT)['project']['research'] for s in entry['sources']}

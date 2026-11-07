@@ -46,7 +46,8 @@ def folder(kind):
 
 
 def make_timeline(kind):
-    scripts, _ = read_scripts(REVISIONS['short'])
+    scripts, _ = read_scripts(REVISIONS['short'], REVISIONS['full'])
+    version = REVISIONS[kind]
     short = kind == 'short'
     rows = scripts[kind]
     durations = [len(read_voice(voice_dir(row) / 'voice.wav')) / SR for row in rows]
@@ -71,7 +72,11 @@ def make_timeline(kind):
                                 voice_path=(voice_dir(row) / 'voice.wav').relative_to(ROOT).as_posix()))
         cursor += frame_count
     frames = cursor + round(end_hold * FPS)
-    return dict(kind=kind, title=TITLES[kind], version=REVISIONS[kind], fps=FPS, frames=frames,
+    titles = TITLES
+    if version == 'v03':
+        from rank_volume import TITLES as volume_titles
+        titles = volume_titles
+    return dict(kind=kind, title=titles[kind], version=version, fps=FPS, frames=frames,
                 body_frames=cursor, end_hold=(frames-cursor)/FPS, seconds=frames/FPS,
                 width=1080 if short else 1920, height=1920 if short else 1080,
                 alignment='PCM turn boundaries; phrase-weighted caption timing', turns=turns)
@@ -87,6 +92,13 @@ def state_segments(timeline):
             marks.update((math.ceil(caption['start']*FPS), math.ceil(caption['end']*FPS)))
         if row['id'] in PEOPLE:
             marks.update(range(start, min(start+112, end), 2))
+        if timeline['version'] == 'v03':
+            marks.add(min(end, start+round(1.25*FPS)))
+            if row.get('motion_from') or (row['visual']=='impact' and timeline['kind']=='full'):
+                marks.update(range(start, min(start+112, end), 2))
+            elif row['visual'] in ('impact', 'rank', 'population', 'sagawa-rank', 'sagawa-fields') or (
+                    row['chapter']=='r02' and row['visual']=='fields'):
+                marks.update(range(start, min(start+30, end), 2))
         cuts = sorted(marks)
         for a, b in zip(cuts, cuts[1:]):
             if b > a:
@@ -101,7 +113,11 @@ def stage(kind, still_only=False):
     output = directory / 'video-only.mp4'
     if output.exists():
         raise FileExistsError(output)
-    renderer = Renderer(kind, focused_quotes=timeline['version']=='v02')
+    if timeline['version']=='v03':
+        from visuals_v03 import VolumeRenderer
+        renderer = VolumeRenderer(kind)
+    else:
+        renderer = Renderer(kind, focused_quotes=timeline['version']=='v02')
     shots = directory / 'shots'
     shots.mkdir(exist_ok=True)
     playlist = ['ffconcat version 1.0']
@@ -215,7 +231,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('action', choices=['plan','stills','video','audio','mux'])
     parser.add_argument('kind', choices=['short','full'])
-    parser.add_argument('--version', choices=['v01','v02'])
+    parser.add_argument('--version', choices=['v01','v02','v03'])
     parser.add_argument('--run', help='Separate local reproduction folder')
     args = parser.parse_args()
     if args.run:

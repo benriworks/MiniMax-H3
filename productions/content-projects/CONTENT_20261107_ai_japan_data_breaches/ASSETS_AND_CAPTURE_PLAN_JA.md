@@ -1,6 +1,6 @@
 # 引用・撮影と記事用素材
 
-2026-11-07の制作結果。公表原本は案件outputsの `research/primary-v01/`。[出典台帳](sources-v01.json)で原本の取得日とhashを確認できる。
+2026-11-07の制作結果。公表原本は案件outputsの `research/primary-v01/`。[出典台帳](sources-v01.json)で原本の取得日とhashを確認できる。v03の追加分は下記に記録。
 
 ## 撮影と切り出し
 
@@ -21,3 +21,9 @@
 | 自作図 | 情報に応じた対処の入口 | [IPA](https://www.ipa.go.jp/security/anshin/attention/2026/mgdayori20261026.html) |
 
 記事用の5点とalt・hashは `blog-handoff/v02/asset-manifest.json`。ローカルのMarkdown、HTML、PDF、素材パックを保存した。出典の引用範囲と掲載条件は媒体への公開時に確認する。元の取得結果は[調査QCv02](RESEARCH_QC_V02_JA.md)。
+
+## v03の追加分
+
+- Edgeで第一興商の初報の対象表と11月6日の続報、佐川急便の件数記載、横浜市・大阪市・東京都の人口表示を確認。統計局の公式PDFはブラウザ撮影と区別し、原本を保存して該当ページを画像化。
+- 第一興商の原表は2,360px幅で撮影。記事と映像では顧客・従業員・合計の3行に切り出した。人口の比較図は自作し、数値と基準日は[出典付き件数表](ranking-volume-v03.json)へ記録。
+- 追加撮影の画面と来歴は `research/captures-v03/manifest.json`。最新版の記事用は `blog-handoff/v03/asset-manifest.json`。公表抜粋5点、自作図1点。旧版の素材は別フォルダーに保持。

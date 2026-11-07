@@ -1,0 +1,1173 @@
+{
+  "checked_at": "2026-11-07",
+  "git_parent": "6d07fe8847622840932f321171399c3325422047",
+  "runtime": {
+    "python": "3.12.2",
+    "os": "Windows",
+    "ffmpeg": "ffmpeg version 8.1.2-full_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers",
+    "packages": {
+      "Pillow": "12.3.0",
+      "numpy": "1.26.4",
+      "budoux": "0.10.2",
+      "playwright": "1.58.0",
+      "PyMuPDF": "1.27.2",
+      "markdown-it-py": "4.0.0"
+    }
+  },
+  "sources": [
+    {
+      "path": "productions/content-projects/CONTENT_20261107_ai_japan_data_breaches/dialogue-display-v03.json",
+      "bytes": 19046,
+      "sha256": "e8a0f8a3b107f103992cce2af9ddbc467931669bab11750dab729d4f0c35b672"
+    },
+    {
+      "path": "productions/content-projects/CONTENT_20261107_ai_japan_data_breaches/dialogue-tts-v03.json",
+      "bytes": 17621,
+      "sha256": "0bfecb3feb912d132c42faeccf7103107a3d12558c7bb9d218653c000dc7ce00"
+    },
+    {
+      "path": "productions/content-projects/CONTENT_20261107_ai_japan_data_breaches/rank_volume.py",
+      "bytes": 10871,
+      "sha256": "cf1de3589c7daf49e3e1db0acfd01778e49bf692c9f512706b17ddf587592888"
+    },
+    {
+      "path": "productions/content-projects/CONTENT_20261107_ai_japan_data_breaches/ranking-volume-v03.json",
+      "bytes": 5723,
+      "sha256": "bb4474ae4955f708f999a18d72c03f6871d044ac563db090c419a7d1510c7f38"
+    },
+    {
+      "path": "productions/content-projects/CONTENT_20261107_ai_japan_data_breaches/visuals_v03.py",
+      "bytes": 15412,
+      "sha256": "2c96669d7df7eab743ff0be80ed9e3977aef399732d08e392f20a757eda11a09"
+    },
+    {
+      "path": "productions/content-projects/CONTENT_20261107_ai_japan_data_breaches/capture_v03.py",
+      "bytes": 4210,
+      "sha256": "efb09846ed661201ee3512485d4fab00f0f072648a6b2cba77b71303c203ee63"
+    },
+    {
+      "path": "productions/content-projects/CONTENT_20261107_ai_japan_data_breaches/produce.py",
+      "bytes": 11957,
+      "sha256": "2a3335e81651abe0e052000b69f94202479480dffa0f3ce1ce6aece828ffc2a4"
+    },
+    {
+      "path": "productions/content-projects/CONTENT_20261107_ai_japan_data_breaches/generate_voices.py",
+      "bytes": 3433,
+      "sha256": "bc6d216d606725e2a6ddfd714c7d28bb4f73b7977d55fef950586d87b7e3bd5a"
+    },
+    {
+      "path": "productions/content-projects/CONTENT_20261107_ai_japan_data_breaches/build_article.py",
+      "bytes": 13743,
+      "sha256": "b5c09a76c31aa3637d1dca4a0908aeeef6a51cd673a3d6dd45abc69f9cb4a79a"
+    },
+    {
+      "path": "productions/content-projects/CONTENT_20261107_ai_japan_data_breaches/record_v03.py",
+      "bytes": 10734,
+      "sha256": "94dba4897e6b0842c22f0b5c4434ad89f1d91d5c563a4b1ea3c260bcfc20ba0d"
+    },
+    {
+      "path": "productions/content-projects/CONTENT_20261107_ai_japan_data_breaches/record_workspace.py",
+      "bytes": 11382,
+      "sha256": "2740393823a842752769e6e3bacdfbc8872daacbb89c69a83c0d1decc45a5450"
+    },
+    {
+      "path": "productions/content-projects/CONTENT_20261107_ai_japan_data_breaches/ARTICLE_DRAFT_V03_JA.md",
+      "bytes": 17859,
+      "sha256": "5534cbc71cf152ae275db856422bff91474d7b5a96421eda66ddf78b1513bb77"
+    },
+    {
+      "path": "productions/content-projects/CONTENT_20261107_ai_japan_data_breaches/incidents-v01.json",
+      "bytes": 23678,
+      "sha256": "94ef5e2bdf6a9cbff7076e1ee72be25339d0459a3ea2e1bd3ae9c910a35713d4"
+    },
+    {
+      "path": "productions/content-projects/CONTENT_20261107_ai_japan_data_breaches/sources-v01.json",
+      "bytes": 30280,
+      "sha256": "ae5691da524e3464080a4108d79d0050080176b8e2bb0a402467e807b69d23e7"
+    }
+  ],
+  "voice_inputs": [
+    {
+      "id": "v3f01",
+      "source": "v03",
+      "voice": "Charon",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3f01/voice.wav",
+        "bytes": 280890,
+        "sha256": "925a1cb064e5604ec477a57ef62ac7fce8389059f0a1dfc60b65ec2d72f1c409"
+      }
+    },
+    {
+      "id": "v3f02",
+      "source": "v03",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3f02/voice.wav",
+        "bytes": 417210,
+        "sha256": "b00f6f43083fd42b5fb9e7488047c6a693fa23c79f7e58d88d581b779cfda5bb"
+      }
+    },
+    {
+      "id": "v3f03",
+      "source": "v03",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3f03/voice.wav",
+        "bytes": 446010,
+        "sha256": "0b8e43d8ffc01b711bf74eb2cc4cbce174db43abb411c3748500f451c87aceeb"
+      }
+    },
+    {
+      "id": "v3f04",
+      "source": "v03",
+      "voice": "Charon",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3f04/voice.wav",
+        "bytes": 457530,
+        "sha256": "7fe1483fc45b6b5ede5c621e70c241b00034dcbacc46147653dbf3987ec22a05"
+      }
+    },
+    {
+      "id": "v3f05",
+      "source": "v02-or-prior",
+      "voice": "Charon",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v01/f06/voice.wav",
+        "bytes": 227130,
+        "sha256": "1e60271cd493aae79f813e3a9cd02ae00e815f05612b0fdaeb115e355a44a56f"
+      }
+    },
+    {
+      "id": "v3f06",
+      "source": "v02-or-prior",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v01/f07/voice.wav",
+        "bytes": 611130,
+        "sha256": "ea097a8d5e73fa1e32099c3fb4022b98fd8a58ff68d715233881d445bb48b8b4"
+      }
+    },
+    {
+      "id": "v3f07",
+      "source": "v02-or-prior",
+      "voice": "Charon",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v01/f08/voice.wav",
+        "bytes": 446010,
+        "sha256": "d43cbbd185ec4a478ce7d8e5a827904006a4dc4b302e6af4c4a6167511d5b320"
+      }
+    },
+    {
+      "id": "v3f08",
+      "source": "v03",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3f08/voice.wav",
+        "bytes": 424890,
+        "sha256": "501ae56a5a96d088b4834eb542c8c0d40740b9922341081f683c26907ba35163"
+      }
+    },
+    {
+      "id": "v3f09",
+      "source": "v03",
+      "voice": "Charon",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3f09/voice.wav",
+        "bytes": 565050,
+        "sha256": "67ef1a8f06e9a7ccae4e9cb60be7fead28434273e2da5095fa81012c410d2fe7"
+      }
+    },
+    {
+      "id": "v3f10",
+      "source": "v03",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3f10/voice.wav",
+        "bytes": 682170,
+        "sha256": "a181d09b94ffc8d022d5f9c2f5dd2fba90d3ec90f2c376592df64791d0a3b95e"
+      }
+    },
+    {
+      "id": "v3f11",
+      "source": "v03",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3f11/voice.wav",
+        "bytes": 595770,
+        "sha256": "e6a172669d13b5a1f6517bffb222f3eedced091fc7fb1e9250af36be9fe5b93f"
+      }
+    },
+    {
+      "id": "v3f12",
+      "source": "v03",
+      "voice": "Charon",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3f12/voice.wav",
+        "bytes": 401850,
+        "sha256": "f176515822d10802382844319916ba94c4bd2fc426d737440c200cb48aebaa2d"
+      }
+    },
+    {
+      "id": "v3f13",
+      "source": "v02-or-prior",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v01/f11/voice.wav",
+        "bytes": 597690,
+        "sha256": "1f92df1b332c4b3dbcf5095e2cbb47d9ba80da92f7536dcc03785247b8e0cd33"
+      }
+    },
+    {
+      "id": "v3f14",
+      "source": "v03",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3f14/voice.wav",
+        "bytes": 453690,
+        "sha256": "d107035f858b3efbf046be06ba78faeea228a6928765df81f1835492b9eb1b22"
+      }
+    },
+    {
+      "id": "v3f15",
+      "source": "v03",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3f15/voice.wav",
+        "bytes": 451770,
+        "sha256": "816b6b70b1c8cd008c3d180e3492b9d1245bd2dcbc1c2c3a0f186118846a2884"
+      }
+    },
+    {
+      "id": "v3f16",
+      "source": "v03",
+      "voice": "Charon",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3f16/voice.wav",
+        "bytes": 518970,
+        "sha256": "a25f846cca2f9b3df75673c67a07f2e1400a35709d718e2e8f79f15091c26827"
+      }
+    },
+    {
+      "id": "v3f17",
+      "source": "v03",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3f17/voice.wav",
+        "bytes": 511290,
+        "sha256": "7ed5fcac3b933fbe3aa08501fd9c06a588e1aa9f4c291f094b257b61734dc9d7"
+      }
+    },
+    {
+      "id": "v3f18",
+      "source": "v03",
+      "voice": "Charon",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3f18/voice.wav",
+        "bytes": 428730,
+        "sha256": "d4a894d4abb91eb146f9d57b03e7a31a32772a7bfe53e356501d2fdd5c76aff9"
+      }
+    },
+    {
+      "id": "v3f19",
+      "source": "v03",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3f19/voice.wav",
+        "bytes": 570810,
+        "sha256": "4127398d94f0d713f02a5ecb010a69d151bc1b45ffaa08aa64e2951ef00e1780"
+      }
+    },
+    {
+      "id": "v3f20",
+      "source": "v03",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3f20/voice.wav",
+        "bytes": 478650,
+        "sha256": "884358bdf4b9f5d974cec65e648ce77e2e662ada465a27b95ea943bc260dda53"
+      }
+    },
+    {
+      "id": "v3f21",
+      "source": "v03",
+      "voice": "Charon",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3f21/voice.wav",
+        "bytes": 386490,
+        "sha256": "fe7096c571fcc82b046b75781daf95b6cd97482902625acf22017385ebb25dcb"
+      }
+    },
+    {
+      "id": "v3f22",
+      "source": "v03",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3f22/voice.wav",
+        "bytes": 467130,
+        "sha256": "dbb542fdea271117f5ccb387c26713c8923c03b40509127c788233147880713e"
+      }
+    },
+    {
+      "id": "v3f23",
+      "source": "v03",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3f23/voice.wav",
+        "bytes": 434490,
+        "sha256": "d541eb43b70bb3173fc5be9caf32c2afc0c1e666fc20dd9ecf37f04db5fe0458"
+      }
+    },
+    {
+      "id": "v3f24",
+      "source": "v03",
+      "voice": "Charon",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3f24/voice.wav",
+        "bytes": 628410,
+        "sha256": "0cfa7ae12693e7f1912705823cc3090bd988e2f91d4858ac948b34a37e35f85a"
+      }
+    },
+    {
+      "id": "v3f25",
+      "source": "v03",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3f25/voice.wav",
+        "bytes": 559290,
+        "sha256": "22c4ca29fa213a53939dc7f515fe4ff987bf8f1ac535f96b3464371ba23796a2"
+      }
+    },
+    {
+      "id": "v3f26",
+      "source": "v03",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3f26/voice.wav",
+        "bytes": 421050,
+        "sha256": "c032835a92fc6e83caf44a374974e9d76c1b2ca6c914f6298c0a3c7295b8744e"
+      }
+    },
+    {
+      "id": "v3f27",
+      "source": "v03",
+      "voice": "Charon",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3f27/voice.wav",
+        "bytes": 607290,
+        "sha256": "0e871717329eb7540f56154956936cd944dde8ed0873093bc34da7f4143771d8"
+      }
+    },
+    {
+      "id": "v3f28",
+      "source": "v03",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3f28/voice.wav",
+        "bytes": 641850,
+        "sha256": "2b58d601d7e367234742a01d5c0e2266e415e1f5ee8a7e1cb9c3cd5c6af5f721"
+      }
+    },
+    {
+      "id": "v3f29",
+      "source": "v03",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3f29/voice.wav",
+        "bytes": 405690,
+        "sha256": "ec5e83dadbef0823b8779df402d14f0ec656a11e1c3cf0fe15d30f3725e58ca9"
+      }
+    },
+    {
+      "id": "v3f30",
+      "source": "v03",
+      "voice": "Charon",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3f30/voice.wav",
+        "bytes": 497850,
+        "sha256": "6bc3b34384fec3c0d8bd513ac41d41a7ec819cf5a3cd06e813727a1b76a8f149"
+      }
+    },
+    {
+      "id": "v3f31",
+      "source": "v03",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3f31/voice.wav",
+        "bytes": 561210,
+        "sha256": "53e649d8ad6535ccb79a36c4663dab179dbe55bff5b622e0a92a61e85d645be3"
+      }
+    },
+    {
+      "id": "v3f32",
+      "source": "v03",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3f32/voice.wav",
+        "bytes": 511290,
+        "sha256": "b0a48a6a68b109e291a1d55d1521b7901ae5e36ddcced6f6275b4b36606db50a"
+      }
+    },
+    {
+      "id": "v3f33",
+      "source": "v03",
+      "voice": "Charon",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3f33/voice.wav",
+        "bytes": 515130,
+        "sha256": "9a6bd7ea39cd9ddffdfea382f4cd3bd5f470ce9aaad1f24372d5ee54b788496d"
+      }
+    },
+    {
+      "id": "v3f34",
+      "source": "v03",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3f34/voice.wav",
+        "bytes": 532410,
+        "sha256": "d70ad6ec6f0f3c7c05af7bdc8b3acb8bb08119c4883cbfd4132d908517f543fa"
+      }
+    },
+    {
+      "id": "v3f35",
+      "source": "v03",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3f35/voice.wav",
+        "bytes": 405690,
+        "sha256": "fe384fd8fdceb056a98a87f072c8ec88d25f24ff0ccca5151f911fb220348706"
+      }
+    },
+    {
+      "id": "v3f36",
+      "source": "v02-or-prior",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v01/f31/voice.wav",
+        "bytes": 720570,
+        "sha256": "42c73ae71a0a5a6a076b3c2c712c868d0ab9a16e391376afc0a83d5e831638bc"
+      }
+    },
+    {
+      "id": "v3f37",
+      "source": "v03",
+      "voice": "Charon",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3f37/voice.wav",
+        "bytes": 474810,
+        "sha256": "3a3a46ff34cbf24e2d2b1b6cc542dad5113d38a31f41ce5eb17257ddb08b25e0"
+      }
+    },
+    {
+      "id": "v3f38",
+      "source": "v02-or-prior",
+      "voice": "Charon",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v01/f32/voice.wav",
+        "bytes": 480570,
+        "sha256": "f7b9f5e3174b9a63ba130224a7ad45f2646dfefe6f279c5accdac57b5ca0b71d"
+      }
+    },
+    {
+      "id": "v3f39",
+      "source": "v02-or-prior",
+      "voice": "Charon",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v01/f33/voice.wav",
+        "bytes": 250170,
+        "sha256": "949b301bc4bd71a187bec6aac7886192b453ed4f73f37f29b7bc6b86ecded7a7"
+      }
+    },
+    {
+      "id": "v3f40",
+      "source": "v02-or-prior",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v01/f34/voice.wav",
+        "bytes": 712890,
+        "sha256": "9ceb310c96b06a407bf7cd25c6d3145d226878679d60482097dd54dfa6876147"
+      }
+    },
+    {
+      "id": "v3f41",
+      "source": "v02-or-prior",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v01/f35/voice.wav",
+        "bytes": 578490,
+        "sha256": "4cf23843286837ff3e214480c851e7565ecba6e01d57dd56735716f92dcb41f5"
+      }
+    },
+    {
+      "id": "v3f42",
+      "source": "v02-or-prior",
+      "voice": "Charon",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v01/f36/voice.wav",
+        "bytes": 179130,
+        "sha256": "646fb3f1c90ca43b3f0be51ed499f93b87279a01e0bf89c9a78dc3e3dc1c2b75"
+      }
+    },
+    {
+      "id": "v3f43",
+      "source": "v02-or-prior",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v01/f37/voice.wav",
+        "bytes": 459450,
+        "sha256": "d1444ae0778c91eaef6d0e07c8bb646148d291e4ed435e80fe1bc2eb78c984d2"
+      }
+    },
+    {
+      "id": "v3f44",
+      "source": "v02-or-prior",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v01/f38/voice.wav",
+        "bytes": 613050,
+        "sha256": "5921412142de9a235bd08bc4c93c7f7c5f0422ec3672d6cdda7aa393d1816ac3"
+      }
+    },
+    {
+      "id": "v3f45",
+      "source": "v02-or-prior",
+      "voice": "Charon",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v01/f39/voice.wav",
+        "bytes": 515130,
+        "sha256": "77eb83d33495c4b333458b66dea39b66f21e66df87b34eb266ddd7db451438a0"
+      }
+    },
+    {
+      "id": "v3f46",
+      "source": "v02-or-prior",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v01/f40/voice.wav",
+        "bytes": 643770,
+        "sha256": "b0447e4ed060f508975f0f0cc0e2474d9d3c3b804e0c899a072cc2b0f246d52b"
+      }
+    },
+    {
+      "id": "v3f47",
+      "source": "v02-or-prior",
+      "voice": "Charon",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v01/f41/voice.wav",
+        "bytes": 288570,
+        "sha256": "6eb87742a126408d5fbf70c253294e44d5aef8a82f0833f0c8b4ec730ccae004"
+      }
+    },
+    {
+      "id": "v3f48",
+      "source": "v02-or-prior",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v01/f42/voice.wav",
+        "bytes": 497850,
+        "sha256": "3318aae7ba751d5feca66d5d309889d5ce855ce5774e882c386eab56426169c6"
+      }
+    },
+    {
+      "id": "v3s01",
+      "source": "v03",
+      "voice": "Charon",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3s01/voice.wav",
+        "bytes": 373050,
+        "sha256": "8f3baa5a59c2a4f2862526144d38a4a7cd96183ee5561067ded467799e8f4e17"
+      }
+    },
+    {
+      "id": "v3s02",
+      "source": "v03",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3s02/voice.wav",
+        "bytes": 323130,
+        "sha256": "63af969e1400db511a06119bbf7b5f585687502dc775cfd5847c2f2651eb6583"
+      }
+    },
+    {
+      "id": "v3s03",
+      "source": "v03",
+      "voice": "Charon",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3s03/voice.wav",
+        "bytes": 413370,
+        "sha256": "077b694cadecb81b6f816a730d26250ff21f31c82cec178fc574825e93b454c1"
+      }
+    },
+    {
+      "id": "v3s04",
+      "source": "v03",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v03/v3s04/voice.wav",
+        "bytes": 294330,
+        "sha256": "b4692de7db48f090aeae486333365fe5f00cc029a6f70d7915db310b4d94e082"
+      }
+    },
+    {
+      "id": "v3s05",
+      "source": "v02-or-prior",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v01/s05/voice.wav",
+        "bytes": 225210,
+        "sha256": "b3ff30107c9dd37b06223d1a45244390e857ef76a52241596e8434db93bf5456"
+      }
+    },
+    {
+      "id": "v3s06",
+      "source": "v02-or-prior",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v01/s06-v02/voice.wav",
+        "bytes": 296250,
+        "sha256": "37243ff1dd92cf369900986d3b7e86b7d3e043e19f433117e2b0f830ec44b07c"
+      }
+    },
+    {
+      "id": "v3s07",
+      "source": "v02-or-prior",
+      "voice": "Charon",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v01/s07/voice.wav",
+        "bytes": 261690,
+        "sha256": "95d24651bde43ec093db2cbcdd56dba92cf070cd16372e6db96f4ff536912a38"
+      }
+    },
+    {
+      "id": "v3s08",
+      "source": "v02-or-prior",
+      "voice": "Aoede",
+      "model": "gemini-2.5-flash-preview-tts",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/voice-v01/s08/voice.wav",
+        "bytes": 221370,
+        "sha256": "88dc3c1cddb140c6610c673ffa5fcd9dcf4c18e8ce56844cbfd9fc0551f76f37"
+      }
+    }
+  ],
+  "reused_minimax_inputs": [
+    {
+      "job": "female-close-insight",
+      "source_video": {
+        "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v04-closeups/female-close-insight/MiniMax_H3_female_close_insight_00001_.mp4",
+        "bytes": 1477244,
+        "sha256": "aeeacab84171d903d1874a91f38374c5343f62cd54d888c5699728927fc832b7"
+      },
+      "frame_directory": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motion-close-cache/female-close-insight",
+      "frames": 124,
+      "frame_bytes": 9674543,
+      "sorted_frames_name_size_hash": "485a515c58e3777dce818136d77f7a7e935851c8c48d811fcf3e194bbcdefd40"
+    },
+    {
+      "job": "female-sadness",
+      "source_video": {
+        "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/female-sadness/MiniMax_H3_female_sadness_00001_.mp4",
+        "bytes": 1320829,
+        "sha256": "423ed8f21581c04c9ecf84e0ab612ca42defa9772ccc3cf5193b3f2e58f87935"
+      },
+      "frame_directory": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motion-framed-cache/female-sadness",
+      "frames": 124,
+      "frame_bytes": 45448548,
+      "sorted_frames_name_size_hash": "34a80313c66bc784db0d99fbf13b5bdb1f7817f6094fcc85c2cbd5027684004a"
+    },
+    {
+      "job": "female-thinking",
+      "source_video": {
+        "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/female-thinking/MiniMax_H3_female_thinking_00001_.mp4",
+        "bytes": 1673270,
+        "sha256": "1ce04e2f5d922a262c09d77491c7697f968ab94e25b6acd33d265d7b2bb9a1bc"
+      },
+      "frame_directory": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motion-framed-cache/female-thinking",
+      "frames": 124,
+      "frame_bytes": 31178042,
+      "sorted_frames_name_size_hash": "b39333801ff5a3c98a6e2ceb2733b9f2c7dec86916ad3b6f40334f99a491fa94"
+    },
+    {
+      "job": "male-close-thinking",
+      "source_video": {
+        "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v04-closeups/male-close-thinking/MiniMax_H3_male_close_thinking_00001_.mp4",
+        "bytes": 1225143,
+        "sha256": "55308079dde07dbaa35f4f7a813bfc5c4e31b952e6b477be9a6d04b023a7bc6c"
+      },
+      "frame_directory": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motion-close-cache/male-close-thinking",
+      "frames": 124,
+      "frame_bytes": 8679475,
+      "sorted_frames_name_size_hash": "5f20fb5928acbb8c3fca9b36ce6bc2b1e4ebf8542634908ed42715ca9377f7bd"
+    },
+    {
+      "job": "male-enjoyment",
+      "source_video": {
+        "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/male-enjoyment/MiniMax_H3_male_enjoyment_00001_.mp4",
+        "bytes": 1221814,
+        "sha256": "37d504f2f24c5bed856464b3fbe5b76b6fe05e2f2edae5754300b5bb5f7f61e1"
+      },
+      "frame_directory": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motion-framed-cache/male-enjoyment",
+      "frames": 124,
+      "frame_bytes": 58927299,
+      "sorted_frames_name_size_hash": "54c4a008ef60d5978c48170533bc4589206ccd5df68acf682a8bc1913105a559"
+    },
+    {
+      "job": "male-frustration",
+      "source_video": {
+        "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/male-frustration/MiniMax_H3_male_frustration_00001_.mp4",
+        "bytes": 1335340,
+        "sha256": "4fcbf109feda129700bad89ce6df12c6d590353bd95850916700b432f02f263d"
+      },
+      "frame_directory": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motion-framed-cache/male-frustration",
+      "frames": 124,
+      "frame_bytes": 58086687,
+      "sorted_frames_name_size_hash": "ef61473e02dce832c7a3196cd0ef4dca704562fe13023e4807c48709302d01e8"
+    },
+    {
+      "job": "male-thinking",
+      "source_video": {
+        "path": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motions/v03-q2/male-thinking/MiniMax_H3_male_thinking_00001_.mp4",
+        "bytes": 1247415,
+        "sha256": "31d6a15c7c41f7414291add1f3bf699e2ae98a5b1f47b6df9c93674ce1a38c33"
+      },
+      "frame_directory": "outputs/content-projects/CONTENT_20261106_ai_bert_gpt_history/motion-framed-cache/male-thinking",
+      "frames": 124,
+      "frame_bytes": 55470959,
+      "sorted_frames_name_size_hash": "8a42c9f85877db75f6248e0119dde69555cafcf26b8099c67b4e2a718fb57070"
+    }
+  ],
+  "reused_citations": [
+    {
+      "source_id": "ncsc-ai-2026",
+      "url": "https://www.ncsc.gov.uk/collection/annual-review-2026/understanding-threat/ai-impact-cyber-threat",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/article-v02/assets/ncsc-ai-2026-excerpt.png",
+        "bytes": 29290,
+        "sha256": "55660f85b813121464712deead0b2d0dba9e5ab92ffba6561b71bdf5a7e984e1",
+        "width": 1510,
+        "height": 365
+      },
+      "parent": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/research/captures-v01/ncsc-ai-2026-edge.png",
+        "bytes": 1514949,
+        "sha256": "cd5f8298067a311dfa0a673ed48303faf213248f1199cf53472956a098341d14",
+        "width": 3072,
+        "height": 2100
+      },
+      "checked_at": "2026-11-07"
+    },
+    {
+      "source_id": "burger-king",
+      "url": "https://www.burgerking.co.jp/images/notice/2026/10/15/d4d114ca-ebd7-4f3d-94ef-c4ea7a84a139.pdf",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/article-v02/assets/burger-king-excerpt.png",
+        "bytes": 41074,
+        "sha256": "9e4f34f584188e75606049eaedf5dc5fb871054c3308e5167da78419891e10a9",
+        "width": 1601,
+        "height": 121,
+        "crop_pdf_points": [
+          32.0,
+          515.63427734375,
+          565.3200073242188,
+          555.5942993164062
+        ],
+        "mode": "pdf_crop"
+      },
+      "parent": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/research/captures-v01/burger-king-pdf-page-1.png",
+        "bytes": 430663,
+        "sha256": "27dc05c4e36969e0809b591d9d39deef256e9419ec53ec4aefc728561116d718",
+        "width": 1489,
+        "height": 2105
+      },
+      "checked_at": "2026-11-07"
+    },
+    {
+      "source_id": "epark-second",
+      "url": "https://www.epark-relax.co.jp/news/231",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/article-v02/assets/epark-second-excerpt.png",
+        "bytes": 54929,
+        "sha256": "76149fb4915fd55b85a45fece73fcb8ffc22d064b84686f82f1d61554c7a3059",
+        "width": 2438,
+        "height": 196,
+        "crop_pixels": [
+          300,
+          954,
+          2738,
+          1150
+        ],
+        "mode": "edge_crop"
+      },
+      "parent": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/research/captures-v01/epark-second-edge.png",
+        "bytes": 601817,
+        "sha256": "56bc2711f99e328bab17a3f31bb4e663ddda628862c1e5d53d2a40e7a0ca58c5",
+        "width": 3072,
+        "height": 2100
+      },
+      "checked_at": "2026-11-07"
+    },
+    {
+      "source_id": "muji-second-pdf",
+      "url": "https://files.microcms-assets.io/assets/1abbce69114443b0af3672230990db72/76bbc0db48474ee1b82866248e210ddb/261104_MUJI%20app.pdf",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/article-v02/assets/muji-second-pdf-excerpt.png",
+        "bytes": 55430,
+        "sha256": "8fce4ff2396a3900dd82f911f1f2ce357dd417c323f7c45a01a05175e2a72d2a",
+        "width": 1601,
+        "height": 182,
+        "crop_pdf_points": [
+          32.0,
+          430.1263427734375,
+          565.2000122070312,
+          490.53753662109375
+        ],
+        "mode": "pdf_crop"
+      },
+      "parent": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/research/captures-v01/muji-second-pdf-pdf-page-1.png",
+        "bytes": 457611,
+        "sha256": "fbd3da91eb10bc337b54a7c210a2584e5ee2dd0694caab0fd3b19480497d6d74",
+        "width": 1488,
+        "height": 2105
+      },
+      "checked_at": "2026-11-07"
+    },
+    {
+      "source_id": "cuenote-second",
+      "url": "https://www.cuenote.jp/information/news/unauthorizedaccess2.html",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/article-v02/assets/cuenote-second-v02-excerpt.png",
+        "bytes": 125497,
+        "sha256": "d6bbcaec5a06cbcc3e5bfe2dc6fd7cdf00806e7a8b74bd1efb98a1d16ee5def7",
+        "width": 1974,
+        "height": 540
+      },
+      "parent": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/research/captures-v01/cuenote-second-scope-edge.png",
+        "bytes": 824865,
+        "sha256": "2518337cf2c3a1d211fbadea0ee27aa08d503e49848478124966247fa450c310",
+        "width": 4608,
+        "height": 3150
+      },
+      "checked_at": "2026-11-07",
+      "video_focus_crop": [
+        938,
+        0,
+        1974,
+        540
+      ]
+    },
+    {
+      "source_id": "arara-third",
+      "url": "https://contents.xj-storage.jp/xcontents/AS71226/0d5f3847/6172/4bcc/bfab/73896dab795d/20261106211906670s.pdf",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/article-v02/assets/arara-third-excerpt.png",
+        "bytes": 34940,
+        "sha256": "1d4c7e43ffbd41670977643eb721143fee626a77984d14bdff47b38dc9230b2a",
+        "width": 1601,
+        "height": 126,
+        "crop_pdf_points": [
+          32.0,
+          573.439453125,
+          565.3200073242188,
+          615.2022094726562
+        ],
+        "mode": "pdf_crop"
+      },
+      "parent": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/research/captures-v01/arara-third-pdf-page-1.png",
+        "bytes": 287510,
+        "sha256": "8139cb16fd08e11a3079c6e837df2238d8b0d0336d3216e63b771e18ef7ce419",
+        "width": 1489,
+        "height": 2105
+      },
+      "checked_at": "2026-11-07"
+    },
+    {
+      "source_id": "ipa-response",
+      "url": "https://www.ipa.go.jp/security/anshin/attention/2026/mgdayori20261026.html",
+      "asset": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/article-v02/assets/ipa-response-excerpt.png",
+        "bytes": 40010,
+        "sha256": "69c3285a674e09a73b4c4c72de555ac02ed2e1e51a414f0a8eace2412b4ed99d",
+        "width": 1814,
+        "height": 126,
+        "crop_pixels": [
+          300,
+          986,
+          2114,
+          1112
+        ],
+        "mode": "edge_crop"
+      },
+      "parent": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/research/captures-v01/ipa-response-edge.png",
+        "bytes": 604064,
+        "sha256": "19ef6f893c35578eec2ba4e584f873d207579f8597c0c8310ac5483eb6a2f8f7",
+        "width": 3072,
+        "height": 2100
+      },
+      "checked_at": "2026-11-07"
+    }
+  ],
+  "added_capture_manifest": {
+    "checked_at": "2026-11-07T15:36:02+09:00",
+    "entries": [
+      {
+        "source_id": "daiichi-first",
+        "url": "https://www.dkkaraoke.co.jp/news/newsletter/261008_2.html",
+        "final_url": "https://www.dkkaraoke.co.jp/news/newsletter/261008_2.html",
+        "http_status": 200,
+        "state": "target_visible",
+        "raw": {
+          "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/research/captures-v03/daiichi-first-edge.png",
+          "bytes": 487318,
+          "sha256": "f3fb97689b780f43eb17b8047412093cb972b2de3dbe597dd1cdcdcd9eea000b",
+          "width": 3840,
+          "height": 2625
+        },
+        "title": "委託先における個人情報漏えいのおそれについて ※追記あり｜株式会社第一興商",
+        "excerpt": {
+          "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/article-v03/assets/daiichi-first-v03-excerpt.png",
+          "bytes": 131066,
+          "sha256": "4d0d2debac681ab1e8210acaaacc52420f4052fb52bbb954405a4ba73f7851b7",
+          "width": 2360,
+          "height": 1385,
+          "locator": "table",
+          "matched": "8,724,000"
+        }
+      },
+      {
+        "source_id": "daiichi-final",
+        "url": "https://www.dkkaraoke.co.jp/news/newsletter/261106_1.html",
+        "final_url": "https://www.dkkaraoke.co.jp/news/newsletter/261106_1.html",
+        "http_status": 200,
+        "state": "target_visible",
+        "raw": {
+          "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/research/captures-v03/daiichi-final-edge.png",
+          "bytes": 508901,
+          "sha256": "74609d591fadc2fa02ddd177224338a814810735e1f593d67edb0f868b8898c6",
+          "width": 3840,
+          "height": 2625
+        },
+        "title": "委託先における個人情報漏えいのおそれに関する外部専門機関による調査結果および今後の対応について｜株式会社第一興商"
+      },
+      {
+        "source_id": "sagawa-fifth",
+        "url": "https://www2.sagawa-exp.co.jp/information/detail/430/",
+        "final_url": "https://www2.sagawa-exp.co.jp/information/detail/430/",
+        "http_status": 200,
+        "state": "target_visible",
+        "raw": {
+          "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/research/captures-v03/sagawa-fifth-edge.png",
+          "bytes": 631411,
+          "sha256": "7adbbeefcba4b023a02975a9e23bd35bc7914571a7e1364436a0b7c64ad28dd4",
+          "width": 3840,
+          "height": 2625
+        },
+        "title": "「お荷物問い合わせサービス」の再開および 個人情報の流出に関する調査状況について（第5報） ｜お知らせ"
+      },
+      {
+        "source_id": "population-yokohama",
+        "url": "https://www.city.yokohama.lg.jp/city-info/yokohamashi/tokei-chosa/portal/jinko/maitsuki/saishin-news.html",
+        "final_url": "https://www.city.yokohama.lg.jp/city-info/yokohamashi/tokei-chosa/portal/jinko/maitsuki/saishin-news.html",
+        "http_status": 200,
+        "state": "target_visible",
+        "raw": {
+          "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/research/captures-v03/population-yokohama-edge.png",
+          "bytes": 417447,
+          "sha256": "dada59ee8d66f88192b3064c02caac830caa527d18814d3e4795511a51a278fc",
+          "width": 3840,
+          "height": 2625
+        },
+        "title": "推計人口・世帯数【最新】　横浜市",
+        "excerpt": {
+          "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/article-v03/assets/population-yokohama-v03-excerpt.png",
+          "bytes": 113441,
+          "sha256": "0e126f3b0d7bc287a822d880988b97dc94a8b751d02cfd141f1871e502b2a4f1",
+          "width": 2400,
+          "height": 788,
+          "locator": "table",
+          "matched": "3,753,462"
+        }
+      },
+      {
+        "source_id": "population-osaka",
+        "url": "https://www.city.osaka.lg.jp/toshikeikaku/page/0000015211.html",
+        "final_url": "https://www.city.osaka.lg.jp/toshikeikaku/page/0000015211.html",
+        "http_status": 200,
+        "state": "target_visible",
+        "raw": {
+          "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/research/captures-v03/population-osaka-edge.png",
+          "bytes": 439669,
+          "sha256": "2c0fb5fefe32bb587e5258e051b361c09620edba536adc7b641b9d5fc59d025f",
+          "width": 3840,
+          "height": 2625
+        },
+        "title": "大阪市：年齢別推計人口 （…>人口統計>推計人口）",
+        "excerpt": {
+          "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/article-v03/assets/population-osaka-v03-excerpt.png",
+          "bytes": 42399,
+          "sha256": "7e2e9a39c435006af8881ac6ccf65e6da194f2d1acf8eb04a1145e8fa6a79df6",
+          "width": 1680,
+          "height": 430,
+          "locator": "table",
+          "matched": "2,814,191"
+        }
+      },
+      {
+        "source_id": "population-tokyo",
+        "url": "https://www.toukei.metro.tokyo.lg.jp/jsuikei/js-index.htm",
+        "final_url": "https://www.toukei.metro.tokyo.lg.jp/jsuikei/js-index.htm",
+        "http_status": 200,
+        "state": "target_visible",
+        "raw": {
+          "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/research/captures-v03/population-tokyo-edge.png",
+          "bytes": 297743,
+          "sha256": "e3993ba79abb8bc398baf32157d292d6f2a0ef605dacd36e1e36b3c19e0bfa31",
+          "width": 3840,
+          "height": 2625
+        },
+        "title": "東京都の人口（推計）｜東京都の統計"
+      },
+      {
+        "source_id": "population-japan",
+        "url": "https://www.stat.go.jp/data/jinsui/pdf/202610.pdf",
+        "state": "pdf_raster",
+        "raw": {
+          "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/research/captures-v03/population-japan-pdf-p1.png",
+          "bytes": 371430,
+          "sha256": "a2a09f7ca022282a2d0e5ecfd951266bb0727e39585565f0fe1cf9b60496dab0",
+          "width": 1191,
+          "height": 1684
+        },
+        "excerpt": {
+          "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/article-v03/assets/population-japan-v03-excerpt.png",
+          "bytes": 263120,
+          "sha256": "c47df57bb34a99d3fa6cfcd685ed16ee54c650d5fc50384aed064be4bd4c72ad",
+          "width": 1601,
+          "height": 1121,
+          "crop_pdf_points": [
+            35.0,
+            33.0,
+            566.219970703125,
+            404.929931640625
+          ]
+        }
+      }
+    ]
+  },
+  "outputs": {
+    "full": {
+      "file": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/release/v03/full/ai-japan-data-breaches-2026-full-v03.mp4",
+        "bytes": 28964437,
+        "sha256": "4d19b4266ea4a888bd6f2a2570cc69f3ff984ae182497d22de84148047ca8f1c"
+      },
+      "seconds": 548.125,
+      "frames": 13155,
+      "aac": {
+        "input_i": "-16.02",
+        "input_tp": "-1.50",
+        "input_lra": "4.10",
+        "input_thresh": "-26.65",
+        "output_i": "-15.98",
+        "output_tp": "-1.50",
+        "output_lra": "4.10",
+        "output_thresh": "-26.58",
+        "normalization_type": "dynamic",
+        "target_offset": "-0.02"
+      }
+    },
+    "short": {
+      "file": {
+        "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/release/v03/short/ai-japan-data-breaches-2026-short-v03.mp4",
+        "bytes": 3166714,
+        "sha256": "6703e6a43a182ff73ccb0a3ac4d1ac8ebc1de405f1a9dc7cd20a741935749c2f"
+      },
+      "seconds": 59.625,
+      "frames": 1431,
+      "aac": {
+        "input_i": "-16.02",
+        "input_tp": "-1.81",
+        "input_lra": "3.60",
+        "input_thresh": "-27.08",
+        "output_i": "-15.93",
+        "output_tp": "-1.80",
+        "output_lra": "2.80",
+        "output_thresh": "-26.79",
+        "normalization_type": "dynamic",
+        "target_offset": "-0.07"
+      }
+    }
+  },
+  "article_pdf": {
+    "path": "outputs/content-projects/CONTENT_20261107_ai_japan_data_breaches/blog-handoff/v03/article-review-v03.pdf",
+    "bytes": 1591550,
+    "sha256": "21a80e64774d616d11cb2a309d44f761d39f5f8f64f897e927a4c3eae9c9d0de"
+  },
+  "short_rebuild_identical": true,
+  "previous_media_preserved": true,
+  "edge_local_playback_verified": true,
+  "drive_metadata_verified": true,
+  "phone_playback_verified": false,
+  "user_final_review": false,
+  "published": false,
+  "tracked_text_hash_basis": "canonical Git index bytes; media and capture hashes are raw bytes"
+}
