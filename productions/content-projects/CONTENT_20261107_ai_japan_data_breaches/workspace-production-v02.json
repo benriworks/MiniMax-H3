@@ -1,0 +1,23 @@
+{
+  "revision": 39,
+  "phase": "storyboard_ready",
+  "accepted_proposal": "proposal_japan_breaches_v02",
+  "assets": 20,
+  "scenes": {
+    "japan-breaches-full": 43,
+    "japan-breaches-short": 9
+  },
+  "workspace_checks": {
+    "ready_for_production": true,
+    "blockers": [],
+    "warnings": [
+      "想定尺と場面尺の合計を調整: japan-breaches-full"
+    ],
+    "technical_verified": false,
+    "human_reviewed": false,
+    "published": false
+  },
+  "render_qc_separate": true,
+  "adopted_release": false,
+  "published": false
+}

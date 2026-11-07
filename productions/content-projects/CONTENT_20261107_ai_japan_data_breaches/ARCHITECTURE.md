@@ -1,11 +1,17 @@
 # 国内情報漏えい解説の制作構成
 
-2026-11-07。現段階は調査・企画の記録。共通Studioへの新機能追加や、新動画・音声の生成は行っていない。独立した[Mermaid図](ARCHITECTURE_DIAGRAM.md)を維持する。
+2026-11-07。企画v02からフルv02、ショートv02、記事草稿v02を制作した。図は独立した[Mermaid図](ARCHITECTURE_DIAGRAM.md)。共通Studioの実装は既存の機能を利用し、案件専用コードを案件フォルダーに置く。
 
-依頼原文・国内指定を案件に保存し、原公表の日時・数量単位・確度・対象項目・原因を同じ事件IDへ結ぶ。上流事件と利用企業の続報を照合し、候補の比較・採点方法・構成案を作る。採用後に絵コンテ、既存白衣人物、表示と読みを分離した会話、公式引用と自作図を縦横各媒体へ接続する計画。
+## 事実と採用の管理
 
-記事草稿・出典・引用候補も同じ事実から準備する。軽量な正本はproductions、原画像・HTML・PDF・生成物と私的受領はoutputs。調査と構成の採用、撮影、生成、媒体検査、人の試聴、共有、公開の状態は分ける。[再開記録](RESUME_AND_KNOWHOW_JA.md)と[採点案](SCOPE_AND_METHOD_V01_JA.md)を参照。
+[事件台帳](incidents-v01.json)は数量単位・確度・内数と関連区分・公表原因・出典IDを保持する。[出典台帳](sources-v01.json)はURL・確認日・原本のhashと取得失敗を保持する。`build_research.py` は数量と重み、出典IDを照合し、比較表を再計算する。元資料が変わった場合は依存する企画・記事・台本を再確認する。
 
-`incidents-v01.json` は数量単位・確度・内数と関連区分・原因・原公表IDを保持し、`sources-v01.json` はURL・取得日・原本のhashと取得失敗を保持する。`build_research.py` はネットワークや有料APIを呼ばず、重複ID・数量と重み・出典参照を点検し、`ranking-v01.json` と `RANKING_V01_JA.md` を再計算する。Iを一件ずつ変更した感度と、規模を段階化した参考方式も出力する。原資料の真偽や採用を自動判定する処理ではない。
+企画v02は既存ContentWorkspaceの `feedback` と `accept` で記録した。公式資料、前作の白衣人物、場面台帳、最終MP4、記事草稿を `record_workspace.py` で登録する。企画の採用と、書き出した動画の検査、人の採用、公開は状態を分ける。
 
-再計算はリポジトリルートで `python productions/content-projects/CONTENT_20261107_ai_japan_data_breaches/build_research.py`。根拠が変わった際は版を分け、企画・記事・台本の依存先を再確認する。共通ContentWorkspaceへ調査と未採用の企画を記録し、ユーザーの構成返答が来るまでは `accept` や媒体生成へ進めない。
+## 画面と音声
+
+`capture_sources.py` はEdgeの画面と元の公式PDFを保存し、`refine_captures.py` は引用箇所を選び直す。記事の原表と動画での拡大は別の派生とする。`generate_voices.py` はGeminiの台詞単位PCMと受領を保存し、同じ受領があれば再利用する。表示文と読み文は独立させ、ショートの修正は1行の版を残す。
+
+`visuals.py` は実尺台本と、保存済みMiniMaxの人物フレーム・公式引用・自作図を縦横別のレイアウトへ割り当てる。`produce.py` はPCMから台詞時刻を求め、共通 `editorial_captions` で字幕を割り付ける。固定フレームレートで書き出し、共通合成BGMを穏やかにミックスし、最終MP4を全decodeする。
+
+`build_article.py` は同じ出典から記事草稿、引用、自作図をローカルHTML・PDF・受け渡しパックへ変換する。Gitは軽量な正本、原資料・素材・媒体・私的なDrive受領はoutputsに保持する。[再現手順](REPRODUCTION_JA.md)と[検査記録](PRODUCTION_QC_V02_JA.md)。
