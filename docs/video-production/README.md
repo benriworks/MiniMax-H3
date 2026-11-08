@@ -1,6 +1,6 @@
 # 動画・関連記事の制作索引
 
-更新日：2026-11-07。このリポジトリの制作情報は、索引・総覧・案件ごとの再開履歴兼ノウハウの3種類を入口に管理する。チャット履歴がない別チャット・別担当者も、ここから再開する。
+更新日：2026-11-08。このリポジトリの制作情報は、索引・総覧・案件ごとの再開履歴兼ノウハウの3種類を入口に管理する。チャット履歴がない別チャット・別担当者も、ここから再開する。
 
 ## 最初に読む3種類
 
@@ -30,7 +30,7 @@ BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_J
 
 ## 案件・素材の再開入口
 
-2026-10-30、初回に35単位の再開入口を整備し、その後Pro利用枠ニュース、10/31ニュース2本の共通案件、Tiboチャレンジのショートとフル版、dotsとBlenderの東京駅模型、12月のChatGPT・Codex利用枠共通化ニュース、dotsとBlenderのワインCG、字幕と成果物の見せ方の4本改訂、技術・キャラクター解説20チャンネルの比較調査、OpenAI×Anthropicモデル競争の重点企画、Anthropic関係者の退社を考えるショート企画、【AI】BERT・GPT誕生史を追加し、現在の索引は47単位。シリーズは各回の原稿・台帳をまとめる親単位、人物素材は再利用元の単位としている。順序は現在の制作判断を探しやすくするためのもので、全案件が制作中・完了・採用済みという意味ではない。
+2026-10-30、初回に35単位の再開入口を整備し、その後Pro利用枠ニュース、10/31ニュース2本の共通案件、Tiboチャレンジのショートとフル版、dotsとBlenderの東京駅模型、12月のChatGPT・Codex利用枠共通化ニュース、dotsとBlenderのワインCG、字幕と成果物の見せ方の4本改訂、技術・キャラクター解説20チャンネルの比較調査、OpenAI×Anthropicモデル競争の重点企画、Anthropic関係者の退社を考えるショート企画、【AI】BERT・GPT誕生史、オリジナルショートドラマ企画を追加し、現在の索引は48単位。シリーズは各回の原稿・台帳をまとめる親単位、人物素材は再利用元の単位としている。順序は現在の制作判断を探しやすくするためのもので、全案件が制作中・完了・採用済みという意味ではない。
 
 各再開記録には照合元の文書をリンクする。今回の整理は文書の照合であり、媒体の再生・全decode、Driveのアクセス、公開URL、最新の製品仕様を新たに検証したものではない。別ブランチ・別cloneだけにある案件は、対象ブランチを確認してから同じ形式で追加する。
 
@@ -38,6 +38,7 @@ BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_J
 
 | 案件・素材 | 再開時の入口 |
 | --- | --- |
+| オリジナルショートドラマ：当面は縦型30秒で1話完結。MiniMax-H3の5秒試験カットに肯定的評価、料金・所要時間を記録。初回は企画v01 | [案件・現在地](../../productions/content-projects/CONTENT_20261108_short_drama/RESUME_AND_KNOWHOW_JA.md) |
 | 【AI】BERT・GPT誕生史：旧short v03／full v02の編集品質を差し戻され、**short v07／58.5秒・full v05／約7分6秒**へ改訂。主図拡大・具体例・公式原図4種・顔アップ/胸上/中景、同じ白衣人物のローカルMiniMax2素材追加。全decode・107字幕状態・音量・指定箇所の実フレーム、Drive保存読戻し済み。記事v04・図入りPDFv06。人の最終試聴・完成品採用・公開は未完了。再現手順・入力139件を記録、個人fork PR #20がmain統合先 | [案件・現在地](../../productions/content-projects/CONTENT_20261106_ai_bert_gpt_history/RESUME_AND_KNOWHOW_JA.md)／[最新QC](../../productions/content-projects/CONTENT_20261106_ai_bert_gpt_history/FINAL_REVIEW_QC_V04_JA.md)／[記事草稿](../../productions/content-projects/CONTENT_20261106_ai_bert_gpt_history/ARTICLE_DRAFT_V04_JA.md)／[人物](../../productions/content-projects/CONTENT_20261106_ai_bert_gpt_history/CHARACTERS_JA.md) |
 | Anthropic退社考察ショート：最新v02はローカル曲へ差し替えた45.75秒。技術確認・Drive保存後、ユーザーからBGMの音量変動を指摘。「作り直しは不要」の指定により今回は記録のみ、v02を維持。控えめな一定音量を今後の改善方針へ。記事v02と6画像は継続。完成品採用・公開は未確定、個人fork PR #19 | [案件・現在地](../../productions/content-projects/CONTENT_20261104_anthropic_departures/RESUME_AND_KNOWHOW_JA.md)／[BGM改訂と評価](../../productions/content-projects/CONTENT_20261104_anthropic_departures/BGM_REVISION_V02_JA.md)／[記事v02](../../productions/content-projects/CONTENT_20261104_anthropic_departures/ARTICLE_DRAFT_V02_JA.md) |
 | OpenAI×Anthropicモデル競争：企画v01の大筋採用、公式用語と動作へ改訂。ショートv01は59.75秒、フルv02は約9分39秒。技術確認済み・未採用、Drive保存済み（再生進行は未確認）。公式引用・動く図・既存6動作、Gemini対話、記事v03と素材包装v04。個人fork PR #18へ保存 | [案件・現在地](../../productions/content-projects/CONTENT_20261103_model_race/RESUME_AND_KNOWHOW_JA.md)／[表現改訂](../../productions/content-projects/CONTENT_20261103_model_race/WORDING_REVISION_JA.md)／[記事v03](../../productions/content-projects/CONTENT_20261103_model_race/ARTICLE_DRAFT_V03_JA.md) |
