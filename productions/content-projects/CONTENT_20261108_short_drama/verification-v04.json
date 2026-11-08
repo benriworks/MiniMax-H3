@@ -133,12 +133,29 @@
     "provider_seconds": 14,
     "usage": {},
     "billing": "unverified",
-    "successful_outputs": 0
+    "successful_outputs": 0,
+    "error_code": "1026",
+    "error_scope": "input content moderation according to MiniMax's error table",
+    "error_reference": "https://platform.minimax.io/docs/api-reference/errorcode",
+    "started_utc": "2026-11-08T16:55:22Z",
+    "finished_utc": "2026-11-08T16:55:36Z",
+    "successful_output_estimate_usd": 0.4,
+    "billing_console": {
+      "date_utc": "2026-11-08",
+      "matching_rows": 0,
+      "updates": "daily",
+      "request_charge_verified": false
+    }
   },
   "editing": {
     "new_shots": "two original stills with 3.5% maximum push-in",
     "audio": "locally synthesized shore and paper sound, blend to v03 rain and ringtone",
-    "new_tts_calls": 0
+    "new_tts_calls": 0,
+    "image_tool_elapsed_seconds": [
+      17.1,
+      21.4
+    ],
+    "local_render_and_decode_seconds": 5.47
   },
   "frames_visually_checked": [
     0,
