@@ -1,5 +1,26 @@
 # Architecture diagram
 
+## 30秒のオリジナルショートドラマ（2026-11-08）
+
+```mermaid
+flowchart LR
+    Portrait[承認済みの人物・封筒とカット別の基準画] --> ShotCLI[案件のH3生成CLI]
+    Prompt[カット別プロンプト] --> ShotCLI
+    ShotCLI --> Ledger[送信前の記録と受付ID]
+    Ledger --> Poll[受付済みタスクの状態照会]
+    Poll --> Originals[保存した映像原本と使用量]
+    Originals --> Edit[FFmpegで30秒の7カット]
+    Plates[着信と写真裏の静止素材] --> Edit
+    Pilot[既存の写真試験映像] --> Edit
+    Dialogue[台詞別のGemini音声] --> Mix[声・ピアノ・環境音を別トラックで編集]
+    Captions[文節で分けた表示字幕] --> Edit
+    Mix --> Master[30秒の映像音声]
+    Edit --> Master
+    Master --> Check[全decode・実フレーム・台詞と音量]
+    Check --> Drive[Google Driveのレビュー動画]
+    Check --> Article[制作ノート用フレームと素材台帳]
+```
+
 ## 公開解説20チャンネルの比較と文書への適用
 
 ```mermaid

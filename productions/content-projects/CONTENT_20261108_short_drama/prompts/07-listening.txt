@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Cinematic live-action, a continuous close-up that starts exactly from <Picture 1>. Maho is quietly listening to her father, with the same single matte black smartphone held naturally to her ear. Keep her facial identity, dark hair, grip and charcoal knit unchanged. The first three seconds are restrained: she looks down, blinks gently and takes a quiet breath, mouth closed. Beginning at about four seconds, the muscles around her eyes soften and a small, genuine closed-mouth smile appears. She relaxes her shoulders and holds that subtle smile through the end while still listening, with no lip motion as if speaking. The camera holds a calm framing and soft rain light. Let the emotion register in the eyes instead of a wide smile or a visible change in phone position.
+
+overall_soundscape: Soft rain on the glass and a quiet breath. No dialogue.
+
+non_diegetic_music: N/A

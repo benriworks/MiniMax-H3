@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Live-action, a continuous over-the-shoulder view from <Picture 1>. Maho holds the single matte black phone against her ear in the exact same grip, her mouth fully hidden behind her hair, without turning to the camera. Her shoulder rises slightly with a quiet breath. The camera inches toward the photograph of the wooden pier on the table and pulls focus very slowly from her knit shoulder to the photograph. The photo stays flat and its printed pier, turquoise water and worn border remain recognizable and completely stationary. Small rain droplets drift down the window. Her hands and face stay in place through the end.
+
+overall_soundscape: Quiet rain on the glass and subdued indoor room tone. No speech or ringing.
+
+non_diegetic_music: N/A

@@ -1,5 +1,9 @@
 # Architecture
 
+## 30秒のオリジナルショートドラマ（2026-11-08）
+
+[案件](productions/content-projects/CONTENT_20261108_short_drama/RESUME_AND_KNOWHOW_JA.md)の `generate_h3_shot.py` は承認した画像とカット別プロンプトを既存 `H3Client` へ渡す。送信前の状態、受付ID、使用量、原本hashを保存し、受付IDが得られた場合は同じタスクを照会できる。`render_short_drama.py` は保存済みの映像、画像、Geminiの二言から7カットを720フレームに構成する。表示字幕は文節組版を使い、声、ピアノ、環境音は分離してから共通BGM設定で混合する。生成と再編集の境界、映像・音声の検査、レビュー用Drive、記事フレームの出所を案件の再現手順と台帳で追えるようにした。
+
 ## 退社発表の調査とショートの制作（2026-11-04）
 
 `productions/content-projects/CONTENT_20261104_anthropic_departures/`は本人3投稿、会社公式の役割説明、取材報道を区別し、実ブラウザの撮影原本から明示座標の短い引用を作る。構成採用後、共通Gemini6台詞、Canvas・文節字幕・男女の顔合わせ、既存MiniMax2動作、既定BGMを再利用して45.75秒の縦動画を制作した。人物ごとの字幕節と実音声の話題時刻を使い、全字幕12状態・音量・全decode・実AV補助確認、記事v02と6公開画像のhash包装、共通CLI登録、Drive保存読戻しを分離する。ブラウザ制御がWork設定で無効のため動画再生は未確認。原本・媒体・共有受領をignoredのoutputsへ、文書と処理をGitへ分ける。旧モデル競争動画は変更しない。独立設計とMermaid図は同案件内。

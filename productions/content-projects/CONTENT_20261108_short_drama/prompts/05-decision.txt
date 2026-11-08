@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Photorealistic live action. Start with the face, shoulder-length hair, charcoal knit and rainy window of <Picture 1>. In one continuous take, the camera pushes in slowly toward Maho's eyes, leaving the table out of the frame. She gazes down for the first two seconds. Then she blinks once, takes a small breath and relaxes the tension around her eyes as she decides to return the call. In the final second she glances slightly toward the left, where her phone is offscreen, and starts to sit a little straighter. A quiet shift from hesitation to intent. Her mouth remains closed. No sudden movements, exaggerated expression, or crying.
+
+overall_soundscape: Steady quiet rain and one soft breath. The room is otherwise still.
+
+non_diegetic_music: N/A
