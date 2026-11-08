@@ -1,4 +1,4 @@
-# ショートドラマ v03 の再編集手順
+# ショートドラマ v03・v04 の再編集手順
 
 対象は「日曜、海に行かない？」のレビューv03。原本を使う再編集はAPI送信を必要としない。新しいワークツリーでは、主cloneのignored素材の存在とハッシュを照合する。
 
@@ -25,6 +25,25 @@ python -B productions/content-projects/CONTENT_20261108_short_drama/render_short
 3. 映像とAACを結合し、1080×1920、24 fps、720フレーム、30.000秒、全decodeを確認してから版を確定する。実フレーム、発話と字幕の内容、AACの音量を [v03の検証要約](verification-v03.json) と照合する。素材が異なる環境の再現結果は別記録にする。
 
 このWindows環境では、上の手順で別版へ書き出し、レビューv03とSHA-256の一致を確認した。再編集にAPI送信は発生していない。
+
+## 回想入りv04の再編集
+
+同じWindows環境で別版へ書き出し、レビューv04と最終MP4のSHA-256が一致した。下の再編集は生成APIを呼ばない。入力は主cloneの案件フォルダーから取得する。
+
+| 入力 | 位置と照合方法 |
+| --- | --- |
+| 回想で父が差し出す基準画 | `plates/v04/00-childhood.png`。2,206,019 bytes。桟橋の試験素材を参照。 [画像プロンプト](prompts/childhood-reference-v04.txt) |
+| 真帆が受け取った基準画 | `plates/v04/00-childhood-received.png`。2,215,648 bytes。直前の画を参照。 [画像プロンプト](prompts/childhood-received-v04.txt) |
+| 現在に戻る三場面 | `plates/v01/01-incoming.png`、`shots/v01/02-envelope-look/source.mp4`、上記の写真の試験素材。 |
+| 比較元と再利用区間 | `review/v03/nichiyou-umi-short-v03.mp4` と `render.json`。 `edit/v03/` の `mix.wav`、および `04-photo-back.mp4` から `07-listening.mp4` までの4ファイル。 |
+
+入力と最終ファイルのhash・カット境界は [検証要約v04](verification-v04.json) で照合する。使用するPython・FFmpegは上記の環境。作成済みの版と別の名前で実行する。途中で止まった場合も、途中の出力を調べられるように別の版名で試す。
+
+```powershell
+python -B productions/content-projects/CONTENT_20261108_short_drama/revise_opening.py $dramaMedia $pilotMedia --version v04-reproduction
+```
+
+最終MP4は `review/<版>/`、カット・PCMは `edit/<版>/`。全編decode、映像の720フレーム、30.000秒、旧版の10秒以降の映像と編集元PCMを照合する。AACは新しい全編音声として符号化する。最初の二枚と波・雨の境界、桟橋の写真、電話の字幕と笑顔を、実フレームと音で確認する。記事の1080×1920画像は `blog-handoff/v04/asset-manifest.json` のフレーム番号で再抽出できる。
 
 ## 新規生成を行うときの境界
 

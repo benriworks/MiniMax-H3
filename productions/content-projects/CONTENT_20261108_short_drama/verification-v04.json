@@ -1,0 +1,183 @@
+{
+  "streams": [
+    {
+      "codec_name": "h264",
+      "codec_type": "video",
+      "width": 1080,
+      "height": 1920,
+      "avg_frame_rate": "24/1",
+      "nb_frames": "720"
+    },
+    {
+      "codec_name": "aac",
+      "codec_type": "audio",
+      "avg_frame_rate": "0/0",
+      "nb_frames": "1408"
+    }
+  ],
+  "format": {
+    "duration": "30.000000",
+    "size": "23656129"
+  },
+  "title": "日曜、海に行かない？",
+  "decode": "passed",
+  "version": "v04",
+  "sha256": "86099a9657c6984295c3c7799a57ded8e253ca9e26f86eb13e1ccf9d4801fee2",
+  "voice_version": "v03",
+  "master_gain_db": 3.8,
+  "prior_review_sha256": "f5dede02ecffdeab284dd140fc03e23d0264985ecdf6513aae00d760715af6b6",
+  "prior_mix_sha256": "6bb88976ae896dd21829770bf7b985d97fd10dc047ddfb73e9def2ea757d4547",
+  "locked_tail_start": 10,
+  "video_tail_hash": "SHA256=9f1fd218e86dff232e1c252d0885777113ba6d6d35bea4f43f4b0fd9a1f9fad8",
+  "premaster_tail_sha256": "60661b5eed2d128f9701df015a9acdaa6fba438a1145261081dbf6cef193bfef",
+  "timeline": [
+    {
+      "shot": "00-childhood-offer",
+      "start": 0,
+      "end": 1.375,
+      "frames": 33,
+      "source_start": 0,
+      "source_sha256": "3889b7da4db4e53344f7e6c61a265f320d787675d29a4ac5bf52abf45721c0e0"
+    },
+    {
+      "shot": "00-childhood-received",
+      "start": 1.375,
+      "end": 3,
+      "frames": 39,
+      "source_start": 0,
+      "source_sha256": "06018447838d306a17261c177a06625e133a172a377ec27536a35740014e3a46"
+    },
+    {
+      "shot": "01-incoming",
+      "start": 3,
+      "end": 5.25,
+      "frames": 54,
+      "source_start": 0,
+      "source_sha256": "b68f0b2b52c1a8aa14468ea36154c8fe3c681cbd51f720cadb1e173aafd2b4c9"
+    },
+    {
+      "shot": "02-envelope-look",
+      "start": 5.25,
+      "end": 7.5,
+      "frames": 54,
+      "source_start": 1.5,
+      "source_sha256": "b8e32df25c3cb16a177760097546926a811d4d054e39444b9118109b5c983f48"
+    },
+    {
+      "shot": "03-pilot-photo",
+      "start": 7.5,
+      "end": 10,
+      "frames": 60,
+      "source_start": 1.13,
+      "source_sha256": "7ecdfc64a8e6bffb2a5e9be20b3f66ca827bc5b13ee10428226b676f55e8e476"
+    },
+    {
+      "shot": "04-photo-back",
+      "start": 10,
+      "end": 13,
+      "frames": 72,
+      "source_start": 0,
+      "source_sha256": "c8b22b675cdd9a715b85e890b3d3f20bb355da37d85bd40301f1360e7e820462"
+    },
+    {
+      "shot": "05-decision",
+      "start": 13,
+      "end": 18,
+      "frames": 120,
+      "source_start": 0.64,
+      "source_sha256": "95be759c451a7ab3015536fd4244356b3a61506cb2c9ead2aa2ce26beb67f09d"
+    },
+    {
+      "shot": "06-shoulder",
+      "start": 18,
+      "end": 22.75,
+      "frames": 114,
+      "source_start": 0.1,
+      "source_sha256": "8150395ddcae421b35fbbf9b938df125ec71352c8a6ac09f3a885c0d9a6e67ee"
+    },
+    {
+      "shot": "07-listening",
+      "start": 22.75,
+      "end": 30,
+      "frames": 174,
+      "source_start": 0.25,
+      "source_sha256": "94da61e7efdefb0fe561a62d01253fc29851f1b365d1d8737adce1545519ea3a"
+    }
+  ],
+  "id": "DRAMA01",
+  "loudness": {
+    "integrated_lufs": -17.12,
+    "true_peak_dbtp": -1.41,
+    "range_lu": 17.7
+  },
+  "input_images": [
+    {
+      "path": "plates/v04/00-childhood.png",
+      "width": 941,
+      "height": 1672,
+      "bytes": 2206019,
+      "sha256": "3889b7da4db4e53344f7e6c61a265f320d787675d29a4ac5bf52abf45721c0e0"
+    },
+    {
+      "path": "plates/v04/00-childhood-received.png",
+      "width": 941,
+      "height": 1672,
+      "bytes": 2215648,
+      "sha256": "06018447838d306a17261c177a06625e133a172a377ec27536a35740014e3a46"
+    }
+  ],
+  "h3_attempt": {
+    "submissions": 1,
+    "result": "failed",
+    "reason": "content blocked by moderation",
+    "provider_seconds": 14,
+    "usage": {},
+    "billing": "unverified",
+    "successful_outputs": 0
+  },
+  "editing": {
+    "new_shots": "two original stills with 3.5% maximum push-in",
+    "audio": "locally synthesized shore and paper sound, blend to v03 rain and ringtone",
+    "new_tts_calls": 0
+  },
+  "frames_visually_checked": [
+    0,
+    27,
+    33,
+    64,
+    90,
+    153,
+    190,
+    270,
+    412,
+    479,
+    593,
+    666
+  ],
+  "same_machine_rerender_sha256_match": true,
+  "tail_verification": {
+    "video_stream_copy_from_seconds": 10,
+    "premaster_pcm_exact_from_seconds": 10,
+    "aac_reencoded": true,
+    "decoded_dialogue_difference_rms_dbfs": -52.26,
+    "measured_window_seconds": [
+      19,
+      26
+    ]
+  },
+  "delivery": {
+    "drive_folder": "動画・ブログ制作レビュー",
+    "drive_read_back_bytes": 23656129,
+    "drive_owner_access": true,
+    "drive_shared": false,
+    "mobile_playback": "pending",
+    "human_listening": "pending",
+    "user_adoption": "pending",
+    "publication": "pending"
+  },
+  "article": {
+    "draft": "article-draft-v04.md",
+    "images": 6,
+    "asset_manifest": "blog-handoff/v04/asset-manifest.json"
+  }
+}

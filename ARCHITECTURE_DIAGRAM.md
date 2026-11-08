@@ -19,6 +19,12 @@ flowchart LR
     Master --> Check[全decode・実フレーム・台詞と音量]
     Check --> Drive[Google Driveのレビュー動画]
     Check --> Article[制作ノート用フレームと素材台帳]
+    Edit --> V03[保存済みv03のカットとPCM]
+    StillPair[回想の前後二枚と写真の原本] --> V04[冒頭10秒を再編集]
+    V03 --> V04
+    Shore[波と包み紙の音をローカル合成] --> V04
+    V04 --> Lock[10秒以降の映像とPCMを照合]
+    Lock --> Check
 ```
 
 ## 公開解説20チャンネルの比較と文書への適用
