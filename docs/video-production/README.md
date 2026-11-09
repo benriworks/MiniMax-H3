@@ -1,6 +1,6 @@
 # 動画・関連記事の制作索引
 
-2026-11-09更新。このリポジトリの制作情報は、索引・総覧・案件ごとの再開履歴兼ノウハウの3種類を入口に管理する。チャット履歴がない別チャット・別担当者も、ここから再開する。
+2026-11-10更新。このリポジトリの制作情報は、索引・総覧・案件ごとの再開履歴兼ノウハウの3種類を入口に管理する。チャット履歴がない別チャット・別担当者も、ここから再開する。
 
 ## 最初に読む3種類
 
@@ -38,7 +38,7 @@ BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_J
 
 | 案件・素材 | 再開時の入口 |
 | --- | --- |
-| オリジナルショートドラマ「日曜、海に行かない？」。縦型30秒の回想入りv04をDriveへ保存。幼い真帆と父のおにぎりを桟橋の写真と最後の電話へつないだ。v03との後半照合、同環境での再現、記事草稿と6フレームを記録。v04の視聴レビュー待ち | [案件・現在地](../../productions/content-projects/CONTENT_20261108_short_drama/RESUME_AND_KNOWHOW_JA.md)／[検証要約](../../productions/content-projects/CONTENT_20261108_short_drama/verification-v04.json) |
+| オリジナルショートドラマ「日曜、海に行かない？」。縦型30秒の回想入りv04をDriveへ保存。幼い真帆と父のおにぎりを桟橋の写真と最後の電話へつないだ。v03との後半照合、同環境での再現、記事草稿と6フレームを記録。v04の視聴レビュー待ち。桟橋のロケーションシートと新工程の試行を追加 | [案件・現在地](../../productions/content-projects/CONTENT_20261108_short_drama/RESUME_AND_KNOWHOW_JA.md)／[検証要約](../../productions/content-projects/CONTENT_20261108_short_drama/verification-v04.json)／[新工程の適用例](../../productions/content-projects/CONTENT_20261108_short_drama/KEYFRAME_WORKFLOW_TRIAL_JA.md) |
 | 【AI】BERT・GPT誕生史：旧short v03／full v02の編集品質を差し戻され、**short v07／58.5秒・full v05／約7分6秒**へ改訂。主図拡大・具体例・公式原図4種・顔アップ/胸上/中景、同じ白衣人物のローカルMiniMax2素材追加。全decode・107字幕状態・音量・指定箇所の実フレーム、Drive保存読戻し済み。記事v04・図入りPDFv06。人の最終試聴・完成品採用・公開は未完了。再現手順・入力139件を記録、個人fork PR #20がmain統合先 | [案件・現在地](../../productions/content-projects/CONTENT_20261106_ai_bert_gpt_history/RESUME_AND_KNOWHOW_JA.md)／[最新QC](../../productions/content-projects/CONTENT_20261106_ai_bert_gpt_history/FINAL_REVIEW_QC_V04_JA.md)／[記事草稿](../../productions/content-projects/CONTENT_20261106_ai_bert_gpt_history/ARTICLE_DRAFT_V04_JA.md)／[人物](../../productions/content-projects/CONTENT_20261106_ai_bert_gpt_history/CHARACTERS_JA.md) |
 | Anthropic退社考察ショート：最新v02はローカル曲へ差し替えた45.75秒。技術確認・Drive保存後、ユーザーからBGMの音量変動を指摘。「作り直しは不要」の指定により今回は記録のみ、v02を維持。控えめな一定音量を今後の改善方針へ。記事v02と6画像は継続。完成品採用・公開は未確定、個人fork PR #19 | [案件・現在地](../../productions/content-projects/CONTENT_20261104_anthropic_departures/RESUME_AND_KNOWHOW_JA.md)／[BGM改訂と評価](../../productions/content-projects/CONTENT_20261104_anthropic_departures/BGM_REVISION_V02_JA.md)／[記事v02](../../productions/content-projects/CONTENT_20261104_anthropic_departures/ARTICLE_DRAFT_V02_JA.md) |
 | OpenAI×Anthropicモデル競争：企画v01の大筋採用、公式用語と動作へ改訂。ショートv01は59.75秒、フルv02は約9分39秒。技術確認済み・未採用、Drive保存済み（再生進行は未確認）。公式引用・動く図・既存6動作、Gemini対話、記事v03と素材包装v04。個人fork PR #18へ保存 | [案件・現在地](../../productions/content-projects/CONTENT_20261103_model_race/RESUME_AND_KNOWHOW_JA.md)／[表現改訂](../../productions/content-projects/CONTENT_20261103_model_race/WORDING_REVISION_JA.md)／[記事v03](../../productions/content-projects/CONTENT_20261103_model_race/ARTICLE_DRAFT_V03_JA.md) |
@@ -120,6 +120,7 @@ BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_J
 | [実画面の撮影と公式引用](SCREEN_CAPTURE_AND_QUOTES_JA.md) | 撮影前の実機確認、原本と切り出し、記事解像度、来歴・出典 |
 | [動画とブログの共通工程](VIDEO_TO_BLOG_WORKFLOW_JA.md) | 同時草稿・素材収集、動画→詳細記事、blog／note、記事素材の受け渡し |
 | [企画ワークスペース](../../STUDIO_CONTENT_WORKSPACE_JA.md) | 助手の先行調査、本数と概要の提案、ユーザー返答、根拠・素材・絵コンテ、実装範囲 |
+| [ドラマのキーフレーム制作](SHORT_DRAMA_EDITING_PLAYBOOK_JA.md#基準画とキーフレームを先に決める) | 人物・場所・小物の参照、仮編集、生成と編集の往復、採用区間と料金の記録 |
 | [ローカル生成のプレイブック](../../PRODUCTION_PLAYBOOK_JA.md) | 低VRAMの生成方式・所要時間・失敗候補・条件付きの過去実測 |
 | [方向性の検討記録](DIRECTION_REVIEW_JA.md) | 自分用の制作環境、チャット制作、動画と記事の再利用、採用と未決事項 |
 | [2026-10-28のGit統合記録](GITHUB_SYNC_20261028_JA.md) | 保存境界・対象・検証の範囲と未確認事項。当時の記録であり、最新Git状態ではない |

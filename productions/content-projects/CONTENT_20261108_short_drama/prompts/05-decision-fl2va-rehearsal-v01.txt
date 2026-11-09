@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 5.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] A single continuous live-action close-up of Maho at the rainy window. Start with her head tilted down, dark charcoal knit sleeves and resting hands at the bottom of the frame, and the same soft window light from screen right. Her breathing is quiet. After a brief blink, she slowly brings her gaze up and slightly forward; her chin and shoulders follow by a small amount. Settle into the exact facial expression and composition of Picture 2 at the end. Preserve the same hairline, face, knit, hand position, window, and background. A locked-off camera; no cuts, speech, or new objects.
+
+overall_soundscape: Light steady rain on the window and quiet room tone.
+
+non_diegetic_music: N/A
