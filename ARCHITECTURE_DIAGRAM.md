@@ -25,6 +25,12 @@ flowchart LR
     Shore[波と包み紙の音をローカル合成] --> V04
     V04 --> Lock[10秒以降の映像とPCMを照合]
     Lock --> Check
+    Lock --> Anchors[成人真帆の開始画と終了画]
+    Anchors --> FL2VA[同じ生成CLIでFL2VAの1カット]
+    FL2VA --> Decision[13から18秒を置換しv04のAACをコピー]
+    Lock --> Decision
+    Decision --> Compare[変更区間外の復号画像とAACパケットを照合]
+    Compare --> Check
 ```
 
 ## 公開解説20チャンネルの比較と文書への適用

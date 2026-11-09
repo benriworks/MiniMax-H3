@@ -23,6 +23,7 @@ def main():
     parser.add_argument("directory", type=Path)
     parser.add_argument("--prompt", type=Path)
     parser.add_argument("--image", type=Path)
+    parser.add_argument("--last-image", type=Path, help="optional FL2VA ending frame")
     parser.add_argument("--seconds", type=int)
     parser.add_argument("--confirm-billable", action="store_true")
     args = parser.parse_args()
@@ -41,9 +42,12 @@ def main():
     else:
         if not (args.confirm_billable and args.prompt and args.image and args.seconds):
             parser.error("Initial submission requires --prompt, --image, --seconds and --confirm-billable.")
+        images = [("first_frame", str(args.image))]
+        if args.last_image:
+            images.append(("last_frame", str(args.last_image)))
         payload = build_generation_payload(
-            prompt=args.prompt.read_text(encoding="utf-8"), resolution="768P",
-            duration=args.seconds, ratio="adaptive", images=[("first_frame", str(args.image))],
+            prompt=args.prompt.read_text(encoding="utf-8-sig"), resolution="768P",
+            duration=args.seconds, ratio="adaptive", images=images,
         )
         args.directory.mkdir(parents=True, exist_ok=False)
         record = {
@@ -56,6 +60,9 @@ def main():
             "input_image": args.image.name,
             "input_sha256": hashlib.sha256(args.image.read_bytes()).hexdigest(),
         }
+        if args.last_image:
+            record.update(last_image=args.last_image.name,
+                          last_image_sha256=hashlib.sha256(args.last_image.read_bytes()).hexdigest())
         write_record(ledger, record)
         receipt = client.submit(payload)
         record.update(state="accepted", task_id=receipt["task_id"])

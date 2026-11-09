@@ -1,4 +1,4 @@
-# ショートドラマ v03・v04 の再編集手順
+# ショートドラマ v03〜v05 の再編集手順
 
 対象は「日曜、海に行かない？」のレビューv03。原本を使う再編集はAPI送信を必要としない。新しいワークツリーでは、主cloneのignored素材の存在とハッシュを照合する。
 
@@ -44,6 +44,18 @@ python -B productions/content-projects/CONTENT_20261108_short_drama/revise_openi
 ```
 
 最終MP4は `review/<版>/`、カット・PCMは `edit/<版>/`。全編decode、映像の720フレーム、30.000秒、旧版の10秒以降の映像と編集元PCMを照合する。AACは新しい全編音声として符号化する。最初の二枚と波・雨の境界、桟橋の写真、電話の字幕と笑顔を、実フレームと音で確認する。記事の1080×1920画像は `blog-handoff/v04/asset-manifest.json` のフレーム番号で再抽出できる。
+
+## キーフレーム比較版v05の再編集
+
+主cloneの `review/v04/nichiyou-umi-short-v04.mp4` と同フォルダーの `render.json`、`edit/v04/` の冒頭5カット、`edit/v03/` の写真裏と電話の3カット、保存済みの `shots/v05/05-decision-fl2va/source.mp4` と `generation.json` を使う。素材のhashと出力条件は[検証要約v05](verification-v05.json)で確認できる。Python 3.12.2、FFmpeg 8.1.2の環境で別版のSHA-256一致を確認した。
+
+```powershell
+python -B productions/content-projects/CONTENT_20261108_short_drama/replace_decision_shot.py $dramaMedia --version v05-reproduction
+```
+
+再編集は生成済み124フレームの両端を残して120フレームに整える。v04のAACをコピーし、差し替え区間外の復号画像とAACパケットを照合する。全decodeと30秒を確認して `review/<版>/` を確定する。再現時は未使用の版名を指定する。
+
+FL2VAの入力は `references/workflow-v01/05-decision-start.png` と `05-decision-end.png`。既存CLIでは `--image` と `--last-image` を指定でき、各画像のhashを受付記録へ保存する。試行済みの受付を照会する場合は保存先のディレクトリを指定する。 [プロンプト](prompts/05-decision-fl2va-rehearsal-v01.txt)
 
 ## 新規生成を行うときの境界
 
