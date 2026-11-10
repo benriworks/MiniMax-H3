@@ -371,6 +371,12 @@
     "name_and_parent_read_back": true,
     "drive_verified_bytes": 22241396,
     "owner_only": true,
+    "desktop_playback": {
+      "browser": "Chrome",
+      "observed_seconds": 3,
+      "displayed_duration_seconds": 30,
+      "scope": "Drive playback started and displayed a decoded frame"
+    },
     "mobile_playback": "unverified",
     "user_adoption": "pending",
     "publication": "pending"
