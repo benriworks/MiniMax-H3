@@ -1,4 +1,4 @@
-# ショートドラマ v03〜v05 の再編集手順
+# ショートドラマ v03〜v06 の再編集手順
 
 対象は「日曜、海に行かない？」のレビューv03。原本を使う再編集はAPI送信を必要としない。新しいワークツリーでは、主cloneのignored素材の存在とハッシュを照合する。
 
@@ -56,6 +56,16 @@ python -B productions/content-projects/CONTENT_20261108_short_drama/replace_deci
 再編集は生成済み124フレームの両端を残して120フレームに整える。v04のAACをコピーし、差し替え区間外の復号画像とAACパケットを照合する。全decodeと30秒を確認して `review/<版>/` を確定する。再現時は未使用の版名を指定する。
 
 FL2VAの入力は `references/workflow-v01/05-decision-start.png` と `05-decision-end.png`。既存CLIでは `--image` と `--last-image` を指定でき、各画像のhashを受付記録へ保存する。試行済みの受付を照会する場合は保存先のディレクトリを指定する。 [プロンプト](prompts/05-decision-fl2va-rehearsal-v01.txt)
+
+## 画角修正版v06の再編集
+
+主cloneの `review/v05/` のMP4と `render.json`、`edit/v04/`・`edit/v03/`・`edit/v05/` の既存カット、`plates/v06/00-childhood-received.png` と `plates/v06/04-photo-back.png` を使う。入力2枚の出所、寸法、hashは[検証要約v06](verification-v06.json)で照合する。
+
+```powershell
+python -B productions/content-projects/CONTENT_20261108_short_drama/revise_cut_angles.py $dramaMedia --version v06-reproduction
+```
+
+未使用の版名へ出力する。39フレームと72フレームを別の基準画で組み、v05からAACをコピーする。区間外609フレームとAACのhash、720フレーム、30.000秒、全編decodeを照合する。同環境での別版は最終MP4のSHA-256が一致した。新規の動画・音声API送信を必要としない。
 
 ## 新規生成を行うときの境界
 

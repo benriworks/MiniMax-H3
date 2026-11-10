@@ -17,10 +17,10 @@ def sha256(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def retained_hashes(path):
+def retained_hashes(path, *, video_selection=f"lt(n,{FIRST})+gte(n,{AFTER})"):
     video = ffmpeg(
         "-i", str(path), "-map", "0:v:0",
-        "-vf", f"select='lt(n,{FIRST})+gte(n,{AFTER})'",
+        "-vf", f"select='{video_selection}'",
         "-fps_mode", "passthrough", "-threads", "2", "-f", "hash", "-hash", "sha256", "-",
         capture=True,
     ).stdout.decode().strip()

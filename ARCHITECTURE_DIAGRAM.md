@@ -31,6 +31,10 @@ flowchart LR
     Lock --> Decision
     Decision --> Compare[変更区間外の復号画像とAACパケットを照合]
     Compare --> Check
+    Compare --> CutAngles[受け取りと手紙の2カットを差し替え]
+    NewViews[受け手の俯瞰と手紙の真俯瞰の参照画] --> CutAngles
+    CutAngles --> KeepCheck[前後609フレームとv05のAACを照合]
+    KeepCheck --> Check
 ```
 
 ## 公開解説20チャンネルの比較と文書への適用
