@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Photorealistic high-angle insert on the same outdoor wooden pier bench. Two individual triangular onigiri rest on separate open parchment papers. In the foreground one right hand in a dark charcoal knit holds a small ivory-edged old print of this pier by its right corner. For the first two seconds the fingers hold the photo face up, allowing the pavilion in the old print to be seen. Then the thumb and wrist gently lift and roll the print away from the camera around its long edge to begin turning it over. The print remains one rigid rectangle of the same size and becomes nearly edge-on around the end. The two rice balls remain fixed and separate. No new person or hand enters. Keep the camera, rail, sun and wood still.
+
+overall_soundscape: Low ocean wash and a light paper tick as the print turns. No voices.
+
+non_diegetic_music: None.

@@ -37,6 +37,21 @@ flowchart LR
     KeepCheck --> Check
 ```
 
+## ショートドラマ続編の制作と再編集
+
+```mermaid
+flowchart LR
+    EpisodeRefs[真帆と桟橋の参照画とカット別プロンプト] --> EpisodeH3[既存のH3生成CLI]
+    EpisodeH3 --> EpisodeMotion[5カットの原本と受付記録]
+    EpisodeSpeech[台詞別のGemini応答とWAV] --> EpisodeMix[台詞とピアノと波や効果音を別トラックで合成]
+    EpisodeMotion --> EpisodeRender[ローカルの7カット編集]
+    PreviousPhoto[前作の写真裏と確認済みの筆跡] --> EpisodeRender
+    EpisodeMix --> EpisodeRender
+    EpisodeRender --> EpisodeCheck[30秒MP4と全デコードと音量検査]
+    EpisodeCheck --> EpisodeReview[Driveのレビュー候補]
+    EpisodeCheck --> EpisodeBlog[記事草稿と素材台帳]
+```
+
 ## 公開解説20チャンネルの比較と文書への適用
 
 ```mermaid

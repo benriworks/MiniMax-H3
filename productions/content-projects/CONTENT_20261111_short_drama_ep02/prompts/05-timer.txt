@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Live-action locked low side close-up on the pier bench. A single matte charcoal phone is upright against the muted olive canvas pouch, with its glass catching a blue reflection. Maho's one adult hand in a dark ribbed sleeve starts with her extended index fingertip just above the glass. During the first second she lightly taps the screen once with that finger, then her finger lifts and her hand naturally withdraws to the right by the second second. The phone stays propped in the exact same orientation for the rest of the shot. The screen is seen obliquely in the sunlight. Keep the five fingers anatomically consistent, the pouch and phone rigidly in place, and the camera stationary. Distant water moves softly.
+
+overall_soundscape: Subdued waves and one small fingertip tap. No dialogue.
+
+non_diegetic_music: None.

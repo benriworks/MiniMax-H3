@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Live-action cinematic realism. An older father's weathered hand at the left foreground holds one charcoal smartphone upright toward his adult daughter Maho on the timber pier, with the sage-roof pavilion in the distance. Maho is the exact woman in the reference, wearing the same dark ribbed knit, with the ivory-edged photo low in her hands. In the first two seconds the father lifts the phone a few centimeters as if framing her. Maho's eyes briefly follow it. She then gently lowers her gaze to the print, with her mouth relaxed and closed. A faint coastal breeze moves a few hair strands. Keep the camera, horizon and screen direction steady. The father's face stays outside the shot.
+
+overall_soundscape: Quiet lapping water and soft coastal air. No spoken voice. Dialogue will be added in editing.
+
+non_diegetic_music: None.

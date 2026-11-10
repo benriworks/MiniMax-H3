@@ -1,0 +1,384 @@
+{
+  "episode": "DRAMA02",
+  "version": "v02",
+  "render": {
+    "programs": [],
+    "stream_groups": [],
+    "streams": [
+      {
+        "codec_name": "h264",
+        "codec_type": "video",
+        "width": 1080,
+        "height": 1920,
+        "avg_frame_rate": "24/1",
+        "nb_frames": "720"
+      },
+      {
+        "codec_name": "aac",
+        "codec_type": "audio",
+        "avg_frame_rate": "0/0",
+        "nb_frames": "1408"
+      }
+    ],
+    "format": {
+      "duration": "30.000000",
+      "size": "22241396"
+    },
+    "title": "お父さんも、入って。",
+    "timeline": [
+      {
+        "shot": "01-camera",
+        "start_frame": 0,
+        "frames": 96,
+        "source_start": 0.08333333333333333,
+        "source_sha256": "4662b3113d5129073126288449c8c6e63ac6d20599bcc5a190a7a0ccab0960a5"
+      },
+      {
+        "shot": "02-onigiri",
+        "start_frame": 96,
+        "frames": 96,
+        "source_start": 0.5,
+        "source_sha256": "e42fcca62fdf1a3edce0b68210db5baca4212bd3daa8f251797212df7f2d8227"
+      },
+      {
+        "shot": "03-note",
+        "start_frame": 192,
+        "frames": 84,
+        "source_start": 0,
+        "source_sha256": "49be96ea31dd36a008b3b66ed53a68ee4dfb2f0d66f1b9771069d1b4db6f4e41"
+      },
+      {
+        "shot": "04-maho",
+        "start_frame": 276,
+        "frames": 120,
+        "source_start": 0,
+        "source_sha256": "566d24c1d68e5a229714a936534f47b8a66d59a758ed89cb29c4491abd4a52ed"
+      },
+      {
+        "shot": "05-timer",
+        "start_frame": 396,
+        "frames": 120,
+        "source_start": 0,
+        "source_sha256": "fd3d8bb72ee3eae78eaf93723207bcd9d54d112fcc4d90f68ba7b4a0acdaf77b"
+      },
+      {
+        "shot": "06-together",
+        "start_frame": 516,
+        "frames": 120,
+        "source_start": 0.16666666666666666,
+        "source_sha256": "1ae50698c099811615c1f209c14eb189cc75e42201ca3179409b1277559203c0"
+      },
+      {
+        "shot": "07-photograph",
+        "start_frame": 636,
+        "frames": 84,
+        "source_start": 0,
+        "source_sha256": "ecadcf3bd033760be8a5457d362c07c4e230cba509f32b057d5c3e95cfe1ff73"
+      }
+    ],
+    "dialogue": [
+      {
+        "line": "d01-father",
+        "version": "v02",
+        "sha256": "4cff9c821a2e02abed7c453ff2cd1e11b7b291b0cd76caf0696a46bc46a72dad",
+        "start": 0.36,
+        "source_start": 0.21,
+        "duration": 2.49,
+        "caption": "ほら、そこに立って。\n撮るぞ。",
+        "caption_window": [
+          0.44,
+          2.8
+        ]
+      },
+      {
+        "line": "d02-maho",
+        "version": "v01",
+        "sha256": "36facc7a0c0c656dc66592cec81632578ccd46c9e97db24a2c8dde77194aa6e7",
+        "start": 18.57,
+        "source_start": 0.13,
+        "duration": 2.08,
+        "caption": "お父さんも、入って。",
+        "caption_window": [
+          18.62,
+          20.58
+        ]
+      }
+    ],
+    "decode": "passed",
+    "master_gain_db": 4.62,
+    "loudness_lufs": -17.76,
+    "true_peak_dbtp": -1.05,
+    "sha256": "b13776b7421df5f6dd931f0a26b790c3f7c732521755db12eaec2703abd076fe"
+  },
+  "initial_sha256": "f5fdce1770c71d1de5d778887c67f00be1535187f936725c9641b23b4d90ecdf",
+  "same_environment_repeat_sha256_match": true,
+  "visual_review": {
+    "method": "AI-assisted inspection of decoded frames",
+    "frames": [
+      0,
+      33,
+      95,
+      96,
+      191,
+      192,
+      230,
+      275,
+      276,
+      378,
+      395,
+      396,
+      431,
+      463,
+      515,
+      516,
+      576,
+      635,
+      636,
+      715
+    ],
+    "checks": [
+      "continuity_of_maho_and_pier",
+      "two_rice_balls_and_photo_turn",
+      "legible_reused_inscription",
+      "both_subtitle_states",
+      "timer_tap_and_shutter",
+      "father_cropped_at_shoulder_and_final_expression"
+    ],
+    "shutter_boundary_rgb_rms_delta": 1.76
+  },
+  "audio_review": {
+    "method": "local faster-whisper-small on final mixed utterances",
+    "transcripts": {
+      "father": "ほら、そこに立って、取るぞ",
+      "maho": "お父さんも入って"
+    },
+    "orthography_note": "The recognizer rendered the verb toru with the homophonic character U+53D6.",
+    "sample_rate": 48000,
+    "channels": 2,
+    "human_final_listening": "pending"
+  },
+  "generation": {
+    "h3": [
+      {
+        "model": "MiniMax-H3",
+        "resolution": "768P",
+        "seconds": 5,
+        "prompt": "01-camera.txt",
+        "input_image": "01-camera.png",
+        "input_sha256": "3cf7e605e158dfc9aaab19fcdbcd87faa289b14614b9b75807104aaeee5a799d",
+        "output_sha256": "4662b3113d5129073126288449c8c6e63ac6d20599bcc5a190a7a0ccab0960a5",
+        "bytes": 1202190,
+        "provider_seconds": 132,
+        "observation_seconds": 144.141,
+        "usage": {
+          "total_seconds": 5,
+          "input_seconds": 0,
+          "output_seconds": 5,
+          "input_image_count": 1,
+          "total_tokens": 175765,
+          "prompt_tokens": 13020,
+          "completion_tokens": 162745
+        },
+        "shot": "01-camera",
+        "mode": "I2VA"
+      },
+      {
+        "model": "MiniMax-H3",
+        "resolution": "768P",
+        "seconds": 5,
+        "prompt": "02-onigiri.txt",
+        "input_image": "02-onigiri.png",
+        "input_sha256": "ef432a2a12eaf54140d6810f73cf406cae2f517e5084ec307e3dfe6d06f21cc3",
+        "output_sha256": "e42fcca62fdf1a3edce0b68210db5baca4212bd3daa8f251797212df7f2d8227",
+        "bytes": 1894625,
+        "provider_seconds": 138,
+        "observation_seconds": 146.219,
+        "usage": {
+          "total_seconds": 5,
+          "input_seconds": 0,
+          "output_seconds": 5,
+          "input_image_count": 1,
+          "total_tokens": 175765,
+          "prompt_tokens": 13020,
+          "completion_tokens": 162745
+        },
+        "shot": "02-onigiri",
+        "mode": "I2VA"
+      },
+      {
+        "model": "MiniMax-H3",
+        "resolution": "768P",
+        "seconds": 5,
+        "prompt": "04-maho.txt",
+        "input_image": "04-maho.png",
+        "input_sha256": "43f04857cb83ac2184e129233ceb532a8be51e66f31a305d9766ab5c1acb9eb8",
+        "output_sha256": "566d24c1d68e5a229714a936534f47b8a66d59a758ed89cb29c4491abd4a52ed",
+        "bytes": 1495815,
+        "provider_seconds": 120,
+        "observation_seconds": 129.969,
+        "usage": {
+          "total_seconds": 5,
+          "input_seconds": 0,
+          "output_seconds": 5,
+          "input_image_count": 1,
+          "total_tokens": 175765,
+          "prompt_tokens": 13020,
+          "completion_tokens": 162745
+        },
+        "shot": "04-maho",
+        "mode": "I2VA"
+      },
+      {
+        "model": "MiniMax-H3",
+        "resolution": "768P",
+        "seconds": 5,
+        "prompt": "05-timer.txt",
+        "input_image": "05-timer.png",
+        "input_sha256": "0a4332cbbdd0b071091fccb7ad156b776b5428993aa4401b41a03fc86a8f6b40",
+        "output_sha256": "fd3d8bb72ee3eae78eaf93723207bcd9d54d112fcc4d90f68ba7b4a0acdaf77b",
+        "bytes": 685578,
+        "provider_seconds": 129,
+        "observation_seconds": 136.25,
+        "usage": {
+          "total_seconds": 5,
+          "input_seconds": 0,
+          "output_seconds": 5,
+          "input_image_count": 1,
+          "total_tokens": 175765,
+          "prompt_tokens": 13020,
+          "completion_tokens": 162745
+        },
+        "shot": "05-timer",
+        "mode": "I2VA"
+      },
+      {
+        "model": "MiniMax-H3",
+        "resolution": "768P",
+        "seconds": 5,
+        "prompt": "06-together.txt",
+        "input_image": "06-together.png",
+        "input_sha256": "771165a61274553066bcc8b60bec7c6d6e18655e5bc35087456a4f58aeebb420",
+        "output_sha256": "1ae50698c099811615c1f209c14eb189cc75e42201ca3179409b1277559203c0",
+        "bytes": 992263,
+        "provider_seconds": 117,
+        "observation_seconds": 130.782,
+        "usage": {
+          "total_seconds": 5,
+          "input_seconds": 0,
+          "output_seconds": 5,
+          "input_image_count": 2,
+          "total_tokens": 188785,
+          "prompt_tokens": 26040,
+          "completion_tokens": 162745
+        },
+        "shot": "06-together",
+        "mode": "FL2VA",
+        "last_image": "06-together-end.png",
+        "last_image_sha256": "e9656966c9d5cdde1c7eef1cafc0c177d47ab960ce3379db8fe5798999e0946d"
+      }
+    ],
+    "speech": [
+      {
+        "model": "gemini-3.8-flash-tts",
+        "voice": "Charon",
+        "seconds": 3.36,
+        "sha256": "48bc35603f9f3a289564ee9404d44cfd41583d556406ad40b128084fb56284fa",
+        "usage": {
+          "promptTokenCount": 88,
+          "candidatesTokenCount": 84,
+          "totalTokenCount": 172,
+          "promptTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 88
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "AUDIO",
+              "tokenCount": 84
+            }
+          ],
+          "serviceTier": "standard"
+        },
+        "line": "d01-father",
+        "version": "v01",
+        "used_in_v02": false
+      },
+      {
+        "model": "gemini-3.8-flash-tts",
+        "voice": "Aoede",
+        "seconds": 2.56,
+        "sha256": "36facc7a0c0c656dc66592cec81632578ccd46c9e97db24a2c8dde77194aa6e7",
+        "usage": {
+          "promptTokenCount": 83,
+          "candidatesTokenCount": 64,
+          "totalTokenCount": 147,
+          "promptTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 83
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "AUDIO",
+              "tokenCount": 64
+            }
+          ],
+          "serviceTier": "standard"
+        },
+        "line": "d02-maho",
+        "version": "v01",
+        "used_in_v02": true
+      },
+      {
+        "model": "gemini-3.8-flash-tts",
+        "voice": "Charon",
+        "seconds": 3.24,
+        "sha256": "4cff9c821a2e02abed7c453ff2cd1e11b7b291b0cd76caf0696a46bc46a72dad",
+        "usage": {
+          "promptTokenCount": 88,
+          "candidatesTokenCount": 81,
+          "totalTokenCount": 169,
+          "promptTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 88
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "AUDIO",
+              "tokenCount": 81
+            }
+          ],
+          "serviceTier": "standard"
+        },
+        "line": "d01-father",
+        "version": "v02",
+        "used_in_v02": true
+      }
+    ],
+    "imagegen_calls": 7,
+    "h3_output_seconds": 25,
+    "h3_estimate_usd": 2.0,
+    "gemini_paid_standard_estimate_usd": 0.0021905,
+    "invoice": "unverified"
+  },
+  "delivery": {
+    "drive_folder": "動画・ブログ制作レビュー",
+    "name_and_parent_read_back": true,
+    "drive_verified_bytes": 22241396,
+    "owner_only": true,
+    "mobile_playback": "unverified",
+    "user_adoption": "pending",
+    "publication": "pending"
+  },
+  "article": {
+    "draft": "article-draft-v01.md",
+    "local_manifest": "blog-handoff/v02/asset-manifest.json",
+    "image_count": 5,
+    "publication": "pending"
+  }
+}

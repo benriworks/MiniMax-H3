@@ -1,0 +1,58 @@
+[
+  {
+    "id": "01-camera",
+    "references": [
+      "outputs/content-projects/CONTENT_20261108_short_drama/characters/v02/maho-reference-v02.png",
+      "outputs/content-projects/CONTENT_20261108_short_drama/references/workflow-v01/pier-location-sheet-v01.png"
+    ],
+    "prompt": "Single full-bleed vertical 9:16 film still for a realistic Japanese family short drama. Gentle clear late-morning coastal daylight, soft true-to-life skin and muted golden wood and blue-green sea, subtle analog grain, physically plausible objects. The location reference is a two-angle sheet; depict a single view of that same wooden pier with a pale sage hipped pavilion and timber rails. No graphics, text, logos, watermarks or split panels. Reference image 1 fixes adult Maho's identity: same 32-year-old Japanese woman, face proportions, brown eyes, shoulder-length side-parted straight black hair and plain charcoal ribbed crew-neck knit. Reference image 2 is the pier only. Frame an intimate side/over-the-arm view on the timber pier's wider bench area. The father is entirely outside the left edge except for one weathered hand and pale blue chambray cuff, already holding a single plain dark-charcoal smartphone upright at chest level aimed right toward Maho. We see the back at an oblique angle with discreet lenses; the father's face is completely absent. Maho is three steps away on the right half, chest-up with face clear and in focus, quietly attentive toward the father's phone, carrying a small cream-edge paper print down below her chest. Keep her hair and sweater like the reference, no accessories. The sage pavilion is visible in the upper middle behind them. Eye-level cinema composition with depth and natural gaze. No other people, phones or hands."
+  },
+  {
+    "id": "02-onigiri",
+    "references": [
+      "outputs/content-projects/CONTENT_20261108_short_drama/references/workflow-v01/pier-location-sheet-v01.png",
+      "outputs/content-projects/CONTENT_20261108_short_drama/blog-handoff/v06/assets/photo-front.png"
+    ],
+    "prompt": "Single full-bleed vertical 9:16 film still for a realistic Japanese family short drama. Gentle clear late-morning coastal daylight, soft true-to-life skin and muted golden wood and blue-green sea, subtle analog grain, physically plausible objects. The location reference is a two-angle sheet; depict a single view of that same wooden pier with a pale sage hipped pavilion and timber rails. No graphics, text, logos, watermarks or split panels. Reference image 1 defines only the pier setting; reference 2 shows the actual small landscape print of the sage-roof pier with worn ivory edges. Create a new three-quarter high-angle, medium close insert on a warm worn timber bench outdoors on that pier. On the top half of the bench rest exactly two palm-sized triangular Japanese onigiri with a little dark nori square on the near face, individually sitting open in plain crinkled off-white parchment paper. On the lower half Maho's slender natural hand with a charcoal knitted sleeve holds up the reference's old cream-edge landscape photo by one corner, clearly face up with the same pale sage pier roof; show enough wood and blue-green sea beyond the bench to read as the present outdoor scene. Other objects absent. Keep the paper edges simple and rectilinear, the rice balls physically separate, the framing diagonal, no written words or symbols."
+  },
+  {
+    "id": "04-maho",
+    "references": [
+      "outputs/content-projects/CONTENT_20261108_short_drama/characters/v02/maho-reference-v02.png",
+      "outputs/content-projects/CONTENT_20261108_short_drama/references/workflow-v01/pier-location-sheet-v01.png"
+    ],
+    "prompt": "Single full-bleed vertical 9:16 film still for a realistic Japanese family short drama. Gentle clear late-morning coastal daylight, soft true-to-life skin and muted golden wood and blue-green sea, subtle analog grain, physically plausible objects. The location reference is a two-angle sheet; depict a single view of that same wooden pier with a pale sage hipped pavilion and timber rails. No graphics, text, logos, watermarks or split panels. Reference image 1 is exact face and clothing for adult Maho. Preserve the brow spacing, oval face, cheek texture, slightly off-center hair part, tucked side, shoulder-length straight black hair, and the plain dark charcoal ribbed knit. Reference image 2 is the outdoor location. A portrait medium close-up from a three-quarter angle on the same pier, camera at seated eye height, framed above waist. Maho stands next to a simple bench, a small cream-edge old photo partly visible low in one hand, looking down toward the photo just before she raises her eyes. Her mouth is gently closed, quiet and thoughtful, not sad. Blue-green sea, wooden rail and soft sage pavilion in distant background, no other people or buildings. Soft coastal breeze lifts a few loose strands. Her face is sharp, frame center-left with enough space on the right toward the person she will look at. Natural live-action cinema, no dramatic makeup or jewelry."
+  },
+  {
+    "id": "05-timer",
+    "references": [
+      "outputs/content-projects/CONTENT_20261108_short_drama/characters/v02/maho-reference-v02.png",
+      "outputs/content-projects/CONTENT_20261108_short_drama/references/workflow-v01/pier-location-sheet-v01.png"
+    ],
+    "prompt": "Single full-bleed vertical 9:16 film still for a realistic Japanese family short drama. Gentle clear late-morning coastal daylight, soft true-to-life skin and muted golden wood and blue-green sea, subtle analog grain, physically plausible objects. The location reference is a two-angle sheet; depict a single view of that same wooden pier with a pale sage hipped pavilion and timber rails. No graphics, text, logos, watermarks or split panels. Reference image 1 is used only for the charcoal knitted cuff and natural skin tone; reference 2 is the pier. A waist-height low side close-up with tight selective focus on a single charcoal matte smartphone, portrait orientation on the top of a simple wooden bench. It is already leaning securely against a small folded muted olive canvas pouch, its rear camera faces left toward the opposite seat. We see the glass display at a shallow oblique angle, unlit blue-gray reflection, no visible text or icons. Maho's right hand with her charcoal ribbed cuff enters naturally from screen right; one index finger is poised 3 cm above the lower part of the glass, about to tap. Exactly one anatomically natural adult hand and one phone. Afternoon sea, timber rail softly blurred beyond. No faces, no rice balls in this tight insert, no extra devices. Frame with comfortable breathing room around the whole device and fingertip."
+  },
+  {
+    "id": "06-together",
+    "references": [
+      "outputs/content-projects/CONTENT_20261108_short_drama/characters/v02/maho-reference-v02.png",
+      "outputs/content-projects/CONTENT_20261108_short_drama/references/workflow-v01/pier-location-sheet-v01.png"
+    ],
+    "prompt": "Single full-bleed vertical 9:16 film still for a realistic Japanese family short drama. Gentle clear late-morning coastal daylight, soft true-to-life skin and muted golden wood and blue-green sea, subtle analog grain, physically plausible objects. The location reference is a two-angle sheet; depict a single view of that same wooden pier with a pale sage hipped pavilion and timber rails. No graphics, text, logos, watermarks or split panels. Reference image 1 fixes adult Maho's facial identity, realistic skin, side-parted shoulder-length black hair and the exact plain charcoal ribbed sweater. Reference image 2 defines pier materials and ocean only. This is the bench phone's portrait camera view: medium close shot of Maho already seated at center-left, looking gently just below the lens, lips closed. Her father is sitting next to her on screen right, still a small natural gap from her shoulder, visible only as his pale blue chambray shoulder and upper arm along the right edge, cropped at the neck and above so his face never appears. Both sit on the same simple timber bench. The wooden rail and soft blue-green sea behind them. Warm candid realism and space around her face. Natural proportion and gaze; the two people are distinct. No third person, phone, printed borders, UI, text or ornaments."
+  },
+  {
+    "id": "06-together-end",
+    "references": [
+      "outputs/content-projects/CONTENT_20261111_short_drama_ep02/plates/v01/06-together.png",
+      "outputs/content-projects/CONTENT_20261108_short_drama/characters/v02/maho-reference-v02.png"
+    ],
+    "prompt": "This is the exact final keyframe of a five-second shot. Edit image 1 as the target; image 2 is only the identity guide. Keep the entire vertical 9:16 camera, horizon, pier and pavilion, bench, lighting, framing, Maho's appearance, dark charcoal knit, hands and body placement from image 1. Change only two things: Maho has raised her gaze to the lens and gives a very small, warm, natural closed-mouth smile; the father's blue chambray upper arm has shifted subtly left (about 25 pixels at this image's scale) so his sleeve just touches her dark shoulder. The father's face and neck are still completely out of frame at right. Same real skin texture and nose, same eyelashes and straight black hair, same sunlight, identical camera geometry. No graphics or text."
+  },
+  {
+    "id": "blog-cover",
+    "references": [
+      "outputs/content-projects/CONTENT_20261111_short_drama_ep02/plates/v01/02-onigiri.png",
+      "outputs/content-projects/CONTENT_20261108_short_drama/references/workflow-v01/pier-location-sheet-v01.png"
+    ],
+    "prompt": "Create one full-bleed wide 16:9 cinematic still photograph as the article cover for a fictional Japanese short film. At right-middle, warm wooden pier bench with exactly two triangular nori-wrapped onigiri in individual parchment and one old cream-edge photo print of the same wooden pier. Image 1 is the reference for the props, image 2 is the location design, use a single naturally composed view of its same sage-roof pavilion, timber rails and soft blue-green ocean. Natural seaside morning with soft contrast, lived-in wood textures, quiet warmth. No people. Keep upper left and bottom third visually quiet for a publication layout. Photoreal, no letters, logos, watermarks, split panels or captions. At least 1400 pixels wide if possible."
+  }
+]
