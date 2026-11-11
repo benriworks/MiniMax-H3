@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "id": "h3-motion-v1",
+  "duration_seconds": 5,
+  "ratio": "9:16",
+  "api_resolution": "768P",
+  "local_seed": 20261029,
+  "cases": [
+    {
+      "id": "fetch",
+      "title": "高速移動と方向転換",
+      "checks": ["犬が走り、方向転換してボールへ到達する", "足・胴体・ボールの形と数が保たれる", "接地・加速・減速が自然につながる"],
+      "prompt": "integrated_multimodal_description: [Shot 1] Photorealistic, a full-body wide shot of one golden retriever on a green lawn, with a red rubber ball ahead on the right. The camera remains locked off for the entire five seconds. From 00:00.000 to 00:02.000 the dog sprints from left to right toward the ball. From 00:02.000 to 00:04.000 it makes a sharp curved turn around the ball, its paws contacting the grass and its ears moving with momentum. From 00:04.000 to 00:05.000 it slows beside the same ball. Keep the entire dog and ball visible throughout, with continuous motion, consistent anatomy, and no cuts. No people or visible text.\n\noverall_soundscape: Rapid paw impacts on grass, breathing, and light wind continue throughout the action.\n\nnon_diegetic_music: N/A"
+    },
+    {
+      "id": "collision",
+      "title": "物体の接触と転がり",
+      "checks": ["赤い球が積木へ接触した後に積木が倒れる", "衝突前後で球や積木が消失・増殖しない", "転がり・落下・停止が連続している"],
+      "prompt": "integrated_multimodal_description: [Shot 1] Photorealistic tabletop close-up, a red wooden ball on the left and a small tower of three blue wooden cubes on the right, all visible on a light oak table. The camera is locked off for the entire five seconds. From 00:00.000 to 00:02.000 the ball rolls quickly toward the tower. At 00:02.000 the ball strikes the bottom cube. From 00:02.000 to 00:04.000 the three cubes tumble onto the table while the ball continues past them. From 00:04.000 to 00:05.000 the objects settle. Preserve the identities and count of the ball and three cubes, realistic contact, momentum and shadows, continuous action with no cuts. No people or visible text.\n\noverall_soundscape: A rolling wooden rumble is followed by distinct wooden clacks at contact and lighter taps as the cubes settle.\n\nnon_diegetic_music: N/A"
+    },
+    {
+      "id": "tracking",
+      "title": "追従カメラと背景の連続性",
+      "checks": ["玩具の車が曲線走行し、カメラが追従する", "車輪・車体の形と色が保たれる", "背景の視差・遮蔽・反射が連続している"],
+      "prompt": "integrated_multimodal_description: [Shot 1] Photorealistic, a low-angle medium-wide tracking shot of one yellow remote-controlled toy buggy on an empty paved garden path, surrounded by plants and a low brick border. From 00:00.000 to 00:02.000 the buggy accelerates forward with all four wheels turning. From 00:02.000 to 00:04.000 it follows a broad curve to the left. From 00:04.000 to 00:05.000 it straightens and continues forward. The camera tracks smoothly alongside the buggy for all five seconds, keeping the whole vehicle in frame while the plants and brick border pass with coherent parallax. Maintain the same yellow body and four wheels throughout. One continuous shot, no people, no visible text.\n\noverall_soundscape: An electric motor whines, rubber wheels hum on pavement, and leaves rustle softly beside the path.\n\nnon_diegetic_music: N/A"
+    }
+  ]
+}

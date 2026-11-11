@@ -272,6 +272,16 @@ Claudeモデル進化の案件用`Evolution.tsx`は、全描画文字の下限�
 
 `produce.py prepare --reuse-audio <前版>`はvoice／rate／pronunciations／全segmentsが一致する場合に、検証済みナレーション4成果物を参照する。前版の記録と実ファイルのhashを検査し、実WAVと字幕の時刻を保ったまま映像を作り直す。新しい視覚入力を古い映像へ誤適用しないよう、映像再利用時の比較対象へ`visual_style`と`eyecatch`も含める。成果物は新しい出力フォルダーに保存する。[制作記録](productions/SHORT_20260916_claude_code_evolution_30s/README.md)。
 
+## H3 APIとローカルの動作比較（2026-10-29）
+
+`tools/h3_compare.py` は `benchmarks/h3-motion-v1.json` の共通T2VAプロンプトを凍結し、既存の `tools/h3_api.py` と `tools/studio/comfyui.py` へ渡す独立CLI。犬の高速移動、物体接触、追従カメラの3ケースを5秒・9:16で試す。APIは768P、ローカルは既存のINT8／Q4・20ステップ・480×864・124フレーム設定を維持する。解像度・量子化・乱数等が異なる実用比較として記録する。StudioのUI・HTTP API・DB契約は変更しない。
+
+APIは課金POST前に送信不明状態をatomic保存し、受領task IDを永続化して再開する。送信不明時は自動再送せず、手動照合したIDを `attach-task` で復旧する。ローカルは既存のモデルhash／runtime検査、送信マーカー、キャッシュ検証をそのまま使い、再開時は同一IDを復元する。比較ディレクトリの排他ロックで同時操作を防ぐ。
+
+原本はbytes・SHA-256・FFprobeの実測仕様を記録する。比較派生は先頭5秒を同一表示サイズで並べ、全デコード確認する。HTMLは比較MP4・原本と音声・元条件・観察項目・評価履歴を表示する。6fpsの輝度差は診断値としてのみ扱い、品質順位にしない。評価は両原本のhash付きで追記し、実請求・電気代・最終試聴・採用・公開の未確認状態を保持する。APIレスポンス全文や署名URLを保存しない。
+
+手順・比較の限界・検証範囲は [H3_MOTION_COMPARISON_JA.md](H3_MOTION_COMPARISON_JA.md)。初期実験は `outputs/benchmarks/h3-motion-20261029-v02/`。APIキー未設定・ComfyUI未起動のため、初回実生成と実品質評価は未実施。
+
 ## Claudeモデル進化の30秒初稿（2026-09-16）
 
 `productions/SHORT_20260916_claude_code_evolution_30s/`は、公式出典から作る年表・比較図解の案件用制作経路。`SOURCES_JA.md`が根拠、`story.json`が字幕・発音辞書・モデル名・発表日・比較値の正本。`produce.py prepare`は既存Windows SAPIで6発話を生成し、実WAVの尺が各5秒枠へ収まることを検査する。`render.mjs`と`Evolution.tsx`は同梱フォントを読み込み、30秒の独自図解を描画する。`produce.py finish`は既存assembly workerで字幕あり／なしMP4を合成し、形式・全decode・ZIP読戻しを検査する。

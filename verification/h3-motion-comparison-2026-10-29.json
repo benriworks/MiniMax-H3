@@ -1,0 +1,56 @@
+{
+  "verified_on": "2026-10-29",
+  "scope": "H3 API/local comparison implementation; generated quality is unmeasured",
+  "tests": [
+    {
+      "command": "python -m unittest tests.test_h3_compare tests.test_h3_api tests.test_studio_comfyui -q",
+      "run_stage": "initial implementation before the additional HTTP orchestration test",
+      "total": 61,
+      "skipped": 1,
+      "outcome": "OK",
+      "skip_reason": "Non-Windows cache hashing test is excluded on Windows, which uses share-deny handles"
+    },
+    {
+      "command": "python -m unittest tests.test_h3_compare tests.test_h3_api -q",
+      "run_stage": "final comparison implementation",
+      "total": 25,
+      "skipped": 0,
+      "outcome": "OK"
+    }
+  ],
+  "checks": [
+    "Frozen suite and explicit estimates",
+    "Billable POST acknowledgement, durable unknown state and no duplicate resubmission",
+    "Existing API task resume, terminal failure, endpoint binding and key redaction",
+    "HTTP submit/query/download integration without bearer forwarding to video download",
+    "Local adapter marker recovery and same prompt binding",
+    "Original hashes, append-only review records and comparison derivative integrity",
+    "Real test-media conversion to 960x864 H264, five seconds, full decode and motion diagnostics",
+    "Guarded local runtime/workflow/model/tool identity resolved without GPU generation"
+  ],
+  "browser": {
+    "method": "Playwright CLI, synthetic test patterns only",
+    "desktop_screenshot": "output/playwright/h3-comparison-desktop.png",
+    "mobile_screenshot": "output/playwright/h3-comparison-mobile.png",
+    "mobile_viewport": "390x844",
+    "horizontal_overflow": false,
+    "comparison_video": {"width": 960, "height": 864, "duration_seconds": 5, "ready_state": 4, "playback_error": null},
+    "original_test_videos": {"count": 2, "width": 240, "height": 432, "duration_seconds": 5.2, "ready_state": 4, "playback_error": null},
+    "audio_listened_by_human": false,
+    "note": "Initial favicon 404 removed using an inline empty icon; synthetic-only notice is visible. Native video play/pause succeeded."
+  },
+  "environment": {
+    "api_key": "missing",
+    "comfyui_8188_listening": false,
+    "four_pinned_models_present_with_expected_size": true,
+    "full_model_hash_checked_this_task": false,
+    "ffmpeg_available": true,
+    "ffprobe_available": true
+  },
+  "prepared_experiment": "outputs/benchmarks/h3-motion-20261029-v02",
+  "software_smoke": "outputs/benchmarks/h3-comparison-software-smoke-20261029",
+  "live_generation": {"api_submissions": 0, "local_gpu_submissions": 0, "quality_comparison": "pending", "actual_api_cost": null},
+  "human_final_review": "pending",
+  "user_adopted": false,
+  "published": false
+}
