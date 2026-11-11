@@ -1,5 +1,17 @@
 # Architecture
 
+## 30秒のオリジナルショートドラマ（2026-11-08）
+
+[案件](productions/content-projects/CONTENT_20261108_short_drama/RESUME_AND_KNOWHOW_JA.md)の `generate_h3_shot.py` は承認した画像とカット別プロンプトを既存 `H3Client` へ渡す。送信前の状態、受付ID、使用量、原本hashを保存し、受付IDが得られた場合は同じタスクを照会できる。`render_short_drama.py` は保存済みの映像、画像、Geminiの二言から7カットを720フレームに構成する。表示字幕は文節組版を使い、声、ピアノ、環境音は分離してから共通BGM設定で混合する。生成と再編集の境界、映像・音声の検査、レビュー用Drive、記事フレームの出所を案件の再現手順と台帳で追えるようにした。
+
+回想入りv04の `revise_opening.py` は、生成した基準画2点と既存の着信・封筒・写真原本から冒頭10秒を組む。小さな寄りには既存のカット処理を使う。波と包み紙の音をローカルで合成し、旧PCMの着信と紙音を新しい位置へつなぐ。10秒以降の映像は既存4カットを再符号化せず連結し、PCMサンプルもコピーする。全編decode、尺、後半の映像とPCMのhashを検証して別版として確定する。編集処理は生成APIへの送信を伴わない。
+
+キーフレーム比較版v05は、同じ生成CLIへ任意の `--last-image` を追加し、FL2VAの両端画像とhashを受け付ける。画像1枚の既存の生成経路と、同じタスクを照会する経路も使える。`replace_decision_shot.py` は保存済みの原本を読み、13〜18秒の120フレームへ両端を保って収める。残りのカットとAACをコピーし、区間外の復号画像とAACパケットのhash、全編decodeを確認して別版へ書き出す。
+
+画角修正版v06の `revise_cut_angles.py` は、2枚の新しい参照画から受け取りと手紙の区間を既存カット処理で作り、v05のAACをコピーする。v05で使ったハッシュ照合に区間外を選ぶフィルターを渡し、復号画像609フレームと全編のAACが同じことを検証する。再編集は既存原本と参照画のローカル処理で完結する。
+
+[続編『お父さんも、入って。』](productions/content-projects/CONTENT_20261111_short_drama_ep02/RESUME_AND_KNOWHOW_JA.md)は、既存のH3生成CLIを使用する。`synthesize_dialogue.py` は台詞単位でGeminiへ送信し、応答を保存してから音声形式を検査する。 `render_episode.py` は保存済みの原本と前作の手書き写真を読み、既存の字幕・カット処理とBGM設定で7カットを組む。シャッターで直前のフレームを写真として保持する。台詞、ピアノ、環境音と効果音を別に持ち、ラウドネスと全デコードを検査して版付きのMP4と台帳を確定する。
+
 ## 退社発表の調査とショートの制作（2026-11-04）
 
 `productions/content-projects/CONTENT_20261104_anthropic_departures/`は本人3投稿、会社公式の役割説明、取材報道を区別し、実ブラウザの撮影原本から明示座標の短い引用を作る。構成採用後、共通Gemini6台詞、Canvas・文節字幕・男女の顔合わせ、既存MiniMax2動作、既定BGMを再利用して45.75秒の縦動画を制作した。人物ごとの字幕節と実音声の話題時刻を使い、全字幕12状態・音量・全decode・実AV補助確認、記事v02と6公開画像のhash包装、共通CLI登録、Drive保存読戻しを分離する。ブラウザ制御がWork設定で無効のため動画再生は未確認。原本・媒体・共有受領をignoredのoutputsへ、文書と処理をGitへ分ける。旧モデル競争動画は変更しない。独立設計とMermaid図は同案件内。
@@ -43,6 +55,10 @@
 ## BGMの音量カーブと音声だけの差し替え（2026-10-31）
 
 `tools/studio/music_mix.py` はBGMの頭尾強調と滑らかな発話中の減音を共通処理にする。`longform_audio.music_bright()` は従来のフェード既定値を保ち、任意のフェード時間を受け取る。Proニュースの `remix_bgm_v04.py` は声原本を維持し、映像をstream copyしてBGMだけを変えたAACへ差し替える。旧ミックス再構築・声PCM一致・映像bitstream一致・全編decode・音量検査を分ける。Studio UIとHTTP API、外部生成、公開処理は追加しない。[案件の音量改訂記録](productions/content-projects/CONTENT_20261030_chatgpt_pro_usage_news/AUDIO_REVISION_V04_JA.md)。
+
+## 真帆の短編二話を一曲でつなぐ音声改訂（2026-11-11）
+
+[`remix_piano.py`](productions/content-projects/CONTENT_20261111_maho_compilation/remix_piano.py) は、前編の回想を含む冒頭PCMと二話の台詞・環境音から音声を再構成する。共通の `music_gain_envelope()` を使い、一曲を0秒から流して発話中の音量を調整する。二話の境界に波音を重ね、映像パケットをコピーしてAACを差し替える。版の確定前に映像パケットの時刻と内容、全編デコード、音量を照合する。 [制作記録](productions/content-projects/CONTENT_20261111_maho_compilation/RESUME_AND_KNOWHOW_JA.md)
 
 ## Pro利用枠ニュースの相対グラフ制作（2026-10-31）
 

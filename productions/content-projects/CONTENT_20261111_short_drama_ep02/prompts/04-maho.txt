@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Live-action cinematic medium close-up. Adult Maho wears the dark charcoal knit and holds an old ivory-edged print below her face, beside the wooden pier bench. Her brows, cheek structure, hair part and hair length stay exactly like the reference. She studies the print for a beat; at about 1.4 seconds her eyes rise first toward the off-camera father on her right, then her head follows very slightly. She makes a small private closed-mouth smile as the decision settles, and lowers the print a few centimeters toward the end. One quiet blink, fine strands move in the sea breeze. The blue-green sea, wood railing and sage roof hold their position. Locked camera with no cut or change of lens.
+
+overall_soundscape: Soft lapping sea and faint breeze, with a tiny paper movement. No speaking.
+
+non_diegetic_music: None.

@@ -1,0 +1,195 @@
+{
+  "id": "DRAMA01",
+  "title": "日曜、海に行かない？",
+  "version": "v05",
+  "format": {
+    "duration": "30.000000",
+    "size": "22750983"
+  },
+  "streams": [
+    {
+      "codec_name": "h264",
+      "codec_type": "video",
+      "width": 1080,
+      "height": 1920,
+      "avg_frame_rate": "24/1",
+      "nb_frames": "720"
+    },
+    {
+      "codec_name": "aac",
+      "codec_type": "audio",
+      "avg_frame_rate": "0/0",
+      "nb_frames": "1408"
+    }
+  ],
+  "sha256": "fe30a60cda757e25951d6ac720d3877476d1fa932e7e1fa90e41ee4c85496ee7",
+  "original_sha256": "86099a9657c6984295c3c7799a57ded8e253ca9e26f86eb13e1ccf9d4801fee2",
+  "decode": "passed",
+  "retained_hashes": {
+    "decoded_frames_outside_shot": "SHA256=3d64a865516d078abb374d094ab68e8f9038d9ef67d8063d396b04a60f077b44",
+    "aac_packets": "SHA256=c010f8509323d82df11370f3513f2a6624e27bf74470022ad709a3b69e5cb53e"
+  },
+  "timeline": [
+    {
+      "shot": "00-childhood-offer",
+      "start": 0,
+      "end": 1.375,
+      "frames": 33,
+      "source_start": 0,
+      "source_sha256": "3889b7da4db4e53344f7e6c61a265f320d787675d29a4ac5bf52abf45721c0e0"
+    },
+    {
+      "shot": "00-childhood-received",
+      "start": 1.375,
+      "end": 3,
+      "frames": 39,
+      "source_start": 0,
+      "source_sha256": "06018447838d306a17261c177a06625e133a172a377ec27536a35740014e3a46"
+    },
+    {
+      "shot": "01-incoming",
+      "start": 3,
+      "end": 5.25,
+      "frames": 54,
+      "source_start": 0,
+      "source_sha256": "b68f0b2b52c1a8aa14468ea36154c8fe3c681cbd51f720cadb1e173aafd2b4c9"
+    },
+    {
+      "shot": "02-envelope-look",
+      "start": 5.25,
+      "end": 7.5,
+      "frames": 54,
+      "source_start": 1.5,
+      "source_sha256": "b8e32df25c3cb16a177760097546926a811d4d054e39444b9118109b5c983f48"
+    },
+    {
+      "shot": "03-pilot-photo",
+      "start": 7.5,
+      "end": 10,
+      "frames": 60,
+      "source_start": 1.13,
+      "source_sha256": "7ecdfc64a8e6bffb2a5e9be20b3f66ca827bc5b13ee10428226b676f55e8e476"
+    },
+    {
+      "shot": "04-photo-back",
+      "start": 10,
+      "end": 13,
+      "frames": 72,
+      "source_start": 0,
+      "source_sha256": "c8b22b675cdd9a715b85e890b3d3f20bb355da37d85bd40301f1360e7e820462"
+    },
+    {
+      "shot": "05-decision",
+      "start": 13,
+      "end": 18,
+      "frames": 120,
+      "source_start": 0,
+      "source_sha256": "3f5e11f1dfe6c22d1db8d8204db08be10a5240793e6503595025c4eaba17f13c",
+      "source_end_frame": 123,
+      "generation_mode": "FL2VA"
+    },
+    {
+      "shot": "06-shoulder",
+      "start": 18,
+      "end": 22.75,
+      "frames": 114,
+      "source_start": 0.1,
+      "source_sha256": "8150395ddcae421b35fbbf9b938df125ec71352c8a6ac09f3a885c0d9a6e67ee"
+    },
+    {
+      "shot": "07-listening",
+      "start": 22.75,
+      "end": 30,
+      "frames": 174,
+      "source_start": 0.25,
+      "source_sha256": "94da61e7efdefb0fe561a62d01253fc29851f1b365d1d8737adce1545519ea3a"
+    }
+  ],
+  "shot": {
+    "mode": "FL2VA",
+    "model": "MiniMax-H3",
+    "resolution": "768P",
+    "attempts": 1,
+    "prompt": "prompts/05-decision-fl2va-rehearsal-v01.txt",
+    "first": {
+      "path": "references/workflow-v01/05-decision-start.png",
+      "sha256": "52803a7d8e523e217c2503211231824822350d48a20816349b72ce6a4557b974",
+      "source_v04_frame": 312
+    },
+    "last": {
+      "path": "references/workflow-v01/05-decision-end.png",
+      "sha256": "4d064133f6c7384fe2268d1cb871f8e70552b20a85c04c24cd305829b2aed634",
+      "source_v04_frame": 419
+    },
+    "provider_seconds": 108,
+    "client_run_to_save_seconds": 117.5,
+    "usage": {
+      "total_seconds": 5,
+      "input_seconds": 0,
+      "output_seconds": 5,
+      "input_image_count": 2,
+      "total_tokens": 188785,
+      "prompt_tokens": 26040,
+      "completion_tokens": 162745
+    },
+    "estimated_usd": 0.4,
+    "billing_debit_verified": false,
+    "price_source": "https://platform.minimax.io/docs/pricing/overview",
+    "output_path": "shots/v05/05-decision-fl2va/source.mp4",
+    "output_sha256": "3f5e11f1dfe6c22d1db8d8204db08be10a5240793e6503595025c4eaba17f13c",
+    "output_bytes": 701217,
+    "output_duration_seconds": 5.167,
+    "output_width": 768,
+    "output_height": 1344,
+    "source_frames": 124,
+    "selected_source_frames_inclusive": [
+      0,
+      123
+    ],
+    "last_source_frame_seconds": 5.125,
+    "edited_seconds": 5,
+    "edited_frames": 120
+  },
+  "comparison": {
+    "source_frame_samples": [
+      0,
+      24,
+      48,
+      72,
+      96,
+      123
+    ],
+    "v04_and_v05_sample_frames": [
+      300,
+      312,
+      336,
+      360,
+      384,
+      408,
+      431,
+      438
+    ],
+    "retained_frames": 600,
+    "observation": "14秒付近でv05はすでに目が開き、15〜16秒で顔が少し上がる。v04は14秒付近まで目を伏せている。画角、顔立ち、衣装と窓の連続性を確認。",
+    "audio_match": {
+      "sample_rate": 48000,
+      "start_pts": 0,
+      "duration_ts": 1440000,
+      "packets": 1408
+    },
+    "repeated_render_sha256_match": true
+  },
+  "review": {
+    "drive_folder": "動画・ブログ制作レビュー",
+    "bytes_verified": 22750983,
+    "owner_access_verified": true,
+    "mobile_playback": "unverified",
+    "user_adoption": "pending",
+    "publication": "pending"
+  },
+  "article": {
+    "draft": "article-draft-v05.md",
+    "media_manifest": "blog-handoff/v05/asset-manifest.json",
+    "frames": 4
+  }
+}

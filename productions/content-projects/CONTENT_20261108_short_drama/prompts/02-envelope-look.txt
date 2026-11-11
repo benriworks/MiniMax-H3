@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Photorealistic live action, in the exact frame established by <Picture 1>. Maho stays seated at the rain-streaked window, in the charcoal sweater with the same face, hair and posture. Her lowered eyes flick briefly toward the offscreen phone to the left, then she decides to leave the call unanswered and returns her attention to the blank kraft envelope. A quiet breath, then her forearm moves a little toward the envelope and stops just short of it. The camera remains nearly still. The closed envelope stays face-up and flat, with its triangular flap hinged along the edge closest to the camera. Her lips stay closed. Continue the same rain light, wood texture and color through the end.
+
+overall_soundscape: Light rain ticks against the window; the knit sleeve brushes the table once.
+
+non_diegetic_music: N/A

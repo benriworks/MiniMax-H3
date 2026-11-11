@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 5.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Live-action portrait from a fixed phone-height camera on the wooden pier. Adult Maho sits on the left in the charcoal knit; her father's pale blue chambray shoulder and arm occupy the far right. At the beginning her gaze is slightly down and there is a small gap between the shoulders. As he settles on the bench, his shoulder moves a few centimeters left until the sleeves just touch; his face remains completely beyond the frame. Maho glances at him briefly with her eyes, then looks back to the lens and gives a small, warm, closed-mouth smile. Both remain seated at equal height. Arrive smoothly at the exact composition and expression in Picture 2. Preserve her face, sleeve textures, blue sea, sage pavilion and wooden rail. Neither camera movement nor cut.
+
+overall_soundscape: Low sea wash and one slight cloth movement. No words; shutter sound will be added in editing.
+
+non_diegetic_music: None.

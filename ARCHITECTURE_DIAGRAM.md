@@ -1,5 +1,57 @@
 # Architecture diagram
 
+## 30秒のオリジナルショートドラマ（2026-11-08）
+
+```mermaid
+flowchart LR
+    Portrait[承認済みの人物・封筒とカット別の基準画] --> ShotCLI[案件のH3生成CLI]
+    Prompt[カット別プロンプト] --> ShotCLI
+    ShotCLI --> Ledger[送信前の記録と受付ID]
+    Ledger --> Poll[受付済みタスクの状態照会]
+    Poll --> Originals[保存した映像原本と使用量]
+    Originals --> Edit[FFmpegで30秒の7カット]
+    Plates[着信と写真裏の静止素材] --> Edit
+    Pilot[既存の写真試験映像] --> Edit
+    Dialogue[台詞別のGemini音声] --> Mix[声・ピアノ・環境音を別トラックで編集]
+    Captions[文節で分けた表示字幕] --> Edit
+    Mix --> Master[30秒の映像音声]
+    Edit --> Master
+    Master --> Check[全decode・実フレーム・台詞と音量]
+    Check --> Drive[Google Driveのレビュー動画]
+    Check --> Article[制作ノート用フレームと素材台帳]
+    Edit --> V03[保存済みv03のカットとPCM]
+    StillPair[回想の前後二枚と写真の原本] --> V04[冒頭10秒を再編集]
+    V03 --> V04
+    Shore[波と包み紙の音をローカル合成] --> V04
+    V04 --> Lock[10秒以降の映像とPCMを照合]
+    Lock --> Check
+    Lock --> Anchors[成人真帆の開始画と終了画]
+    Anchors --> FL2VA[同じ生成CLIでFL2VAの1カット]
+    FL2VA --> Decision[13から18秒を置換しv04のAACをコピー]
+    Lock --> Decision
+    Decision --> Compare[変更区間外の復号画像とAACパケットを照合]
+    Compare --> Check
+    Compare --> CutAngles[受け取りと手紙の2カットを差し替え]
+    NewViews[受け手の俯瞰と手紙の真俯瞰の参照画] --> CutAngles
+    CutAngles --> KeepCheck[前後609フレームとv05のAACを照合]
+    KeepCheck --> Check
+```
+
+## ショートドラマ続編の制作と再編集
+
+```mermaid
+flowchart LR
+    EpisodeRefs[真帆と桟橋の参照画とカット別プロンプト] --> EpisodeH3[既存のH3生成CLI]
+    EpisodeH3 --> EpisodeMotion[5カットの原本と受付記録]
+    EpisodeSpeech[台詞別のGemini応答とWAV] --> EpisodeMix[台詞とピアノと波や効果音を別トラックで合成]
+    EpisodeMotion --> EpisodeRender[ローカルの7カット編集]
+    PreviousPhoto[前作の写真裏と確認済みの筆跡] --> EpisodeRender
+    EpisodeMix --> EpisodeRender
+    EpisodeRender --> EpisodeCheck[30秒MP4と全デコードと音量検査]
+    EpisodeCheck --> EpisodeReview[Driveのレビュー候補]
+    EpisodeCheck --> EpisodeBlog[記事草稿と素材台帳]
+```
+
 ## 公開解説20チャンネルの比較と文書への適用
 
 ```mermaid
@@ -161,6 +213,20 @@ flowchart LR
     OldVideo[旧動画v03] --> Remux
     Remux --> Checks[声成分と映像同一性と音量検査]
     Checks --> Review[Drive保存と利用者の最終試聴]
+```
+
+## 真帆の短編二話の音声改訂（2026-11-11）
+
+```mermaid
+flowchart LR
+    Stems[冒頭のPCMと各話の台詞と環境音] --> Dry[旧BGMを含まない音声と境界の波音]
+    Piano[利用条件を照合したピアノ曲] --> Gain[共通音量カーブで発話中に減音]
+    Dry --> Mix[60秒の音声]
+    Gain --> Mix
+    Mix --> Remux[映像をコピーして新しいAACを付与]
+    Prior[まとめ版v01] --> Remux
+    Remux --> Checks[映像の内容と時刻と全編デコードを照合]
+    Checks --> Review[ピアノ版v02]
 ```
 
 ## Pro利用枠ニュースの制作経路（2026-10-31）

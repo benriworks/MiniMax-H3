@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] A single continuous live-action portrait shot. Keep this exact wooden seaside pier and pavilion, both outfits, the child's back and her noticeably smaller hands, the light-blue adult sleeve, and the single triangular onigiri on thin pale wrapping. Start moving immediately, within the first quarter second. At first the father holds the wrapping from below in his open palm. The girl brings both hands up and cradles the two outside edges of the wrapping and its underside without crushing the rice. Around 1.5 to 2 seconds the weight passes to her. The father releases his grip and draws his empty hand back to the left. By 2.7 seconds she holds it securely on her own, slightly closer to her chest, still clearly in the frame. She keeps it there for the remainder, with a small pleased rise of her shoulder. The intact triangular rice ball and its dark seaweed strip stay the same size, form and orientation throughout. Natural hands and slow, unambiguous physical contact. No face turns, no other person, no new objects, no cuts or text. A steady close camera from beside the girl's shoulder, only a tiny natural drift. Preserve the location in focus enough to recognize the converging railings and pale pavilion. Warm ordinary morning light, calm sea.
+
+overall_soundscape: Soft, continuous distant sea wash with subtle paper rustle at the handover. No voices, no abrupt sounds.
+
+non_diegetic_music: N/A

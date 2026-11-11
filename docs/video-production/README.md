@@ -1,6 +1,6 @@
 # 動画・関連記事の制作索引
 
-更新日：2026-11-07。このリポジトリの制作情報は、索引・総覧・案件ごとの再開履歴兼ノウハウの3種類を入口に管理する。チャット履歴がない別チャット・別担当者も、ここから再開する。
+2026-11-12更新。このリポジトリの制作情報は、索引・総覧・案件ごとの再開履歴兼ノウハウの3種類を入口に管理する。チャット履歴がない別チャット・別担当者も、ここから再開する。
 
 ## 最初に読む3種類
 
@@ -16,6 +16,8 @@ BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_J
 
 編集の再現例は[BERT/GPTの手順](../../productions/content-projects/CONTENT_20261106_ai_bert_gpt_history/REPRODUCTION_JA.md)。139入力の版・hash、環境、APIを再実行しない経路、新しい版への出力例、依存の不足を記録した。
 
+真帆などのオリジナル短編は[ドラマ制作手順](SHORT_DRAMA_PRODUCTION_JA.md)で、APIの認証と再開、ローカル素材の配置、再編集コマンドを確認する。
+
 ## 参照・更新の手順
 
 1. **着手・再開**：上の3種類を読み、必要な台本・出典・検証台帳まで確認する。コードと素材のルートを区別し、別cloneにも動画があると仮定しない。
@@ -30,7 +32,7 @@ BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_J
 
 ## 案件・素材の再開入口
 
-2026-10-30、初回に35単位の再開入口を整備し、その後Pro利用枠ニュース、10/31ニュース2本の共通案件、Tiboチャレンジのショートとフル版、dotsとBlenderの東京駅模型、12月のChatGPT・Codex利用枠共通化ニュース、dotsとBlenderのワインCG、字幕と成果物の見せ方の4本改訂、技術・キャラクター解説20チャンネルの比較調査、OpenAI×Anthropicモデル競争の重点企画、Anthropic関係者の退社を考えるショート企画、【AI】BERT・GPT誕生史、【AI】2026年の国内情報漏えい企画を追加し、現在の索引は48単位。シリーズは各回の原稿・台帳をまとめる親単位、人物素材は再利用元の単位としている。順序は現在の制作判断を探しやすくするためのもので、全案件が制作中・完了・採用済みという意味ではない。
+2026-10-30、初回に35単位の再開入口を整備し、その後Pro利用枠ニュース、10/31ニュース2本の共通案件、Tiboチャレンジのショートとフル版、dotsとBlenderの東京駅模型、12月のChatGPT・Codex利用枠共通化ニュース、dotsとBlenderのワインCG、字幕と成果物の見せ方の4本改訂、技術・キャラクター解説20チャンネルの比較調査、OpenAI×Anthropicモデル競争の重点企画、Anthropic関係者の退社を考えるショート企画、【AI】BERT・GPT誕生史、【AI】2026年の国内情報漏えい企画、オリジナルショートドラマ企画と短編30本の比較を追加し、現在の索引は50単位。シリーズは各回の原稿・台帳をまとめる親単位、人物素材は再利用元の単位としている。順序は現在の制作判断を探しやすくするためのもので、全案件が制作中・完了・採用済みという意味ではない。
 
 各再開記録には照合元の文書をリンクする。今回の整理は文書の照合であり、媒体の再生・全decode、Driveのアクセス、公開URL、最新の製品仕様を新たに検証したものではない。別ブランチ・別cloneだけにある案件は、対象ブランチを確認してから同じ形式で追加する。
 
@@ -41,8 +43,12 @@ BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_J
 | 【AI】2026年の国内情報漏えい。公表件数の順に改訂。人口との比較、対象情報の詳細、指定除外と第一興商の追加。**フルv03 9分8.125秒、ショートv03 59.625秒**。白衣人物と一部音声を継承。記事草稿・PDF v03と媒体QC済み。人の試聴・採用・公開待ち。個人fork Draft PR #21 | [案件・現在地](../../productions/content-projects/CONTENT_20261107_ai_japan_data_breaches/RESUME_AND_KNOWHOW_JA.md)／[改訂とQC](../../productions/content-projects/CONTENT_20261107_ai_japan_data_breaches/REVISION_V03_JA.md)／[再現手順](../../productions/content-projects/CONTENT_20261107_ai_japan_data_breaches/REPRODUCTION_JA.md)／[件数表](../../productions/content-projects/CONTENT_20261107_ai_japan_data_breaches/ranking-volume-v03.json)／[記事草稿](../../productions/content-projects/CONTENT_20261107_ai_japan_data_breaches/ARTICLE_DRAFT_V03_JA.md) |
 | 【AI】BERT・GPT誕生史：旧short v03／full v02の編集品質を差し戻され、**short v07／58.5秒・full v05／約7分6秒**へ改訂。主図拡大・具体例・公式原図4種・顔アップ/胸上/中景、同じ白衣人物のローカルMiniMax2素材追加。全decode・107字幕状態・音量・指定箇所の実フレーム、Drive保存読戻し済み。記事v04・図入りPDFv06。人の最終試聴・完成品採用・公開は未完了。再現手順・入力139件を記録、個人fork PR #20はmain統合済み（306646c） | [案件・現在地](../../productions/content-projects/CONTENT_20261106_ai_bert_gpt_history/RESUME_AND_KNOWHOW_JA.md)／[最新QC](../../productions/content-projects/CONTENT_20261106_ai_bert_gpt_history/FINAL_REVIEW_QC_V04_JA.md)／[記事草稿](../../productions/content-projects/CONTENT_20261106_ai_bert_gpt_history/ARTICLE_DRAFT_V04_JA.md)／[人物](../../productions/content-projects/CONTENT_20261106_ai_bert_gpt_history/CHARACTERS_JA.md) |
 | Claude Fable 5.2の公式9図を収録したショートv02とフルv03。SSDのBGM、図表読解の実行ログ、記事草稿を収録。技術検査済み、ユーザー試聴と公開判断待ち | [制作記録](../../productions/content-projects/CONTENT_20261110_fable_5_2/RESUME_AND_KNOWHOW_JA.md) |
+| 真帆の前後編をつないだ「また、二人で。」60秒。v02は冒頭からピアノを流し、台詞の間は減音。全1,440フレームの映像パケットと時刻、音量を検査しDriveへ保存。YouTube説明欄に楽曲を追記 | [制作記録](../../productions/content-projects/CONTENT_20261111_maho_compilation/RESUME_AND_KNOWHOW_JA.md)／[説明欄案](../../productions/content-projects/CONTENT_20261111_maho_compilation/youtube-description-v02.txt) |
+| オリジナルショートドラマ続編「お父さんも、入って。」。真帆と父が同じ桟橋で写真を撮る縦型30秒。初回の仮組みから写真を返す動きと父の一言を調整したv02をDriveに保存。実フレーム・音声認識・音量・同環境の再出力を確認。採用と公開は確認待ち | [案件・現在地](../../productions/content-projects/CONTENT_20261111_short_drama_ep02/RESUME_AND_KNOWHOW_JA.md)／[再現手順](../../productions/content-projects/CONTENT_20261111_short_drama_ep02/REPRODUCTION_JA.md)／[検証要約](../../productions/content-projects/CONTENT_20261111_short_drama_ep02/verification-v02.json)／[記事草稿](../../productions/content-projects/CONTENT_20261111_short_drama_ep02/article-draft-v01.md) |
+| オリジナルショートドラマ「日曜、海に行かない？」。縦型30秒の回想入りv04をDriveへ保存。幼い真帆と父のおにぎりを桟橋の写真と最後の電話へつないだ。v03との後半照合、同環境での再現、記事草稿と6フレームを記録。桟橋のロケーションシートを準備。開始・終了画で視線の1カットを生成した比較版v05もDriveに保存。最新は画角修正版v06。受け取ったおにぎりと手紙を別視点の寄りへ変更し、Driveへ保存。v06への改善の感想を受領。完成版の採用と公開は確認待ち | [案件・現在地](../../productions/content-projects/CONTENT_20261108_short_drama/RESUME_AND_KNOWHOW_JA.md)／[検証要約](../../productions/content-projects/CONTENT_20261108_short_drama/verification-v04.json)／[新工程の適用例](../../productions/content-projects/CONTENT_20261108_short_drama/KEYFRAME_WORKFLOW_TRIAL_JA.md)／[v05検証](../../productions/content-projects/CONTENT_20261108_short_drama/verification-v05.json)／[v06検証](../../productions/content-projects/CONTENT_20261108_short_drama/verification-v06.json) |
 | Anthropic退社考察ショート：最新v02はローカル曲へ差し替えた45.75秒。技術確認・Drive保存後、ユーザーからBGMの音量変動を指摘。「作り直しは不要」の指定により今回は記録のみ、v02を維持。控えめな一定音量を今後の改善方針へ。記事v02と6画像は継続。完成品採用・公開は未確定、個人fork PR #19 | [案件・現在地](../../productions/content-projects/CONTENT_20261104_anthropic_departures/RESUME_AND_KNOWHOW_JA.md)／[BGM改訂と評価](../../productions/content-projects/CONTENT_20261104_anthropic_departures/BGM_REVISION_V02_JA.md)／[記事v02](../../productions/content-projects/CONTENT_20261104_anthropic_departures/ARTICLE_DRAFT_V02_JA.md) |
 | OpenAI×Anthropicモデル競争：企画v01の大筋採用、公式用語と動作へ改訂。ショートv01は59.75秒、フルv02は約9分39秒。技術確認済み・未採用、Drive保存済み（再生進行は未確認）。公式引用・動く図・既存6動作、Gemini対話、記事v03と素材包装v04。個人fork PR #18へ保存 | [案件・現在地](../../productions/content-projects/CONTENT_20261103_model_race/RESUME_AND_KNOWHOW_JA.md)／[表現改訂](../../productions/content-projects/CONTENT_20261103_model_race/WORDING_REVISION_JA.md)／[記事v03](../../productions/content-projects/CONTENT_20261103_model_race/ARTICLE_DRAFT_V03_JA.md) |
+| YouTubeショートドラマ30本比較。26〜45秒・2万回以上、16チャンネル。全編の映像・実音声を観察し、ジャンル・転機・カット・切替・音と冒頭3案を整理 | [案件・現在地](../../productions/research/RESEARCH_20261108_youtube_short_drama/RESUME_AND_KNOWHOW_JA.md)／[比較報告](research/YOUTUBE_SHORT_DRAMAS_30_20261108_JA.md)／[ドラマ編集プレイブック](SHORT_DRAMA_EDITING_PLAYBOOK_JA.md) |
 | 技術・キャラクター解説20チャンネル比較：公開登録者10万人以上を確認、各1本の映像音声と30秒標本・終盤を分析。60技法と編集レビュー票へ整理。制作への適用と維持率の効果は別途確認 | [案件・現在地](../../productions/research/RESEARCH_20261103_youtube_explainers/RESUME_AND_KNOWHOW_JA.md)／[比較報告](research/YOUTUBE_EXPLAINERS_20_20261103_JA.md) |
 | 字幕と成果物の見せ方の改訂：ワイン縦横v02・東京駅full v02・Tibo full v03。表示/読み分離、文節字幕、成果物拡大、縦の同位置切り替え。旧版公開申告、新版は比較レビュー待ち | [案件・現在地](../../productions/content-projects/CONTENT_20261103_editorial_revision/RESUME_AND_KNOWHOW_JA.md)／[4本の履歴](../../productions/content-projects/CONTENT_20261103_editorial_revision/RESUME_AND_KNOWHOW_JA.md#動画別の履歴) |
 | dots×Blender：ワインCG。旧v01は公開済みとの申告。比較候補v02は約33秒・約2分30秒。字幕と見せ方を改訂し記事素材も保持、新版は未採用・未公開 | [案件・現在地](../../productions/content-projects/CONTENT_20261102_dots_blender_wine/RESUME_AND_KNOWHOW_JA.md)／[新版履歴](../../productions/content-projects/CONTENT_20261103_editorial_revision/RESUME_AND_KNOWHOW_JA.md#wine-short-v02) |
@@ -120,6 +126,7 @@ BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_J
 | [実画面の撮影と公式引用](SCREEN_CAPTURE_AND_QUOTES_JA.md) | 撮影前の実機確認、原本と切り出し、記事解像度、来歴・出典 |
 | [動画とブログの共通工程](VIDEO_TO_BLOG_WORKFLOW_JA.md) | 同時草稿・素材収集、動画→詳細記事、blog／note、記事素材の受け渡し |
 | [企画ワークスペース](../../STUDIO_CONTENT_WORKSPACE_JA.md) | 助手の先行調査、本数と概要の提案、ユーザー返答、根拠・素材・絵コンテ、実装範囲 |
+| [ドラマのキーフレーム制作](SHORT_DRAMA_EDITING_PLAYBOOK_JA.md#基準画とキーフレームを先に決める) | 人物・場所・小物の参照、仮編集、生成と編集の往復、採用区間と料金の記録 |
 | [ローカル生成のプレイブック](../../PRODUCTION_PLAYBOOK_JA.md) | 低VRAMの生成方式・所要時間・失敗候補・条件付きの過去実測 |
 | [方向性の検討記録](DIRECTION_REVIEW_JA.md) | 自分用の制作環境、チャット制作、動画と記事の再利用、採用と未決事項 |
 | [2026-10-28のGit統合記録](GITHUB_SYNC_20261028_JA.md) | 保存境界・対象・検証の範囲と未確認事項。当時の記録であり、最新Git状態ではない |

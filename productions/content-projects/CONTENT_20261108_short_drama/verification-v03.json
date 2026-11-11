@@ -1,0 +1,255 @@
+{
+  "programs": [],
+  "stream_groups": [],
+  "streams": [
+    {
+      "codec_name": "h264",
+      "codec_type": "video",
+      "width": 1080,
+      "height": 1920,
+      "avg_frame_rate": "24/1",
+      "nb_frames": "720"
+    },
+    {
+      "codec_name": "aac",
+      "codec_type": "audio",
+      "avg_frame_rate": "0/0",
+      "nb_frames": "1408"
+    }
+  ],
+  "format": {
+    "duration": "30.000000",
+    "size": "24258347"
+  },
+  "title": "日曜、海に行かない？",
+  "decode": "passed",
+  "timeline": [
+    {
+      "shot": "01-incoming",
+      "start": 0.0,
+      "end": 2.75,
+      "frames": 66,
+      "source_start": 0,
+      "source_sha256": "b68f0b2b52c1a8aa14468ea36154c8fe3c681cbd51f720cadb1e173aafd2b4c9"
+    },
+    {
+      "shot": "02-envelope-look",
+      "start": 2.75,
+      "end": 6.5,
+      "frames": 90,
+      "source_start": 0,
+      "source_sha256": "b8e32df25c3cb16a177760097546926a811d4d054e39444b9118109b5c983f48"
+    },
+    {
+      "shot": "03-pilot-photo",
+      "start": 6.5,
+      "end": 10.0,
+      "frames": 84,
+      "source_start": 0.7,
+      "source_sha256": "7ecdfc64a8e6bffb2a5e9be20b3f66ca827bc5b13ee10428226b676f55e8e476"
+    },
+    {
+      "shot": "04-photo-back",
+      "start": 10.0,
+      "end": 13.0,
+      "frames": 72,
+      "source_start": 0,
+      "source_sha256": "c8b22b675cdd9a715b85e890b3d3f20bb355da37d85bd40301f1360e7e820462"
+    },
+    {
+      "shot": "05-decision",
+      "start": 13.0,
+      "end": 18.0,
+      "frames": 120,
+      "source_start": 0.64,
+      "source_sha256": "95be759c451a7ab3015536fd4244356b3a61506cb2c9ead2aa2ce26beb67f09d"
+    },
+    {
+      "shot": "06-shoulder",
+      "start": 18.0,
+      "end": 22.75,
+      "frames": 114,
+      "source_start": 0.1,
+      "source_sha256": "8150395ddcae421b35fbbf9b938df125ec71352c8a6ac09f3a885c0d9a6e67ee"
+    },
+    {
+      "shot": "07-listening",
+      "start": 22.75,
+      "end": 30.0,
+      "frames": 174,
+      "source_start": 0.25,
+      "source_sha256": "94da61e7efdefb0fe561a62d01253fc29851f1b365d1d8737adce1545519ea3a"
+    }
+  ],
+  "master_gain_db": 3.8,
+  "voice_version": "v03",
+  "sha256": "f5dede02ecffdeab284dd140fc03e23d0264985ecdf6513aae00d760715af6b6",
+  "loudness": {
+    "input_i": "-16.94",
+    "input_tp": "-1.41",
+    "input_lra": "18.90",
+    "input_thresh": "-30.72",
+    "output_i": "-15.91",
+    "output_tp": "-1.00",
+    "output_lra": "9.10",
+    "output_thresh": "-26.39",
+    "normalization_type": "dynamic",
+    "target_offset": "-0.09"
+  },
+  "dialogue_verification": {
+    "speech_model": "gemini-3.8-flash-tts",
+    "voices": [
+      "Aoede",
+      "Charon"
+    ],
+    "recognition_model": "gemini-3.8-flash",
+    "transcript": "ご指定の音声の文字起こしは以下の通りです。\n\n1. お父さん、日曜、海に行かない？\n2. じゃあ、おにぎりを作っておくよ。",
+    "source_wave_sha256": {
+      "d01-maho": "253c15889392a440b44fd6b1e93fcf68699eb34c36e245964b6c49c7efdc6edb",
+      "d02-father": "9bcf79f6840485062f1b03800e3f9a4771b952c2039bf04e6c1fe7d193cd1daf"
+    },
+    "human_listening": "pending"
+  },
+  "frames_visually_checked": [
+    19,
+    96,
+    177,
+    263,
+    352,
+    455,
+    492,
+    575,
+    662,
+    704
+  ],
+  "h3": [
+    {
+      "shot": "02-envelope-look",
+      "provider_seconds": 102,
+      "observation_seconds": 113.14,
+      "usage": {
+        "total_seconds": 4,
+        "input_seconds": 0,
+        "output_seconds": 4,
+        "input_image_count": 1,
+        "total_tokens": 143216,
+        "prompt_tokens": 13020,
+        "completion_tokens": 130196
+      },
+      "input_sha256": "6fe1e7ccb0823131e14d9111ff9707855f4def19714cadc30a459906a6237b0e",
+      "output_sha256": "b8e32df25c3cb16a177760097546926a811d4d054e39444b9118109b5c983f48"
+    },
+    {
+      "shot": "05-decision",
+      "provider_seconds": 122,
+      "observation_seconds": 138.812,
+      "usage": {
+        "total_seconds": 6,
+        "input_seconds": 0,
+        "output_seconds": 6,
+        "input_image_count": 1,
+        "total_tokens": 208314,
+        "prompt_tokens": 13020,
+        "completion_tokens": 195294
+      },
+      "input_sha256": "6fe1e7ccb0823131e14d9111ff9707855f4def19714cadc30a459906a6237b0e",
+      "output_sha256": "95be759c451a7ab3015536fd4244356b3a61506cb2c9ead2aa2ce26beb67f09d"
+    },
+    {
+      "shot": "06-shoulder",
+      "provider_seconds": 101,
+      "observation_seconds": 113.093,
+      "usage": {
+        "total_seconds": 5,
+        "input_seconds": 0,
+        "output_seconds": 5,
+        "input_image_count": 1,
+        "total_tokens": 175765,
+        "prompt_tokens": 13020,
+        "completion_tokens": 162745
+      },
+      "input_sha256": "db91c3ffdf76a336ea418b0476c413eb43aa053805872a3ee92993a26e4c91cf",
+      "output_sha256": "8150395ddcae421b35fbbf9b938df125ec71352c8a6ac09f3a885c0d9a6e67ee"
+    },
+    {
+      "shot": "07-listening",
+      "provider_seconds": 138,
+      "observation_seconds": 148.547,
+      "usage": {
+        "total_seconds": 8,
+        "input_seconds": 0,
+        "output_seconds": 8,
+        "input_image_count": 1,
+        "total_tokens": 273412,
+        "prompt_tokens": 13020,
+        "completion_tokens": 260392
+      },
+      "input_sha256": "3b5f8d2075a4f3be7d97a8112a917b290a10de94fb9fc938987ed26f5f496134",
+      "output_sha256": "94da61e7efdefb0fe561a62d01253fc29851f1b365d1d8737adce1545519ea3a"
+    }
+  ],
+  "h3_cost": {
+    "output_usd_per_second": "0.08",
+    "calculated_usd": "1.84",
+    "ledger_verified": false
+  },
+  "article_assets": [
+    {
+      "file": "assets/incoming-call.png",
+      "source": "review/v03/nichiyou-umi-short-v03.mp4",
+      "seconds": 0.79,
+      "width": 1080,
+      "height": 1920,
+      "sha256": "aceedd2ee2def8a07773d6ac74c1a08443c2b3af09fe2fecb7de00adcf5ca10a",
+      "bytes": 1719615,
+      "alt": "暗い木の机のスマホに、父からの着信が表示されている",
+      "review": "candidate"
+    },
+    {
+      "file": "assets/envelope-orientation.png",
+      "source": "review/v03/nichiyou-umi-short-v03.mp4",
+      "seconds": 3.95,
+      "width": 1080,
+      "height": 1920,
+      "sha256": "f140fd9e0acac60ac19a103d3302049778bf663ff3ba9a30f3c8a41eb1c1746a",
+      "bytes": 1667639,
+      "alt": "雨の窓辺で真帆が座り、封筒の折り返しが手前に向いている",
+      "review": "candidate"
+    },
+    {
+      "file": "assets/photo-message.png",
+      "source": "review/v03/nichiyou-umi-short-v03.mp4",
+      "seconds": 11.05,
+      "width": 1080,
+      "height": 1920,
+      "sha256": "5ddddb66d53a47f39001915344add804320dfe1282653d5eba7459f8d3d669dc",
+      "bytes": 2023126,
+      "alt": "写真の裏に『また、二人で。』と手書きされている",
+      "review": "candidate"
+    },
+    {
+      "file": "assets/maho-smile.png",
+      "source": "review/v03/nichiyou-umi-short-v03.mp4",
+      "seconds": 27.79,
+      "width": 1080,
+      "height": 1920,
+      "sha256": "6a2ee88486bf8516fd21ff84db8c87de38b468ea9c1b35b6100da1129d50124d",
+      "bytes": 1891430,
+      "alt": "電話を耳にあてた真帆が、父の返事を聞いて小さく笑う",
+      "review": "candidate"
+    }
+  ],
+  "drive_readback": {
+    "bytes": 24258347,
+    "mime_type": "video/mp4",
+    "access": "owner",
+    "folder": "動画・ブログ制作レビュー",
+    "mobile_playback": "unverified"
+  },
+  "reproduction": {
+    "same_windows_environment": true,
+    "api_calls": 0,
+    "sha256": "f5dede02ecffdeab284dd140fc03e23d0264985ecdf6513aae00d760715af6b6",
+    "matches_master": true
+  }
+}

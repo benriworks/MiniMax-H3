@@ -1,0 +1,110 @@
+{
+  "version": "v01",
+  "output": {
+    "path": "CONTENT_20261111_maho_compilation/review/v01/maho-mata-futari-v01.mp4",
+    "bytes": 45369226,
+    "sha256": "ff90f386d86e8e608368ed87e5f814e5577fd300aa7929b76776335519888a9e"
+  },
+  "metadata": {
+    "programs": [],
+    "stream_groups": [],
+    "streams": [
+      {
+        "codec_name": "h264",
+        "width": 1080,
+        "height": 1920,
+        "avg_frame_rate": "24/1",
+        "start_time": "0.000000",
+        "duration": "60.000000",
+        "nb_frames": "1440"
+      },
+      {
+        "codec_name": "aac",
+        "sample_rate": "48000",
+        "channels": 2,
+        "avg_frame_rate": "0/0",
+        "start_time": "0.000000",
+        "duration": "60.000000",
+        "nb_frames": "2814"
+      }
+    ],
+    "format": {
+      "duration": "60.000000",
+      "size": "45369226"
+    }
+  },
+  "inputs": [
+    {
+      "path": "CONTENT_20261108_short_drama/review/v06/nichiyou-umi-short-v06.mp4",
+      "bytes": 23128577,
+      "sha256": "f8ac31c4f0a10135baa57af954ceb4ed55f98bc680cc4d744f64e1e505d7dd9b"
+    },
+    {
+      "path": "CONTENT_20261111_short_drama_ep02/review/v02/otousan-mo-haitte-v02.mp4",
+      "bytes": 22241396,
+      "sha256": "b13776b7421df5f6dd931f0a26b790c3f7c732521755db12eaec2703abd076fe"
+    },
+    {
+      "path": "CONTENT_20261111_short_drama_ep02/edit/v02/pier-and-effects.wav",
+      "bytes": 5760044,
+      "sha256": "5d2060ab77967171b73a0490aed440b65efce1106cb5d11be663f9870437eccc"
+    }
+  ],
+  "verified_decoded_video_frames": 1440,
+  "input_video_frames_match_in_order": true,
+  "loudness_lufs": -17.59,
+  "true_peak_dbtp": -1.52,
+  "audio_alignment_spoken_sections": [
+    {
+      "start": 19.2,
+      "end": 25.8,
+      "correlation": 0.999822
+    },
+    {
+      "start": 30.44,
+      "end": 33.0,
+      "correlation": 0.999931
+    },
+    {
+      "start": 48.6,
+      "end": 50.58,
+      "correlation": 0.999888
+    }
+  ],
+  "wave_bridge_seconds": [
+    29.63,
+    30.38
+  ],
+  "master_gain_db": -0.35,
+  "full_decode": "passed",
+  "qc_frames": [
+    0,
+    708,
+    719,
+    720,
+    734,
+    1439
+  ],
+  "same_environment_repeat_sha256_match": true,
+  "delivery": {
+    "drive_folder": "動画・ブログ制作レビュー",
+    "verified_bytes": 45369226,
+    "owner_only": true,
+    "desktop_drive_playback": {
+      "browser": "Chrome",
+      "observed_seconds": 3,
+      "displayed_duration_seconds": 60
+    },
+    "desktop_local_playback_crossed_join": true,
+    "mobile_playback": "unverified",
+    "human_final_review": "pending",
+    "user_adoption": "pending",
+    "publication": "pending"
+  },
+  "article": {
+    "draft": "article-draft-v01.md",
+    "local_manifest": "blog-handoff/v01/asset-manifest.json",
+    "asset_count": 4,
+    "publication": "pending"
+  }
+}

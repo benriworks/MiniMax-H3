@@ -1,0 +1,3257 @@
+{
+  "summary": {
+    "videos": 30,
+    "channels": 16,
+    "channel_counts": {
+      "そば湯": 4,
+      "家族の真実": 1,
+      "30秒後。": 11,
+      "おといしはる: Haru Otoishi": 1,
+      "シークエンス 【狂気倶楽部】": 1,
+      "ハンドシアター": 1,
+      "沼ドラ🍿": 2,
+      "【ぱくしードラマ】": 1,
+      "毎日はにかむ僕たちは。": 1,
+      "JCB CARD": 1,
+      "SAGIRIX": 1,
+      "東京ガス公式チャンネル": 1,
+      "BUMPドラマ【公式】": 1,
+      "DramaSugar ドラマ【公式】": 1,
+      "つまみシネマ🎥": 1,
+      "タケキン": 1
+    },
+    "categories": {
+      "その他": 2,
+      "ホラー・ミステリー": 5,
+      "学校・日常": 5,
+      "家族・世代": 14,
+      "職場・バイト": 4
+    },
+    "duration_seconds": {
+      "min": 26.0,
+      "median": 31.0,
+      "max": 45.0
+    },
+    "views": {
+      "min": 21620,
+      "max": 1978913
+    },
+    "av_candidates_reviewed": 51,
+    "selected_with_audio": 30,
+    "additional_av_checks": 6,
+    "dropped_boundary_annotations": 0,
+    "boundary_annotations_by_kind": {
+      "hard_cut": 386,
+      "other": 2,
+      "dissolve": 3,
+      "fade": 1
+    },
+    "median_annotated_shots": 12.0,
+    "median_between_observed_shot_starts_seconds": 1.75,
+    "time_change_flag_ids": [
+      "Sdzlji2kQmQ",
+      "vUMlIClHa5U",
+      "wFZ_7jiPI9k",
+      "xZEXMrWuwYE",
+      "L0Yp4HbpKE8"
+    ]
+  },
+  "videos": [
+    {
+      "id": "bPv99_tTxWU",
+      "shorts_url": "https://www.youtube.com/shorts/bPv99_tTxWU",
+      "watch_url": "https://www.youtube.com/watch?v=bPv99_tTxWU",
+      "title": "自分を王様だと思ってる奴　#キタキタ王様",
+      "channel": "そば湯",
+      "channel_id": "UCSKUf4X29Kl6IyiMaU5aacw",
+      "views": 67128,
+      "duration_seconds": 44.0,
+      "observed_at": "2026-11-08T21:36:07+09:00",
+      "number": 1,
+      "category": "その他",
+      "tag": "コメディ・タイアップ",
+      "story_summary": "食事を求める男と反発する相手。衣装の変化で本物の王様を名乗り、最後は期待を外す返答で落とす。",
+      "edit_and_audio": "約24秒の衣装チェンジが視覚的な転機。約29秒から商品画面が入るため、本編の間とは分ける。",
+      "observed_shot_starts": [
+        {
+          "seconds": 0.0,
+          "kind": "initial",
+          "visual": "リビングに立つ白シャツの男性のバストアップ"
+        },
+        {
+          "seconds": 1.75,
+          "kind": "hard_cut",
+          "visual": "手前に入ってきた赤Tシャツの男性のバストアップ"
+        },
+        {
+          "seconds": 3.5,
+          "kind": "hard_cut",
+          "visual": "黒いダウンコートをフードまで被った男性"
+        },
+        {
+          "seconds": 5.25,
+          "kind": "hard_cut",
+          "visual": "赤Tシャツの男性が手を振って制止する"
+        },
+        {
+          "seconds": 6.5,
+          "kind": "hard_cut",
+          "visual": "白シャツの男性が喉が渇いたと話す"
+        },
+        {
+          "seconds": 8.0,
+          "kind": "hard_cut",
+          "visual": "赤Tシャツの男性が呆れて突っ込む"
+        },
+        {
+          "seconds": 10.25,
+          "kind": "hard_cut",
+          "visual": "ダウンコートの男性がお茶を差し出す仕草"
+        },
+        {
+          "seconds": 11.0,
+          "kind": "hard_cut",
+          "visual": "赤Tシャツの男性が優しすぎると戸惑う"
+        },
+        {
+          "seconds": 12.5,
+          "kind": "hard_cut",
+          "visual": "白シャツの男性がお金を欲しがる"
+        },
+        {
+          "seconds": 13.5,
+          "kind": "hard_cut",
+          "visual": "赤Tシャツの男性がさすがに無理だと制止する"
+        },
+        {
+          "seconds": 17.25,
+          "kind": "hard_cut",
+          "visual": "ダウンコートの男性が扇状に広げた一万円札の束を差し出す"
+        },
+        {
+          "seconds": 18.25,
+          "kind": "hard_cut",
+          "visual": "赤Tシャツの男性があげすぎだと動揺する"
+        },
+        {
+          "seconds": 22.5,
+          "kind": "hard_cut",
+          "visual": "白シャツの男性が当然のように肯定する"
+        },
+        {
+          "seconds": 23.5,
+          "kind": "hard_cut",
+          "visual": "赤Tシャツの男性の困惑した表情"
+        },
+        {
+          "seconds": 23.75,
+          "kind": "hard_cut",
+          "visual": "王冠と青いマントを纏った男性の後ろ姿から振り向き"
+        },
+        {
+          "seconds": 25.0,
+          "kind": "hard_cut",
+          "visual": "赤Tシャツの男性が混乱して尋ねる"
+        },
+        {
+          "seconds": 26.25,
+          "kind": "hard_cut",
+          "visual": "王様衣装の男性が正面を向いて説明する"
+        },
+        {
+          "seconds": 27.25,
+          "kind": "hard_cut",
+          "visual": "赤Tシャツの男性が意味がわからないと頭を抱える"
+        },
+        {
+          "seconds": 29.0,
+          "kind": "hard_cut",
+          "visual": "スマホゲーム発言・表示のゲームプレイ・特典紹介画面"
+        },
+        {
+          "seconds": 36.75,
+          "kind": "hard_cut",
+          "visual": "王様衣装の男性がカメラに向かって呼びかける実写シーン"
+        },
+        {
+          "seconds": 38.75,
+          "kind": "hard_cut",
+          "visual": "赤Tシャツの男性が自分も王様になれるのか尋ねる"
+        },
+        {
+          "seconds": 41.5,
+          "kind": "hard_cut",
+          "visual": "王様衣装の男性がマントを脱ぎながら答える"
+        },
+        {
+          "seconds": 42.5,
+          "kind": "hard_cut",
+          "visual": "赤Tシャツの男性の適当さに突っ込むリアクション"
+        }
+      ],
+      "selected_beat_seconds_approx": {
+        "hook": 0.0,
+        "setup": 3.5,
+        "turn": 23.75,
+        "payoff": 41.5
+      },
+      "time_change": {
+        "used": null,
+        "seconds_approx": null,
+        "cue": ""
+      },
+      "av_evidence": {
+        "visual": "whole_clip",
+        "audio": "heard",
+        "sample_fps": 4,
+        "times": "approximate",
+        "observation_sha256": "6ecaadb37b022dae099d8a16017fe273a11812d135850fa4548e13fb565b5c8b"
+      }
+    },
+    {
+      "id": "U-qytTCpy3E",
+      "shorts_url": "https://www.youtube.com/shorts/U-qytTCpy3E",
+      "watch_url": "https://www.youtube.com/watch?v=U-qytTCpy3E",
+      "title": "「俺は国会議員だぞ！」その一言が、彼の政治家人生を終わらせた。#感動 #スカッとする話 #ショートドラマ #家族 #涙腺崩壊",
+      "channel": "家族の真実",
+      "channel_id": "UCDRk1Fsk2xgMJT6mzJRUCnQ",
+      "views": 655379,
+      "duration_seconds": 38.0,
+      "observed_at": "2026-11-08T21:36:01+09:00",
+      "number": 2,
+      "category": "その他",
+      "tag": "社会的逆転",
+      "story_summary": "飲食店で席を要求する男。スタッフの呼び方で女性の立場が分かり、威圧していた男が店を出される。",
+      "edit_and_audio": "約18〜19秒、怒鳴る男から穏やかなスタッフへ直切り。声の温度差で力関係が変わる。局所決着の後に誘導表示。",
+      "observed_shot_starts": [
+        {
+          "seconds": 0.0,
+          "kind": "initial",
+          "visual": "レストラン内を歩いてくるスーツの男の腰上ショット"
+        },
+        {
+          "seconds": 4.25,
+          "kind": "hard_cut",
+          "visual": "テーブルでスパゲッティを食べる高齢女性の正面バストショット"
+        },
+        {
+          "seconds": 7.25,
+          "kind": "hard_cut",
+          "visual": "フォークを置き上品に微笑む女性の斜めショット"
+        },
+        {
+          "seconds": 9.75,
+          "kind": "hard_cut",
+          "visual": "怒鳴り散らす男の顔面アップ"
+        },
+        {
+          "seconds": 15.0,
+          "kind": "hard_cut",
+          "visual": "冷静に見つめ返す女性のバストショット"
+        },
+        {
+          "seconds": 18.5,
+          "kind": "hard_cut",
+          "visual": "料理を持った白衣のシェフが女性の席に現れる引きのショット"
+        },
+        {
+          "seconds": 21.75,
+          "kind": "hard_cut",
+          "visual": "困惑・驚愕する男の顔面アップ"
+        },
+        {
+          "seconds": 25.0,
+          "kind": "hard_cut",
+          "visual": "シェフを振り返る女性の斜めバストショット"
+        },
+        {
+          "seconds": 28.0,
+          "kind": "hard_cut",
+          "visual": "深々とお辞儀をするシェフと女性のツーショット"
+        },
+        {
+          "seconds": 30.0,
+          "kind": "hard_cut",
+          "visual": "威厳のある表情で指示を出す女性の顔面アップ"
+        },
+        {
+          "seconds": 34.5,
+          "kind": "hard_cut",
+          "visual": "青ざめて慌てる男が黒服に両脇を掴まれるショット"
+        },
+        {
+          "seconds": 35.5,
+          "kind": "hard_cut",
+          "visual": "黒服の男たちに連行されていく男の後ろ姿"
+        }
+      ],
+      "selected_beat_seconds_approx": {
+        "hook": 0.0,
+        "setup": 7.0,
+        "turn": 18.5,
+        "payoff": 30.0
+      },
+      "time_change": {
+        "used": null,
+        "seconds_approx": null,
+        "cue": ""
+      },
+      "av_evidence": {
+        "visual": "whole_clip",
+        "audio": "heard",
+        "sample_fps": 4,
+        "times": "approximate",
+        "observation_sha256": "d47ec83bd4b8801119c0f8cc47a617715de38da5708c4529ec1bbf00ed968b90"
+      }
+    },
+    {
+      "id": "AW0UgjfQQJk",
+      "shorts_url": "https://www.youtube.com/shorts/AW0UgjfQQJk",
+      "watch_url": "https://www.youtube.com/watch?v=AW0UgjfQQJk",
+      "title": "その子を、家に入れるな。 #ショートドラマ #Shorts #ホラー #ミステリー #AIドラマ",
+      "channel": "30秒後。",
+      "channel_id": "UC4Xch-_mU516ZxLPsMe5NVg",
+      "views": 33655,
+      "duration_seconds": 31.0,
+      "observed_at": "2026-11-08T21:35:33+09:00",
+      "number": 3,
+      "category": "ホラー・ミステリー",
+      "tag": "家庭ホラー",
+      "story_summary": "夜のチャイムに母が出ようとする。家の中から同じ子の声がして、外の相手を招き入れかけたことに気づく。",
+      "edit_and_audio": "約15〜16秒、玄関から階段の子へ。顔を見せる前後の声と、最後のチャイムの反復が効く。",
+      "observed_shot_starts": [
+        {
+          "seconds": 0.0,
+          "kind": "initial",
+          "visual": "廊下からリビングを奥に見通すフィックスショット。女性がソファから立ち上がって手前に走ってくる。"
+        },
+        {
+          "seconds": 2.75,
+          "kind": "hard_cut",
+          "visual": "女性の腕を男性が掴んでドアノブから引き離すクローズアップ。"
+        },
+        {
+          "seconds": 3.0,
+          "kind": "hard_cut",
+          "visual": "女性と男性の顔の寄りショット。男性が発言・表示と囁く。"
+        },
+        {
+          "seconds": 4.25,
+          "kind": "hard_cut",
+          "visual": "玄関扉前で男性に制止される女性のミディアムショット。"
+        },
+        {
+          "seconds": 10.0,
+          "kind": "hard_cut",
+          "visual": "二人の顔の寄り。女性が困惑した表情で男性を見る。"
+        },
+        {
+          "seconds": 15.5,
+          "kind": "hard_cut",
+          "visual": "階段の上を見上げるショット。階段の手すり越しに小さな男の子が立っている。"
+        },
+        {
+          "seconds": 17.75,
+          "kind": "hard_cut",
+          "visual": "振り返って驚愕の表情を浮かべる女性のバストアップ。"
+        },
+        {
+          "seconds": 20.75,
+          "kind": "other",
+          "visual": "フォーカス送り（同じアングルから手前の女性をぼかし、奥の階段の息子にピントを合わせる）。"
+        },
+        {
+          "seconds": 23.75,
+          "kind": "other",
+          "visual": "手前の女性の顔へ再びフォーカスを戻す。"
+        },
+        {
+          "seconds": 27.25,
+          "kind": "hard_cut",
+          "visual": "廊下の引きショット。立ち尽くす夫婦の姿。"
+        },
+        {
+          "seconds": 28.75,
+          "kind": "hard_cut",
+          "visual": "目を見開く女性の顔の極端なクローズアップ。"
+        },
+        {
+          "seconds": 29.5,
+          "kind": "hard_cut",
+          "visual": "全画面暗転（ブラックアウト）。"
+        }
+      ],
+      "selected_beat_seconds_approx": {
+        "hook": 0.0,
+        "setup": 2.75,
+        "turn": 15.75,
+        "payoff": 26.0
+      },
+      "time_change": {
+        "used": false,
+        "seconds_approx": null,
+        "cue": ""
+      },
+      "av_evidence": {
+        "visual": "whole_clip",
+        "audio": "heard",
+        "sample_fps": 4,
+        "times": "approximate",
+        "observation_sha256": "ea810706d255bf0cad8a06ba87a3e358dcd9e0608195329b49dfe2817c116275"
+      }
+    },
+    {
+      "id": "BsOw93VXwNc",
+      "shorts_url": "https://www.youtube.com/shorts/BsOw93VXwNc",
+      "watch_url": "https://www.youtube.com/watch?v=BsOw93VXwNc",
+      "title": "【ショートホラー】入浴幽霊　Bathing Ghost",
+      "channel": "おといしはる: Haru Otoishi",
+      "channel_id": "UCh3myFpYsfVz3n4LBYdDvew",
+      "views": 143942,
+      "duration_seconds": 35.0,
+      "observed_at": "2026-11-08T21:35:33+09:00",
+      "number": 4,
+      "category": "ホラー・ミステリー",
+      "tag": "追跡ホラー",
+      "story_summary": "風呂場の異変から逃れようとするが、鍵と扉が安全を保証しなくなり、逃げ先にも怪異が現れる。",
+      "edit_and_audio": "ドアノブの寄りと鍵・シャワー音で見えない危険を伝え、終盤の追跡だけ細かく切る。",
+      "observed_shot_starts": [
+        {
+          "seconds": 0.0,
+          "kind": "initial",
+          "visual": "頭にタオルを巻いた老婆の正面アップ"
+        },
+        {
+          "seconds": 1.75,
+          "kind": "hard_cut",
+          "visual": "廊下を歩いて浴室へ向かう男性の後ろ姿"
+        },
+        {
+          "seconds": 2.75,
+          "kind": "hard_cut",
+          "visual": "浴室の内側から男性がドアを開けて入ってくる様子"
+        },
+        {
+          "seconds": 4.5,
+          "kind": "hard_cut",
+          "visual": "浴槽に服を着たまま浸かっている老婆の全身"
+        },
+        {
+          "seconds": 5.5,
+          "kind": "hard_cut",
+          "visual": "男性が驚愕の表情を浮かべる顔のカット"
+        },
+        {
+          "seconds": 6.25,
+          "kind": "hard_cut",
+          "visual": "男性の手元が勢いよくドアを閉めて鍵をロックする"
+        },
+        {
+          "seconds": 9.0,
+          "kind": "hard_cut",
+          "visual": "洗面所の鏡前で怯えきった男性の顔正面アップ"
+        },
+        {
+          "seconds": 10.75,
+          "kind": "hard_cut",
+          "visual": "閉め切られた浴室のすりガラス扉"
+        },
+        {
+          "seconds": 12.5,
+          "kind": "hard_cut",
+          "visual": "緊張してすりガラスを見張る男性の顔"
+        },
+        {
+          "seconds": 14.25,
+          "kind": "hard_cut",
+          "visual": "奥で水音がし始める浴室扉"
+        },
+        {
+          "seconds": 16.25,
+          "kind": "hard_cut",
+          "visual": "不穏な音に警戒を強める男性の顔"
+        },
+        {
+          "seconds": 17.75,
+          "kind": "hard_cut",
+          "visual": "シャワーの流水音が響く浴室扉"
+        },
+        {
+          "seconds": 19.75,
+          "kind": "hard_cut",
+          "visual": "目を見開いて硬直する男性の顔"
+        },
+        {
+          "seconds": 21.5,
+          "kind": "hard_cut",
+          "visual": "シャワー音が続く浴室扉"
+        },
+        {
+          "seconds": 23.75,
+          "kind": "hard_cut",
+          "visual": "洗面所から廊下へと後ずさりしながら出てくる男性の全身引きショット"
+        },
+        {
+          "seconds": 28.0,
+          "kind": "hard_cut",
+          "visual": "浴室のドアノブがガチャリと下がる手元のアップ"
+        },
+        {
+          "seconds": 28.5,
+          "kind": "hard_cut",
+          "visual": "部屋の棚の前で異変に気づいて振り返る男性"
+        },
+        {
+          "seconds": 29.0,
+          "kind": "hard_cut",
+          "visual": "廊下の奥から老婆が猛スピードでダッシュして迫る"
+        },
+        {
+          "seconds": 30.0,
+          "kind": "hard_cut",
+          "visual": "部屋で叫び声を上げて逃げ出す男性"
+        },
+        {
+          "seconds": 31.0,
+          "kind": "hard_cut",
+          "visual": "リビングを慌てて走り抜ける男性の引きショット"
+        },
+        {
+          "seconds": 32.0,
+          "kind": "hard_cut",
+          "visual": "部屋の扉を押し開けて逃げ込もうとする男性"
+        },
+        {
+          "seconds": 32.5,
+          "kind": "hard_cut",
+          "visual": "開けた扉の先を見て絶句する男性の顔アップ"
+        },
+        {
+          "seconds": 32.75,
+          "kind": "hard_cut",
+          "visual": "扉の正面から老婆が猛突進してくるカット"
+        },
+        {
+          "seconds": 33.5,
+          "kind": "hard_cut",
+          "visual": "暗転（ブラックアウト）"
+        }
+      ],
+      "selected_beat_seconds_approx": {
+        "hook": 0.0,
+        "setup": 1.75,
+        "turn": 5.5,
+        "payoff": 29.0
+      },
+      "time_change": {
+        "used": false,
+        "seconds_approx": null,
+        "cue": ""
+      },
+      "av_evidence": {
+        "visual": "whole_clip",
+        "audio": "heard",
+        "sample_fps": 4,
+        "times": "approximate",
+        "observation_sha256": "aa650b9a5dd28b3cc767ffdb27a7db7b51e822ac55624d756a07ff781a452b7d"
+      }
+    },
+    {
+      "id": "DU22m31osU8",
+      "shorts_url": "https://www.youtube.com/shorts/DU22m31osU8",
+      "watch_url": "https://www.youtube.com/watch?v=DU22m31osU8",
+      "title": "短編ホラー／ヒトコワ　#恐怖 #怖い話 #shorts #ショートドラマ",
+      "channel": "シークエンス 【狂気倶楽部】",
+      "channel_id": "UCQBb0Gxl0xBTWgggoo8CkVA",
+      "views": 48439,
+      "duration_seconds": 32.0,
+      "observed_at": "2026-11-08T21:35:33+09:00",
+      "number": 5,
+      "category": "ホラー・ミステリー",
+      "tag": "予告を回収する恐怖",
+      "story_summary": "刃物を持つ女性の画を先に出し、日常会話の中で隠れて見ていた事実が判明。最後に冒頭の構図へ意味を戻す。",
+      "edit_and_audio": "冒頭約1〜2秒の暗い間から日常へ。終盤は入口を見せ、低音と金属音で印象を変える。",
+      "observed_shot_starts": [
+        {
+          "seconds": 0.0,
+          "kind": "initial",
+          "visual": "包丁を胸元に構えて笑みを浮かべる女性のバストアップ"
+        },
+        {
+          "seconds": 1.5,
+          "kind": "hard_cut",
+          "visual": "暗転からソファーに座る男女の斜め横アングルへ切り替え"
+        },
+        {
+          "seconds": 6.25,
+          "kind": "hard_cut",
+          "visual": "男性の肩越しに女性の顔を見るアングル"
+        },
+        {
+          "seconds": 7.75,
+          "kind": "hard_cut",
+          "visual": "ソファーに並んで座る男女の引きアングル"
+        },
+        {
+          "seconds": 13.5,
+          "kind": "hard_cut",
+          "visual": "話し始める女性の正面クローズアップ"
+        },
+        {
+          "seconds": 19.5,
+          "kind": "hard_cut",
+          "visual": "話を聞いて凍りつく男性のバストアップ"
+        },
+        {
+          "seconds": 26.75,
+          "kind": "hard_cut",
+          "visual": "男性の背後から部屋のドアの前に包丁を持って立つ女性を捉えるフルショット"
+        },
+        {
+          "seconds": 28.75,
+          "kind": "hard_cut",
+          "visual": "包丁を構えて無表情から微笑む女性の正面アップ"
+        }
+      ],
+      "selected_beat_seconds_approx": {
+        "hook": 0.0,
+        "setup": 1.5,
+        "turn": 14.0,
+        "payoff": 26.75
+      },
+      "time_change": {
+        "used": false,
+        "seconds_approx": null,
+        "cue": ""
+      },
+      "av_evidence": {
+        "visual": "whole_clip",
+        "audio": "heard",
+        "sample_fps": 4,
+        "times": "approximate",
+        "observation_sha256": "96a78fdf02c3f2abb295eab1af95c985a7f0752b45f52e296c3b34c7bb1c021b"
+      }
+    },
+    {
+      "id": "1I-vG8UWKxM",
+      "shorts_url": "https://www.youtube.com/shorts/1I-vG8UWKxM",
+      "watch_url": "https://www.youtube.com/watch?v=1I-vG8UWKxM",
+      "title": "【ショートホラー】男が急ぐ理由とは… 怖い話 #ハンドシアター",
+      "channel": "ハンドシアター",
+      "channel_id": "UCvDBN6FzvH0ZDzbxrcE5R7Q",
+      "views": 24393,
+      "duration_seconds": 34.0,
+      "observed_at": "2026-11-08T21:35:34+09:00",
+      "number": 6,
+      "category": "ホラー・ミステリー",
+      "tag": "視点の反転",
+      "story_summary": "男性が急いでいる理由を伏せる。隠れる姿と帰宅した住人を交互に見せ、男が何を見ているかを明かす。",
+      "edit_and_audio": "約13秒、隠れる側の寄りから帰宅する側へ。鍵の音と最後の静けさで両者の距離を知らせる。",
+      "observed_shot_starts": [
+        {
+          "seconds": 0.0,
+          "kind": "initial",
+          "visual": "暗い階段を男性が駆け上がる"
+        },
+        {
+          "seconds": 1.25,
+          "kind": "hard_cut",
+          "visual": "明るい廊下の奥から男性が手前に走り込んでくる"
+        },
+        {
+          "seconds": 2.5,
+          "kind": "hard_cut",
+          "visual": "エレベーターの階数表示パネルのクローズアップ"
+        },
+        {
+          "seconds": 3.0,
+          "kind": "hard_cut",
+          "visual": "ドアの鍵穴に鍵を差し込んで解錠する手元"
+        },
+        {
+          "seconds": 4.5,
+          "kind": "hard_cut",
+          "visual": "ドアを開けて室内に入り扉を閉める男性"
+        },
+        {
+          "seconds": 7.5,
+          "kind": "hard_cut",
+          "visual": "室内で息を切らし警戒する男性の顔"
+        },
+        {
+          "seconds": 8.75,
+          "kind": "hard_cut",
+          "visual": "掛けてある衣服の隙間に潜り込む男性"
+        },
+        {
+          "seconds": 10.75,
+          "kind": "hard_cut",
+          "visual": "口を手で覆って息を殺す男性の顔アップ"
+        },
+        {
+          "seconds": 12.75,
+          "kind": "hard_cut",
+          "visual": "玄関ドアが開き、黒い服の女性が入ってくる"
+        },
+        {
+          "seconds": 15.0,
+          "kind": "hard_cut",
+          "visual": "玄関でコートを脱ごうとする女性の姿"
+        },
+        {
+          "seconds": 18.5,
+          "kind": "hard_cut",
+          "visual": "女性がバッグを置く手元のカット"
+        },
+        {
+          "seconds": 20.25,
+          "kind": "hard_cut",
+          "visual": "ソファに座ってスマホを操作する女性"
+        },
+        {
+          "seconds": 23.75,
+          "kind": "hard_cut",
+          "visual": "手前に女性の横顔、奥の机の下から男性が覗き見るローアングルショット"
+        }
+      ],
+      "selected_beat_seconds_approx": {
+        "hook": 0.0,
+        "setup": 3.0,
+        "turn": 8.75,
+        "payoff": 28.0
+      },
+      "time_change": {
+        "used": null,
+        "seconds_approx": null,
+        "cue": ""
+      },
+      "av_evidence": {
+        "visual": "whole_clip",
+        "audio": "heard",
+        "sample_fps": 4,
+        "times": "approximate",
+        "observation_sha256": "fd8db516f175fe95034075a24668145677760d1c6dc6a3daf7a32cbe2d608aba"
+      }
+    },
+    {
+      "id": "Sdzlji2kQmQ",
+      "shorts_url": "https://www.youtube.com/shorts/Sdzlji2kQmQ",
+      "watch_url": "https://www.youtube.com/watch?v=Sdzlji2kQmQ",
+      "title": "好きな人に振り向いてもらうためにここまでできる？ #仕事 #恋愛 #職場 #社長と噓のシンデレラ #ショートドラマ",
+      "channel": "沼ドラ🍿",
+      "channel_id": "UCGZNUWWxG671k95eMyreKgA",
+      "views": 33981,
+      "duration_seconds": 31.0,
+      "observed_at": "2026-11-08T21:36:06+09:00",
+      "number": 7,
+      "category": "ホラー・ミステリー",
+      "tag": "心理サスペンス",
+      "story_summary": "上司を見つめる現在から、本人の執着を説明する過去へ。現在の手元に戻り、選択の意味を明かす。",
+      "edit_and_audio": "約6秒で制服や路上へ切り替え。手前を暗い物が横切る戻り方の候補。年代を服装と場所で区別する。",
+      "observed_shot_starts": [
+        {
+          "seconds": 0.0,
+          "kind": "initial",
+          "visual": "オレンジ色の光が差す部屋で車椅子に座り、立っているスーツ姿の男性を見上げる女性"
+        },
+        {
+          "seconds": 2.0,
+          "kind": "hard_cut",
+          "visual": "微笑みながら社長を見つめる女性の顔のアップ"
+        },
+        {
+          "seconds": 4.75,
+          "kind": "hard_cut",
+          "visual": "電話中のスーツの男性の背中越しに、車椅子から見つめる女性"
+        },
+        {
+          "seconds": 6.0,
+          "kind": "hard_cut",
+          "visual": "アスファルトの上を歩くローファーの足元（過去の回想）"
+        },
+        {
+          "seconds": 7.0,
+          "kind": "hard_cut",
+          "visual": "セーラー服姿で道路を歩いて横断する女子生徒の横姿"
+        },
+        {
+          "seconds": 8.75,
+          "kind": "hard_cut",
+          "visual": "後方から発言・表示と叫びながら駆け寄る男性"
+        },
+        {
+          "seconds": 10.25,
+          "kind": "hard_cut",
+          "visual": "道路の中央に立つ女子生徒の後ろ姿と、突っ込んでくるワンボックスカー"
+        },
+        {
+          "seconds": 10.75,
+          "kind": "hard_cut",
+          "visual": "真上からの俯瞰アングル。ワンボックスカーの前に倒れる女子生徒と駆け寄る男性たち"
+        },
+        {
+          "seconds": 15.0,
+          "kind": "hard_cut",
+          "visual": "倒れた女子生徒の胸元（赤いリボンのセーラー服）のクロースアップ"
+        },
+        {
+          "seconds": 17.5,
+          "kind": "hard_cut",
+          "visual": "地面に倒れた女子生徒の口元のクローズアップ。不敵に微笑む唇"
+        },
+        {
+          "seconds": 19.5,
+          "kind": "hard_cut",
+          "visual": "室内に立つセーラー服の下半身。手前を黒い影が遮りながら現在へと遷移"
+        },
+        {
+          "seconds": 21.75,
+          "kind": "hard_cut",
+          "visual": "手前の障害物が抜けて車椅子に腰掛け正面を冷たく睨む女性"
+        },
+        {
+          "seconds": 23.5,
+          "kind": "hard_cut",
+          "visual": "車椅子のハンドリムを力強く握りしめる女性の右手のアップ"
+        },
+        {
+          "seconds": 25.0,
+          "kind": "hard_cut",
+          "visual": "無表情で前方を睨みつける女性のバストアップ"
+        },
+        {
+          "seconds": 26.75,
+          "kind": "hard_cut",
+          "visual": "電話を耳に当てて背を向けている男性の背中と女性の後頭部"
+        },
+        {
+          "seconds": 28.0,
+          "kind": "hard_cut",
+          "visual": "男性の背中を執念深く見つめる女性の顔のクローズアップ"
+        }
+      ],
+      "selected_beat_seconds_approx": {
+        "hook": 0.0,
+        "setup": 2.0,
+        "turn": 6.0,
+        "payoff": 23.5
+      },
+      "time_change": {
+        "used": true,
+        "seconds_approx": 6.0,
+        "cue": "現在のオフィスから、ローファーで車道へ足を踏み入れる学生時代の交通事故への回想ジャンプ"
+      },
+      "av_evidence": {
+        "visual": "whole_clip",
+        "audio": "heard",
+        "sample_fps": 4,
+        "times": "approximate",
+        "observation_sha256": "4de88c473eaa61a0e7b693088a527ef88a2645f59164faee27a34c8ab33756e7"
+      }
+    },
+    {
+      "id": "1sckPiyXFdE",
+      "shorts_url": "https://www.youtube.com/shorts/1sckPiyXFdE",
+      "watch_url": "https://www.youtube.com/watch?v=1sckPiyXFdE",
+      "title": "遅刻した事ありますか？#shorts #ショートドラマ #ショートムービー #短編ドラマ #短編映画 #ぱくしードラマ #スカッと #スカッとする話 #お笑い #コメディ #面白い #ドラマ #映画",
+      "channel": "【ぱくしードラマ】",
+      "channel_id": "UCLNCL93D-rvCVgXNRvPut1A",
+      "views": 189542,
+      "duration_seconds": 31.0,
+      "observed_at": "2026-11-08T21:35:31+09:00",
+      "number": 8,
+      "category": "学校・日常",
+      "tag": "小道具のオチ",
+      "story_summary": "遅刻しそうな二人が急いで改札へ。タッチしようとした手に別の物があり、引き返す。",
+      "edit_and_audio": "約24〜26秒、走る全身から手元の寄りへ。物を見せたあと、足を止める反応で笑いを確定する。",
+      "observed_shot_starts": [
+        {
+          "seconds": 0.0,
+          "kind": "initial",
+          "visual": "住宅街の道路を男性がカメラに向かって全力疾走してくるショット"
+        },
+        {
+          "seconds": 6.25,
+          "kind": "hard_cut",
+          "visual": "遊歩道を女性がパンを抱えてカメラに向かって走ってくるショット"
+        },
+        {
+          "seconds": 14.25,
+          "kind": "hard_cut",
+          "visual": "住宅街のT字路で男性と女性が合流し、並んで走る全身フォローショット"
+        },
+        {
+          "seconds": 21.5,
+          "kind": "hard_cut",
+          "visual": "地下鉄駅構内の階段を駆け下り、改札機へと突進するショット"
+        },
+        {
+          "seconds": 24.5,
+          "kind": "hard_cut",
+          "visual": "改札機の上に突き出された両者の手元（DARSと鬼ころし）の俯瞰クローズアップ"
+        },
+        {
+          "seconds": 26.0,
+          "kind": "hard_cut",
+          "visual": "改札機の手前で立ち止まり、持っている物を見つめ合って引き返す2人のミディアムショット"
+        }
+      ],
+      "selected_beat_seconds_approx": {
+        "hook": 0.5,
+        "setup": 6.25,
+        "turn": 24.5,
+        "payoff": 26.5
+      },
+      "time_change": {
+        "used": false,
+        "seconds_approx": null,
+        "cue": ""
+      },
+      "av_evidence": {
+        "visual": "whole_clip",
+        "audio": "heard",
+        "sample_fps": 4,
+        "times": "approximate",
+        "observation_sha256": "d7aa02631e4ea0bad89a9dec331d7aa4b9846d569f1887d3e543e5a7b5671c78"
+      }
+    },
+    {
+      "id": "dOjCYg-KrvM",
+      "shorts_url": "https://www.youtube.com/shorts/dOjCYg-KrvM",
+      "watch_url": "https://www.youtube.com/watch?v=dOjCYg-KrvM",
+      "title": "【学校あるある】夏休みの宿題出さない奴　#fyp #fypシ #あるある #そば湯 #shorts #おすすめ #学校あるある #コント #紅白歌合戦 #silent",
+      "channel": "そば湯",
+      "channel_id": "UCSKUf4X29Kl6IyiMaU5aacw",
+      "views": 1913326,
+      "duration_seconds": 38.0,
+      "observed_at": "2026-11-08T21:35:34+09:00",
+      "number": 9,
+      "category": "学校・日常",
+      "tag": "学園コメディ",
+      "story_summary": "宿題が出てこない教室。先生がプリントを配り直して収拾を試み、生徒は受け取った紙を破く。",
+      "edit_and_audio": "教師と生徒を素早く切り返し、終盤は紙を破く動作と音にオチを持たせる。",
+      "observed_shot_starts": [
+        {
+          "seconds": 0.0,
+          "kind": "initial",
+          "visual": "教室の前方でファイルを持った先生が話しかけるショット"
+        },
+        {
+          "seconds": 2.5,
+          "kind": "hard_cut",
+          "visual": "フードを被った生徒が発言・表示と手を挙げる正面ショット"
+        },
+        {
+          "seconds": 3.25,
+          "kind": "hard_cut",
+          "visual": "学ラン姿の生徒が発言・表示と挙手するショット"
+        },
+        {
+          "seconds": 3.75,
+          "kind": "hard_cut",
+          "visual": "白シャツ姿の生徒が発言・表示と挙手するショット"
+        },
+        {
+          "seconds": 4.5,
+          "kind": "hard_cut",
+          "visual": "先生が発言・表示と呆れ顔で叫ぶショット"
+        },
+        {
+          "seconds": 6.5,
+          "kind": "hard_cut",
+          "visual": "生徒3人が画面分割で並び歓声を上げるショット"
+        },
+        {
+          "seconds": 7.25,
+          "kind": "hard_cut",
+          "visual": "先生が突っ込みながら捨てた理由を問いただすショット"
+        },
+        {
+          "seconds": 10.5,
+          "kind": "hard_cut",
+          "visual": "学ランの生徒が提出を知らなかったと言い訳するショット"
+        },
+        {
+          "seconds": 11.75,
+          "kind": "hard_cut",
+          "visual": "先生が発言・表示と突っ込むショット"
+        },
+        {
+          "seconds": 12.75,
+          "kind": "hard_cut",
+          "visual": "学ランの生徒が発言・表示と釈明するショット"
+        },
+        {
+          "seconds": 14.5,
+          "kind": "hard_cut",
+          "visual": "先生が燃やした生徒に事情を尋ねるショット"
+        },
+        {
+          "seconds": 18.25,
+          "kind": "hard_cut",
+          "visual": "白シャツの生徒が初日に燃やしたと話すショット"
+        },
+        {
+          "seconds": 19.5,
+          "kind": "hard_cut",
+          "visual": "先生が発言・表示と突っ込むショット"
+        },
+        {
+          "seconds": 21.5,
+          "kind": "hard_cut",
+          "visual": "生徒が専門家の立ち会いのもと燃やしたと説明するショット"
+        },
+        {
+          "seconds": 24.25,
+          "kind": "hard_cut",
+          "visual": "先生が発言・表示と聞き返すショット"
+        },
+        {
+          "seconds": 25.75,
+          "kind": "hard_cut",
+          "visual": "生徒が発言・表示と答えるショット"
+        },
+        {
+          "seconds": 27.25,
+          "kind": "hard_cut",
+          "visual": "先生が対抗して委員会を作ると豪語するショット"
+        },
+        {
+          "seconds": 30.75,
+          "kind": "hard_cut",
+          "visual": "生徒が発言・表示と呟くショット"
+        },
+        {
+          "seconds": 32.25,
+          "kind": "hard_cut",
+          "visual": "先生がプリントを配り直すショット"
+        },
+        {
+          "seconds": 35.75,
+          "kind": "hard_cut",
+          "visual": "生徒が渡されたプリントを勢いよく破り捨てるショット"
+        }
+      ],
+      "selected_beat_seconds_approx": {
+        "hook": 0.0,
+        "setup": 2.5,
+        "turn": 32.25,
+        "payoff": 35.75
+      },
+      "time_change": {
+        "used": null,
+        "seconds_approx": null,
+        "cue": ""
+      },
+      "av_evidence": {
+        "visual": "whole_clip",
+        "audio": "heard",
+        "sample_fps": 4,
+        "times": "approximate",
+        "observation_sha256": "2825208f58f44d27dc4b48ce1959202fe6f188d463c2321eddf266ea721594ee"
+      }
+    },
+    {
+      "id": "N9m2RHe8BdA",
+      "shorts_url": "https://www.youtube.com/shorts/N9m2RHe8BdA",
+      "watch_url": "https://www.youtube.com/watch?v=N9m2RHe8BdA",
+      "title": "【学校あるある】パソコンの授業中にハッキングする奴　#おすすめ #あるある #fyp #fypシ #そば湯 #shorts",
+      "channel": "そば湯",
+      "channel_id": "UCSKUf4X29Kl6IyiMaU5aacw",
+      "views": 1699901,
+      "duration_seconds": 42.0,
+      "observed_at": "2026-11-08T21:35:35+09:00",
+      "number": 10,
+      "category": "学校・日常",
+      "tag": "学園コメディ",
+      "story_summary": "授業の指示から生徒のボケが連続し、最初に眠っていた人物が最後に起きる。",
+      "edit_and_audio": "反応を短く返す編集。ハート表示の変化は画の切り替えとは別に扱い、冒頭の人物を終盤で再利用する。",
+      "observed_shot_starts": [
+        {
+          "seconds": 0.0,
+          "kind": "initial",
+          "visual": "パソコン室でバインダーを持った教師が正面を向いて歩きながら話す"
+        },
+        {
+          "seconds": 2.25,
+          "kind": "hard_cut",
+          "visual": "腕を組んでのけぞって眠る生徒（島田）のショット"
+        },
+        {
+          "seconds": 3.25,
+          "kind": "hard_cut",
+          "visual": "フードをかぶってパソコンがつかないと訴える生徒のショット"
+        },
+        {
+          "seconds": 5.0,
+          "kind": "hard_cut",
+          "visual": "電源ボタンを押すよう案内する教師のショット"
+        },
+        {
+          "seconds": 6.75,
+          "kind": "hard_cut",
+          "visual": "PayPayの決済音を鳴らすフード姿の生徒"
+        },
+        {
+          "seconds": 7.25,
+          "kind": "hard_cut",
+          "visual": "支払ってないか心配する教師のショット"
+        },
+        {
+          "seconds": 9.0,
+          "kind": "hard_cut",
+          "visual": "激しく手を動かしてハッキング完了を叫ぶ白シャツの生徒"
+        },
+        {
+          "seconds": 10.75,
+          "kind": "hard_cut",
+          "visual": "ハッキングはしないでと注意する教師"
+        },
+        {
+          "seconds": 13.25,
+          "kind": "hard_cut",
+          "visual": "大丈夫っしょと返す白シャツの生徒"
+        },
+        {
+          "seconds": 13.75,
+          "kind": "hard_cut",
+          "visual": "全然大丈夫じゃないとツッコみ、ハートのエフェクトが出る教師"
+        },
+        {
+          "seconds": 16.75,
+          "kind": "hard_cut",
+          "visual": "ハッキングされたか確認する白シャツの生徒"
+        },
+        {
+          "seconds": 17.75,
+          "kind": "hard_cut",
+          "visual": "機械音声風にスマートフォンは正常と答える教師"
+        },
+        {
+          "seconds": 19.75,
+          "kind": "hard_cut",
+          "visual": "自分の頭が異常だと呟く白シャツの生徒"
+        },
+        {
+          "seconds": 21.25,
+          "kind": "hard_cut",
+          "visual": "知ってると即答する教師"
+        },
+        {
+          "seconds": 22.0,
+          "kind": "hard_cut",
+          "visual": "気象庁ハッキングで天気を荒らすと豪語する生徒"
+        },
+        {
+          "seconds": 25.0,
+          "kind": "hard_cut",
+          "visual": "アノニマスでも無理と諭す教師"
+        },
+        {
+          "seconds": 27.75,
+          "kind": "hard_cut",
+          "visual": "まだ寝ている生徒（島田）のショット"
+        },
+        {
+          "seconds": 28.5,
+          "kind": "hard_cut",
+          "visual": "再びPayPay決済音を鳴らすフード姿の生徒"
+        },
+        {
+          "seconds": 29.0,
+          "kind": "hard_cut",
+          "visual": "それは電源ボタンじゃないと説明する教師"
+        },
+        {
+          "seconds": 33.75,
+          "kind": "hard_cut",
+          "visual": "次はGoogleをハッキングすると叫ぶ生徒"
+        },
+        {
+          "seconds": 35.25,
+          "kind": "hard_cut",
+          "visual": "Googleを舐めるなと忠告する教師"
+        },
+        {
+          "seconds": 36.5,
+          "kind": "hard_cut",
+          "visual": "俺を舐めるなと怒る生徒"
+        },
+        {
+          "seconds": 37.75,
+          "kind": "hard_cut",
+          "visual": "気性が荒いと評する教師"
+        },
+        {
+          "seconds": 38.75,
+          "kind": "hard_cut",
+          "visual": "寝ていた生徒が下からヌッと顔を上げて起きてくる"
+        },
+        {
+          "seconds": 39.5,
+          "kind": "hard_cut",
+          "visual": "生徒の起き方にツッコミを入れる教師"
+        }
+      ],
+      "selected_beat_seconds_approx": {
+        "hook": 0.0,
+        "setup": 9.0,
+        "turn": 22.0,
+        "payoff": 38.75
+      },
+      "time_change": {
+        "used": null,
+        "seconds_approx": null,
+        "cue": ""
+      },
+      "av_evidence": {
+        "visual": "whole_clip",
+        "audio": "heard",
+        "sample_fps": 4,
+        "times": "approximate",
+        "observation_sha256": "f68b2602c739fd043b4090d0d87f2c467b55308e8c25707421f1b417e621ebb9"
+      }
+    },
+    {
+      "id": "5fPgEybWA38",
+      "shorts_url": "https://www.youtube.com/shorts/5fPgEybWA38",
+      "watch_url": "https://www.youtube.com/watch?v=5fPgEybWA38",
+      "title": "【学校あるある】教室で鍋パする奴　#そば湯 #おすすめ #fypシ #fyp #あるある #shorts #tiktok #コント #コムドット",
+      "channel": "そば湯",
+      "channel_id": "UCSKUf4X29Kl6IyiMaU5aacw",
+      "views": 1015986,
+      "duration_seconds": 45.0,
+      "observed_at": "2026-11-08T21:35:34+09:00",
+      "number": 11,
+      "category": "学校・日常",
+      "tag": "学園コメディ",
+      "story_summary": "教室の鍋を止めたい教師に、次々と別の生徒が応じる。最後は全員と教師の言葉遊びで締める。",
+      "edit_and_audio": "約43秒の集合画まで個別の切り返し。終盤に画面の人数を変えて会話の到達点を見せる。",
+      "observed_shot_starts": [
+        {
+          "seconds": 0.0,
+          "kind": "initial",
+          "visual": "教室で鍋をつつく生徒のアップ"
+        },
+        {
+          "seconds": 1.5,
+          "kind": "hard_cut",
+          "visual": "ファイルを持って注意する教師のバストショット"
+        },
+        {
+          "seconds": 3.5,
+          "kind": "hard_cut",
+          "visual": "鍋をつつきながら答える生徒"
+        },
+        {
+          "seconds": 4.75,
+          "kind": "hard_cut",
+          "visual": "身振り手振りでツッコミを入れる教師"
+        },
+        {
+          "seconds": 7.75,
+          "kind": "hard_cut",
+          "visual": "ダウンジャケットを着てフードを被った生徒"
+        },
+        {
+          "seconds": 8.75,
+          "kind": "hard_cut",
+          "visual": "季節について反論する教師"
+        },
+        {
+          "seconds": 11.75,
+          "kind": "hard_cut",
+          "visual": "鍋をつつきながら話す生徒"
+        },
+        {
+          "seconds": 12.75,
+          "kind": "hard_cut",
+          "visual": "寒さについて語る教師"
+        },
+        {
+          "seconds": 16.75,
+          "kind": "hard_cut",
+          "visual": "露出度の高い衣装を着て豚肉のパックを掲げる生徒"
+        },
+        {
+          "seconds": 18.5,
+          "kind": "hard_cut",
+          "visual": "購買に豚肉は売っていないとツッコむ教師"
+        },
+        {
+          "seconds": 22.0,
+          "kind": "hard_cut",
+          "visual": "衣装について質問する生徒"
+        },
+        {
+          "seconds": 23.75,
+          "kind": "hard_cut",
+          "visual": "ツッコミを返す教師"
+        },
+        {
+          "seconds": 25.25,
+          "kind": "hard_cut",
+          "visual": "出禁エピソードを話す衣装姿の生徒"
+        },
+        {
+          "seconds": 27.25,
+          "kind": "hard_cut",
+          "visual": "相槌を打つ教師"
+        },
+        {
+          "seconds": 27.75,
+          "kind": "hard_cut",
+          "visual": "出禁について補足するダウン姿の生徒"
+        },
+        {
+          "seconds": 29.5,
+          "kind": "hard_cut",
+          "visual": "呆れてツッコむ教師"
+        },
+        {
+          "seconds": 31.75,
+          "kind": "hard_cut",
+          "visual": "教師を鍋に誘う生徒"
+        },
+        {
+          "seconds": 33.25,
+          "kind": "hard_cut",
+          "visual": "授業中だと断る教師"
+        },
+        {
+          "seconds": 35.0,
+          "kind": "hard_cut",
+          "visual": "ポン酢の相性を語る生徒"
+        },
+        {
+          "seconds": 36.25,
+          "kind": "hard_cut",
+          "visual": "ツッコミを入れる教師"
+        },
+        {
+          "seconds": 37.0,
+          "kind": "hard_cut",
+          "visual": "豚肉の銘柄を叫ぶダウン姿の生徒"
+        },
+        {
+          "seconds": 38.25,
+          "kind": "hard_cut",
+          "visual": "食べるタイミングにツッコむ教師"
+        },
+        {
+          "seconds": 40.0,
+          "kind": "hard_cut",
+          "visual": "毎日鍋を食べると言う生徒"
+        },
+        {
+          "seconds": 41.5,
+          "kind": "hard_cut",
+          "visual": "飽きないのか尋ねる教師"
+        },
+        {
+          "seconds": 43.25,
+          "kind": "hard_cut",
+          "visual": "3人の生徒役が画面内に同時に合成されたショット"
+        },
+        {
+          "seconds": 44.0,
+          "kind": "hard_cut",
+          "visual": "最後のツッコミを入れる教師のショット"
+        }
+      ],
+      "selected_beat_seconds_approx": {
+        "hook": 0.0,
+        "setup": 1.5,
+        "turn": 16.8,
+        "payoff": 43.2
+      },
+      "time_change": {
+        "used": false,
+        "seconds_approx": null,
+        "cue": ""
+      },
+      "av_evidence": {
+        "visual": "whole_clip",
+        "audio": "heard",
+        "sample_fps": 4,
+        "times": "approximate",
+        "observation_sha256": "47a1295ae14f16a92ef67c4b53ed701b30c0e2effae97bac8eb25fda29566cdc"
+      }
+    },
+    {
+      "id": "1qKroroqcJQ",
+      "shorts_url": "https://www.youtube.com/shorts/1qKroroqcJQ",
+      "watch_url": "https://www.youtube.com/watch?v=1qKroroqcJQ",
+      "title": "修羅場になる手前 三人組あるある【空気と本音】#ショートドラマ #短編映画 #短編ドラマ #ドラマティッカー #ショートフィルム  #shorts. #友達 #学校",
+      "channel": "毎日はにかむ僕たちは。",
+      "channel_id": "UCTStisbrmEM6oIX9Yaq9-NA",
+      "views": 1592266,
+      "duration_seconds": 29.0,
+      "observed_at": "2026-11-08T21:36:04+09:00",
+      "number": 12,
+      "category": "学校・日常",
+      "tag": "友人関係・気まずさ",
+      "story_summary": "三人のお揃いを選ぶはずが、好みを変えた一人だけ違う色になる。残りの二人が盛り上がり、一人が取り残される。",
+      "edit_and_audio": "約14秒、選ぶ手元から友人の視線へ。約25秒以降は取り残された表情を見せ、音の変化で距離を出す。",
+      "observed_shot_starts": [
+        {
+          "seconds": 0.0,
+          "kind": "initial",
+          "visual": "教室で机を挟んで立つ2人と座る1人の女子生徒の引きの画"
+        },
+        {
+          "seconds": 1.0,
+          "kind": "hard_cut",
+          "visual": "机の上に3つのマスコットを置く手元のアップ"
+        },
+        {
+          "seconds": 2.0,
+          "kind": "hard_cut",
+          "visual": "笑顔で話すツインテールの女子生徒のバストアップ"
+        },
+        {
+          "seconds": 3.0,
+          "kind": "hard_cut",
+          "visual": "3人が机を囲んでいるミディアムショット"
+        },
+        {
+          "seconds": 5.0,
+          "kind": "hard_cut",
+          "visual": "黒ベストを着た女子生徒のアップ"
+        },
+        {
+          "seconds": 6.0,
+          "kind": "hard_cut",
+          "visual": "椅子に座って笑顔で上を見上げる女子生徒のショット"
+        },
+        {
+          "seconds": 7.25,
+          "kind": "hard_cut",
+          "visual": "座っている生徒がスクールバッグから財布を取り出す手元のカット"
+        },
+        {
+          "seconds": 9.0,
+          "kind": "hard_cut",
+          "visual": "笑顔でどれにするか尋ねるツインテールの女子生徒"
+        },
+        {
+          "seconds": 10.75,
+          "kind": "hard_cut",
+          "visual": "机を見つめて選ぼうとする座っている女子生徒のアップ"
+        },
+        {
+          "seconds": 12.0,
+          "kind": "hard_cut",
+          "visual": "手元で白いマスコットを掴み上げるインサート"
+        },
+        {
+          "seconds": 14.0,
+          "kind": "hard_cut",
+          "visual": "白を持った座る生徒と、それを見て固まる2人の引きのショット"
+        },
+        {
+          "seconds": 15.0,
+          "kind": "hard_cut",
+          "visual": "不満そうに真顔で見つめるツインテールの生徒のアップ"
+        },
+        {
+          "seconds": 16.0,
+          "kind": "hard_cut",
+          "visual": "気まずそうに顔色を窺う座っている生徒のアップ"
+        },
+        {
+          "seconds": 16.5,
+          "kind": "hard_cut",
+          "visual": "手元で白いマスコットを戻しピンクを取り直すインサート"
+        },
+        {
+          "seconds": 18.25,
+          "kind": "hard_cut",
+          "visual": "ピンクのマスコットを手にして微笑む座っている生徒"
+        },
+        {
+          "seconds": 18.75,
+          "kind": "hard_cut",
+          "visual": "安堵して笑顔に戻り白いマスコットを取るツインテールの生徒"
+        },
+        {
+          "seconds": 21.0,
+          "kind": "hard_cut",
+          "visual": "それが一番可愛いと言う黒ベストの生徒のアップ"
+        },
+        {
+          "seconds": 22.0,
+          "kind": "hard_cut",
+          "visual": "自分も白を選ぶ黒ベストの生徒と座る生徒の横並びショット"
+        },
+        {
+          "seconds": 24.5,
+          "kind": "hard_cut",
+          "visual": "白のマスコット同士を合わせてキャッキャと喜ぶ2人のショット"
+        },
+        {
+          "seconds": 26.75,
+          "kind": "hard_cut",
+          "visual": "ピンクを持ったままボケた手前の2人を見つめ固まる座る生徒の正面アップ"
+        }
+      ],
+      "selected_beat_seconds_approx": {
+        "hook": 0.0,
+        "setup": 6.0,
+        "turn": 14.0,
+        "payoff": 24.5
+      },
+      "time_change": {
+        "used": null,
+        "seconds_approx": null,
+        "cue": ""
+      },
+      "av_evidence": {
+        "visual": "whole_clip",
+        "audio": "heard",
+        "sample_fps": 4,
+        "times": "approximate",
+        "observation_sha256": "e2b91cf34b817cbaaefa8cb601d3da3a2ee64b76d194c6ec0aa9afe1ae926c6a"
+      }
+    },
+    {
+      "id": "vUMlIClHa5U",
+      "shorts_url": "https://www.youtube.com/shorts/vUMlIClHa5U",
+      "watch_url": "https://www.youtube.com/watch?v=vUMlIClHa5U",
+      "title": "「その弁当、今日で最後だ。」父がそう告げた本当の理由… #ショートドラマ #感動 #家族 #父と息子 #泣ける話 #Shorts",
+      "channel": "30秒後。",
+      "channel_id": "UC4Xch-_mU516ZxLPsMe5NVg",
+      "views": 144739,
+      "duration_seconds": 31.0,
+      "observed_at": "2026-11-08T21:35:57+09:00",
+      "number": 13,
+      "category": "家族・世代",
+      "tag": "家族・物で過去へ",
+      "story_summary": "父が最後の弁当と告げる。手紙で病床の母との約束を知った息子が、父に電話で明日も作ってほしいと伝える。",
+      "edit_and_audio": "約11秒に手紙、約14秒に病室、約21秒に現在の息子へ。朗読が画をまたぎ、電話で受け取り方の変化を回収する。",
+      "observed_shot_starts": [
+        {
+          "seconds": 0.0,
+          "kind": "initial",
+          "visual": "キッチンで弁当箱を持つ父と、手前に立つ制服姿の息子のロングショット。"
+        },
+        {
+          "seconds": 0.25,
+          "kind": "hard_cut",
+          "visual": "弁当箱を両手で差し出す父の顔のクローズアップ。"
+        },
+        {
+          "seconds": 2.5,
+          "kind": "hard_cut",
+          "visual": "驚いて目を見開く息子の顔のクローズアップ。"
+        },
+        {
+          "seconds": 3.5,
+          "kind": "hard_cut",
+          "visual": "再び台所で向かい合う父と息子のミディアムロングショット。"
+        },
+        {
+          "seconds": 8.5,
+          "kind": "hard_cut",
+          "visual": "机の上で弁当箱の蓋を開け、中に入った折り畳まれた手紙に手を伸ばす俯瞰ショット。"
+        },
+        {
+          "seconds": 12.0,
+          "kind": "hard_cut",
+          "visual": "手紙を広げて読み始める息子の正面クローズアップ。"
+        },
+        {
+          "seconds": 14.5,
+          "kind": "dissolve",
+          "visual": "回想シーン。夕日の差し込む病室で横たわる母の手を握る若い父と幼い息子のショット。"
+        },
+        {
+          "seconds": 21.5,
+          "kind": "hard_cut",
+          "visual": "現在に戻り、手紙を読みながら涙をこぼす息子のクローズアップ。"
+        },
+        {
+          "seconds": 28.25,
+          "kind": "hard_cut",
+          "visual": "スマートフォンを耳に当て、泣き笑いの表情で話す息子のクローズアップ。"
+        }
+      ],
+      "selected_beat_seconds_approx": {
+        "hook": 0.0,
+        "setup": 3.7,
+        "turn": 11.5,
+        "payoff": 28.0
+      },
+      "time_change": {
+        "used": true,
+        "seconds_approx": 14.5,
+        "cue": "手紙の内容をトリガーに、夕方の病室で母を看取る過去の回想場面へ切り替わる。"
+      },
+      "additional_av_check_fps": 6,
+      "av_evidence": {
+        "visual": "whole_clip",
+        "audio": "heard",
+        "sample_fps": 4,
+        "times": "approximate",
+        "observation_sha256": "98d80253ffa5327196acebf227bc66bf003deda370587f079180a6fdaf07fb4f"
+      }
+    },
+    {
+      "id": "KoLG5vDMjCs",
+      "shorts_url": "https://www.youtube.com/shorts/KoLG5vDMjCs",
+      "watch_url": "https://www.youtube.com/watch?v=KoLG5vDMjCs",
+      "title": "お父さん、もううちに来ないで。#感動 #家族 #ショートドラマ",
+      "channel": "30秒後。",
+      "channel_id": "UC4Xch-_mU516ZxLPsMe5NVg",
+      "views": 98233,
+      "duration_seconds": 31.0,
+      "observed_at": "2026-11-08T21:35:23+09:00",
+      "number": 14,
+      "category": "家族・世代",
+      "tag": "家族・拒絶に見える受容",
+      "story_summary": "父が帰ろうとすると娘が引き止め、来客でなく家族として帰ってほしいと明かす。父の部屋を見せて迎え入れる。",
+      "edit_and_audio": "約17秒の引き戸と部屋の提示で、説明された意図が空間として見える。終盤は父の顔と手を取る画。",
+      "observed_shot_starts": [
+        {
+          "seconds": 0.0,
+          "kind": "initial",
+          "visual": "廊下でバッグを持つ父と背後に立つ娘のミディアムショット"
+        },
+        {
+          "seconds": 5.0,
+          "kind": "hard_cut",
+          "visual": "寂しそうにうなずき諦め顔を見せる父のクローズアップ"
+        },
+        {
+          "seconds": 10.25,
+          "kind": "hard_cut",
+          "visual": "立ち去ろうと背を向けた父の腕を娘が後ろから掴んで引き止めるミディアムショット"
+        },
+        {
+          "seconds": 17.25,
+          "kind": "hard_cut",
+          "visual": "父の背越しに、娘が引き戸を開けてベッドのある部屋を披露するショット"
+        },
+        {
+          "seconds": 25.0,
+          "kind": "hard_cut",
+          "visual": "大粒の涙を流しながら発言・表示と呟く父の顔のクローズアップ"
+        },
+        {
+          "seconds": 27.25,
+          "kind": "hard_cut",
+          "visual": "父の両手を握り締め、涙ぐみながら微笑んで発言・表示と返す娘と父の横顔ショット"
+        }
+      ],
+      "selected_beat_seconds_approx": {
+        "hook": 0.0,
+        "setup": 5.0,
+        "turn": 10.75,
+        "payoff": 25.0
+      },
+      "time_change": {
+        "used": false,
+        "seconds_approx": null,
+        "cue": ""
+      },
+      "av_evidence": {
+        "visual": "whole_clip",
+        "audio": "heard",
+        "sample_fps": 4,
+        "times": "approximate",
+        "observation_sha256": "53011e06fa2c68f0237be6a56c39ac9205a5f631029543789792c4fc4335f2cb"
+      }
+    },
+    {
+      "id": "Ig61D60DA-c",
+      "shorts_url": "https://www.youtube.com/shorts/Ig61D60DA-c",
+      "watch_url": "https://www.youtube.com/watch?v=Ig61D60DA-c",
+      "title": "「お母さん、もう家族じゃありません。」義母が返した一言に涙… #shorts #感動 #家族 #ショートドラマ #30秒後",
+      "channel": "30秒後。",
+      "channel_id": "UC4Xch-_mU516ZxLPsMe5NVg",
+      "views": 97698,
+      "duration_seconds": 31.0,
+      "observed_at": "2026-11-08T21:35:21+09:00",
+      "number": 15,
+      "category": "家族・世代",
+      "tag": "家族・関係の言い直し",
+      "story_summary": "離婚後に義母からも離れようとする女性を、義母が呼び止めて受け入れる。言葉の後で両手を握る。",
+      "edit_and_audio": "約16〜17秒、歩き去る人から振り返りへ。声で行動を止め、触れる動作で返す。",
+      "observed_shot_starts": [
+        {
+          "seconds": 0.0,
+          "kind": "initial",
+          "visual": "和室で女性と義母が並んで座るミディアムショット。"
+        },
+        {
+          "seconds": 0.25,
+          "kind": "hard_cut",
+          "visual": "深刻な表情で話す女性の顔のクローズアップ。"
+        },
+        {
+          "seconds": 3.75,
+          "kind": "hard_cut",
+          "visual": "驚きと困惑を浮かべる義母の顔のクローズアップ。"
+        },
+        {
+          "seconds": 4.75,
+          "kind": "hard_cut",
+          "visual": "横並びに座る2人のミディアムショット。"
+        },
+        {
+          "seconds": 8.5,
+          "kind": "hard_cut",
+          "visual": "和室全体を収めた引きのショット。座卓の上に鍵を置き、女性が立ち上がる。"
+        },
+        {
+          "seconds": 16.5,
+          "kind": "hard_cut",
+          "visual": "歩き去ろうとする女性が呼び止められて振り返る正面ショット。"
+        },
+        {
+          "seconds": 23.5,
+          "kind": "hard_cut",
+          "visual": "向かい合う2人の横顔ツーショット。義母が歩み寄り女性の手を握る。"
+        }
+      ],
+      "selected_beat_seconds_approx": {
+        "hook": 0.0,
+        "setup": 5.0,
+        "turn": 17.0,
+        "payoff": 25.0
+      },
+      "time_change": {
+        "used": false,
+        "seconds_approx": null,
+        "cue": ""
+      },
+      "av_evidence": {
+        "visual": "whole_clip",
+        "audio": "heard",
+        "sample_fps": 4,
+        "times": "approximate",
+        "observation_sha256": "45d16c9b74456fc63d2f0de3c0abeef7e59fff2dd6acb0aaf814988326d38843"
+      }
+    },
+    {
+      "id": "nRabKvmNioc",
+      "shorts_url": "https://www.youtube.com/shorts/nRabKvmNioc",
+      "watch_url": "https://www.youtube.com/watch?v=nRabKvmNioc",
+      "title": "もう俺の飯は作るな。50年連れ添った夫の本当の理由 #ショートドラマ #感動 #夫婦 #家族 #Shorts",
+      "channel": "30秒後。",
+      "channel_id": "UC4Xch-_mU516ZxLPsMe5NVg",
+      "views": 62013,
+      "duration_seconds": 31.0,
+      "observed_at": "2026-11-08T21:36:01+09:00",
+      "number": 16,
+      "category": "家族・世代",
+      "tag": "家族・負担の引き受け",
+      "story_summary": "食事を作る妻へ夫が強い調子で口を出す。エプロンを自分で着け、明日から作ると伝えて空気がほぐれる。",
+      "edit_and_audio": "約17〜18秒のエプロンの動きで、冷たい言葉が労いに変わる。最後は二人の笑み。",
+      "observed_shot_starts": [
+        {
+          "seconds": 0.0,
+          "kind": "initial",
+          "visual": "台所でご飯茶碗を持つ妻と、その前に立つ夫のツーショット"
+        },
+        {
+          "seconds": 0.25,
+          "kind": "hard_cut",
+          "visual": "真剣な表情で話す夫の顔のアップ"
+        },
+        {
+          "seconds": 3.25,
+          "kind": "hard_cut",
+          "visual": "茶碗を持つ妻と向かい合う夫のミディアムショット、妻が夫を見上げる"
+        },
+        {
+          "seconds": 9.25,
+          "kind": "hard_cut",
+          "visual": "口元を引き締め静かに語りかける夫の顔のアップ"
+        },
+        {
+          "seconds": 17.25,
+          "kind": "hard_cut",
+          "visual": "妻の横で夫が手を伸ばしてエプロンを身につけるミディアムショット"
+        },
+        {
+          "seconds": 25.25,
+          "kind": "hard_cut",
+          "visual": "夫の言葉を聞いて嬉しそうに破顔する妻の顔のアップ"
+        },
+        {
+          "seconds": 28.25,
+          "kind": "hard_cut",
+          "visual": "エプロンを着けて照れくさそうに笑う夫のバストショット"
+        },
+        {
+          "seconds": 29.25,
+          "kind": "hard_cut",
+          "visual": "穏やかに見つめ合って微笑む老夫婦のツーショット"
+        }
+      ],
+      "selected_beat_seconds_approx": {
+        "hook": 0.0,
+        "setup": 6.75,
+        "turn": 18.0,
+        "payoff": 25.25
+      },
+      "time_change": {
+        "used": false,
+        "seconds_approx": null,
+        "cue": ""
+      },
+      "av_evidence": {
+        "visual": "whole_clip",
+        "audio": "heard",
+        "sample_fps": 4,
+        "times": "approximate",
+        "observation_sha256": "e865c6479fe01562b8a1d1f47175741e7daf597620dc2ab90137c13d4268f73f"
+      }
+    },
+    {
+      "id": "lnWVOz1iasY",
+      "shorts_url": "https://www.youtube.com/shorts/lnWVOz1iasY",
+      "watch_url": "https://www.youtube.com/watch?v=lnWVOz1iasY",
+      "title": "母さん、もう嘘つくなよ。最後に気づいた母の愛情… #shorts #感動 #家族 #30秒後",
+      "channel": "30秒後。",
+      "channel_id": "UC4Xch-_mU516ZxLPsMe5NVg",
+      "views": 45572,
+      "duration_seconds": 31.0,
+      "observed_at": "2026-11-08T21:36:00+09:00",
+      "number": 17,
+      "category": "家族・世代",
+      "tag": "家族・会話で過去を伝える",
+      "story_summary": "息子が食卓で母の過去の言葉を問い、母の真意を知る。今度は息子が茶碗を差し出す。",
+      "edit_and_audio": "約19秒、母の顔から茶碗を渡す手へ。過去映像を挿さず、現在の物と返礼で関係の変化を伝える。",
+      "observed_shot_starts": [
+        {
+          "seconds": 0.0,
+          "kind": "initial",
+          "visual": "食卓に並んで座る母と息子の2ショット"
+        },
+        {
+          "seconds": 4.75,
+          "kind": "hard_cut",
+          "visual": "母を見つめて過去を話す息子のクローズアップ"
+        },
+        {
+          "seconds": 10.25,
+          "kind": "hard_cut",
+          "visual": "息子の言葉に優しく微笑んで返す母のクローズアップ"
+        },
+        {
+          "seconds": 18.75,
+          "kind": "hard_cut",
+          "visual": "茶碗を持って母に差し出す息子のバストアップ"
+        },
+        {
+          "seconds": 25.25,
+          "kind": "hard_cut",
+          "visual": "息子から茶碗を受け取って食べる母とそれを見守る息子の2ショット"
+        }
+      ],
+      "selected_beat_seconds_approx": {
+        "hook": 0.0,
+        "setup": 5.0,
+        "turn": 10.25,
+        "payoff": 19.5
+      },
+      "time_change": {
+        "used": false,
+        "seconds_approx": null,
+        "cue": ""
+      },
+      "av_evidence": {
+        "visual": "whole_clip",
+        "audio": "heard",
+        "sample_fps": 4,
+        "times": "approximate",
+        "observation_sha256": "c39328f34930e1736b0ce13d35e5ce625bfded58d4de6e4a41a3d3dfa5f53b7c"
+      }
+    },
+    {
+      "id": "hn44MDgPE30",
+      "shorts_url": "https://www.youtube.com/shorts/hn44MDgPE30",
+      "watch_url": "https://www.youtube.com/watch?v=hn44MDgPE30",
+      "title": "「父さん、もう店に立たないで。」息子が告げた本当の理由に涙… #感動 #親子 #家族愛 #ショートドラマ #30秒後",
+      "channel": "30秒後。",
+      "channel_id": "UC4Xch-_mU516ZxLPsMe5NVg",
+      "views": 42059,
+      "duration_seconds": 31.0,
+      "observed_at": "2026-11-08T21:35:24+09:00",
+      "number": 18,
+      "category": "家族・世代",
+      "tag": "家族・仕事の継承",
+      "story_summary": "息子の言葉が父の引退要求に聞こえるが、自分が店に立ち、父を最初の客として迎えると分かる。",
+      "edit_and_audio": "約14秒から対峙を調理と見守りへ変える。約26秒のひと口と父の顔で答えを見せる。",
+      "observed_shot_starts": [
+        {
+          "seconds": 0.0,
+          "kind": "initial",
+          "visual": "蕎麦屋のカウンターを布巾で拭く白衣の父と、後ろに立つエプロン姿の息子。"
+        },
+        {
+          "seconds": 2.5,
+          "kind": "hard_cut",
+          "visual": "父の横顔のクローズアップ。驚きながら息子の方へ振り返る。"
+        },
+        {
+          "seconds": 8.25,
+          "kind": "hard_cut",
+          "visual": "のれんの前に立つ息子のバストショット。真剣な眼差しで話す。"
+        },
+        {
+          "seconds": 12.75,
+          "kind": "hard_cut",
+          "visual": "息子の言葉を聞いて目を見開く父の正面クローズアップ。"
+        },
+        {
+          "seconds": 14.25,
+          "kind": "hard_cut",
+          "visual": "父の肩越しに、息子が厨房奥の茹で釜へ向かい麺を茹で始める。"
+        },
+        {
+          "seconds": 17.75,
+          "kind": "hard_cut",
+          "visual": "作業する息子の背中を驚きと感慨深げな表情で見つめる父の顔。"
+        },
+        {
+          "seconds": 20.25,
+          "kind": "hard_cut",
+          "visual": "カウンター越しに息子が蕎麦の丼を父の前に置き、父が一礼して席に着く引きの構図。"
+        },
+        {
+          "seconds": 23.75,
+          "kind": "hard_cut",
+          "visual": "カウンターで丼から蕎麦を箸で持ち上げる父のバストアップ。"
+        },
+        {
+          "seconds": 26.0,
+          "kind": "hard_cut",
+          "visual": "蕎麦を口に運び、頬に涙を流しながら微笑む父の顔の超クローズアップ。"
+        }
+      ],
+      "selected_beat_seconds_approx": {
+        "hook": 0.0,
+        "setup": 6.0,
+        "turn": 9.25,
+        "payoff": 26.0
+      },
+      "time_change": {
+        "used": false,
+        "seconds_approx": null,
+        "cue": ""
+      },
+      "av_evidence": {
+        "visual": "whole_clip",
+        "audio": "heard",
+        "sample_fps": 4,
+        "times": "approximate",
+        "observation_sha256": "53aabc7ddc40eaf7848ef205673129a0a75551bc971b8b01234aa7392bc9ac5f"
+      }
+    },
+    {
+      "id": "BrSS1dZnFKQ",
+      "shorts_url": "https://www.youtube.com/shorts/BrSS1dZnFKQ",
+      "watch_url": "https://www.youtube.com/watch?v=BrSS1dZnFKQ",
+      "title": "母さん、もう待たないで。#shorts #感動 #親子",
+      "channel": "30秒後。",
+      "channel_id": "UC4Xch-_mU516ZxLPsMe5NVg",
+      "views": 29441,
+      "duration_seconds": 31.0,
+      "observed_at": "2026-11-08T21:36:01+09:00",
+      "number": 19,
+      "category": "家族・世代",
+      "tag": "家族・小さな約束",
+      "story_summary": "帰宅を待つ母に息子が不満を言う。待つことの意味を聞き、席に着いて次は早く帰ると伝える。",
+      "edit_and_audio": "約12秒、母の寄りで本音を聞かせ、約23秒に息子が座る。台詞を態度の変化で受ける。",
+      "observed_shot_starts": [
+        {
+          "seconds": 0.0,
+          "kind": "initial",
+          "visual": "玄関先に立つスーツ姿の息子のバストアップ（フック）。"
+        },
+        {
+          "seconds": 0.25,
+          "kind": "hard_cut",
+          "visual": "薄暗い玄関のドアがゆっくり開き、奥の明るいダイニングで椅子に座る母親が見える視点ショット。"
+        },
+        {
+          "seconds": 5.25,
+          "kind": "hard_cut",
+          "visual": "玄関に立ち、母親に向かって少し困ったように話すスーツ姿の息子。"
+        },
+        {
+          "seconds": 12.0,
+          "kind": "hard_cut",
+          "visual": "穏やかに微笑みながら息子の顔を見上げて語りかける母親のクローズアップ。"
+        },
+        {
+          "seconds": 23.0,
+          "kind": "hard_cut",
+          "visual": "食卓にご飯と汁物が置かれたテーブル越しに、息子の着席と母子の向き合う横顔を捉えたツーショット。"
+        }
+      ],
+      "selected_beat_seconds_approx": {
+        "hook": 0.0,
+        "setup": 1.25,
+        "turn": 12.0,
+        "payoff": 23.0
+      },
+      "time_change": {
+        "used": false,
+        "seconds_approx": null,
+        "cue": ""
+      },
+      "av_evidence": {
+        "visual": "whole_clip",
+        "audio": "heard",
+        "sample_fps": 4,
+        "times": "approximate",
+        "observation_sha256": "b4cdd9cda9b7f817adaaf6d85aab3be967774dbf556c1f25b1d6980cb90ce1a0"
+      }
+    },
+    {
+      "id": "aktb5mP6YEA",
+      "shorts_url": "https://www.youtube.com/shorts/aktb5mP6YEA",
+      "watch_url": "https://www.youtube.com/watch?v=aktb5mP6YEA",
+      "title": "父さん、もう運転するな。息子がそう言った本当の理由。#感動 #親子 #家族 #ショートドラマ #30秒後",
+      "channel": "30秒後。",
+      "channel_id": "UC4Xch-_mU516ZxLPsMe5NVg",
+      "views": 24016,
+      "duration_seconds": 31.0,
+      "observed_at": "2026-11-08T21:35:57+09:00",
+      "number": 20,
+      "category": "家族・世代",
+      "tag": "家族・役割交代",
+      "story_summary": "息子が父から車の鍵を受け取り、車を奪うように見える。自分が運転して墓参りへ行こうと誘う。",
+      "edit_and_audio": "約13〜14秒、鍵の手元から車全体へ。最後に父が助手席へ乗るので、役割交代が目で分かる。",
+      "observed_shot_starts": [
+        {
+          "seconds": 0.0,
+          "kind": "initial",
+          "visual": "父親の顔のアップから開始"
+        },
+        {
+          "seconds": 0.25,
+          "kind": "hard_cut",
+          "visual": "息子の横顔クローズアップへ切り替わり、運転をやめるよう告げる"
+        },
+        {
+          "seconds": 3.25,
+          "kind": "hard_cut",
+          "visual": "戸惑い悲しむ父親の顔のアップ"
+        },
+        {
+          "seconds": 8.5,
+          "kind": "hard_cut",
+          "visual": "父親の横顔と、車の鍵を包み込むように握る手元のクローズアップ"
+        },
+        {
+          "seconds": 13.5,
+          "kind": "hard_cut",
+          "visual": "白い乗用車の横に立つ息子と父親のミディアムショット"
+        },
+        {
+          "seconds": 20.75,
+          "kind": "hard_cut",
+          "visual": "車のドア越しに向き合う息子と父親。息子の優しい笑顔"
+        },
+        {
+          "seconds": 25.75,
+          "kind": "hard_cut",
+          "visual": "涙を浮かべて笑う父親の顔のアップ"
+        },
+        {
+          "seconds": 29.75,
+          "kind": "hard_cut",
+          "visual": "車の全景と、父親を助手席へ優しく促す息子のロングショット"
+        }
+      ],
+      "selected_beat_seconds_approx": {
+        "hook": 0.0,
+        "setup": 5.25,
+        "turn": 16.0,
+        "payoff": 25.75
+      },
+      "time_change": {
+        "used": false,
+        "seconds_approx": null,
+        "cue": ""
+      },
+      "av_evidence": {
+        "visual": "whole_clip",
+        "audio": "heard",
+        "sample_fps": 4,
+        "times": "approximate",
+        "observation_sha256": "ee67d3c077a0c3f3375eda3b2f96398537352b339259314b7a5cca6a42e896f2"
+      }
+    },
+    {
+      "id": "ZwAT0UG-0fA",
+      "shorts_url": "https://www.youtube.com/shorts/ZwAT0UG-0fA",
+      "watch_url": "https://www.youtube.com/watch?v=ZwAT0UG-0fA",
+      "title": "「その親孝行、迷惑なの。」母が息子を突き放した本当の理由 #Shorts",
+      "channel": "30秒後。",
+      "channel_id": "UC4Xch-_mU516ZxLPsMe5NVg",
+      "views": 21620,
+      "duration_seconds": 31.0,
+      "observed_at": "2026-11-08T21:36:01+09:00",
+      "number": 21,
+      "category": "家族・世代",
+      "tag": "家族・自立を促す",
+      "story_summary": "母を一人にしたくない息子に、母自身も進学すると明かす。引き留めると思った人物が背中を押す。",
+      "edit_and_audio": "家族の顔を切り返し、合格と将来の選択を言葉で提示。終盤の暗転後の視聴者向け文字は本編外として扱う。",
+      "observed_shot_starts": [
+        {
+          "seconds": 0,
+          "kind": "initial",
+          "visual": "母親の顔のクローズアップ"
+        },
+        {
+          "seconds": 3.75,
+          "kind": "hard_cut",
+          "visual": "母親と向かい合って座る息子の切り返しショット"
+        },
+        {
+          "seconds": 10.25,
+          "kind": "hard_cut",
+          "visual": "涙ぐみながら微笑む母親のクローズアップ"
+        },
+        {
+          "seconds": 17.75,
+          "kind": "hard_cut",
+          "visual": "驚きと戸惑いの表情を浮かべる息子のクローズアップ"
+        },
+        {
+          "seconds": 20.75,
+          "kind": "hard_cut",
+          "visual": "涙を一粒流しながら笑顔で語りかける母親のクローズアップ"
+        },
+        {
+          "seconds": 26.25,
+          "kind": "hard_cut",
+          "visual": "顔をくしゃくしゃにして号泣する息子のクローズアップ"
+        },
+        {
+          "seconds": 30.25,
+          "kind": "fade",
+          "visual": "黒画面に視聴者への問いかけテキストが表示されるカット"
+        }
+      ],
+      "selected_beat_seconds_approx": {
+        "hook": 0,
+        "setup": 6.0,
+        "turn": 13.0,
+        "payoff": 24.5
+      },
+      "time_change": {
+        "used": false,
+        "seconds_approx": null,
+        "cue": ""
+      },
+      "av_evidence": {
+        "visual": "whole_clip",
+        "audio": "heard",
+        "sample_fps": 4,
+        "times": "approximate",
+        "observation_sha256": "a553985b431d2b1ad7774b44d27905db45def3af505fe7d31c6fc37f23706696"
+      }
+    },
+    {
+      "id": "kqha3u7SI30",
+      "shorts_url": "https://www.youtube.com/shorts/kqha3u7SI30",
+      "watch_url": "https://www.youtube.com/watch?v=kqha3u7SI30",
+      "title": "謝るなら、うちには入れない。 #Shorts #ショートドラマ #感動 #親子 #家族 #AIドラマ",
+      "channel": "30秒後。",
+      "channel_id": "UC4Xch-_mU516ZxLPsMe5NVg",
+      "views": 69023,
+      "duration_seconds": 32.0,
+      "observed_at": "2026-11-08T21:35:21+09:00",
+      "number": 22,
+      "category": "家族・世代",
+      "tag": "家族・帰る場所",
+      "story_summary": "母が娘を拒むように言うが、謝る必要のない家だと伝える。挨拶を交わし、抱きしめる。",
+      "edit_and_audio": "約8〜9秒で母の声と表情が変わり、約23秒の抱擁で説明を行動にする。",
+      "observed_shot_starts": [
+        {
+          "seconds": 0.0,
+          "kind": "initial",
+          "visual": "厳しい表情で前を見つめて話す母親の顔のクローズアップショット。"
+        },
+        {
+          "seconds": 4.0,
+          "kind": "hard_cut",
+          "visual": "スーツ姿でキャリーバッグの持ち手を握り、涙ぐみながら話す娘のミディアムショット。"
+        },
+        {
+          "seconds": 8.5,
+          "kind": "hard_cut",
+          "visual": "娘を見つめ、表情を緩めながら優しく語りかける母親のクローズアップショット。"
+        },
+        {
+          "seconds": 14.0,
+          "kind": "hard_cut",
+          "visual": "母の言葉に驚き、目から涙を流す娘の顔のタイトアップショット。"
+        },
+        {
+          "seconds": 18.0,
+          "kind": "hard_cut",
+          "visual": "穏やかに微笑みながら語りかける母親のクローズアップショット。"
+        },
+        {
+          "seconds": 22.75,
+          "kind": "hard_cut",
+          "visual": "涙を流しながらも安堵の笑顔を見せて挨拶する娘のアップショット。"
+        },
+        {
+          "seconds": 25.75,
+          "kind": "hard_cut",
+          "visual": "嬉しそうに破顔し、娘の肩に手を伸ばして抱き寄せる母親のアップショット。"
+        },
+        {
+          "seconds": 28.25,
+          "kind": "hard_cut",
+          "visual": "玄関の廊下でスーツケースを脇に置いてしっかりと抱き合う母娘の全身ロングショット。"
+        },
+        {
+          "seconds": 30.0,
+          "kind": "hard_cut",
+          "visual": "黒画面に視聴者への問いかけテキストが表示されるエンドカード。"
+        }
+      ],
+      "selected_beat_seconds_approx": {
+        "hook": 0.0,
+        "setup": 4.0,
+        "turn": 8.5,
+        "payoff": 22.75
+      },
+      "time_change": {
+        "used": false,
+        "seconds_approx": null,
+        "cue": ""
+      },
+      "av_evidence": {
+        "visual": "whole_clip",
+        "audio": "heard",
+        "sample_fps": 4,
+        "times": "approximate",
+        "observation_sha256": "327c3f09472cefaa5871b99ab82e4c61643ed21c3a1464cd14b50157d3af37d1"
+      }
+    },
+    {
+      "id": "wFZ_7jiPI9k",
+      "shorts_url": "https://www.youtube.com/shorts/wFZ_7jiPI9k",
+      "watch_url": "https://www.youtube.com/watch?v=wFZ_7jiPI9k",
+      "title": "JCBマジカル2026 ショートドラマVol 1 家族編：「変わらないもの」（30秒）縦型",
+      "channel": "JCB CARD",
+      "channel_id": "UCPLHEQ0xoJbuVh-irsP23Gw",
+      "views": 1978913,
+      "duration_seconds": 31.0,
+      "observed_at": "2026-11-08T21:35:39+09:00",
+      "number": 23,
+      "category": "家族・世代",
+      "tag": "家族・ブランド劇",
+      "story_summary": "父が誘いを断られ、別日の会話と当選を経て、娘と一緒に過ごす約束を取り戻す。",
+      "edit_and_audio": "約8秒の別日へのつなぎとスマホの結果表示を観察。終盤のキャンペーン告知はドラマの余韻と分ける。",
+      "observed_shot_starts": [
+        {
+          "seconds": 0.0,
+          "kind": "initial",
+          "visual": "スマホを見つめる娘のアップ"
+        },
+        {
+          "seconds": 0.5,
+          "kind": "hard_cut",
+          "visual": "テーブル越しに話しかける父親のバストショット"
+        },
+        {
+          "seconds": 1.0,
+          "kind": "hard_cut",
+          "visual": "テーブルを囲む父親・娘・母親の3人の引きのショット"
+        },
+        {
+          "seconds": 1.75,
+          "kind": "hard_cut",
+          "visual": "スマホを見ながら冷淡に返事をする娘のショット"
+        },
+        {
+          "seconds": 3.0,
+          "kind": "hard_cut",
+          "visual": "がっかりする父親のショット"
+        },
+        {
+          "seconds": 3.75,
+          "kind": "hard_cut",
+          "visual": "口を挟む母親のバストショット"
+        },
+        {
+          "seconds": 4.75,
+          "kind": "hard_cut",
+          "visual": "クリスマスについて尋ねる父親のショット"
+        },
+        {
+          "seconds": 5.5,
+          "kind": "hard_cut",
+          "visual": "ダイニングテーブル3人の引きのショット"
+        },
+        {
+          "seconds": 6.5,
+          "kind": "hard_cut",
+          "visual": "発言・表示と答える娘のショット"
+        },
+        {
+          "seconds": 7.5,
+          "kind": "hard_cut",
+          "visual": "驚く父親のアップ"
+        },
+        {
+          "seconds": 8.25,
+          "kind": "dissolve",
+          "visual": "公園のベンチで弁当を食べるスーツ姿の父親と同僚女性のショット"
+        },
+        {
+          "seconds": 9.5,
+          "kind": "hard_cut",
+          "visual": "箸を持って答える同僚女性のアップ"
+        },
+        {
+          "seconds": 11.0,
+          "kind": "hard_cut",
+          "visual": "身を乗り出して話す父親のクローズアップ"
+        },
+        {
+          "seconds": 11.25,
+          "kind": "hard_cut",
+          "visual": "ベンチの2人の引きのショット"
+        },
+        {
+          "seconds": 11.75,
+          "kind": "hard_cut",
+          "visual": "父からスマホを見せられる同僚女性のショット"
+        },
+        {
+          "seconds": 12.5,
+          "kind": "hard_cut",
+          "visual": "スマホを見て目を丸くする同僚女性のアップ"
+        },
+        {
+          "seconds": 13.25,
+          "kind": "hard_cut",
+          "visual": "自宅リビングで発言・表示とガッツポーズする父親のフルショット"
+        },
+        {
+          "seconds": 14.0,
+          "kind": "hard_cut",
+          "visual": "キッチンで驚いた表情の母親のショット"
+        },
+        {
+          "seconds": 14.5,
+          "kind": "hard_cut",
+          "visual": "スマホ画面（JCB MAGICAL Christmas 2026 当選）のクローズアップ"
+        },
+        {
+          "seconds": 15.5,
+          "kind": "hard_cut",
+          "visual": "スマホ画面を妻に見せる父親のバストアップ"
+        },
+        {
+          "seconds": 16.25,
+          "kind": "hard_cut",
+          "visual": "テーブルで振り返る娘のショット"
+        },
+        {
+          "seconds": 16.75,
+          "kind": "hard_cut",
+          "visual": "スマホを掲げ説明する父親のショット"
+        },
+        {
+          "seconds": 17.25,
+          "kind": "hard_cut",
+          "visual": "父親をじっと見る娘のショット"
+        },
+        {
+          "seconds": 18.0,
+          "kind": "hard_cut",
+          "visual": "キッチンとテーブルの家族3人の引きのショット"
+        },
+        {
+          "seconds": 18.5,
+          "kind": "hard_cut",
+          "visual": "父親のバストアップ（説明を続ける）"
+        },
+        {
+          "seconds": 19.25,
+          "kind": "hard_cut",
+          "visual": "目を見張る母親のアップ"
+        },
+        {
+          "seconds": 19.75,
+          "kind": "hard_cut",
+          "visual": "スマホを提示しながら話す父親のアップ"
+        },
+        {
+          "seconds": 21.0,
+          "kind": "hard_cut",
+          "visual": "娘に向かって説明する父親のショット"
+        },
+        {
+          "seconds": 21.5,
+          "kind": "hard_cut",
+          "visual": "真剣に聞き入る娘のアップ"
+        },
+        {
+          "seconds": 22.25,
+          "kind": "hard_cut",
+          "visual": "説明を続ける父親のアップ"
+        },
+        {
+          "seconds": 23.0,
+          "kind": "hard_cut",
+          "visual": "3人の引きの構図"
+        },
+        {
+          "seconds": 24.25,
+          "kind": "hard_cut",
+          "visual": "立ち上がって父を見る娘の正面ショット"
+        },
+        {
+          "seconds": 25.25,
+          "kind": "hard_cut",
+          "visual": "照れながら娘に語りかける父親の横顔"
+        },
+        {
+          "seconds": 26.75,
+          "kind": "hard_cut",
+          "visual": "満面の笑みで答える娘のアップ"
+        },
+        {
+          "seconds": 27.5,
+          "kind": "hard_cut",
+          "visual": "安堵して微笑む父親のアップ"
+        },
+        {
+          "seconds": 28.0,
+          "kind": "hard_cut",
+          "visual": "フライパンを持って笑顔で見守る母親のショット"
+        },
+        {
+          "seconds": 28.75,
+          "kind": "hard_cut",
+          "visual": "キャンペーン告知エンドカード（ミッキー＆ミニーのグラフィック）"
+        }
+      ],
+      "selected_beat_seconds_approx": {
+        "hook": 0.0,
+        "setup": 4.75,
+        "turn": 13.25,
+        "payoff": 24.0
+      },
+      "time_change": {
+        "used": true,
+        "seconds_approx": 8.25,
+        "cue": "同僚に自宅での会話を報告する別日の昼休みシーンへ移り、その後13.25秒で当選後の別日帰宅時へジャンプする。"
+      },
+      "av_evidence": {
+        "visual": "whole_clip",
+        "audio": "heard",
+        "sample_fps": 4,
+        "times": "approximate",
+        "observation_sha256": "e0d5295497a5d960b0d60724864574f32a30733e86e7ea89d57508259225ce70"
+      }
+    },
+    {
+      "id": "4001dPCGYLc",
+      "shorts_url": "https://www.youtube.com/shorts/4001dPCGYLc",
+      "watch_url": "https://www.youtube.com/watch?v=4001dPCGYLc",
+      "title": "【あるある】親と喧嘩した時 #shorts",
+      "channel": "SAGIRIX",
+      "channel_id": "UCsRRzwiGpo5U580FpH_ZEaw",
+      "views": 215527,
+      "duration_seconds": 36.0,
+      "observed_at": "2026-11-08T21:36:09+09:00",
+      "number": 24,
+      "category": "家族・世代",
+      "tag": "親子喧嘩・一人芝居",
+      "story_summary": "怒って部屋に入った人物が家出を計画する。好物の夕食を思い出し、書いたノートを投げる。",
+      "edit_and_audio": "固定画のまま立つ、座る、書く、投げる。ドアと紙の音で段階を作るので、画面更新をカットに数えない。",
+      "observed_shot_starts": [
+        {
+          "seconds": 0.0,
+          "kind": "initial",
+          "visual": "部屋のドアと白い壁を斜めから捉えた固定カメラアングル"
+        }
+      ],
+      "selected_beat_seconds_approx": {
+        "hook": 1.0,
+        "setup": 5.5,
+        "turn": 17.5,
+        "payoff": 27.0
+      },
+      "time_change": {
+        "used": false,
+        "seconds_approx": null,
+        "cue": ""
+      },
+      "additional_av_check_fps": 6,
+      "av_evidence": {
+        "visual": "whole_clip",
+        "audio": "heard",
+        "sample_fps": 4,
+        "times": "approximate",
+        "observation_sha256": "bb305cbefd1ac9d849cf59e099bf11f188c412d28d3bec194ba1202d153c2f16"
+      }
+    },
+    {
+      "id": "xZEXMrWuwYE",
+      "shorts_url": "https://www.youtube.com/shorts/xZEXMrWuwYE",
+      "watch_url": "https://www.youtube.com/watch?v=xZEXMrWuwYE",
+      "title": "東京ガスCM「ふたつの人生」篇",
+      "channel": "東京ガス公式チャンネル",
+      "channel_id": "UC3rDMTgRg_EeXdl1b9KVhsg",
+      "views": 256401,
+      "duration_seconds": 31.0,
+      "observed_at": "2026-11-08T21:35:41+09:00",
+      "number": 25,
+      "category": "家族・世代",
+      "tag": "世代の対比・ブランド劇",
+      "story_summary": "仕事を選ぶ娘に母が自分の時代を重ねる。娘が選択に迷うと、母の支持が届く。",
+      "edit_and_audio": "約5〜10秒、母の語りに服装・通勤・仕事場の違う時代を重ねて、現代の娘に戻る。約28秒以降はブランド表示。",
+      "observed_shot_starts": [
+        {
+          "seconds": 0.0,
+          "kind": "initial",
+          "visual": "アパートの駐輪場で自転車を取り出す娘の引きのショット"
+        },
+        {
+          "seconds": 2.0,
+          "kind": "hard_cut",
+          "visual": "ヘルメットの顎紐を締める娘のアップ"
+        },
+        {
+          "seconds": 3.25,
+          "kind": "hard_cut",
+          "visual": "朝食の食卓で箸を動かす両親の室内ショット"
+        },
+        {
+          "seconds": 4.25,
+          "kind": "hard_cut",
+          "visual": "感慨深そうに遠くを見つめる母親の顔アップ"
+        },
+        {
+          "seconds": 5.25,
+          "kind": "hard_cut",
+          "visual": "過去：満員電車でつり革につかまり新聞の間で耐える若い頃の母"
+        },
+        {
+          "seconds": 7.0,
+          "kind": "hard_cut",
+          "visual": "過去：オフィスのロッカーで制服のベストを羽織る若い母"
+        },
+        {
+          "seconds": 8.25,
+          "kind": "hard_cut",
+          "visual": "過去：古いオフィスで大きなゴミ袋にゴミ箱を回収して回る若い母"
+        },
+        {
+          "seconds": 9.75,
+          "kind": "hard_cut",
+          "visual": "現代：カフェの窓際でノートPCをタイピングする娘"
+        },
+        {
+          "seconds": 12.0,
+          "kind": "hard_cut",
+          "visual": "現代：会議室でモニター前に立ちタブレットを手にプレゼンする娘"
+        },
+        {
+          "seconds": 14.5,
+          "kind": "hard_cut",
+          "visual": "現代：笑顔でプレゼンを続ける娘のバストアップ"
+        },
+        {
+          "seconds": 16.75,
+          "kind": "hard_cut",
+          "visual": "レストランで男性と向かい合って食事をする娘の引きショット"
+        },
+        {
+          "seconds": 18.25,
+          "kind": "hard_cut",
+          "visual": "発言・表示と答える娘の表情アップ"
+        },
+        {
+          "seconds": 20.5,
+          "kind": "hard_cut",
+          "visual": "自宅のお風呂で湯船に浸かり物思いにふける娘の横顔ショット"
+        },
+        {
+          "seconds": 22.25,
+          "kind": "hard_cut",
+          "visual": "浴槽の縁に頭を預けて上を見上げる娘の寄りショット"
+        },
+        {
+          "seconds": 24.5,
+          "kind": "hard_cut",
+          "visual": "表情が和らぎ小さく微笑む娘のクローズアップ"
+        },
+        {
+          "seconds": 25.75,
+          "kind": "hard_cut",
+          "visual": "ベランダのレースカーテンを開けて外に出る娘"
+        },
+        {
+          "seconds": 26.75,
+          "kind": "hard_cut",
+          "visual": "マグカップを手に窓辺で朝日を浴びる娘の横顔アップ"
+        },
+        {
+          "seconds": 28.0,
+          "kind": "hard_cut",
+          "visual": "白背景に発言・表示ロゴ"
+        }
+      ],
+      "selected_beat_seconds_approx": {
+        "hook": 0.0,
+        "setup": 5.25,
+        "turn": 16.75,
+        "payoff": 22.25
+      },
+      "time_change": {
+        "used": true,
+        "seconds_approx": 5.25,
+        "cue": "母親のモノローグを契機に、服装やオフィス環境が異なる過去の時代への回想描写が挿入される。"
+      },
+      "additional_av_check_fps": 6,
+      "av_evidence": {
+        "visual": "whole_clip",
+        "audio": "heard",
+        "sample_fps": 4,
+        "times": "approximate",
+        "observation_sha256": "6014cb2967b86b86d65007ee673b93a86fa87b877f601017855951e6ebf483a0"
+      }
+    },
+    {
+      "id": "L0Yp4HbpKE8",
+      "shorts_url": "https://www.youtube.com/shorts/L0Yp4HbpKE8",
+      "watch_url": "https://www.youtube.com/watch?v=L0Yp4HbpKE8",
+      "title": "夫婦喧嘩はこうやって始まる #Shorts #家族の日常 #夫婦 #離婚 #子供 #ショートドラマ",
+      "channel": "沼ドラ🍿",
+      "channel_id": "UCGZNUWWxG671k95eMyreKgA",
+      "views": 103848,
+      "duration_seconds": 34.0,
+      "observed_at": "2026-11-08T21:35:28+09:00",
+      "number": 26,
+      "category": "家族・世代",
+      "tag": "夫婦喧嘩・結果から理由へ",
+      "story_summary": "チェーンを掛けられた夫の現在から、家事分担を巡る過去へ。最後に妻が会話を切り上げる。",
+      "edit_and_audio": "約9〜10秒で玄関から別の室内へ直切り。家事の物と相手の表情を交え、口論の原因を見せる。",
+      "observed_shot_starts": [
+        {
+          "seconds": 0.0,
+          "kind": "initial",
+          "visual": "ドアの隙間から顔を覗かせて愛想笑いをするスーツ姿の夫"
+        },
+        {
+          "seconds": 1.5,
+          "kind": "hard_cut",
+          "visual": "ドアチェーンの接写とドアを掴む夫の手元"
+        },
+        {
+          "seconds": 2.25,
+          "kind": "hard_cut",
+          "visual": "ドアの隙間から口を開けて大声で訴える夫のアップ"
+        },
+        {
+          "seconds": 3.5,
+          "kind": "hard_cut",
+          "visual": "室内で冷ややかな表情を浮かべて立つ妻"
+        },
+        {
+          "seconds": 5.75,
+          "kind": "hard_cut",
+          "visual": "チェーンの隙間から中に入ろうと必死にドアを引く夫"
+        },
+        {
+          "seconds": 7.0,
+          "kind": "hard_cut",
+          "visual": "隙間に顔を押し付けて暴れるぞと叫ぶ夫の顔面アップ"
+        },
+        {
+          "seconds": 8.5,
+          "kind": "hard_cut",
+          "visual": "呆れて夫の声を聞き流す妻の正面ショット"
+        },
+        {
+          "seconds": 9.75,
+          "kind": "hard_cut",
+          "visual": "回想：床に座り洗濯物を畳みながら夫を問いただす妻"
+        },
+        {
+          "seconds": 10.75,
+          "kind": "hard_cut",
+          "visual": "ダイニングテーブルでネクタイを緩め不満げな表情をする夫"
+        },
+        {
+          "seconds": 11.75,
+          "kind": "hard_cut",
+          "visual": "床に座ったまま夫を見上げる妻"
+        },
+        {
+          "seconds": 13.0,
+          "kind": "hard_cut",
+          "visual": "家族のために働いているとテーブルに手をつく夫"
+        },
+        {
+          "seconds": 14.0,
+          "kind": "hard_cut",
+          "visual": "椅子に座りコップの水を持ちながら愚痴る夫の引きショット"
+        },
+        {
+          "seconds": 15.25,
+          "kind": "hard_cut",
+          "visual": "私も仕事も家事もしていると立ち上がり詰め寄る妻"
+        },
+        {
+          "seconds": 17.5,
+          "kind": "hard_cut",
+          "visual": "妻越しに自分だってやっていると反論する夫"
+        },
+        {
+          "seconds": 19.25,
+          "kind": "hard_cut",
+          "visual": "テーブルに肘をついてゴミ出しを挙げ目を逸らす夫"
+        },
+        {
+          "seconds": 20.25,
+          "kind": "hard_cut",
+          "visual": "椅子に座り他にはと冷たく聞き返す妻"
+        },
+        {
+          "seconds": 21.0,
+          "kind": "hard_cut",
+          "visual": "回想内イメージ：芯だけになったトイレットペーパーを持つ手元の接写"
+        },
+        {
+          "seconds": 21.75,
+          "kind": "hard_cut",
+          "visual": "ボーダー服を着て芯を掲げドヤ顔をする夫"
+        },
+        {
+          "seconds": 22.75,
+          "kind": "hard_cut",
+          "visual": "テーブルでニヤつきながら話すスーツ姿の夫"
+        },
+        {
+          "seconds": 23.5,
+          "kind": "hard_cut",
+          "visual": "呆れて声が出ない妻の口元・横顔のアップ"
+        },
+        {
+          "seconds": 24.0,
+          "kind": "hard_cut",
+          "visual": "それが家事に入ると思っているのかと問う妻"
+        },
+        {
+          "seconds": 25.75,
+          "kind": "hard_cut",
+          "visual": "水を飲みながら妻のズボラさを指摘し始める夫"
+        },
+        {
+          "seconds": 27.75,
+          "kind": "hard_cut",
+          "visual": "夫の身勝手な言い分を聞く妻の口元アップ"
+        },
+        {
+          "seconds": 29.5,
+          "kind": "hard_cut",
+          "visual": "いつも自分が交換していると不満を並べる夫のアップ"
+        },
+        {
+          "seconds": 32.0,
+          "kind": "hard_cut",
+          "visual": "これ以上話す価値もないと見限って呟く妻"
+        }
+      ],
+      "selected_beat_seconds_approx": {
+        "hook": 0.5,
+        "setup": 3.5,
+        "turn": 9.75,
+        "payoff": 32.0
+      },
+      "time_change": {
+        "used": true,
+        "seconds_approx": 9.75,
+        "cue": "締め出された現状から、以前リビングで家事分担について揉めた過去の会話へ移行"
+      },
+      "additional_av_check_fps": 6,
+      "av_evidence": {
+        "visual": "whole_clip",
+        "audio": "heard",
+        "sample_fps": 4,
+        "times": "approximate",
+        "observation_sha256": "bdcfe0dbe2a24d9a5fca756e3da607138c70a5206da2ab9f4cefcec6b9c0c381"
+      }
+    },
+    {
+      "id": "3BPnJ4zGbSA",
+      "shorts_url": "https://www.youtube.com/shorts/3BPnJ4zGbSA",
+      "watch_url": "https://www.youtube.com/watch?v=3BPnJ4zGbSA",
+      "title": "無能社員VSパワハラ上司 #弊社死ね #BUMPドラマ #ブラック企業 #問題社員",
+      "channel": "BUMPドラマ【公式】",
+      "channel_id": "UCDcBT1mhfPOtW3Obfu42pGg",
+      "views": 1681405,
+      "duration_seconds": 41.0,
+      "observed_at": "2026-11-08T21:36:06+09:00",
+      "number": 27,
+      "category": "職場・バイト",
+      "tag": "職場・圧力の増幅",
+      "story_summary": "仕事の書式変更を伝える社員。周囲が関わるのを避ける空気が出て、最後に先輩が本人へ厳しく注意する。",
+      "edit_and_audio": "書類と距離感で仕事の状況を先に伝える。約37秒、立ち姿から顔の寄りへの重なりと声で圧力を強める。",
+      "observed_shot_starts": [
+        {
+          "seconds": 0.0,
+          "kind": "initial",
+          "visual": "茶色のジャケットを着た女性が腰をかがめて話しかけるバストアップ"
+        },
+        {
+          "seconds": 3.75,
+          "kind": "hard_cut",
+          "visual": "青いニットを着て書類を受け取った女性のバストアップ"
+        },
+        {
+          "seconds": 5.0,
+          "kind": "hard_cut",
+          "visual": "オフィス全体の引き画、周囲の同僚たちが不審そうに振り返る"
+        },
+        {
+          "seconds": 8.0,
+          "kind": "hard_cut",
+          "visual": "茶色のジャケットの女性が得意げな笑顔を見せる"
+        },
+        {
+          "seconds": 10.5,
+          "kind": "hard_cut",
+          "visual": "青いニットの女性が引きつった苦笑いを浮かべる"
+        },
+        {
+          "seconds": 12.0,
+          "kind": "hard_cut",
+          "visual": "茶色のジャケットの女性が自席に座り、両手を広げて喜ぶ"
+        },
+        {
+          "seconds": 16.0,
+          "kind": "hard_cut",
+          "visual": "オフィス全景の別アングル、席で手を組んで定時退社を夢見る様子"
+        },
+        {
+          "seconds": 18.5,
+          "kind": "hard_cut",
+          "visual": "オレンジのカーディガンを着た女性が書類を持って話しかける"
+        },
+        {
+          "seconds": 20.5,
+          "kind": "hard_cut",
+          "visual": "白トップスの女性（井上）が振り返って笑顔から強張った表情になる"
+        },
+        {
+          "seconds": 23.5,
+          "kind": "hard_cut",
+          "visual": "離れた席のスーツ姿の女性（斎藤）が厳しい目線で睨む"
+        },
+        {
+          "seconds": 25.5,
+          "kind": "hard_cut",
+          "visual": "井上が発言・表示と手伝いを断る"
+        },
+        {
+          "seconds": 29.75,
+          "kind": "hard_cut",
+          "visual": "オレンジのカーディガンの女性が立ち尽くして困惑する"
+        },
+        {
+          "seconds": 31.25,
+          "kind": "hard_cut",
+          "visual": "井上が自席でパソコンに向かい、不満げな表情を浮かべる"
+        },
+        {
+          "seconds": 35.5,
+          "kind": "hard_cut",
+          "visual": "スーツ姿の斎藤が井上のデスクの前に立ちはだかる"
+        },
+        {
+          "seconds": 37.5,
+          "kind": "dissolve",
+          "visual": "斎藤が顔を寄せて屈み込み、低い声で威圧するクローズアップへ移行"
+        }
+      ],
+      "selected_beat_seconds_approx": {
+        "hook": 0.0,
+        "setup": 12.0,
+        "turn": 18.5,
+        "payoff": 35.5
+      },
+      "time_change": {
+        "used": false,
+        "seconds_approx": null,
+        "cue": ""
+      },
+      "additional_av_check_fps": 6,
+      "av_evidence": {
+        "visual": "whole_clip",
+        "audio": "heard",
+        "sample_fps": 4,
+        "times": "approximate",
+        "observation_sha256": "80c1b67852c8afa0a104162614336c78ea6adefebbf465acb0710abe84a27a7b"
+      }
+    },
+    {
+      "id": "lwfNHpMcIxY",
+      "shorts_url": "https://www.youtube.com/shorts/lwfNHpMcIxY",
+      "watch_url": "https://www.youtube.com/watch?v=lwfNHpMcIxY",
+      "title": "😍仕事中の年上上司、色気ありすぎて無理…♡ #ドラマ #ショート #shorts #BL",
+      "channel": "DramaSugar ドラマ【公式】",
+      "channel_id": "UCigJRxcoNXUKtepjUDzznnA",
+      "views": 21746,
+      "duration_seconds": 26.0,
+      "observed_at": "2026-11-08T21:35:25+09:00",
+      "number": 28,
+      "category": "職場・バイト",
+      "tag": "職場・見方の変化",
+      "story_summary": "現場で同僚の真摯な態度を見た人物が、最初の偏見に気づいて表情を和らげる。",
+      "edit_and_audio": "約19秒、発言した人の横顔から聞き手の笑顔へ。モノローグに対し、顔は短く静かに答える。",
+      "observed_shot_starts": [
+        {
+          "seconds": 0,
+          "kind": "initial",
+          "visual": "作業着の男性と茶色スーツの青年が向かい合って話すツーショット"
+        },
+        {
+          "seconds": 3.5,
+          "kind": "hard_cut",
+          "visual": "頭を下げて礼を言う青年のバストアップ"
+        },
+        {
+          "seconds": 6.5,
+          "kind": "hard_cut",
+          "visual": "硬い表情で聞いている黒スーツ・眼鏡の男性のミディアムショット"
+        },
+        {
+          "seconds": 11.5,
+          "kind": "hard_cut",
+          "visual": "思索する眼鏡の男性の顔のアップ"
+        },
+        {
+          "seconds": 18.25,
+          "kind": "hard_cut",
+          "visual": "青年の右横顔"
+        },
+        {
+          "seconds": 19.0,
+          "kind": "hard_cut",
+          "visual": "うつむいてから顔を上げ微笑む眼鏡の男性のアップ"
+        },
+        {
+          "seconds": 22.0,
+          "kind": "hard_cut",
+          "visual": "話す青年の横顔アップ"
+        },
+        {
+          "seconds": 23.75,
+          "kind": "hard_cut",
+          "visual": "穏やかに微笑む眼鏡の男性のアップ"
+        }
+      ],
+      "selected_beat_seconds_approx": {
+        "hook": 0.5,
+        "setup": 3.5,
+        "turn": 11.5,
+        "payoff": 19.0
+      },
+      "time_change": {
+        "used": false,
+        "seconds_approx": null,
+        "cue": ""
+      },
+      "av_evidence": {
+        "visual": "whole_clip",
+        "audio": "heard",
+        "sample_fps": 4,
+        "times": "approximate",
+        "observation_sha256": "2e33b90eeb4a30f3b36c336090c220c8a06f2c73b92435f61cdc42d4b719b009"
+      }
+    },
+    {
+      "id": "UjLrPZ8H5Zc",
+      "shorts_url": "https://www.youtube.com/shorts/UjLrPZ8H5Zc",
+      "watch_url": "https://www.youtube.com/watch?v=UjLrPZ8H5Zc",
+      "title": "末路】PART1 バイトリーダーも新人も同一賃金！本部の方針に振り回される支店長…#ショートドラマ #映画 #バイト #居酒屋　#つまみシネマ",
+      "channel": "つまみシネマ🎥",
+      "channel_id": "UCNIeMTxQoP1-2-aEbPCewrQ",
+      "views": 42384,
+      "duration_seconds": 40.0,
+      "observed_at": "2026-11-08T21:35:26+09:00",
+      "number": 29,
+      "category": "職場・バイト",
+      "tag": "職場・衝突の局所決着",
+      "story_summary": "同一賃金の通達で店長とバイトが対立し、責任を巡る応酬の末、バイトが立ち去る。",
+      "edit_and_audio": "約36秒、会話の寄りから引きへ。立ち去りと残された人の間で、この場面の決裂を見せる。",
+      "observed_shot_starts": [
+        {
+          "seconds": 0.0,
+          "kind": "initial",
+          "visual": "店内で店長とバイト2名が対面している引きのショット"
+        },
+        {
+          "seconds": 1.5,
+          "kind": "hard_cut",
+          "visual": "正面から話す店長のバストアップ"
+        },
+        {
+          "seconds": 3.0,
+          "kind": "hard_cut",
+          "visual": "腕を組んで聞くバイト2名のツーショット"
+        },
+        {
+          "seconds": 4.75,
+          "kind": "hard_cut",
+          "visual": "カウンター奥から説明を続ける店長"
+        },
+        {
+          "seconds": 6.5,
+          "kind": "hard_cut",
+          "visual": "腕組みをして不満げに目を閉じる女性バイトのアップ"
+        },
+        {
+          "seconds": 8.25,
+          "kind": "hard_cut",
+          "visual": "質問を投げかける眼鏡の男性バイトのアップ"
+        },
+        {
+          "seconds": 10.25,
+          "kind": "hard_cut",
+          "visual": "男性バイトの話を聞く店長"
+        },
+        {
+          "seconds": 12.25,
+          "kind": "hard_cut",
+          "visual": "バイト2人のツーショット"
+        },
+        {
+          "seconds": 14.0,
+          "kind": "hard_cut",
+          "visual": "発言・表示と苦笑いしながら弁明する店長"
+        },
+        {
+          "seconds": 15.75,
+          "kind": "hard_cut",
+          "visual": "発言・表示と問い返す男性バイトのアップ"
+        },
+        {
+          "seconds": 17.5,
+          "kind": "hard_cut",
+          "visual": "作業ペースを落とすと言い出す女性バイトのアップ"
+        },
+        {
+          "seconds": 18.75,
+          "kind": "hard_cut",
+          "visual": "バイト2人のツーショット"
+        },
+        {
+          "seconds": 20.0,
+          "kind": "hard_cut",
+          "visual": "3人が対面する引きのショット"
+        },
+        {
+          "seconds": 21.5,
+          "kind": "hard_cut",
+          "visual": "焦りながら笑う店長"
+        },
+        {
+          "seconds": 22.5,
+          "kind": "hard_cut",
+          "visual": "納得いかない表情の女性バイトのアップ"
+        },
+        {
+          "seconds": 23.75,
+          "kind": "hard_cut",
+          "visual": "無表情で見つめる男性バイトのアップ"
+        },
+        {
+          "seconds": 25.0,
+          "kind": "hard_cut",
+          "visual": "発言・表示と声を荒らげる店長"
+        },
+        {
+          "seconds": 26.0,
+          "kind": "hard_cut",
+          "visual": "3人が対面する引きのショット"
+        },
+        {
+          "seconds": 27.5,
+          "kind": "hard_cut",
+          "visual": "発言・表示と詰め寄る男性バイト"
+        },
+        {
+          "seconds": 29.0,
+          "kind": "hard_cut",
+          "visual": "言葉に詰まり視線を泳がせる店長"
+        },
+        {
+          "seconds": 30.5,
+          "kind": "hard_cut",
+          "visual": "発言・表示と呆れる男性バイト"
+        },
+        {
+          "seconds": 32.0,
+          "kind": "hard_cut",
+          "visual": "男性バイトを窘める女性バイトのアップ"
+        },
+        {
+          "seconds": 33.25,
+          "kind": "hard_cut",
+          "visual": "言い合うバイト2人のツーショット"
+        },
+        {
+          "seconds": 34.75,
+          "kind": "hard_cut",
+          "visual": "戸惑いながら見守る店長"
+        },
+        {
+          "seconds": 36.0,
+          "kind": "hard_cut",
+          "visual": "引きのショットで男性バイトが背を向けて立ち去る"
+        },
+        {
+          "seconds": 37.75,
+          "kind": "hard_cut",
+          "visual": "店長の肩越しに誰もいなくなったバーカウンターを捉えるアングル"
+        },
+        {
+          "seconds": 39.0,
+          "kind": "hard_cut",
+          "visual": "フロアに取り残されスマホを取り出す店長の引きのショット"
+        }
+      ],
+      "selected_beat_seconds_approx": {
+        "hook": 0.0,
+        "setup": 8.25,
+        "turn": 25.0,
+        "payoff": 36.0
+      },
+      "time_change": {
+        "used": false,
+        "seconds_approx": null,
+        "cue": ""
+      },
+      "av_evidence": {
+        "visual": "whole_clip",
+        "audio": "heard",
+        "sample_fps": 4,
+        "times": "approximate",
+        "observation_sha256": "d6916d5218323ff66561850a30d56edbdc79299c63684560d9f33cacc52a2443"
+      }
+    },
+    {
+      "id": "wuaqZpeBJWI",
+      "shorts_url": "https://www.youtube.com/shorts/wuaqZpeBJWI",
+      "watch_url": "https://www.youtube.com/watch?v=wuaqZpeBJWI",
+      "title": "トイレに行くのにも報連相しないとダメ！？ #shortdrama #drama #shorts #shortvideo #職場あるある#ショートドラマ",
+      "channel": "タケキン",
+      "channel_id": "UC5orOC1TUp1vys33DW_fisg",
+      "views": 31247,
+      "duration_seconds": 30.0,
+      "observed_at": "2026-11-08T21:35:24+09:00",
+      "number": 30,
+      "category": "職場・バイト",
+      "tag": "職場・切り返し",
+      "story_summary": "離席にまで細かな報告を求められた後輩が、その理屈を極端にした提案で返す。先輩が言葉を失う。",
+      "edit_and_audio": "約16〜17秒の声の圧から、約23秒の切り返しへ。約28秒は答える側から聞き手の顔へ切って終える。",
+      "observed_shot_starts": [
+        {
+          "seconds": 0.0,
+          "kind": "initial",
+          "visual": "スーツを着た黒髪女性のバストアップ正面ショット。"
+        },
+        {
+          "seconds": 2.75,
+          "kind": "hard_cut",
+          "visual": "PCデスクの前に座るオレンジシャツの女性と、後ろに立つ男性の構図。"
+        },
+        {
+          "seconds": 5.75,
+          "kind": "hard_cut",
+          "visual": "眼鏡をかけた男性が困惑しながら小声でツッコミを入れるミディアムアップ。"
+        },
+        {
+          "seconds": 7.75,
+          "kind": "hard_cut",
+          "visual": "不満げな表情を浮かべるスーツの女性のクロースアップ。"
+        },
+        {
+          "seconds": 8.5,
+          "kind": "hard_cut",
+          "visual": "デスク越しのツーショット。スーツの女性が立ち、座っている部下に小言を言う。"
+        },
+        {
+          "seconds": 11.0,
+          "kind": "hard_cut",
+          "visual": "手前にスーツの女性の後ろ姿、奥に笑顔で言い返すオレンジシャツの女性の構図。"
+        },
+        {
+          "seconds": 13.5,
+          "kind": "hard_cut",
+          "visual": "呆れて頭をかく眼鏡の男性のミディアムアップ。"
+        },
+        {
+          "seconds": 15.0,
+          "kind": "hard_cut",
+          "visual": "スーツの女性のクロースアップ。次第に怒りの表情に変わる。"
+        },
+        {
+          "seconds": 16.75,
+          "kind": "hard_cut",
+          "visual": "少し引いたアングルで、前のめりになって怒るスーツの女性のバストアップ。"
+        },
+        {
+          "seconds": 18.25,
+          "kind": "hard_cut",
+          "visual": "目を丸くして驚いた顔をするオレンジシャツの女性のアップ。"
+        },
+        {
+          "seconds": 20.25,
+          "kind": "hard_cut",
+          "visual": "手を振って当然だと主張するスーツの女性のアップ。"
+        },
+        {
+          "seconds": 23.5,
+          "kind": "hard_cut",
+          "visual": "満面の笑みでカメラ配信案を切り返すオレンジシャツの女性のアップ。"
+        },
+        {
+          "seconds": 28.75,
+          "kind": "hard_cut",
+          "visual": "予想外の返しに目を見開いて硬直するスーツ女性のクロースアップ。"
+        }
+      ],
+      "selected_beat_seconds_approx": {
+        "hook": 0.0,
+        "setup": 2.75,
+        "turn": 16.75,
+        "payoff": 23.5
+      },
+      "time_change": {
+        "used": false,
+        "seconds_approx": null,
+        "cue": ""
+      },
+      "additional_av_check_fps": 6,
+      "av_evidence": {
+        "visual": "whole_clip",
+        "audio": "heard",
+        "sample_fps": 4,
+        "times": "approximate",
+        "observation_sha256": "86e223404b677273d9483a52199675bcb0e57d9045de7266ed0832f8cdf99b9b"
+      }
+    }
+  ]
+}
