@@ -9,6 +9,8 @@ flowchart LR
     ParkourRoll --> ParkourEdit
     ParkourEdit --> ParkourQC[10秒の全デコードと隙間と前転の確認]
     ParkourQC --> ParkourReview[Driveレビューと記事用フレーム]
+    ParkourReview --> ParkourV04[二棟の見え方と跳び移りを改訂]
+    ParkourV04 --> ParkourReuse[確認済み前転の90フレームとAACを照合]
 ```
 
 基準画、比較生成、保存の詳細は[案件の構成図](productions/content-projects/CONTENT_20261112_parkour_pov_test/ARCHITECTURE_DIAGRAM.md)を参照する。

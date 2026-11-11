@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 5.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Photoreal steep aerial rooftop action. The camera composition stays locked between the two matching keyframes. Throughout the shot, the two roof edges and their metal caps remain in their exact starting locations, separated by the same continuous narrow open-air alley. Keep the left alley mouth and visible vertical wall the same shape and width throughout. Only the adult athlete and his shadow move. From the amber-jacketed running pose in Picture 1, he advances along the center of the foreground roof toward the cap. The approach is a few rhythmic forward strides, with natural arm movement and contact shadows. As he reaches the edge near the end of the take, his upper body and arms rise into the compact short forward hop. Converge to Picture 2 with both shoes airborne above the visible alley and the landing roof directly ahead. The two buildings, teal vent, skylight, stone seams, and sunset exposure are stable in every frame.
+
+overall_soundscape: Continuous light city wind, rhythmic running footfalls on the near roof, and a brief soft cloth-and-air sound at takeoff.
+
+non_diegetic_music: N/A

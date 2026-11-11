@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — <Picture 1> (from [Shot 1]) aligns with the 5.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Cinematic photoreal aerial action shot from a high, steep angle behind the same fictional adult athlete in amber and dark trousers. He is already running forward on the near gray concrete roof. Both neighboring roofs are almost level but separate. Maintain a clearly visible short band of open air across the runner's path, with each roof's metal cap and the edge of its own block visible. At the left end keep the corners separated and the narrow alley opening onto the sunlit pavement readable. The far roof has slate tiles, a white-framed skylight on the left, and a compact teal double-louver vent on the right. The athlete runs toward the near edge with the camera gently tracking the approach; the sides, buildings and alley stay rigid and recognizable as the camera advances. At the end he lifts into one compact forward hop above the open band, converging to the airborne position of Picture 1. Keep the framing steep enough that the roofs look close horizontally and the wall drops into the alley beneath them. One continuous shot and matching sunset light.
+
+overall_soundscape: Rooftop wind, a short sequence of shoes on concrete and fabric, and a brief lift into the air at the end.
+
+non_diegetic_music: N/A

@@ -32,3 +32,19 @@ flowchart LR
     Join --> Check[狭い隙間と逆さの屋上と復帰を確認]
     Check --> Output[レビューMP4と記事用フレーム]
 ```
+
+## 二棟の分離と前転の継承
+
+```mermaid
+flowchart LR
+    Anchors[助走と空中の俯瞰基準画] --> Aerial[屋上の配置を固定した俯瞰5秒]
+    Entry[路地が見える一人称始端] --> Cross[跳び移り20フレーム]
+    V03[v03の前転確認版] --> Cross
+    Aerial --> Prefix[前半150フレームの編集]
+    Cross --> Prefix
+    V03 --> Prefix
+    V03 --> Keep[6.25秒以降の映像とAACをコピー]
+    Prefix --> CheckV04[切り替え時刻と90フレームとAACを照合]
+    Keep --> CheckV04
+    CheckV04 --> ReviewV04[10秒レビューと記事用画像]
+```

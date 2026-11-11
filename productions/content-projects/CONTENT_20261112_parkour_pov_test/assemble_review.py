@@ -25,19 +25,23 @@ def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def shot_filters(index, frames):
-    if frames < SHOT_FRAMES:
-        raise ValueError("Expected at least 120 source frames for each five-second shot.")
+def sampled_video_filter(index, source_frames, output_frames, label):
+    if not 2 <= output_frames <= source_frames:
+        raise ValueError("Expected at least as many source frames as output frames.")
     # Sample from the first through the last frame, including both endpoints.
-    proportion = f"{SHOT_FRAMES - 1}/{frames - 1}"
+    proportion = f"{output_frames - 1}/{source_frames - 1}"
     selected = (
         f"select='if(eq(n,0),1,gt(floor(n*{proportion}),floor((n-1)*{proportion})))'"
     )
-    video = (
+    return (
         f"[{index}:v:0]{selected},setpts=N/({FPS}*TB),"
         "scale=1080:1920:force_original_aspect_ratio=increase:flags=lanczos,"
-        f"crop=1080:1920,setsar=1,format=yuv420p[v{index}]"
+        f"crop=1080:1920,setsar=1,format=yuv420p[{label}]"
     )
+
+
+def shot_filters(index, frames):
+    video = sampled_video_filter(index, frames, SHOT_FRAMES, f"v{index}")
     audio = (
         f"[{index}:a:0]aresample=48000,atempo={frames / SHOT_FRAMES:.8f},"
         "aformat=channel_layouts=stereo,apad,atrim=duration=5.06,asetpts=PTS-STARTPTS"

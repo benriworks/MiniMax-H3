@@ -1,0 +1,278 @@
+{
+  "date": "2026-11-12",
+  "version": "v04-review",
+  "approved_scope": "v03-review forward roll",
+  "toolchain": {
+    "python": "3.12.2",
+    "ffmpeg": "8.1.2-full_build-www.gyan.dev"
+  },
+  "reference_images": [
+    {
+      "path": "plates/v04/comparison/overhead-wide.png",
+      "bytes": 2567406,
+      "sha256": "d37e719b2aed4fd8b84ad891be46d62b7f9f5f013ad64867ce5c223e3ffdb44a"
+    },
+    {
+      "path": "plates/v04/comparison/pov-wide.png",
+      "bytes": 2359106,
+      "sha256": "57d9d9826f1d23004073421089f34d190e875442fbc2be9d4d987db2794e08f2"
+    },
+    {
+      "path": "plates/v04/inputs/overhead-end.png",
+      "bytes": 2920537,
+      "sha256": "69223a4d6c9bb45baaa8af74113b16b398a25c5d5eec706653089aa03562bc28"
+    },
+    {
+      "path": "plates/v04/inputs/overhead-start.png",
+      "bytes": 2693678,
+      "sha256": "4d10aea2843eb352cfaed9d2ca86d5fe049a65524e1657a3bd44e126c9e98433"
+    },
+    {
+      "path": "plates/v04/inputs/pov-end-approved.png",
+      "bytes": 862018,
+      "sha256": "f1126bf3e0cbcc43855f50bd09e92bc2e45b9645627d98903f101875b6a54e6c"
+    },
+    {
+      "path": "plates/v04/inputs/pov-start.png",
+      "bytes": 2875428,
+      "sha256": "f570c5568a8b49a97152b2bb4c00dd890db1478391156f5f0601a43ee1062b63"
+    },
+    {
+      "path": "plates/v04/originals/overhead-end.png",
+      "bytes": 2480076,
+      "sha256": "b2a6c7267b9cef8b12cc8acc21ef03e22fdfe53298798cb04342d755bce2acf0"
+    },
+    {
+      "path": "plates/v04/originals/overhead-start.png",
+      "bytes": 2278288,
+      "sha256": "6d8293358aebfb425bfe5f88344dd20702ed37e2d826bca78d2a5a87ce853483"
+    },
+    {
+      "path": "plates/v04/originals/pov-start.png",
+      "bytes": 2400365,
+      "sha256": "4c9645539fe94af7a7d974a3380e65babd4b2a66b28219e30bf9145ba42f6a6d"
+    }
+  ],
+  "generation": [
+    {
+      "path": "shots/v04/01-overhead/source.mp4",
+      "state": "saved",
+      "model": "MiniMax-H3",
+      "seconds": 5,
+      "resolution": "768P",
+      "ratio": "adaptive",
+      "prompt": "01-overhead-open-alley-l2va.txt",
+      "references": [
+        {
+          "role": "last_frame",
+          "image": "overhead-end.png",
+          "sha256": "69223a4d6c9bb45baaa8af74113b16b398a25c5d5eec706653089aa03562bc28"
+        }
+      ],
+      "provider_seconds": 142,
+      "observation_seconds": 157.068,
+      "usage": {
+        "completion_tokens": 162745,
+        "input_image_count": 1,
+        "input_seconds": 0,
+        "output_seconds": 5,
+        "prompt_tokens": 13020,
+        "total_seconds": 5,
+        "total_tokens": 175765
+      },
+      "bytes": 1592272,
+      "output_sha256": "99394ce928df1c012d504a28f694758d1f827b54029515018e845580ea643ec2",
+      "used_in_review": false
+    },
+    {
+      "path": "shots/v04/02-pov-crossing/source.mp4",
+      "state": "saved",
+      "model": "MiniMax-H3",
+      "seconds": 4,
+      "resolution": "768P",
+      "ratio": "adaptive",
+      "prompt": "02-pov-open-alley-fl2va.txt",
+      "references": [
+        {
+          "role": "first_frame",
+          "image": "pov-start.png",
+          "sha256": "f570c5568a8b49a97152b2bb4c00dd890db1478391156f5f0601a43ee1062b63"
+        },
+        {
+          "role": "last_frame",
+          "image": "pov-end-approved.png",
+          "sha256": "f1126bf3e0cbcc43855f50bd09e92bc2e45b9645627d98903f101875b6a54e6c"
+        }
+      ],
+      "provider_seconds": 132,
+      "observation_seconds": 143.938,
+      "usage": {
+        "completion_tokens": 130196,
+        "input_image_count": 2,
+        "input_seconds": 0,
+        "output_seconds": 4,
+        "prompt_tokens": 26040,
+        "total_seconds": 4,
+        "total_tokens": 156236
+      },
+      "bytes": 1685818,
+      "output_sha256": "6fa1ef49a61fb6b8f2f49981e6439ee7eec8d947fadbde50d8d1b3f751b6ceff",
+      "used_in_review": true
+    },
+    {
+      "path": "shots/v04/01-overhead-locked/source.mp4",
+      "state": "saved",
+      "model": "MiniMax-H3",
+      "seconds": 5,
+      "resolution": "768P",
+      "ratio": "adaptive",
+      "prompt": "01-overhead-open-alley-fl2va.txt",
+      "references": [
+        {
+          "role": "first_frame",
+          "image": "overhead-start.png",
+          "sha256": "4d10aea2843eb352cfaed9d2ca86d5fe049a65524e1657a3bd44e126c9e98433"
+        },
+        {
+          "role": "last_frame",
+          "image": "overhead-end.png",
+          "sha256": "69223a4d6c9bb45baaa8af74113b16b398a25c5d5eec706653089aa03562bc28"
+        }
+      ],
+      "provider_seconds": 117,
+      "observation_seconds": 131.235,
+      "usage": {
+        "completion_tokens": 162745,
+        "input_image_count": 2,
+        "input_seconds": 0,
+        "output_seconds": 5,
+        "prompt_tokens": 26040,
+        "total_seconds": 5,
+        "total_tokens": 188785
+      },
+      "bytes": 849785,
+      "output_sha256": "16ebf819b24bec6fa7cd0ee85165089ba1c14744bd098d608848a6679c3cefe3",
+      "used_in_review": true
+    }
+  ],
+  "h3_output_seconds": 14,
+  "review": {
+    "path": "review/v04-review/rooftop-parkour-pov-test-v04-review.mp4",
+    "bytes": 10863250,
+    "sha256": "f6fd770e9f792c5825e552ff5c09bb5a844b02ae3e7d7a86f0f7ad212eae84b3",
+    "duration_seconds": 10,
+    "cut_at_seconds": 5,
+    "frames": 240,
+    "fps": 24,
+    "width": 1080,
+    "height": 1920,
+    "video": "h264",
+    "audio": "aac stereo 48000 Hz",
+    "decode": "passed",
+    "sources": {
+      "overhead": {
+        "path": "shots/v04/01-overhead-locked/source.mp4",
+        "sha256": "16ebf819b24bec6fa7cd0ee85165089ba1c14744bd098d608848a6679c3cefe3",
+        "frames": 124
+      },
+      "crossing": {
+        "path": "shots/v04/02-pov-crossing/source.mp4",
+        "sha256": "6fa1ef49a61fb6b8f2f49981e6439ee7eec8d947fadbde50d8d1b3f751b6ceff",
+        "frames": 107
+      },
+      "reviewed_v03": {
+        "path": "review/v03-review/rooftop-parkour-pov-test-v03-review.mp4",
+        "sha256": "a09fc411e5b6a4560e26ef2f04976c0721904f3284e9128c2f7779af42ed59aa"
+      }
+    },
+    "new_crossing_frames": 20,
+    "cut_to_old_approach_frame": 140,
+    "reviewed_tail_first_frame": 150,
+    "matching_tail_frames": 90,
+    "reviewed_tail_frame_hashes_sha256": "5353d5768f3cb6cce3d276e6350b1eb392e22255536bffd2cc7a9dc44a7ca75c",
+    "original_aac_sha256": "4524670cae2f7e6708e990d4887527c0a1025d657b8998a0390d41e444cc4f9d"
+  },
+  "checked_frames": {
+    "roof_edges_and_alley": [
+      0,
+      34,
+      68,
+      100,
+      119
+    ],
+    "crossing_start": 120,
+    "crossing_last": 139,
+    "join": 140,
+    "contact": 151,
+    "roll": 162,
+    "recovery": 193
+  },
+  "reproduction": {
+    "review_matches": true,
+    "prior_v03_assembly_matches": true,
+    "additional_api_requests": 0
+  },
+  "drive": {
+    "parent_name": "動画・ブログ制作レビュー",
+    "bytes": 10863250,
+    "mime_type": "video/mp4",
+    "owner_readback": true,
+    "public": false,
+    "phone_playback_verified": false
+  },
+  "article_assets": {
+    "root": "blog-handoff/v04-review",
+    "files": [
+      {
+        "path": "assets/01-two-roofs-and-alley.jpg",
+        "frame": 0,
+        "time_seconds": 0,
+        "source_sha256": "f6fd770e9f792c5825e552ff5c09bb5a844b02ae3e7d7a86f0f7ad212eae84b3",
+        "width": 1080,
+        "height": 1920,
+        "bytes": 221469,
+        "sha256": "5d5064864555abfd507f9661f9ac4100c1596740ce7d589cbbfffd550ec7fb78"
+      },
+      {
+        "path": "assets/02-takeoff.jpg",
+        "frame": 119,
+        "time_seconds": 4.958333,
+        "source_sha256": "f6fd770e9f792c5825e552ff5c09bb5a844b02ae3e7d7a86f0f7ad212eae84b3",
+        "width": 1080,
+        "height": 1920,
+        "bytes": 280556,
+        "sha256": "aedb314149c19af89e748e11c47b54642eadaba21cd3b95bd9d7c0bd25d86fab"
+      },
+      {
+        "path": "assets/03-pov-crossing.jpg",
+        "frame": 120,
+        "time_seconds": 5,
+        "source_sha256": "f6fd770e9f792c5825e552ff5c09bb5a844b02ae3e7d7a86f0f7ad212eae84b3",
+        "width": 1080,
+        "height": 1920,
+        "bytes": 263324,
+        "sha256": "56275332822194473e364ff1aeeb05fc82ba7460e20834f92b701e3cc9d10f83"
+      },
+      {
+        "path": "assets/04-pov-contact.jpg",
+        "frame": 151,
+        "time_seconds": 6.291667,
+        "source_sha256": "f6fd770e9f792c5825e552ff5c09bb5a844b02ae3e7d7a86f0f7ad212eae84b3",
+        "width": 1080,
+        "height": 1920,
+        "bytes": 120899,
+        "sha256": "01edb1af21c9630cdf055f51d91fb117acf07d270eb87f5adbefcdcda115e222"
+      },
+      {
+        "path": "assets/05-pov-roll.jpg",
+        "frame": 162,
+        "time_seconds": 6.75,
+        "source_sha256": "f6fd770e9f792c5825e552ff5c09bb5a844b02ae3e7d7a86f0f7ad212eae84b3",
+        "width": 1080,
+        "height": 1920,
+        "bytes": 118524,
+        "sha256": "3d3bea5b3b9625b9a8f2d2e29d8eede6e6d68054387899392b31ab1a0e0ec69a"
+      }
+    ]
+  }
+}

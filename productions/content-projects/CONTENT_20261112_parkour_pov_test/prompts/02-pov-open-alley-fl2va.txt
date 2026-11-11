@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 4.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Continuous photoreal first-person action camera from a fictional adult athlete, already airborne and heading forward at the start. Begin exactly at Picture 1: the departing cap below, a short but clearly open air gap and the separate receiving building's shaded upper wall, with the white skylight ahead left and teal vent ahead right. The foreground edge slips behind and the opposing roof lip rises quickly in perspective then passes underneath. Continue the same uninterrupted forward motion toward the slate surface. Gradually dip the camera and develop the natural amber sleeve and dark shoes visible in Picture 2. Converge exactly to Picture 2's downward approach view, same relative prop placement and same camera orientation, with the skyline moving outside the top of the frame. Keep the two buildings separate as the view moves. A clear single short traversal with no pause, orbit, viewpoint change or second jump.
+
+overall_soundscape: A brief soft rush of outdoor air and fabric in the opening, then rooftop ambience approaching the surface.
+
+non_diegetic_music: N/A
