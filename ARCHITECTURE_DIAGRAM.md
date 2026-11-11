@@ -4,8 +4,10 @@
 
 ```mermaid
 flowchart LR
-    ParkourH3[俯瞰と一人称のH3原本] --> ParkourEdit[各120フレームを連結]
-    ParkourEdit --> ParkourQC[10秒の全デコードと視点切り替えの確認]
+    ParkourH3[俯瞰と一人称のH3原本] --> ParkourRoll[一人称の前転カメラを合成]
+    ParkourH3 --> ParkourEdit[各120フレームを連結]
+    ParkourRoll --> ParkourEdit
+    ParkourEdit --> ParkourQC[10秒の全デコードと隙間と前転の確認]
     ParkourQC --> ParkourReview[Driveレビューと記事用フレーム]
 ```
 

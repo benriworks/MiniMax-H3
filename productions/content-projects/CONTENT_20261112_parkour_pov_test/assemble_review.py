@@ -50,7 +50,7 @@ def shot_filters(index, frames):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("media_root", type=Path)
-    parser.add_argument("--pov-revision", choices=("v01", "v02"), default="v01")
+    parser.add_argument("--pov-revision", choices=("v01", "v02", "v03"), default="v01")
     parser.add_argument("--version", default="v01")
     args = parser.parse_args()
     if not re.fullmatch(r"v\d{2}(?:-[a-z0-9-]+)?", args.version):
@@ -59,23 +59,29 @@ def main():
     inputs = []
     filters = []
     shot_records = []
-    shots = (("01-overhead", "v01"), ("02-pov", args.pov_revision))
-    for index, (name, revision) in enumerate(shots):
-        relative_folder = Path("shots") / revision / name
+    if args.pov_revision == "v03":
+        shot_folders = ("v03/01-overhead", "v03/02-pov-roll-review")
+    else:
+        shot_folders = ("v01/01-overhead", f"{args.pov_revision}/02-pov")
+    for index, shot_folder in enumerate(shot_folders):
+        relative_folder = Path("shots") / shot_folder
         folder = args.media_root / relative_folder
         source = folder / "source.mp4"
-        receipt = json.loads((folder / "generation.json").read_text(encoding="utf-8"))
-        if receipt["state"] != "saved" or digest(source) != receipt["output_sha256"]:
-            raise ValueError(f"{name} does not match its saved generation record.")
+        edited = index == 1 and args.pov_revision == "v03"
+        ledger = "derivation.json" if edited else "generation.json"
+        receipt = json.loads((folder / ledger).read_text(encoding="utf-8"))
+        expected_state = "rendered" if edited else "saved"
+        if receipt["state"] != expected_state or digest(source) != receipt["output_sha256"]:
+            raise ValueError(f"{shot_folder} does not match its saved input record.")
         probe = ffprobe(source)
         video = next(stream for stream in probe["streams"] if stream["codec_type"] == "video")
         if video["avg_frame_rate"] != "24/1":
-            raise ValueError(f"Expected 24 fps for {name}.")
+            raise ValueError(f"Expected 24 fps for {shot_folder}.")
         frames = int(video["nb_frames"])
         inputs.extend(("-i", str(source)))
         filters.extend(shot_filters(index, frames))
         shot_records.append({
-            "name": name, "source": (relative_folder / "source.mp4").as_posix(),
+            "name": folder.name, "source": (relative_folder / "source.mp4").as_posix(),
             "sha256": receipt["output_sha256"],
             "size": int(probe["format"]["size"]), "source_duration": probe["format"]["duration"],
             "source_frames": frames, "used_source_bounds_inclusive": [0, frames - 1],

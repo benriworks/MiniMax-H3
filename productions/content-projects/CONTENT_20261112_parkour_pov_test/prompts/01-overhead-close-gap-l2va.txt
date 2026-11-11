@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — <Picture 1> (from [Shot 1]) aligns with the 5.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] A single photoreal elevated tracking shot, steeply downward from behind a fictional adult athlete in an amber windbreaker and dark pants. At the opening the athlete runs up the center of the near slate roof, several strides back from its edge. The camera reveals the two adjacent same-height roof decks, with two narrow straight silver coping edges on either side of the same slim dark slot across the frame. The slot stays narrow and the two roof planes stay level for the entire five seconds. Keep both edges visible and keep the short gap centered ahead of the runner. Fixed white-framed skylight on the far roof's left, small teal double-louver vent on the right, warm light from screen left. Track forward gently and maintain a very steep view of the two roof surfaces. A few natural quick footsteps carry the runner to the close edge. In the last half second he makes a short controlled forward hop, and the final instant is the natural midair pose shown in Picture 1, with a visible shadow on the near deck, both feet off the surface and the far roof directly ahead. Keep the direction, scenery, and body proportions consistent through the take.
+
+overall_soundscape: Light outdoor wind, steady cloth movement and natural running footfalls on the near roof, a small takeoff sound near the end, then a soft rush of air.
+
+non_diegetic_music: N/A

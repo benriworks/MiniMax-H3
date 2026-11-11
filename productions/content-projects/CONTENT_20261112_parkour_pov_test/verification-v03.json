@@ -1,0 +1,257 @@
+{
+  "date": "2026-11-12",
+  "version": "v03-review",
+  "toolchain": {
+    "python": "3.12.2",
+    "ffmpeg": "8.1.2-full_build-www.gyan.dev",
+    "opencv": "4.11.0",
+    "numpy": "1.26.4"
+  },
+  "reference_images": [
+    {
+      "path": "plates/v03/originals/overhead-end.png",
+      "bytes": 2644385,
+      "sha256": "ea9538f7b072d6746cf6fb1070d1a8148a31b562c6459ee6debb856af6eb4e6b"
+    },
+    {
+      "path": "plates/v03/originals/pov-start.png",
+      "bytes": 2642321,
+      "sha256": "3af82686fa75ad3ca98345badb707fe27b530680104e72dfbd0fc5b40364c99d"
+    },
+    {
+      "path": "plates/v03/inputs/overhead-end.png",
+      "bytes": 3088618,
+      "sha256": "8c81e5bcee35915788fc61e23426755132b36ec860918adc9df9cdee04b29357"
+    },
+    {
+      "path": "plates/v03/inputs/pov-start.png",
+      "bytes": 3122821,
+      "sha256": "1088d4f8a6c9c370a1c7ae3f89a7a3ddc6199c7ac9620b82d921e4469c51ddbf"
+    }
+  ],
+  "generation": [
+    {
+      "path": "shots/v03/01-overhead/source.mp4",
+      "state": "saved",
+      "model": "MiniMax-H3",
+      "seconds": 5,
+      "resolution": "768P",
+      "ratio": "adaptive",
+      "prompt": "01-overhead-close-gap-l2va.txt",
+      "image_role": "last_frame",
+      "input_image": "overhead-end.png",
+      "input_sha256": "8c81e5bcee35915788fc61e23426755132b36ec860918adc9df9cdee04b29357",
+      "provider_seconds": 156,
+      "observation_seconds": 170.413,
+      "usage": {
+        "completion_tokens": 162745,
+        "input_image_count": 1,
+        "input_seconds": 0,
+        "output_seconds": 5,
+        "prompt_tokens": 13020,
+        "total_seconds": 5,
+        "total_tokens": 175765
+      },
+      "bytes": 1659663,
+      "output_sha256": "4a876fc7c507b4a2251fb411b9b20e6a9908dfc980866f2c821550f729546335"
+    },
+    {
+      "path": "shots/v03/02-pov/source.mp4",
+      "state": "saved",
+      "model": "MiniMax-H3",
+      "seconds": 5,
+      "resolution": "768P",
+      "ratio": "adaptive",
+      "prompt": "02-pov-close-gap-i2va.txt",
+      "image_role": "first_frame",
+      "input_image": "pov-start.png",
+      "input_sha256": "1088d4f8a6c9c370a1c7ae3f89a7a3ddc6199c7ac9620b82d921e4469c51ddbf",
+      "provider_seconds": 143,
+      "observation_seconds": 154.592,
+      "usage": {
+        "completion_tokens": 162745,
+        "input_image_count": 1,
+        "input_seconds": 0,
+        "output_seconds": 5,
+        "prompt_tokens": 13020,
+        "total_seconds": 5,
+        "total_tokens": 175765
+      },
+      "bytes": 2213137,
+      "output_sha256": "33427108b7db0e2b24291ad1b4cbe95e9ad6df5c21359bd30bd026582cd28828"
+    }
+  ],
+  "h3_cost_estimate": {
+    "usd": 0.8,
+    "output_seconds": 10,
+    "usd_per_second": 0.08,
+    "actual_debit_verified": false,
+    "pricing": "https://platform.minimax.io/docs/pricing/overview"
+  },
+  "projection": {
+    "path": "shots/v03/02-pov-roll-review/source.mp4",
+    "source_start_frame": 12,
+    "source_entry_frame": 56,
+    "source_resume_frame": 78,
+    "approach_frames": 32,
+    "pitch_frames": 22,
+    "entry_pitch_degrees": 75,
+    "resume_pitch_degrees": 20,
+    "state": "rendered",
+    "output_sha256": "b4fd6b865e066198f20497095c90c76ffbf4df531bef42575948bb300612eea4",
+    "bytes": 4007545,
+    "source_sha256": "33427108b7db0e2b24291ad1b4cbe95e9ad6df5c21359bd30bd026582cd28828",
+    "projection_plate_sha256": "1088d4f8a6c9c370a1c7ae3f89a7a3ddc6199c7ac9620b82d921e4469c51ddbf",
+    "pitch_by_insert_frame_degrees": [
+      85,
+      95,
+      105,
+      115,
+      125.348,
+      136.217,
+      147.087,
+      157.957,
+      168.826,
+      177.029,
+      184.565,
+      192.101,
+      202.833,
+      219.5,
+      236.167,
+      252.833,
+      269.5,
+      286.167,
+      304.638,
+      323.478,
+      342.319,
+      361.159
+    ],
+    "frames": 120,
+    "duration_seconds": 5
+  },
+  "review": {
+    "path": "review/v03-review/rooftop-parkour-pov-test-v03-review.mp4",
+    "bytes": 14245607,
+    "sha256": "a09fc411e5b6a4560e26ef2f04976c0721904f3284e9128c2f7779af42ed59aa",
+    "duration_seconds": 10,
+    "cut_at_seconds": 5,
+    "frames": 240,
+    "fps": 24,
+    "width": 1080,
+    "height": 1920,
+    "video": "h264",
+    "audio": "aac stereo 48000 Hz",
+    "integrated_lufs": -18.8,
+    "true_peak_dbtp": -1,
+    "decode": "passed",
+    "shots": [
+      {
+        "name": "01-overhead",
+        "source": "shots/v03/01-overhead/source.mp4",
+        "sha256": "4a876fc7c507b4a2251fb411b9b20e6a9908dfc980866f2c821550f729546335",
+        "size": 1659663,
+        "source_duration": "5.167000",
+        "source_frames": 124,
+        "used_source_bounds_inclusive": [
+          0,
+          123
+        ],
+        "edit_start_frame": 0,
+        "edit_frames": 120
+      },
+      {
+        "name": "02-pov-roll-review",
+        "source": "shots/v03/02-pov-roll-review/source.mp4",
+        "sha256": "b4fd6b865e066198f20497095c90c76ffbf4df531bef42575948bb300612eea4",
+        "size": 4007545,
+        "source_duration": "5.000000",
+        "source_frames": 120,
+        "used_source_bounds_inclusive": [
+          0,
+          119
+        ],
+        "edit_start_frame": 120,
+        "edit_frames": 120
+      }
+    ]
+  },
+  "checked_frames": {
+    "gap_approach": 0,
+    "gap_takeoff": 119,
+    "pov_starts": 120,
+    "hands_contact": 151,
+    "inverted_roofline": 162,
+    "recovery_starts": 174,
+    "settled_horizon": 193,
+    "end": 239
+  },
+  "reproduction": {
+    "projection_matches": true,
+    "review_matches": true,
+    "original_v01_review_matches": true,
+    "additional_api_requests": 0
+  },
+  "drive": {
+    "parent_name": "動画・ブログ制作レビュー",
+    "bytes": 14245607,
+    "mime_type": "video/mp4",
+    "owner_readback": true,
+    "public": false,
+    "phone_playback_verified": false
+  },
+  "article_assets": {
+    "root": "blog-handoff/v03-review",
+    "files": [
+      {
+        "path": "assets/01-overhead-short-gap.jpg",
+        "frame": 119,
+        "time_seconds": 4.958333,
+        "source_sha256": "a09fc411e5b6a4560e26ef2f04976c0721904f3284e9128c2f7779af42ed59aa",
+        "width": 1080,
+        "height": 1920,
+        "bytes": 245814,
+        "sha256": "f0b912002832cfe93843f96c6c1596e5a9ad7e91b5cfc98d4817f65775938993"
+      },
+      {
+        "path": "assets/02-pov-crossing.jpg",
+        "frame": 120,
+        "time_seconds": 5,
+        "source_sha256": "a09fc411e5b6a4560e26ef2f04976c0721904f3284e9128c2f7779af42ed59aa",
+        "width": 1080,
+        "height": 1920,
+        "bytes": 268316,
+        "sha256": "54539882d115405487f9f1ee2d653055b30c589bb61512b8a07a45098a0dd1cc"
+      },
+      {
+        "path": "assets/03-pov-ground-contact.jpg",
+        "frame": 151,
+        "time_seconds": 6.291667,
+        "source_sha256": "a09fc411e5b6a4560e26ef2f04976c0721904f3284e9128c2f7779af42ed59aa",
+        "width": 1080,
+        "height": 1920,
+        "bytes": 120899,
+        "sha256": "01edb1af21c9630cdf055f51d91fb117acf07d270eb87f5adbefcdcda115e222"
+      },
+      {
+        "path": "assets/04-pov-inverted-roofline.jpg",
+        "frame": 162,
+        "time_seconds": 6.75,
+        "source_sha256": "a09fc411e5b6a4560e26ef2f04976c0721904f3284e9128c2f7779af42ed59aa",
+        "width": 1080,
+        "height": 1920,
+        "bytes": 118524,
+        "sha256": "3d3bea5b3b9625b9a8f2d2e29d8eede6e6d68054387899392b31ab1a0e0ec69a"
+      },
+      {
+        "path": "assets/05-pov-recovery.jpg",
+        "frame": 193,
+        "time_seconds": 8.041667,
+        "source_sha256": "a09fc411e5b6a4560e26ef2f04976c0721904f3284e9128c2f7779af42ed59aa",
+        "width": 1080,
+        "height": 1920,
+        "bytes": 132345,
+        "sha256": "569c27974af057a0698393915be4424f82fd543ee44b7e517ffc021605d20acc"
+      }
+    ]
+  }
+}

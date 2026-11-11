@@ -16,3 +16,19 @@ flowchart LR
 ```
 
 処理の詳細は[設計本文](ARCHITECTURE.md)を参照する。
+
+## 狭い屋上と前転の改訂
+
+```mermaid
+flowchart LR
+    Air[狭い隙間を描いた俯瞰終端] --> L2VA[H3の終端参照]
+    P0[同じ屋上の一人称始端] --> I2VA[H3の始端参照]
+    P0 --> Texture[屋上面と空の投影素材]
+    I2VA --> Anchors[接地と起き上がりのフレーム]
+    Anchors --> Roll[前方向のピッチと環境音を合成]
+    Texture --> Roll
+    L2VA --> Join[俯瞰5秒と一人称5秒を接続]
+    Roll --> Join
+    Join --> Check[狭い隙間と逆さの屋上と復帰を確認]
+    Check --> Output[レビューMP4と記事用フレーム]
+```

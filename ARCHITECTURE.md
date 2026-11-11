@@ -4,6 +4,8 @@
 
 屋上パルクールの案件CLIは、MiniMax H3の俯瞰と一人称の生成原本・受領記録を照合し、各120フレームを5秒地点でつなぐ。環境音の境界を重ね、10秒の縦型MP4と検証記録を別版へ保存する。生成、再編集、フレーム確認、Driveレビューは案件内の設計に記す。[設計本文](productions/content-projects/CONTENT_20261112_parkour_pov_test/ARCHITECTURE.md)／[構成図](productions/content-projects/CONTENT_20261112_parkour_pov_test/ARCHITECTURE_DIAGRAM.md)
 
+改訂ではL2VAとI2VAの入力を新しい屋上へ差し替え、一人称の接地と復帰の間を、元の屋上を基にした投影と前向きのピッチ回転で接続する。案件CLIは編集受領と元の生成受領を使って10秒のレビューを再構成する。
+
 ## 退社発表の調査とショートの制作（2026-11-04）
 
 `productions/content-projects/CONTENT_20261104_anthropic_departures/`は本人3投稿、会社公式の役割説明、取材報道を区別し、実ブラウザの撮影原本から明示座標の短い引用を作る。構成採用後、共通Gemini6台詞、Canvas・文節字幕・男女の顔合わせ、既存MiniMax2動作、既定BGMを再利用して45.75秒の縦動画を制作した。人物ごとの字幕節と実音声の話題時刻を使い、全字幕12状態・音量・全decode・実AV補助確認、記事v02と6公開画像のhash包装、共通CLI登録、Drive保存読戻しを分離する。ブラウザ制御がWork設定で無効のため動画再生は未確認。原本・媒体・共有受領をignoredのoutputsへ、文書と処理をGitへ分ける。旧モデル競争動画は変更しない。独立設計とMermaid図は同案件内。

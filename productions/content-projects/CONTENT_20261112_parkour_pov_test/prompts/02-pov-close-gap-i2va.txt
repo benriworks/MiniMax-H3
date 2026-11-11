@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] One continuous cinematic first-person live-action view from a fictional adult athlete. Begin at Picture 1 with momentum already moving forward across a very short dark seam between two same-height gray concrete roof decks. The thin silver near and far edges sweep quickly below the frame. Land on the broad receiving roof within the first second. Amber jacket cuffs are visible at the lower corners as the camera briefly dips forward toward the concrete. Hands pass close to the ground in the foreground, then the viewpoint continues its forward movement close to the surface through a compact, clearly forward tumbling landing, with a quick natural arc of pitch and motion blur. By about 3.0 seconds the viewpoint rises and is level again and then makes one or two light forward steps, settling clearly on the same roof. Keep the white-framed skylight to the left and teal double-louver vent to the right; both are recognizable when in the field of view. Stable sunset light, realistic ground detail, straight roof geometry, no external view of the actor. The last part is a steady forward view down the center of the receiving roof with the golden skyline ahead.
+
+overall_soundscape: A short rushing wind sound across the slot, a distinct low brief touchdown, close fabric on concrete during the landing, then short footfalls and warm steady outdoor ambience.
+
+non_diegetic_music: N/A

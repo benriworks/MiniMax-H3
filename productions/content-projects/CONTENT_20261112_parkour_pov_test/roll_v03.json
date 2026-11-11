@@ -1,0 +1,9 @@
+{
+  "source_start_frame": 12,
+  "source_entry_frame": 56,
+  "source_resume_frame": 78,
+  "approach_frames": 32,
+  "pitch_frames": 22,
+  "entry_pitch_degrees": 75,
+  "resume_pitch_degrees": 20
+}
