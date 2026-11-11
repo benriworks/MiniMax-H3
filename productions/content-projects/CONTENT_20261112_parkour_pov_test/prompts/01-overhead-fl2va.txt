@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 5.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] One continuous cinematic fictional rooftop action shot. Begin from Picture 1, from a high drone steeply angled down, behind the single adult in an amber windbreaker and dark trousers. The athlete runs away toward the center of the receiving roof. The camera smoothly tracks forward a short distance while remaining high, keeping the figure, both roof edges, and the open gap visible. The athlete's pace builds across the slate surface. The skylight stays left and the two-louver teal vent stays right on the separate roof ahead, with consistent distance and late-afternoon light. The athlete clears the near roof lip at the end of the shot, with a clean, athletic silhouette directed toward the center of the next roof. Finish still in the air, just beyond the near edge, at the composition of Picture 2, ready to cut to the runner's eyes. Natural continuous motion and anatomy, with the same buildings and outfit throughout.
+
+overall_soundscape: The soft steady rooftop wind, quick shoe impacts on concrete and the brief flutter of the jacket as the running impacts give way to air at takeoff.
+
+non_diegetic_music: N/A

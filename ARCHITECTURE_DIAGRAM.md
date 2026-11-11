@@ -1,5 +1,16 @@
 # Architecture diagram
 
+## 俯瞰と一人称をつなぐ映像テスト（2026-11-12）
+
+```mermaid
+flowchart LR
+    ParkourH3[俯瞰と一人称のH3原本] --> ParkourEdit[各120フレームを連結]
+    ParkourEdit --> ParkourQC[10秒の全デコードと視点切り替えの確認]
+    ParkourQC --> ParkourReview[Driveレビューと記事用フレーム]
+```
+
+基準画、比較生成、保存の詳細は[案件の構成図](productions/content-projects/CONTENT_20261112_parkour_pov_test/ARCHITECTURE_DIAGRAM.md)を参照する。
+
 ## 公開解説20チャンネルの比較と文書への適用
 
 ```mermaid

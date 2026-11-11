@@ -1,0 +1,263 @@
+{
+  "date": "2026-11-12",
+  "selected_version": "v01",
+  "title": "【映像テスト】屋上パルクール｜俯瞰から一人称へ",
+  "toolchain": {
+    "python": "3.12.2",
+    "ffmpeg": "8.1.2-full_build-www.gyan.dev",
+    "h3_helper_commit": "b8383ed109a20ae6ec08272de0f00e7a9342adc9"
+  },
+  "reference_images": [
+    {
+      "path": "plates/v01/inputs/overhead-end.png",
+      "bytes": 2593349,
+      "sha256": "1da02faf7605f53bb824be80592729bc4352bd2c8d01f8b0fcb000ed31b7776a"
+    },
+    {
+      "path": "plates/v01/inputs/overhead-start.png",
+      "bytes": 2723780,
+      "sha256": "17cf30daa50a25413a971f1fb0d49f3b680f8669e1b918971cd3cfcb9651829c"
+    },
+    {
+      "path": "plates/v01/inputs/pov-start.png",
+      "bytes": 2584995,
+      "sha256": "d03d1b045320def2aa312e1fdbbe9d14d5ee132c3ade0a5c0b82ec4bd2a122e3"
+    },
+    {
+      "path": "plates/v01/originals/overhead-end.png",
+      "bytes": 2215745,
+      "sha256": "bc55159907b31868df837292d71c40b49727946b6d5bea5c03b63ebf7c1dc310"
+    },
+    {
+      "path": "plates/v01/originals/overhead-start.png",
+      "bytes": 2467251,
+      "sha256": "077e54f19469557767940f1e9a0960812a495aa9c3f10df80ca0b24480f714cd"
+    },
+    {
+      "path": "plates/v01/originals/pov-start.png",
+      "bytes": 2227785,
+      "sha256": "8e9b169668b4c4e53d22394171b834c495047b26d3e88bf7978873806cbf99af"
+    }
+  ],
+  "generation": [
+    {
+      "path": "shots/v01/01-overhead/source.mp4",
+      "state": "saved",
+      "model": "MiniMax-H3",
+      "seconds": 5,
+      "resolution": "768P",
+      "ratio": "adaptive",
+      "prompt": "01-overhead-fl2va.txt",
+      "input_image": "overhead-start.png",
+      "input_sha256": "17cf30daa50a25413a971f1fb0d49f3b680f8669e1b918971cd3cfcb9651829c",
+      "last_image": "overhead-end.png",
+      "last_image_sha256": "1da02faf7605f53bb824be80592729bc4352bd2c8d01f8b0fcb000ed31b7776a",
+      "provider_seconds": 136,
+      "observation_seconds": 151.688,
+      "usage": {
+        "total_seconds": 5,
+        "input_seconds": 0,
+        "output_seconds": 5,
+        "input_image_count": 2,
+        "total_tokens": 188785,
+        "prompt_tokens": 26040,
+        "completion_tokens": 162745
+      },
+      "bytes": 1224083,
+      "output_sha256": "be693b37d657c394801544dbce279d8364ed31d77449872459a26d3a34e37658"
+    },
+    {
+      "path": "shots/v01/02-pov/source.mp4",
+      "state": "saved",
+      "model": "MiniMax-H3",
+      "seconds": 5,
+      "resolution": "768P",
+      "ratio": "adaptive",
+      "prompt": "02-pov-i2va.txt",
+      "input_image": "pov-start.png",
+      "input_sha256": "d03d1b045320def2aa312e1fdbbe9d14d5ee132c3ade0a5c0b82ec4bd2a122e3",
+      "last_image": null,
+      "last_image_sha256": null,
+      "provider_seconds": 128,
+      "observation_seconds": 141.11,
+      "usage": {
+        "total_seconds": 5,
+        "input_seconds": 0,
+        "output_seconds": 5,
+        "input_image_count": 1,
+        "total_tokens": 175765,
+        "prompt_tokens": 13020,
+        "completion_tokens": 162745
+      },
+      "bytes": 1890676,
+      "output_sha256": "45dcf837c07b057b2b17bffb45b222496b91dbb535ef406b76e3b6680f84315e"
+    },
+    {
+      "path": "shots/v02/02-pov/source.mp4",
+      "state": "saved",
+      "model": "MiniMax-H3",
+      "seconds": 5,
+      "resolution": "768P",
+      "ratio": "adaptive",
+      "prompt": "02-pov-roll-i2va.txt",
+      "input_image": "pov-start.png",
+      "input_sha256": "d03d1b045320def2aa312e1fdbbe9d14d5ee132c3ade0a5c0b82ec4bd2a122e3",
+      "last_image": null,
+      "last_image_sha256": null,
+      "provider_seconds": 131,
+      "observation_seconds": 139,
+      "usage": {
+        "total_seconds": 5,
+        "input_seconds": 0,
+        "output_seconds": 5,
+        "input_image_count": 1,
+        "total_tokens": 175765,
+        "prompt_tokens": 13020,
+        "completion_tokens": 162745
+      },
+      "bytes": 2081470,
+      "output_sha256": "16062e291a06ae028cac1f122fe48616f1edc1955f1d2010d58fedbd58ae0d08"
+    }
+  ],
+  "h3_cost_estimate": {
+    "usd": 1.2,
+    "output_seconds": 15,
+    "usd_per_second": 0.08,
+    "actual_debit_verified": false,
+    "pricing": "https://platform.minimax.io/docs/pricing/overview"
+  },
+  "review": {
+    "path": "review/v01/rooftop-parkour-pov-test-v01.mp4",
+    "bytes": 12259656,
+    "sha256": "91cdca39dadd9d4ee6840f887b0f7da48ef7027264eed9151cdfae78241adea9",
+    "duration_seconds": 10,
+    "cut_at_seconds": 5,
+    "frames": 240,
+    "fps": 24,
+    "width": 1080,
+    "height": 1920,
+    "video": "h264",
+    "audio": "aac stereo 48000 Hz",
+    "audio_crossfade_seconds": 0.12,
+    "integrated_lufs": -14.4,
+    "true_peak_db": -0.9,
+    "decode": "passed",
+    "checks_at_frames": [
+      0,
+      114,
+      119,
+      120,
+      130,
+      152,
+      168,
+      176,
+      228,
+      239
+    ],
+    "shots": [
+      {
+        "name": "01-overhead",
+        "source": "shots/v01/01-overhead/source.mp4",
+        "sha256": "be693b37d657c394801544dbce279d8364ed31d77449872459a26d3a34e37658",
+        "size": 1224083,
+        "source_duration": "5.167000",
+        "source_frames": 124,
+        "used_source_bounds_inclusive": [
+          0,
+          123
+        ],
+        "edit_start_frame": 0,
+        "edit_frames": 120
+      },
+      {
+        "name": "02-pov",
+        "source": "shots/v01/02-pov/source.mp4",
+        "sha256": "45dcf837c07b057b2b17bffb45b222496b91dbb535ef406b76e3b6680f84315e",
+        "size": 1890676,
+        "source_duration": "5.167000",
+        "source_frames": 124,
+        "used_source_bounds_inclusive": [
+          0,
+          123
+        ],
+        "edit_start_frame": 120,
+        "edit_frames": 120
+      }
+    ]
+  },
+  "comparison": {
+    "path": "review/v02/rooftop-parkour-pov-test-v02.mp4",
+    "bytes": 12922968,
+    "sha256": "532b043ad93656c8fa114daadcfd819b921e5eee586fe4ca180a26022fa6e48f",
+    "decode": "passed",
+    "selected": false
+  },
+  "reproduction": {
+    "path": "review/v01-reproduction/rooftop-parkour-pov-test-v01-reproduction.mp4",
+    "same_sha256": true,
+    "additional_api_requests": 0
+  },
+  "drive": {
+    "bytes": 12259656,
+    "mime_type": "video/mp4",
+    "parent_name": "動画・ブログ制作レビュー",
+    "owner_readback": true,
+    "public": false,
+    "phone_playback_verified": false
+  },
+  "article_assets": {
+    "root": "blog-handoff/v01",
+    "files": [
+      {
+        "path": "assets/01-overhead-takeoff.jpg",
+        "frame": 119,
+        "time_seconds": 4.958333,
+        "source_sha256": "91cdca39dadd9d4ee6840f887b0f7da48ef7027264eed9151cdfae78241adea9",
+        "width": 1080,
+        "height": 1920,
+        "bytes": 228765,
+        "sha256": "0f279ae269d7a973f9f79d49eca953db509f9c0141a9a974b7cf1b5c34c6e885"
+      },
+      {
+        "path": "assets/02-pov-in-air.jpg",
+        "frame": 120,
+        "time_seconds": 5,
+        "source_sha256": "91cdca39dadd9d4ee6840f887b0f7da48ef7027264eed9151cdfae78241adea9",
+        "width": 1080,
+        "height": 1920,
+        "bytes": 225317,
+        "sha256": "35ced46bdbcb23f1bc35531dc4b50321e986ccc3f4094d902a8a58bda5f2176a"
+      },
+      {
+        "path": "assets/03-pov-landing.jpg",
+        "frame": 152,
+        "time_seconds": 6.333333,
+        "source_sha256": "91cdca39dadd9d4ee6840f887b0f7da48ef7027264eed9151cdfae78241adea9",
+        "width": 1080,
+        "height": 1920,
+        "bytes": 98937,
+        "sha256": "ef2df8a9120dab8c896c4747af7387be8b0ee8af660cb0dd92c9655a4ce80376"
+      },
+      {
+        "path": "assets/04-pov-shoulder-roll.jpg",
+        "frame": 170,
+        "time_seconds": 7.083333,
+        "source_sha256": "91cdca39dadd9d4ee6840f887b0f7da48ef7027264eed9151cdfae78241adea9",
+        "width": 1080,
+        "height": 1920,
+        "bytes": 75039,
+        "sha256": "055a3fe302598b692dec262ce2fd405d7d2c0bfe78f96139f8491a2d623afb54"
+      },
+      {
+        "path": "assets/05-pov-recovery.jpg",
+        "frame": 228,
+        "time_seconds": 9.5,
+        "source_sha256": "91cdca39dadd9d4ee6840f887b0f7da48ef7027264eed9151cdfae78241adea9",
+        "width": 1080,
+        "height": 1920,
+        "bytes": 144417,
+        "sha256": "ba477450401efa4acb43d9f88acbd181e7eea94c531ded0b2f3b3af2e9fdba03"
+      }
+    ]
+  }
+}

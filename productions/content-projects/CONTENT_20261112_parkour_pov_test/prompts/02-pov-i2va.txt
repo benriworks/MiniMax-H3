@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] One continuous eye-level first-person view from the adult athlete. Begin at Picture 1 already moving through the air across the gap; the near roof is behind the camera. The front lip of the receiving slate roof moves quickly toward and below the viewpoint. The landing surface is reached promptly in the first part of the shot, with a brief, readable jolt on contact. Immediately follow with a single flowing forward roll on the roof, seen from the athlete's eyes. The amber cuffs and hands briefly enter low in frame, the camera pitches forward and the nearby concrete sweeps over the image as the horizon rotates, followed by a smooth rise back to an upright forward view. After this one roll the camera steadies on the roof, and the actor moves forward a little and comes to a controlled stop in the last seconds. Keep the same rooftop, with the teal vent with two silver louvers to the right and the white-bordered skylight to the left, recognizable before and after the roll. Maintain the same late-afternoon light. A continuous shot from the character's eyes, with natural motion blur during the roll and an unambiguous settled landing at the end.
+
+overall_soundscape: A rush of air at the beginning, one brief landing impact and a close soft swish of fabric across concrete during the forward roll, followed by a small footfall and steady rooftop wind.
+
+non_diegetic_music: N/A
