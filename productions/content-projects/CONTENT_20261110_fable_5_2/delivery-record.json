@@ -1,0 +1,173 @@
+{
+  "project_id": "CONTENT_20261110_fable_5_2",
+  "checked_at": "2026-11-10",
+  "deliverables": {
+    "short": {
+      "revision": "v02",
+      "file": "fable-5-2-short-v02.mp4",
+      "sha256": "698ae694b4ab11f54a48f4ae97d3cedb7f933e319d8139a1afc0fff58c72d152",
+      "bytes": 5030140,
+      "seconds": 82.24999999999999,
+      "width": 1080,
+      "height": 1920,
+      "frames": 1974,
+      "fps": "24/1",
+      "integrated_lufs": -16.03,
+      "true_peak_dbtp": -2.23,
+      "full_decode": true,
+      "video_stream_sha256": "253ec1a3cdda84048f8ea5e8792d67e71b3e606ae3e0ae8313d93d517a7c5b37",
+      "narration_sha256": "1391fdc92737b751435749d46689264ce97d9fc36c4f52b89a878572cd07e754",
+      "relative_path": "release/v02/short/fable-5-2-short-v02.mp4",
+      "graphs": [
+        {
+          "asset": "frontiercode",
+          "start": 7.583333333333333,
+          "end": 13.833333333333332,
+          "pixel_mean_error": 1.887
+        },
+        {
+          "asset": "wandr",
+          "start": 13.833333333333332,
+          "end": 20.125,
+          "pixel_mean_error": 1.913
+        },
+        {
+          "asset": "benchcad",
+          "start": 20.125,
+          "end": 26.083333333333332,
+          "pixel_mean_error": 1.903
+        },
+        {
+          "asset": "hle",
+          "start": 26.083333333333332,
+          "end": 32.166666666666664,
+          "pixel_mean_error": 1.884
+        },
+        {
+          "asset": "chartography",
+          "start": 32.166666666666664,
+          "end": 38.0,
+          "pixel_mean_error": 1.93
+        },
+        {
+          "asset": "cve",
+          "start": 38.0,
+          "end": 43.791666666666664,
+          "pixel_mean_error": 2.02
+        },
+        {
+          "asset": "fermat",
+          "start": 43.791666666666664,
+          "end": 49.83333333333333,
+          "pixel_mean_error": 2.105
+        },
+        {
+          "asset": "robodojo",
+          "start": 49.83333333333333,
+          "end": 55.041666666666664,
+          "pixel_mean_error": 2.168
+        },
+        {
+          "asset": "audit",
+          "start": 55.041666666666664,
+          "end": 61.58333333333333,
+          "pixel_mean_error": 2.136
+        }
+      ]
+    },
+    "full": {
+      "revision": "v03",
+      "file": "fable-5-2-full-v03.mp4",
+      "sha256": "c3c8d493f864c27a5b1fa2e5b1181652b8a1ce831a643fcd52fde36839ef627b",
+      "bytes": 16200277,
+      "seconds": 349.79166666666674,
+      "width": 1920,
+      "height": 1080,
+      "frames": 8395,
+      "fps": "24/1",
+      "integrated_lufs": -16.02,
+      "true_peak_dbtp": -1.92,
+      "full_decode": true,
+      "video_stream_sha256": "346e89e8e5898cd5d4baf642c2e2909611f507e72b4d791445f31110a6ab4f1c",
+      "narration_sha256": "73bcdd1b6a5324a47cec24d0ca114057cb338d1104f3d4f66abb0e15170fee03",
+      "relative_path": "release/v03/full/fable-5-2-full-v03.mp4",
+      "graphs": [
+        {
+          "asset": "frontiercode",
+          "start": 52.625,
+          "end": 75.66666666666667,
+          "pixel_mean_error": 1.876
+        },
+        {
+          "asset": "wandr",
+          "start": 75.66666666666667,
+          "end": 88.5,
+          "pixel_mean_error": 1.88
+        },
+        {
+          "asset": "benchcad",
+          "start": 88.5,
+          "end": 105.79166666666667,
+          "pixel_mean_error": 1.867
+        },
+        {
+          "asset": "hle",
+          "start": 105.79166666666667,
+          "end": 119.58333333333334,
+          "pixel_mean_error": 1.894
+        },
+        {
+          "asset": "chartography",
+          "start": 119.58333333333334,
+          "end": 139.41666666666669,
+          "pixel_mean_error": 1.898
+        },
+        {
+          "asset": "cve",
+          "start": 210.62500000000003,
+          "end": 227.20833333333337,
+          "pixel_mean_error": 2.009
+        },
+        {
+          "asset": "fermat",
+          "start": 227.20833333333337,
+          "end": 244.70833333333337,
+          "pixel_mean_error": 2.09
+        },
+        {
+          "asset": "robodojo",
+          "start": 244.70833333333337,
+          "end": 258.00000000000006,
+          "pixel_mean_error": 2.124
+        },
+        {
+          "asset": "audit",
+          "start": 258.00000000000006,
+          "end": 273.00000000000006,
+          "pixel_mean_error": 2.136
+        }
+      ]
+    }
+  },
+  "article": {
+    "version": "v01",
+    "sha256": "a1d7d1c844e5d513ebb50412374fb11627851729921dd2713460006f867b5eba",
+    "bytes": 1457069,
+    "image_count": 12,
+    "rendered_widths_px": [
+      360,
+      1050
+    ]
+  },
+  "shared_tests_passed": 35,
+  "human_listening": "pending",
+  "smartphone_playback": "pending",
+  "user_approved": false,
+  "published": false,
+  "ai_assisted_av_review": {
+    "short": "v02 checked",
+    "full": "v03 checked",
+    "material_issues": 0,
+    "final_human_listening": "pending"
+  }
+}

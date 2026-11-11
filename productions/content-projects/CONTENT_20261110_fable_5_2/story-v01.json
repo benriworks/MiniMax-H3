@@ -1,0 +1,578 @@
+{
+  "version": "v01",
+  "date": "2026-11-10",
+  "titles": {
+    "short": "【Claude】Fable 5.2は何が変わった？公式9グラフで性能と費用を見る",
+    "full": "【Claude】Fable 5.2の性能と費用を公式9グラフで読み解く｜OpenAIの次のSolに期待すること"
+  },
+  "graphs": {
+    "frontiercode": {
+      "number": 1,
+      "section": "開発",
+      "title": "コード修正の採点",
+      "value": "49.1%",
+      "label": "FrontierCode 2.0",
+      "condition": "Fable 5.2 ／ Xhigh",
+      "detail": "Highは45.3%で、Opus 5.5 Maxとほぼ同点。",
+      "asset": "frontiercode"
+    },
+    "wandr": {
+      "number": 2,
+      "section": "検索",
+      "title": "大量の情報を集める",
+      "value": "約40%",
+      "label": "WANDR",
+      "condition": "同等スコアにかかる費用",
+      "detail": "Fable 5.2 MediumとOpus 5.5の最高スコアを比較。",
+      "asset": "wandr"
+    },
+    "benchcad": {
+      "number": 3,
+      "section": "設計",
+      "title": "部品と回路を設計する",
+      "value": "83.5点",
+      "label": "BenchCAD 2.1",
+      "condition": "Fable 5.2 ／ Max",
+      "detail": "参照の形状・回路との一致を、部分点込みで採点。",
+      "asset": "benchcad"
+    },
+    "hle": {
+      "number": 4,
+      "section": "推論",
+      "title": "専門分野の難問を解く",
+      "value": "1/10未満",
+      "label": "Humanity’s Last Exam",
+      "condition": "同等スコアにかかる費用",
+      "detail": "Fable 5.2 LowとOpus 5.5の最高スコアを比較。",
+      "asset": "hle"
+    },
+    "chartography": {
+      "number": 5,
+      "section": "画像",
+      "title": "図表から数字を読む",
+      "value": "66.4%",
+      "label": "Chartography",
+      "condition": "Fable 5.2 ／ Medium",
+      "detail": "ツールなし。Opus 5.5 Maxは64.4%。",
+      "asset": "chartography"
+    },
+    "cve": {
+      "number": 6,
+      "section": "セキュリティ",
+      "title": "既知の脆弱性を再発見",
+      "value": "89.6%",
+      "label": "CVE Rediscovery",
+      "condition": "Mythos 5.2 ／ 公式比較表",
+      "detail": "修正前のコードを使ったAnthropicの内部評価。",
+      "asset": "cve"
+    },
+    "fermat": {
+      "number": 7,
+      "section": "数学",
+      "title": "既知の証明をLeanで形式化",
+      "value": "30時間",
+      "label": "フェルマーの最終定理",
+      "condition": "Fable 5.2 ／ 約1,000エージェント",
+      "detail": "18時間で中断し、保存地点から再開。各モデル1回。",
+      "asset": "fermat"
+    },
+    "robodojo": {
+      "number": 8,
+      "section": "ロボット",
+      "title": "シミュレーターで双腕を操作",
+      "value": "64.9%",
+      "label": "RoboDojo Sim",
+      "condition": "Fable 5.2 ／ Max",
+      "detail": "同じ実行環境でのAnthropicの内部評価。",
+      "asset": "robodojo"
+    },
+    "audit": {
+      "number": 9,
+      "section": "安全性",
+      "title": "望ましくない行動を調べる",
+      "value": "2.67",
+      "label": "自動行動監査",
+      "condition": "Mythos 5.2 ／ 低いほど良い",
+      "detail": "約1,900シナリオから作った複合スコア。",
+      "asset": "audit"
+    }
+  },
+  "short": [
+    {
+      "id": "s01",
+      "visual": "hero",
+      "min": 5.1,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "Claude Fable 5.2。性能が上がって、標準API単価は2割下がりました。"
+        }
+      ]
+    },
+    {
+      "id": "s02",
+      "visual": "graph",
+      "min": 5,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "コード修正は49.1%。高いスコアに、いくらで届くかも見て。"
+        }
+      ],
+      "graph": "frontiercode"
+    },
+    {
+      "id": "s03",
+      "visual": "graph",
+      "min": 5,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "情報収集は、Opus 5.5と同じくらいの点に、約4割の費用で。"
+        }
+      ],
+      "graph": "wandr"
+    },
+    {
+      "id": "s04",
+      "visual": "graph",
+      "min": 4.7,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "設計は83.5点。形状や回路がどれだけ合うかの評価です。"
+        }
+      ],
+      "graph": "benchcad"
+    },
+    {
+      "id": "s05",
+      "visual": "graph",
+      "min": 5,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "専門分野の難問でも、低い推論設定で、費用は10分の1未満。"
+        }
+      ],
+      "graph": "hle"
+    },
+    {
+      "id": "s06",
+      "visual": "graph",
+      "min": 4.8,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "図表の読み取りは、ツールなしの中設定で66.4%。"
+        }
+      ],
+      "graph": "chartography"
+    },
+    {
+      "id": "s07",
+      "visual": "graph",
+      "min": 4.9,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "ここはMythos 5.2。既知の脆弱性を見つける内部評価です。"
+        }
+      ],
+      "graph": "cve"
+    },
+    {
+      "id": "s08",
+      "visual": "graph",
+      "min": 5.2,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "フェルマーの既知の証明を、約千のエージェントで形式化。30時間です。"
+        }
+      ],
+      "graph": "fermat"
+    },
+    {
+      "id": "s09",
+      "visual": "graph",
+      "min": 4.8,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "双腕ロボットのシミュレーションは、平均成功率64.9%。"
+        }
+      ],
+      "graph": "robodojo"
+    },
+    {
+      "id": "s10",
+      "visual": "graph",
+      "min": 5,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "行動監査はMythos 5.2の結果。複合スコアは低いほど良いです。"
+        }
+      ],
+      "graph": "audit"
+    },
+    {
+      "id": "s11",
+      "visual": "price",
+      "min": 5.4,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "標準APIは百万トークンあたり、入力8ドル、出力40ドル。"
+        }
+      ]
+    },
+    {
+      "id": "s12",
+      "visual": "future",
+      "min": 7.1,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "もしSol 6.2のような次のモデルが出るなら？"
+        },
+        {
+          "speaker": "female",
+          "text": "仕事を最後まで正確に、しかも手頃に任せたいね。"
+        }
+      ]
+    },
+    {
+      "id": "s13",
+      "visual": "closing",
+      "min": 4.5,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "公式グラフの読み方は、フル版で一緒に確かめよう。"
+        }
+      ]
+    }
+  ],
+  "full": [
+    {
+      "id": "f01",
+      "visual": "hero",
+      "min": 11,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "Claude Fable 5.2は、性能を上げて、標準API単価を2割下げました。"
+        },
+        {
+          "speaker": "male",
+          "text": "それなら、普段の仕事も安く済む？ 公式グラフで確かめたいな。"
+        }
+      ]
+    },
+    {
+      "id": "f02",
+      "visual": "release",
+      "min": 12,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "Anthropicは11月9日に、Fable 5.2とMythos 5.2を発表しました。コーディング、推論、画像理解を強化したと説明しています。"
+        }
+      ]
+    },
+    {
+      "id": "f03",
+      "visual": "price",
+      "min": 14,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "2割下がったのは、どの料金？"
+        },
+        {
+          "speaker": "female",
+          "text": "旧世代との標準API単価の比較。百万トークンあたり入力8ドル、出力40ドル。生成速度は最大で30%向上したと発表されています。"
+        }
+      ]
+    },
+    {
+      "id": "f04",
+      "visual": "axes",
+      "min": 15,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "最初の5図は、縦がスコア、横が1タスクや1試行あたりの費用。横軸は対数です。点を左にたどるほど安く、同じ高さなら同程度のスコアです。"
+        }
+      ]
+    },
+    {
+      "id": "f05",
+      "visual": "graph",
+      "min": 19,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "FrontierCode 2.0は、実際のリポジトリで、変更が採用される水準かを見る試験。Fable 5.2のHighは45.3%、Opus 5.5のMaxは45.5%。Fable側の費用はおよそ半分です。"
+        },
+        {
+          "speaker": "male",
+          "text": "FableのXhighなら49.1%。同じモデルでも、設定で変わるんだね。"
+        }
+      ],
+      "graph": "frontiercode"
+    },
+    {
+      "id": "f06",
+      "visual": "graph",
+      "min": 12,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "WANDRは、広い範囲の情報を集める試験。緩和基準の採点で、Fable 5.2のMediumはOpus 5.5の最高スコアに、約4割の費用で届きました。"
+        }
+      ],
+      "graph": "wandr"
+    },
+    {
+      "id": "f07",
+      "visual": "graph",
+      "min": 13,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "回路やケースの設計も比べているんだ。"
+        },
+        {
+          "speaker": "female",
+          "text": "BenchCAD 2.1は形状と回路の一致を、部分点込みで採点。ツールありで、Fable 5.2は83.5点、Opus 5.5は65.3点です。"
+        }
+      ],
+      "graph": "benchcad"
+    },
+    {
+      "id": "f08",
+      "visual": "graph",
+      "min": 12,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "Humanity’s Last Examは、専門家向けの幅広い難問です。ツールありで、Fable 5.2のLowはOpus 5.5の最高スコアと同程度で、費用は10分の1未満でした。"
+        }
+      ],
+      "graph": "hle"
+    },
+    {
+      "id": "f09",
+      "visual": "graph",
+      "min": 16,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "Chartographyは、図表から値や関係を読み取る試験。ツールなしで、Fable 5.2のMediumは66.4%。Opus 5.5のMaxの64.4%を上回り、費用は10分の1未満でした。"
+        },
+        {
+          "speaker": "male",
+          "text": "じゃあ、手元のグラフならどう読む？"
+        }
+      ],
+      "graph": "chartography"
+    },
+    {
+      "id": "f10",
+      "visual": "demo-input",
+      "min": 13,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "架空の差し戻し件数を、Claude Codeに画像で渡しました。新工程が初めて下回る週と、4週目の差を尋ねます。先に答えを予想してみてください。"
+        }
+      ]
+    },
+    {
+      "id": "f11",
+      "visual": "demo-output",
+      "min": 15,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "2週目は既存が20件、新工程が17件。4週目は4件差だね。"
+        },
+        {
+          "speaker": "female",
+          "text": "実行結果もそのとおり。モデルは目盛りから読んだ概算と書き添えました。ここで確認したのは、この架空画像1枚の読み取りです。"
+        }
+      ]
+    },
+    {
+      "id": "f12",
+      "visual": "table",
+      "min": 13,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "次は公式の比較表です。業務フローのAutomationBenchは、Fable 5.2が51.4%、Gemini 4 Carbonが53.9%。仕事によって順位は変わります。"
+        }
+      ],
+      "part": 1,
+      "title": "コーディング・業務・科学",
+      "value": "51.4% ／ 53.9%",
+      "condition": "AutomationBench\nFable 5.2\nGemini 4 Carbon"
+    },
+    {
+      "id": "f13",
+      "visual": "table",
+      "min": 13,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "中段のサイバーとタンパク質設計の行は、主にMythosの成績です。各社が別の問題を使った行もあります。モデル名と注記をセットで確認します。"
+        }
+      ],
+      "part": 2,
+      "title": "サイバー・タンパク質・検索",
+      "value": "モデル名と脚注を確認",
+      "condition": "CyScenarioBench\n提供元ごとに別の評価課題"
+    },
+    {
+      "id": "f14r2",
+      "visual": "table",
+      "min": 15,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "画面操作のOSWorld 2.1は、オフライン課題の部分点で89.3%。一方、知識労働のAA-Briefcaseでは、採点基準によるスコアと、品質も組み合わせたEloで順位が変わります。"
+        }
+      ],
+      "part": 3,
+      "title": "画面操作・知識労働・図表",
+      "value": "89.3%",
+      "condition": "OSWorld 2.1\nオフライン課題の部分点"
+    },
+    {
+      "id": "f15",
+      "visual": "graph",
+      "min": 14,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "脆弱性のグラフも、Fableの数字？"
+        },
+        {
+          "speaker": "female",
+          "text": "この図はMythos 5.2です。修正前のソースコードで既知の脆弱性を再発見する内部評価で、発表表の値は89.6%。利用できる組織には条件があります。"
+        }
+      ],
+      "graph": "cve"
+    },
+    {
+      "id": "f16r2",
+      "visual": "graph",
+      "min": 17,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "フェルマーの最終定理では、既知の証明をLeanで機械検証できる形にしました。約千のエージェントで、Fable 5.2は18時間で86%。中断後に再開し、合計30時間で完了。各モデル1回の実験です。"
+        }
+      ],
+      "graph": "fermat"
+    },
+    {
+      "id": "f17",
+      "visual": "graph",
+      "min": 12,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "RoboDojoは、カメラ画像をもとにシミュレーターの双腕ロボットを操作する試験です。Anthropicの同じ実行環境で、Fable 5.2は平均成功率64.9%でした。"
+        }
+      ],
+      "graph": "robodojo"
+    },
+    {
+      "id": "f18",
+      "visual": "graph",
+      "min": 15,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "最後の図は、数字が小さい方がいい？"
+        },
+        {
+          "speaker": "female",
+          "text": "うん。約千九百の場面で望ましくない行動を調べた複合指標です。Mythos 5.2は2.67。評価中のスコアとして読みます。"
+        }
+      ],
+      "graph": "audit"
+    },
+    {
+      "id": "f19",
+      "visual": "access",
+      "min": 15,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "Fable 5.2のAPIはコンテキスト100万、最大出力12万8千トークン。APIの既定の推論設定はHighで、ClaudeアプリとClaude CodeではMediumと案内されています。"
+        }
+      ]
+    },
+    {
+      "id": "f20",
+      "visual": "sol",
+      "min": 16,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "OpenAIの現行Solは、どこまで来ている？"
+        },
+        {
+          "speaker": "female",
+          "text": "公式発表のGPT-6.1 Solは、標準API単価が入力2ドル、出力10ドル。いくつかの評価でAstraに迫る、費用を抑えたモデルです。"
+        }
+      ]
+    },
+    {
+      "id": "f21",
+      "visual": "future",
+      "min": 19,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "もし次のSol、例えばSol 6.2が出るなら、何を見たい？"
+        },
+        {
+          "speaker": "female",
+          "text": "同じバグ修正を頼んで、テストまで通る割合、やり直しも含めた完了時間と費用を見たい。図表を根拠付きで読めるかも、比べたいね。"
+        }
+      ]
+    },
+    {
+      "id": "f22",
+      "visual": "workflow",
+      "min": 17,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "ブラウザやアプリを使う仕事なら、入力、確認、保存まで追えること。送信などの操作前には、人が判断できること。次のモデルで、そこまで任せられる仕事が増えると面白いですね。"
+        }
+      ]
+    },
+    {
+      "id": "f23",
+      "visual": "closing",
+      "min": 9,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "まず、いつもの仕事を一つ、完了の条件まで決めてみよう。"
+        },
+        {
+          "speaker": "female",
+          "text": "9図の読み方と実演の手順は、記事草稿にもまとめました。"
+        }
+      ]
+    }
+  ]
+}
