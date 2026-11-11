@@ -215,6 +215,20 @@ flowchart LR
     Checks --> Review[Drive保存と利用者の最終試聴]
 ```
 
+## 真帆の短編二話の音声改訂（2026-11-11）
+
+```mermaid
+flowchart LR
+    Stems[冒頭のPCMと各話の台詞と環境音] --> Dry[旧BGMを含まない音声と境界の波音]
+    Piano[利用条件を照合したピアノ曲] --> Gain[共通音量カーブで発話中に減音]
+    Dry --> Mix[60秒の音声]
+    Gain --> Mix
+    Mix --> Remux[映像をコピーして新しいAACを付与]
+    Prior[まとめ版v01] --> Remux
+    Remux --> Checks[映像の内容と時刻と全編デコードを照合]
+    Checks --> Review[ピアノ版v02]
+```
+
 ## Pro利用枠ニュースの制作経路（2026-10-31）
 
 ```mermaid

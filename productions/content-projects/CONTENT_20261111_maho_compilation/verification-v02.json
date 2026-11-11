@@ -1,0 +1,90 @@
+{
+  "seconds": 60,
+  "frames": 1440,
+  "video_packet_hash_and_timing_identical": true,
+  "video_packet_list_sha256": "5e5c674bdcfcd256d99370759189606bc640bdc67069ed03b364380a44fcc466",
+  "full_decode": "passed",
+  "integrated_lufs": -17.9,
+  "true_peak_dbtp": -1.21,
+  "opening_250ms_piano_rms_dbfs": -23.51,
+  "speech_window_levels": [
+    {
+      "from": 19.3,
+      "to": 25.5,
+      "dialogue_and_effects_rms_dbfs": -16.76,
+      "piano_rms_dbfs": -34.26
+    },
+    {
+      "from": 30.31,
+      "to": 32.91,
+      "dialogue_and_effects_rms_dbfs": -18.66,
+      "piano_rms_dbfs": -33.84
+    },
+    {
+      "from": 48.52,
+      "to": 50.71,
+      "dialogue_and_effects_rms_dbfs": -13.35,
+      "piano_rms_dbfs": -33.79
+    }
+  ],
+  "version": "v02",
+  "filename": "maho-mata-futari-v02.mp4",
+  "sha256": "e6fc9a8388cbb1c525866230cfa1f33241a0c0282d08c51749ad9acbc11d6720",
+  "bytes": 45376057,
+  "source_sha256": "ff90f386d86e8e608368ed87e5f814e5577fd300aa7929b76776335519888a9e",
+  "track_sha256": "dae498787497fa218a2ce24602edfc58279f21272b27e34fe2150fc4f473286e",
+  "track_start_seconds": 0.505,
+  "music_gain_db": -8.6,
+  "duck_gain": 0.38,
+  "fade_in_seconds": 0.075,
+  "fade_out_seconds": 3.2,
+  "output_gain_db": 2.55,
+  "output_sample_ceiling": 0.79,
+  "human_listening": "unverified",
+  "mobile_playback": "unverified",
+  "user_approved": false,
+  "published": false,
+  "output": "CONTENT_20261111_maho_compilation/review/v02/maho-mata-futari-v02.mp4",
+  "same_sample_speech_correlations_vs_v01": [
+    {
+      "start": 19.36,
+      "end": 22.34,
+      "correlation": 0.9861
+    },
+    {
+      "start": 23.2,
+      "end": 25.42,
+      "correlation": 0.9828
+    },
+    {
+      "start": 30.36,
+      "end": 32.85,
+      "correlation": 0.9831
+    },
+    {
+      "start": 48.57,
+      "end": 50.65,
+      "correlation": 0.9921
+    }
+  ],
+  "shutter_window": {
+    "start": 56.45,
+    "end": 56.75,
+    "dry_rms_dbfs": -24.67,
+    "piano_rms_dbfs": -24.36
+  },
+  "music_source": {
+    "name": "夕暮れ時の切なさは",
+    "artist": "甘茶",
+    "source_url": "https://amachamusic.chagasi.com/music_yuuguredoki.html",
+    "terms_url": "https://amachamusic.chagasi.com/terms.html",
+    "terms_checked_on": "2026-11-11"
+  },
+  "drive": {
+    "bytes": 45376057,
+    "shared": false,
+    "role": "owner",
+    "metadata_readback": "passed",
+    "desktop_playback": "Chrome reached 0:04 / 1:00 with the volume at 100 and sound enabled"
+  }
+}
