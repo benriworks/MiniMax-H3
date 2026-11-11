@@ -65,6 +65,26 @@ test('screen explainer uses hard cuts, preserves layout and accepts 15 through 3
   }
 });
 
+test('creator preset survives save/read normalization and compiles to instant kinetic headings', () => {
+  const source=recipe({templatePreset:'shorts_creator_ja_v1'});
+  const result=api.normalizeAnnouncementVideoInput(source);
+  assert.deepEqual(result.errors,[]);
+  assert.equal(result.outputDurationMs,15000);
+  assert.deepEqual(result.detailedRequest.clips.map(c=>c.transitionToNext),[null,null,null]);
+  assert.ok(result.detailedRequest.clips.every(c=>c.overlay.startMs===0&&c.overlay.stylePreset==='shorts_creator_v1'));
+  assert.deepEqual(api.normalizeAnnouncementVideoInput(result.payload).recipe,result.recipe);
+  source.scenes.forEach(scene=>{scene.endMs=10000;});
+  assert.equal(api.normalizeAnnouncementVideoInput(source).outputDurationMs,30000);
+  assert.deepEqual(api.normalizeAnnouncementVideoInput(source).errors,[]);
+});
+
+test('creator timeline rejects text which would have to shrink below the font floor', () => {
+  const result=api.normalizeAnnouncementVideoInput(recipe({templatePreset:'shorts_creator_ja_v1'}));
+  const clips=result.detailedRequest.clips;
+  clips[0].overlay.text='大きな文字'.repeat(10);
+  assert.ok(api.normalizeRemotionTimelineInput({clips}).errors.some(e=>e.includes('14文字')));
+});
+
 test('desktop capture passes only the named viewport preset', () => {
   const source = { url: 'http://127.0.0.1:8765/', durationMs: 5000, settleMs: 1000, actions: [], viewportPreset: 'desktop_16_9' };
   const result = api.normalizeLocalScreenCaptureInput(source);
@@ -212,6 +232,43 @@ test('Studio exposes Quick Create as the default announcement surface and keeps 
   assert.match(stylesSource, /\.announcement-grid/);
   assert.match(stylesSource, /\.announcement-scene\.role-hook/);
   assert.match(stylesSource, /\.announcement-grid > aside \.local-pipeline-progress-panel \{ order: 1; \}/);
+});
+
+test('a confirmed session rejection refreshes the same-origin cookie before one identical retry', async () => {
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  globalThis.fetch = async (url, init) => {
+    requests.push({ url, ...init });
+    if (requests.length === 1) return new Response(JSON.stringify({ error: { code: 'forbidden', message: 'A valid Studio session is required.' } }), { status: 403 });
+    if (url === '/') return new Response('<!doctype html><title>Studio</title>');
+    return new Response(JSON.stringify({ id: 'job-refreshed', kind: 'detailed_test_video', status: 'queued' }));
+  };
+  try {
+    const job = await api.api.executeAnnouncementRecipe('production', recipeId, 1);
+    assert.equal(job.id, 'job-refreshed');
+    assert.equal(requests.length, 3);
+    assert.equal(requests[1].url, '/');
+    assert.equal(requests[1].credentials, 'same-origin');
+    assert.equal(requests[0].url, requests[2].url);
+    assert.equal(requests[0].body, requests[2].body);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('session recovery is bounded and never retries uncertain or unrelated failures', async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    for (const scenario of ['session', 'denied', 'server', 'network']) {
+      let calls = 0;
+      globalThis.fetch = async (url) => {
+        calls += 1;
+        if (url === '/') return new Response('<title>Studio</title>');
+        if (scenario === 'network') throw new TypeError('network lost');
+        return new Response(JSON.stringify({ error: { code: 'forbidden', message: scenario === 'session' ? 'A valid Studio session is required.' : 'Unrelated failure' } }), { status: scenario === 'server' ? 500 : 403 });
+      };
+      await assert.rejects(api.api.executeAnnouncementRecipe('production', recipeId, 1));
+      assert.equal(calls, scenario === 'session' ? 3 : 1);
+    }
+  } finally { globalThis.fetch = originalFetch; }
 });
 
 test('Quick Create is a compact view over the exact existing announcement controller', () => {

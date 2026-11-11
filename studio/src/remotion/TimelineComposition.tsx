@@ -16,6 +16,8 @@ import { linearTiming, TransitionSeries } from '@remotion/transitions';
 import { fade } from '@remotion/transitions/fade';
 import { screenSceneTheme, editorialChapter } from './screenThemes';
 import { SCREEN_FONT_FAMILY, ScreenTypography } from './ScreenTypography';
+import {CreatorHeadline} from './ShortsMotionPrimitives';
+import {cameraMotion} from './shortsMotion';
 import {
   REMOTION_TIMELINE_COMPOSITION_ID,
   REMOTION_TIMELINE_FPS,
@@ -47,7 +49,11 @@ const OVERLAY_POSITION_STYLE: Record<RemotionTimelineCompositionOverlay['positio
   bottom: { justifyContent: 'flex-end', paddingBottom: 300 },
 };
 
-const TextOverlay = ({ overlay }: { overlay: RemotionTimelineCompositionOverlay }) => (
+const TextOverlay = ({ overlay }: { overlay: RemotionTimelineCompositionOverlay }) => overlay.stylePreset==='shorts_creator_v1' ? (
+  <Sequence from={overlay.startFrame} durationInFrames={overlay.endFrame-overlay.startFrame}>
+    <ScreenTypography><CreatorHeadline text={overlay.text} style={{position:'absolute',left:72,top:overlay.position==='top'?335:overlay.position==='center'?700:950,width:828,textShadow:'0 4px 25px #000b'}}/></ScreenTypography>
+  </Sequence>
+) : (
   <Sequence
     from={overlay.startFrame}
     durationInFrames={overlay.endFrame - overlay.startFrame}
@@ -194,7 +200,11 @@ const ScreenExplainerScene = ({ clip, index, count }: {
   </ScreenTypography>;
 };
 
-const ClipScene = ({ clip, index, count }: { clip: RemotionTimelineCompositionClip; index: number; count: number }) => clip.layoutPreset === 'screen_explainer_v1' ? (
+const ClipScene = ({ clip, index, count }: { clip: RemotionTimelineCompositionClip; index: number; count: number }) => {
+  const frame=useCurrentFrame();
+  const motion=cameraMotion(frame,clip.durationInFrames,index);
+  const creator=clip.overlay?.stylePreset==='shorts_creator_v1';
+  return clip.layoutPreset === 'screen_explainer_v1' ? (
   <ScreenExplainerScene clip={clip} index={index} count={count} />
 ) : (
   <AbsoluteFill style={{ backgroundColor: '#000000', overflow: 'hidden' }}>
@@ -205,11 +215,12 @@ const ClipScene = ({ clip, index, count }: { clip: RemotionTimelineCompositionCl
       volume={() => clip.volumePercent / 100}
       pauseWhenBuffering
       name={`Clip ${String(index + 1).padStart(2, '0')}`}
-      style={VIDEO_STYLE}
+      style={creator?{...VIDEO_STYLE,transform:`scale(${motion.scale}) translateX(${motion.x}px)`}:VIDEO_STYLE}
     />
+    {creator&&<AbsoluteFill style={{background:'linear-gradient(180deg,#07101bd9,transparent 65%)'}}/>}
     {clip.overlay === null ? null : <TextOverlay overlay={clip.overlay} />}
   </AbsoluteFill>
-);
+);};
 
 export const TimelineComposition = (props: RemotionTimelineCompositionProps) => {
   const value = assertRemotionTimelineCompositionProps(props);

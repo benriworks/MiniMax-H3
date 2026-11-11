@@ -31,6 +31,7 @@ from .security import SecurityError, canonical_json, validate_identifier
 ANNOUNCEMENT_VIDEO_SCHEMA_VERSION = 1
 ANNOUNCEMENT_VIDEO_TEMPLATE_PRESET = "shorts_ja_15s_v1"
 SCREEN_EXPLAINER_TEMPLATE_PRESET = "screen_explainer_ja_v1"
+CREATOR_TEMPLATE_PRESET = "shorts_creator_ja_v1"
 ANNOUNCEMENT_VIDEO_ROLES = ("hook", "message", "cta")
 ANNOUNCEMENT_VIDEO_TRANSITION_MS = 250
 ANNOUNCEMENT_VIDEO_MIN_DURATION_MS = 10_000
@@ -233,6 +234,7 @@ def announcement_recipe_to_detailed_payload(
 
     scenes = recipe["scenes"]
     screen_explainer = recipe["template_preset"] == SCREEN_EXPLAINER_TEMPLATE_PRESET
+    creator = recipe["template_preset"] == CREATOR_TEMPLATE_PRESET
     clips: list[dict[str, Any]] = []
     for index, scene in enumerate(scenes):
         duration_ms = scene["end_ms"] - scene["start_ms"]
@@ -247,7 +249,7 @@ def announcement_recipe_to_detailed_payload(
                 ),
                 "transition_to_next": (
                     None
-                    if screen_explainer or index == len(scenes) - 1
+                    if screen_explainer or creator or index == len(scenes) - 1
                     else {
                         "type": "fade",
                         "duration_ms": ANNOUNCEMENT_VIDEO_TRANSITION_MS,
@@ -255,10 +257,10 @@ def announcement_recipe_to_detailed_payload(
                 ),
                 "overlay": {
                     "text": scene["headline"],
-                    "start_ms": 125,
+                    "start_ms": 0 if creator else 125,
                     "end_ms": duration_ms - 125,
-                    "position": "top" if screen_explainer else _ROLE_OVERLAY_POSITIONS[scene["role"]],
-                    "style_preset": "shorts_ja_large_v1",
+                    "position": "top" if screen_explainer or creator else _ROLE_OVERLAY_POSITIONS[scene["role"]],
+                    "style_preset": "shorts_creator_v1" if creator else "shorts_ja_large_v1",
                 },
             }
         )
@@ -325,7 +327,7 @@ def validate_announcement_recipe_payload(body: Any) -> dict[str, Any]:
         body.get("schema_version") != ANNOUNCEMENT_VIDEO_SCHEMA_VERSION
         or not isinstance(body.get("template_preset"), str)
         or body.get("template_preset") not in {
-            ANNOUNCEMENT_VIDEO_TEMPLATE_PRESET, SCREEN_EXPLAINER_TEMPLATE_PRESET
+            ANNOUNCEMENT_VIDEO_TEMPLATE_PRESET, SCREEN_EXPLAINER_TEMPLATE_PRESET, CREATOR_TEMPLATE_PRESET
         }
     ):
         raise AnnouncementVideoValidationError()
@@ -347,13 +349,14 @@ def validate_announcement_recipe_payload(body: Any) -> dict[str, Any]:
         raise AnnouncementVideoValidationError()
     if not screen_explainer and any("focus_region" in scene for scene in scenes):
         raise AnnouncementVideoValidationError()
-    transition_ms = 0 if screen_explainer else ANNOUNCEMENT_VIDEO_TRANSITION_MS
+    creator = body["template_preset"] == CREATOR_TEMPLATE_PRESET
+    transition_ms = 0 if screen_explainer or creator else ANNOUNCEMENT_VIDEO_TRANSITION_MS
     total_duration_ms = (
         sum(item["end_ms"] - item["start_ms"] for item in scenes)
         - transition_ms * (len(scenes) - 1)
     )
     minimum_ms = 15_000 if screen_explainer else ANNOUNCEMENT_VIDEO_MIN_DURATION_MS
-    maximum_ms = 30_000 if screen_explainer else ANNOUNCEMENT_VIDEO_MAX_DURATION_MS
+    maximum_ms = 30_000 if screen_explainer or creator else ANNOUNCEMENT_VIDEO_MAX_DURATION_MS
     if not minimum_ms <= total_duration_ms <= maximum_ms:
         raise AnnouncementVideoValidationError()
 
@@ -368,7 +371,7 @@ def validate_announcement_recipe_payload(body: Any) -> dict[str, Any]:
     caption_style_preset = body.get("caption_style_preset")
     audio_mix_preset = body.get("audio_mix_preset")
     variant = body.get("variant")
-    if caption_style_preset not in {"studio_default_v1", "shorts_ja_large_v1"}:
+    if caption_style_preset not in {"studio_default_v1", "shorts_ja_large_v1", "shorts_ja_phrase_v1"}:
         raise AnnouncementVideoValidationError()
     if audio_mix_preset not in {
         "narration_only_v1",
@@ -463,7 +466,7 @@ def announcement_recipe_audit_summary(recipe: Mapping[str, Any]) -> dict[str, An
         "headline_chars": [len(item["headline"]) for item in normalized["scenes"]],
         "narration_chars": [len(item["narration"]) for item in normalized["scenes"]],
         "overlay_policy": (
-            "screen_explainer_safe_header_v1"
+            "shorts_creator_safe_motion_v1" if normalized["template_preset"] == CREATOR_TEMPLATE_PRESET else "screen_explainer_safe_header_v1"
             if normalized["template_preset"] == SCREEN_EXPLAINER_TEMPLATE_PRESET
             else ANNOUNCEMENT_VIDEO_OVERLAY_POLICY
         ),

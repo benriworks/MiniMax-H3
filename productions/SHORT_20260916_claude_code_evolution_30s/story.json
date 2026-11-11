@@ -2,26 +2,82 @@
   "title": "Claude Code、3か月でどう進化？ Fable 5・Opus 5・Fable 5.1",
   "duration_ms": 30000,
   "fps": 24,
+  "visual_style": {
+    "version": "readable54_night_hq_intro_v3",
+    "minimum_font_px": 54
+  },
+  "eyecatch": {
+    "path": "outputs/night-city-hq-20260918/MiniMax_H3_Bright_Night_768_00001_.mp4",
+    "bytes": 4420070,
+    "sha256": "009AB703D6D1CEA2F836500ECCC603B88707FB47EC9E0590A397B9B22AFA7634",
+    "provenance_path": "verification/night-city-hq-2026-09-18.json",
+    "provenance_sha256": "C8B18AFE561DD1C96745E1F0D5732BEEF06172E83CEA5655EEFB37913C7F611A",
+    "duration_frames": 120,
+    "audio": false
+  },
   "voice": "Microsoft Sayaka",
   "rate": 1,
   "segments": [
-    {"start_ms": 300, "text": "Claude Code、三か月の進化。"},
-    {"start_ms": 5300, "text": "Fable 5。長い開発へ。"},
-    {"start_ms": 10300, "text": "Opus 5。性能と効率。"},
-    {"start_ms": 15300, "text": "九月、Fable 5.1。"},
-    {"start_ms": 20300, "text": "公式の開発評価でも、スコアが向上。"},
-    {"start_ms": 25300, "text": "次は、あなたの開発で試してみよう。"}
+    {
+      "start_ms": 300,
+      "text": "Claude Code、三か月の進化。"
+    },
+    {
+      "start_ms": 5300,
+      "text": "Fable 5。長い開発へ。"
+    },
+    {
+      "start_ms": 10300,
+      "text": "Opus 5。性能と効率。"
+    },
+    {
+      "start_ms": 15300,
+      "text": "九月、Fable 5.1。"
+    },
+    {
+      "start_ms": 20300,
+      "text": "公式の開発評価でも、スコアが向上。"
+    },
+    {
+      "start_ms": 25300,
+      "text": "次は、あなたの開発で試してみよう。"
+    }
   ],
   "pronunciations": [
-    {"source": "Claude Code", "target": "クロードコード"},
-    {"source": "Fable 5.1", "target": "フェイブルごーてんいち"},
-    {"source": "Fable 5", "target": "フェイブルファイブ"},
-    {"source": "Opus 5", "target": "オーパスファイブ"}
+    {
+      "source": "Claude Code",
+      "target": "クロードコード"
+    },
+    {
+      "source": "Fable 5.1",
+      "target": "フェイブルごーてんいち"
+    },
+    {
+      "source": "Fable 5",
+      "target": "フェイブルファイブ"
+    },
+    {
+      "source": "Opus 5",
+      "target": "オーパスファイブ"
+    }
   ],
   "models": [
-    {"name": "Fable 5", "date": "2026.06.09", "score": 42.0},
-    {"name": "Opus 5", "date": "2026.07.24", "score": 52.3},
-    {"name": "Fable 5.1", "date": "2026.09.01", "score": 55.8}
+    {
+      "name": "Fable 5",
+      "date": "2026.06.09",
+      "score": 42.0
+    },
+    {
+      "name": "Opus 5",
+      "date": "2026.07.24",
+      "score": 52.3
+    },
+    {
+      "name": "Fable 5.1",
+      "date": "2026.09.01",
+      "score": 55.8
+    }
   ],
-  "description": "Claude Codeを支えるモデルの進化を、2026年6月〜9月の公式発表で振り返ります。\n\n6月9日：Fable 5 — 長く複雑な開発タスクへ。\n7月24日：Opus 5 — 性能と効率を両立。\n9月1日：Fable 5.1 — コーディングと長いタスクの能力をさらに改善。\n\n動画内のTerminal-Bench 4.0は、AnthropicがFable 5.1発表ページに掲載した比較表の数値です（Fable 5：42.0%、Opus 5：52.3%、Fable 5.1：55.8%）。当方の実測ではなく、すべての実務での成功率を表すものでもありません。モデルの安全機構が介入する場合の扱いなど、評価条件は下記の一次資料をご覧ください。モデルの発表順を示しており、単純な後継関係を意味しません。Fable 5は発表後に提供停止期間があり、7月1日に再開しています。\n\n出典（2026年9月16日確認）：\nhttps://www.anthropic.com/news/claude-fable-5-mythos-5\nhttps://www.anthropic.com/news/claude-opus-5\nhttps://www.anthropic.com/claude/fable\nhttps://www.anthropic.com/claude-fable-and-mythos-5-1\n\n映像は独自の編集図解です。Claude Codeの操作実演や生成速度の比較ではありません。Anthropicの提供・協賛ではない非公式解説です。\n\n#ClaudeCode #Claude #Fable5 #Opus5 #Fable51 #生成AI"
+  "description": "Claude Codeを支えるモデルの進化を、2026年6月〜9月の公式発表で振り返ります。\n\n6月9日：Fable 5 — 長く複雑な開発タスクへ。\n7月24日：Opus 5 — 性能と効率を両立。\n9月1日：Fable 5.1 — コーディングと長いタスクの能力をさらに改善。\n\n動画内のTerminal-Bench 4.0は、AnthropicがFable 5.1発表ページに掲載した比較表の数値です（Fable 5：42.0%、Opus 5：52.3%、Fable 5.1：55.8%）。当方の実測ではなく、すべての実務での成功率を表すものでもありません。モデルの安全機構が介入する場合の扱いなど、評価条件は下記の一次資料をご覧ください。モデルの発表順を示しており、単純な後継関係を意味しません。Fable 5は発表後に提供停止期間があり、7月1日に再開しています。\n\n出典（2026年9月16日確認）：\nhttps://www.anthropic.com/news/claude-fable-5-mythos-5\nhttps://www.anthropic.com/news/claude-opus-5\nhttps://www.anthropic.com/claude/fable\nhttps://www.anthropic.com/claude-fable-and-mythos-5-1\n\n冒頭5秒はMiniMax H3で新しく生成した、ビルの照明と水面の反射がきらめく明るい夜景、以降は独自の編集図解です。都市映像はAIによるイメージ映像です。Claude Codeの操作実演や生成速度の比較ではありません。Anthropicの提供・協賛ではない非公式解説です。\n\n#ClaudeCode #Claude #Fable5 #Opus5 #Fable51 #生成AI",
+  "delivery_profile": "hq_direct_v1"
 }

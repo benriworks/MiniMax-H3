@@ -286,6 +286,25 @@ test('screen layout rejects source enhancement that would crop before contain re
   assert.throws(() => model.buildRemotionTimelineCompositionProps({ clips: [clip({ layoutPreset: 'screen_explainer_v1', overlay: overlay({ position: 'center' }) })] }, () => 'clip-00.mp4'), /top|上/);
 });
 
+test('raw renderer accepts the creator preset at frame zero and rejects unreadable or unknown styles', async () => {
+  const renderer = await readFile(join(studioRoot, '..', 'tools', 'studio', 'remotion_render.mjs'), 'utf8');
+  const validate = runInNewContext(`${renderer.slice(renderer.indexOf('const SCHEMA_VERSION'), renderer.indexOf('if (process.argv.length'))}\nvalidateInputProps;`);
+  const props = model.buildRemotionTimelineCompositionProps({ clips: [clip({
+    overlay: overlay({ text: 'Claude Code、\nここまでできる。', startMs: 0, stylePreset: 'shorts_creator_v1' }),
+  })] }, () => 'clip-00.mp4');
+  assert.equal(props.clips[0].overlay.startFrame, 0);
+  assert.doesNotThrow(() => validate(props));
+  for (const change of [
+    { stylePreset: 'custom-css' },
+    { text: '長'.repeat(15) },
+    { text: '一\n二\n三\n四' },
+  ]) {
+    const invalid = structuredClone(props);
+    Object.assign(invalid.clips[0].overlay, change);
+    assert.throws(() => validate(invalid), /overlay/);
+  }
+});
+
 test('Remotion job matcher excludes legacy timeline jobs and scopes run and attempt', () => {
   const selection = { runId: 'run-1', stageAttemptId: 'attempt-1' };
   assert.equal(api.isRemotionTimelineJobForSelection({

@@ -17,22 +17,57 @@ const preparation = JSON.parse(await fs.readFile(path.join(output, 'preparation.
 const record = async file => ({path: path.relative(root, file).replaceAll('\\', '/'), sha256: createHash('sha256').update(await fs.readFile(file)).digest('hex').toUpperCase(), bytes: (await fs.stat(file)).size});
 for (const r of preparation.sources) if ((await record(path.join(root, r.path))).sha256 !== r.sha256) throw new Error('Prepared source changed');
 const sources = await Promise.all([path.join(folder, 'Evolution.tsx'), fileURLToPath(import.meta.url), path.join(folder, 'produce.py'), path.join(folder, 'story.json'), path.join(folder, 'SOURCES_JA.md'), path.join(studio, 'src/remotion/ScreenTypography.tsx'), path.join(studio, 'public/template-assets/NotoSansJP-Variable.ttf'), path.join(studio, 'package.json'), path.join(studio, 'package-lock.json')].map(record));
+const eyecatch = preparation.story.eyecatch;
+if (!eyecatch || eyecatch.duration_frames !== 120 || eyecatch.audio !== false) throw new Error('Expected a five-second muted H3 eyecatch');
+const sourceVideo = path.resolve(root, eyecatch.path);
+if (!sourceVideo.startsWith(path.join(root, 'outputs') + path.sep)) throw new Error('Eyecatch must be a workspace output');
+const videoRecord = await record(sourceVideo);
+if (videoRecord.sha256 !== eyecatch.sha256 || videoRecord.bytes !== eyecatch.bytes) throw new Error('Eyecatch bytes changed');
+const provenancePath = path.resolve(root, eyecatch.provenance_path);
+if (!provenancePath.startsWith(path.join(root, 'verification') + path.sep)) throw new Error('Expected local H3 generation verification');
+const provenanceRecord = await record(provenancePath);
+if (provenanceRecord.sha256 !== eyecatch.provenance_sha256) throw new Error('H3 provenance changed');
+const provenance = JSON.parse(await fs.readFile(provenancePath, 'utf8'));
+if (provenance.artifact.sha256 !== videoRecord.sha256 || provenance.artifact.path !== eyecatch.path) throw new Error('Generation record does not identify this video');
+const generatedForRevision = provenance.generation_context === 'generated_for_this_revision';
+for (const input of provenance.inputs ?? []) {
+  const inputPath = path.resolve(root, input.path);
+  if (!inputPath.startsWith(root + path.sep)) throw new Error('Generation input must be inside workspace');
+  const actual = await record(inputPath);
+  if (actual.sha256 !== input.sha256 || actual.bytes !== input.bytes) throw new Error('Generation input changed');
+  sources.push(actual);
+}
+const eyecatchProbe = JSON.parse(execFileSync('ffprobe', ['-v', 'error', '-show_streams', '-show_format', '-of', 'json', sourceVideo], {encoding: 'utf8', windowsHide: true}));
+const sourceStream = eyecatchProbe.streams.find(s => s.codec_type === 'video');
+if (!sourceStream || sourceStream.avg_frame_rate !== '24/1' || Number(sourceStream.nb_frames) < 120) throw new Error('Eyecatch is too short or has unsupported timing');
+const highQuality = preparation.story.delivery_profile === 'hq_direct_v1';
+if (highQuality && (sourceStream.width < 768 || sourceStream.height < 1344)) throw new Error('HQ delivery requires a natively larger generated source');
+const renderCrf = highQuality ? 12 : 16;
+execFileSync('ffmpeg', ['-v', 'error', '-xerror', '-i', sourceVideo, '-f', 'null', '-'], {windowsHide: true});
+sources.push(videoRecord, provenanceRecord);
+const tsx = await fs.readFile(path.join(folder, 'Evolution.tsx'), 'utf8');
+const fontSizes = [...tsx.matchAll(/fontSize:\s*(\d+)/g), ...tsx.matchAll(/size=\{(\d+)\}/g)].map(m => Number(m[1]));
+if (preparation.story.visual_style.minimum_font_px !== 54 || Math.min(...fontSizes) < 54) throw new Error('Typography falls below the new 54px floor');
 const publicDir = path.join(output, 'public');
 await fs.mkdir(path.join(publicDir, 'template-assets'), {recursive: true});
 await fs.copyFile(path.join(studio, 'public/template-assets/NotoSansJP-Variable.ttf'), path.join(publicDir, 'template-assets/NotoSansJP-Variable.ttf'));
+await fs.copyFile(sourceVideo, path.join(publicDir, 'eyecatch.mp4'));
 const browserExecutable = chromium.executablePath();
-const inputProps = {models: preparation.story.models};
+const inputProps = {models: preparation.story.models, eyecatchSrc: 'eyecatch.mp4'};
 const serveUrl = await bundle({entryPoint: path.join(folder, 'Evolution.tsx'), rootDir: studio, publicDir, outDir: path.join(output, 'bundle'), enableCaching: true, webpackOverride: c => ({...c, resolve: {...c.resolve, modules: [path.join(studio, 'node_modules'), ...(c.resolve?.modules ?? [])]}})});
 const composition = await selectComposition({serveUrl, id: 'ClaudeEvolution30', browserExecutable, inputProps});
 for (const frame of [72, 192, 312, 432, 552, 672]) await renderStill({composition, serveUrl, browserExecutable, inputProps, frame, imageFormat: 'png', output: path.join(output, `design-${frame}.png`), overwrite: false});
 console.log(JSON.stringify({event: 'stills_ready', output}));
 const file = path.join(output, 'timeline-silent.mp4');
 let last = -1;
-await renderMedia({composition, serveUrl, browserExecutable, inputProps, outputLocation: file, codec: 'h264', pixelFormat: 'yuv420p', colorSpace: 'bt709', imageFormat: 'png', crf: 16, muted: true, concurrency: 2, overwrite: false, onProgress: ({progress}) => {const n = Math.floor(progress * 10); if (n > last) {last = n; console.log(JSON.stringify({event: 'render_progress', percent: n * 10}));}}});
+await renderMedia({composition, serveUrl, browserExecutable, inputProps, outputLocation: file, codec: 'h264', pixelFormat: 'yuv420p', colorSpace: 'bt709', imageFormat: 'png', crf: renderCrf, muted: true, concurrency: 2, overwrite: false, onProgress: ({progress}) => {const n = Math.floor(progress * 10); if (n > last) {last = n; console.log(JSON.stringify({event: 'render_progress', percent: n * 10}));}}});
 const probe = JSON.parse(execFileSync('ffprobe', ['-v', 'error', '-show_streams', '-show_format', '-of', 'json', file], {encoding: 'utf8', windowsHide: true}));
 const v = probe.streams[0];
 if (probe.streams.length !== 1 || v.width !== 1080 || v.height !== 1920 || v.codec_name !== 'h264' || v.avg_frame_rate !== '24/1' || Number(v.nb_frames) !== 720 || Number(probe.format.duration) !== 30) throw new Error('Silent master format mismatch');
 execFileSync('ffmpeg', ['-v', 'error', '-xerror', '-i', file, '-f', 'null', '-'], {windowsHide: true});
 for (const r of sources) if ((await record(path.join(root, r.path))).sha256 !== r.sha256) throw new Error('Source changed during render');
-await fs.writeFile(path.join(output, 'render.json'), JSON.stringify({schema_version: 1, sources, timeline: await record(file), probe, full_decode_verified: true}, null, 2) + '\n', {flag: 'wx'});
+await fs.writeFile(path.join(output, 'render.json'), JSON.stringify({schema_version: 1, sources, timeline: await record(file), probe, full_decode_verified: true,
+  encoding: {timeline_crf: renderCrf, delivery_profile: preparation.story.delivery_profile ?? 'studio_standard_v1'},
+  typography: {minimum_font_px: Math.min(...fontSizes), at_360px_width: Math.min(...fontSizes) / 3, literal_font_sizes: [...new Set(fontSizes)], hero_minimum_enforced: true},
+  eyecatch: {...eyecatch, generation_record: provenanceRecord, input_probe: eyecatchProbe, source: generatedForRevision ? 'MiniMax H3 video generated for this revision' : 'previously generated MiniMax H3 video', new_generation: generatedForRevision}}, null, 2) + '\n', {flag: 'wx'});
 console.log(JSON.stringify({event: 'render_complete', output}));

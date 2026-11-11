@@ -157,7 +157,7 @@ def _caption_preflight_policy(payload: Mapping[str, Any]) -> str | None:
 
     if (
         payload.get("include_captioned") is True
-        and payload.get("caption_style_preset") == "shorts_ja_large_v1"
+        and payload.get("caption_style_preset") in {"shorts_ja_large_v1", "shorts_ja_phrase_v1"}
     ):
         return SHORTS_JA_CAPTION_PREFLIGHT_POLICY
     return None
@@ -208,7 +208,7 @@ def validate_detailed_test_video_payload(body: Any) -> dict[str, Any]:
         and caption_style["preset"] != DEFAULT_CAPTION_STYLE_PRESET
     ):
         raise _validation_error()
-    if include_captioned and caption_style["preset"] == "shorts_ja_large_v1":
+    if include_captioned and caption_style["preset"] in {"shorts_ja_large_v1", "shorts_ja_phrase_v1"}:
         _validate_shorts_ja_caption_preflight(narration["segments"])
 
     return {

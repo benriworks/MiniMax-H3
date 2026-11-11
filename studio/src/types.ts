@@ -464,7 +464,7 @@ export interface ExternalNarrationPayload {
   confirm_billable: boolean;
 }
 
-export type LocalAssemblyCaptionStylePreset = 'studio_default_v1' | 'shorts_ja_large_v1';
+export type LocalAssemblyCaptionStylePreset = 'studio_default_v1' | 'shorts_ja_large_v1' | 'shorts_ja_phrase_v1';
 export type LocalAssemblyAudioMixPreset = 'narration_only_v1' | 'source_under_narration_v1';
 
 export interface LocalAssemblyRequest {
@@ -502,7 +502,7 @@ export interface LocalRemotionTimelineOverlay {
   startMs: number;
   endMs: number;
   position: LocalRemotionTimelineOverlayPosition;
-  stylePreset: 'shorts_ja_large_v1';
+  stylePreset: 'shorts_ja_large_v1' | 'shorts_creator_v1';
 }
 
 export interface ScreenFocusRegion {
@@ -560,7 +560,7 @@ export interface AnnouncementVideoScene {
 export interface AnnouncementVideoRecipe {
   schemaVersion: 1;
   name: string;
-  templatePreset: 'shorts_ja_15s_v1' | 'screen_explainer_ja_v1';
+  templatePreset: 'shorts_ja_15s_v1' | 'screen_explainer_ja_v1' | 'shorts_creator_ja_v1';
   screenTheme?: ScreenThemeId;
   scenes: AnnouncementVideoScene[];
   voice?: string;

@@ -1,5 +1,13 @@
 # MiniMax H3 ローカル映像制作プレイブック
 
+## 2026-10-23：制作全体の運用規定と引き継ぎ
+
+人物キャラの初期ユーザー確認、MiniMaxでの動画化、人物のストーリーとシリーズの一貫性、ローカル保存、レビュー、GitHubでの資産化は [制作全体の引き継ぎガイド](docs/video-production/VIDEO_PRODUCTION_HANDOFF_JA.md) を正本とする。人物を使う新しい解説シリーズでは、人物の確認を本番生成・量産より先に行う。
+
+ナレーション担当者へは、単体で渡せる [ナレーション制作・生成・組み込み資料](docs/video-production/NARRATION_HANDOFF_JA.md) を使う。資料一覧とひな形は [動画制作ガイド](docs/video-production/README.md)。**制作動画本体のGitHub保管は不要**で、文書・台本・プロンプト・改善理由・検証要約を節目ごとに資産化する。
+
+以下の生成方式・時間・品質の数値は過去の実測記録。最新の制作方針と、過去の実験条件を混同しない。
+
 ## 1. 目的と証拠レベル
 
 この文書は、Windows 11 / RTX 3070 Ti 8 GiB / 物理RAM約47.7 GiBの実機で行ったMiniMax H3短尺制作から、再利用できる判断基準をまとめたものです。環境構築手順は[LOCAL_SETUP_JA.md](LOCAL_SETUP_JA.md)、個々の実測値は[verification](verification/)と[productions](productions/README.md)を参照してください。

@@ -51,8 +51,8 @@ def reuse_visuals(output, prior_folder):
     prior_prep_path = prior_folder / 'preparation.json'
     prior_render, prior_prep = read(prior_render_path), read(prior_prep_path)
     prep = read(output / 'preparation.json')
-    for key in ('models', 'duration_ms', 'fps'):
-        if prep['story'][key] != prior_prep['story'][key]:
+    for key in ('models', 'duration_ms', 'fps', 'visual_style', 'eyecatch', 'delivery_profile'):
+        if prep['story'].get(key) != prior_prep['story'].get(key):
             raise ValueError('Visual story changed; render a new timeline')
     visual_paths = [FOLDER / 'Evolution.tsx', FOLDER / 'render.mjs',
         ROOT / 'studio/src/remotion/ScreenTypography.tsx',
@@ -69,12 +69,15 @@ def reuse_visuals(output, prior_folder):
     save(output / 'render.json', {'schema_version': 1,
         'sources': [*prep['sources'], *[record(p) for p in visual_paths], record(prior_render_path), record(prior_prep_path)],
         'timeline': prior_render['timeline'], 'probe': prior_render['probe'], 'full_decode_verified': True,
+        'typography': prior_render.get('typography'), 'eyecatch': prior_render.get('eyecatch'), 'encoding': prior_render.get('encoding'),
         'visual_reuse': {'prior_render': record(prior_render_path), 'prior_preparation': record(prior_prep_path),
-                         'checked_fields': ['models', 'duration_ms', 'fps'], 'visual_source_hashes_verified': True}})
+                         'checked_fields': ['models', 'duration_ms', 'fps', 'visual_style', 'eyecatch', 'delivery_profile'], 'visual_source_hashes_verified': True}})
 
 
-def prepare(prior_folder=None):
+def prepare(prior_folder=None, audio_prior=None):
     story = read(FOLDER / 'story.json')
+    if story.get('delivery_profile') == 'hq_direct_v1' and audio_prior is None:
+        raise ValueError('HQ visual revision requires --reuse-audio with the reviewed prior output')
     if story['duration_ms'] != 30000 or len(story['segments']) != 6:
         raise ValueError('Expected six five-second scenes')
     expected = [('Fable 5', '2026.06.09', 42.0), ('Opus 5', '2026.07.24', 52.3), ('Fable 5.1', '2026.09.01', 55.8)]
@@ -86,19 +89,74 @@ def prepare(prior_folder=None):
     namespace = hashlib.sha256(str(output).encode()).hexdigest()[:32]
     sources = [record(FOLDER / p) for p in ['story.json', 'SOURCES_JA.md', 'Evolution.tsx', 'render.mjs', 'produce.py']]
     starts = [s['start_ms'] for s in story['segments']]
-    narration = generate_local_narration(ROOT, production_id='production_' + namespace, run_id='run_' + namespace,
-        payload={'voice': story['voice'], 'rate': story['rate'], 'pronunciations': story['pronunciations'],
-                 'segments': [{'text': s['text']} for s in story['segments']]}, segment_start_ms=starts)
+    narration_reuse = None
+    accepted_audio_master = None
+    if audio_prior is not None:
+        audio_prior = workspace_path(ROOT, audio_prior, must_exist=True)
+        previous = read(audio_prior / 'preparation.json')
+        for key in ('voice', 'rate', 'pronunciations', 'segments'):
+            if story[key] != previous['story'][key]:
+                raise ValueError('Narration input changed; generate new audio')
+        narration = read(audio_prior / 'narration-result.json')
+        for artifact in narration['artifacts']:
+            check(artifact)
+        narration_reuse = {'mode': 'verified_existing_artifacts', 'prior_preparation': record(audio_prior / 'preparation.json'),
+                           'prior_narration': record(audio_prior / 'narration-result.json')}
+        sources.extend([narration_reuse['prior_preparation'], narration_reuse['prior_narration']])
+        if story.get('delivery_profile') == 'hq_direct_v1':
+            accepted_audio_master = record(check(read(audio_prior / 'verification.json')['masters']['master-captioned.mp4']))
+            sources.extend([accepted_audio_master, record(audio_prior / 'verification.json'),
+                record(ROOT / 'tools/studio/assembly.py'), record(ROOT / 'tools/studio/assembly_execution.py')])
+    else:
+        narration = generate_local_narration(ROOT, production_id='production_' + namespace, run_id='run_' + namespace,
+            payload={'voice': story['voice'], 'rate': story['rate'], 'pronunciations': story['pronunciations'],
+                     'segments': [{'text': s['text']} for s in story['segments']]}, segment_start_ms=starts)
     save(output / 'narration-result.json', narration)
     files = {a['name']: check(a) for a in narration['artifacts']}
     timings = read(files['timings.json'])
     for i, row in enumerate(timings['segments']):
         if row['text'] != story['segments'][i]['text'] or row['start_ms'] != starts[i] or row['end_ms'] > (i + 1) * 5000 - 100:
             raise ValueError(f'Speech {i + 1} exceeds its slot; shorten the script. Retained output: {output}')
-    save(output / 'preparation.json', {'story': story, 'sources': sources, 'namespace': namespace, 'timings': timings})
+    save(output / 'preparation.json', {'story': story, 'sources': sources, 'namespace': namespace, 'timings': timings,
+        'narration_reuse': narration_reuse, 'accepted_audio_master': accepted_audio_master})
     if prior_folder is not None:
         reuse_visuals(output, prior_folder)
     print(json.dumps({'event': 'prepared', 'output': str(output), 'speech_intervals': [[s['start_ms'], s['end_ms']] for s in timings['segments']]}, ensure_ascii=False), flush=True)
+
+
+def assemble_hq(output, prep, source, files, key):
+    """Keep accepted AAC packets and burn the shared caption style once at CRF 14."""
+    from tools.studio.assembly import _build_ass
+    audio_master = check(prep['accepted_audio_master'])
+    ass = _build_ass(files['captions.srt'].read_bytes(), width=1080, height=1920,
+        caption_style_preset='shorts_ja_large_v1')
+    ass_path = output / 'captions.ass'
+    if ass_path.exists() and ass_path.read_bytes() != ass:
+        raise ValueError('HQ subtitle input changed')
+    if not ass_path.exists():
+        ass_path.write_bytes(ass)
+    base = ['ffmpeg', '-hide_banner', '-loglevel', 'error', '-nostdin', '-n',
+        '-i', str(source), '-i', str(audio_master), '-map', '0:v:0', '-map', '1:a:0', '-t', '30']
+    common = ['-c:a', 'copy', '-map_metadata', '-1', '-movflags', '+faststart']
+    clean = output / 'master-clean.mp4'
+    captioned = output / 'master-captioned.mp4'
+    subprocess.run([*base, '-c:v', 'copy', *common, str(clean)], cwd=output,
+        check=True, creationflags=FLAGS, timeout=600)
+    subprocess.run([*base, '-vf', "subtitles='captions.ass'", '-c:v', 'libx264',
+        '-preset', 'slow', '-crf', '14', '-pix_fmt', 'yuv420p', '-threads', '2',
+        '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709',
+        *common, str(captioned)], cwd=output, check=True, creationflags=FLAGS, timeout=600)
+    def audio_hash(path):
+        return subprocess.check_output(['ffmpeg', '-v', 'error', '-i', str(path),
+            '-map', '0:a:0', '-c:a', 'copy', '-f', 'hash', '-'], creationflags=FLAGS, text=True).strip()
+    expected_audio = audio_hash(audio_master)
+    if any(audio_hash(path) != expected_audio for path in (clean, captioned)):
+        raise ValueError('HQ delivery changed accepted audio packets')
+    return {'cache_key': key, 'artifacts': [{**record(path), 'name': path.name} for path in (clean, captioned)],
+        'encoding': {'profile': 'hq_direct_v1', 'clean_video': 'stream_copy', 'captioned_crf': 14,
+            'captioned_preset': 'slow', 'caption_video_encode_passes': 1, 'caption_style': 'shorts_ja_large_v1',
+            'captions_ass': record(ass_path), 'audio': 'accepted_aac_stream_copy',
+            'audio_sha256': expected_audio, 'audio_packets_identical': True}}
 
 
 def finish(folder):
@@ -112,15 +170,21 @@ def finish(folder):
     tools = resolve_tool_identity()
     key = assembly_cache_key(digest(source), digest(files['narration.wav']), digest(files['captions.srt']), True,
         caption_style_preset='shorts_ja_large_v1', audio_mix_preset='narration_only_v1', tool_identity=tools)
+    high_quality = prep['story'].get('delivery_profile') == 'hq_direct_v1'
+    if high_quality:
+        key = hashlib.sha256((key + ':hq_direct_v1:' + digest(check(prep['accepted_audio_master']))).encode()).hexdigest().upper()
     result_file = output / 'assembly-result.json'
     if result_file.exists():
         result = read(result_file)
         if result['cache_key'] != key:
             raise ValueError('Assembly input changed')
     else:
-        result = assemble_local_video(ROOT, production_id='production_' + prep['namespace'], run_id='run_' + prep['namespace'],
-            cache_key=key, source_video=source, narration_wav=files['narration.wav'], captions_srt=files['captions.srt'],
-            include_captioned=True, caption_style_preset='shorts_ja_large_v1', audio_mix_preset='narration_only_v1')
+        if high_quality:
+            result = assemble_hq(output, prep, source, files, key)
+        else:
+            result = assemble_local_video(ROOT, production_id='production_' + prep['namespace'], run_id='run_' + prep['namespace'],
+                cache_key=key, source_video=source, narration_wav=files['narration.wav'], captions_srt=files['captions.srt'],
+                include_captioned=True, caption_style_preset='shorts_ja_large_v1', audio_mix_preset='narration_only_v1')
         save(result_file, result)
     masters = {}
     for a in result['artifacts']:
@@ -145,12 +209,20 @@ def finish(folder):
             subprocess.run(['ffmpeg', '-v', 'error', '-n', '-ss', str(t), '-i', str(captioned), '-frames:v', '1', '-vf', 'scale=360:640', str(preview)], check=True, creationflags=FLAGS)
     publication = output / 'publication.txt'
     if not publication.exists():
-        publication.write_text(prep['story']['title'] + '\n\n' + prep['story']['description'] + '\n', encoding='utf-8')
+        description = prep['story']['description']
+        if prep['story'].get('eyecatch'):
+            description = description.replace('映像は独自の編集図解です。', '冒頭5秒はMiniMax H3で生成済みの夕暮れの都市映像、以降は独自の編集図解です。都市映像はAIによるイメージ映像で、Claude Codeの実画面ではありません。')
+        publication.write_text(prep['story']['title'] + '\n\n' + description + '\n', encoding='utf-8')
     verification = {'masters': masters, 'timings': prep['timings'], 'studio_database_run': False, 'paid_api_calls': 0,
         'public_quality_verified': False, 'audio_quality_improved': False, 'source_claims': 'SOURCES_JA.md',
         'narration_settings': {k: prep['story'][k] for k in ['voice', 'rate', 'pronunciations']},
         'visual_reuse': render.get('visual_reuse'),
-        'workflow': 'Scoped motion graphics with shared local Studio narration and assembly', 'review_status': 'first_draft'}
+        'narration_reuse': prep.get('narration_reuse'), 'eyecatch': render.get('eyecatch'),
+        'typography': render.get('typography'),
+        'timeline_encoding': render.get('encoding'),
+        'encoding': result.get('encoding'),
+        'workflow': 'Scoped motion graphics with shared caption style and direct HQ assembly' if high_quality else 'Scoped motion graphics with shared local Studio narration and assembly',
+        'review_status': 'revision_ready_for_user_review' if high_quality else 'first_draft'}
     verify_file = output / 'verification.json'
     if not verify_file.exists():
         save(verify_file, verification)
@@ -172,9 +244,11 @@ def finish(folder):
 
 
 if __name__ == '__main__':
-    if sys.argv[1] == 'prepare' and len(sys.argv) in (2, 3):
+    if len(sys.argv) == 4 and sys.argv[1:3] == ['prepare', '--reuse-audio']:
+        prepare(audio_prior=sys.argv[3])
+    elif sys.argv[1] == 'prepare' and len(sys.argv) in (2, 3):
         prepare(sys.argv[2] if len(sys.argv) == 3 else None)
     elif sys.argv[1] == 'finish' and len(sys.argv) == 3:
         finish(sys.argv[2])
     else:
-        raise SystemExit('Usage: produce.py prepare [VERIFIED_PRIOR_OUTPUT] | finish OUTPUT_DIRECTORY')
+        raise SystemExit('Usage: produce.py prepare [VERIFIED_PRIOR_OUTPUT] | prepare --reuse-audio VERIFIED_PRIOR_OUTPUT | finish OUTPUT_DIRECTORY')

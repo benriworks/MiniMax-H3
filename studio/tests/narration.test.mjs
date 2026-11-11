@@ -91,7 +91,7 @@ test('normalizeNarrationInput removes empty lines and enforces segment and text 
 test('normalizeLocalAssemblyInput trims source IDs and accepts only closed caption/audio presets', () => {
   assert.equal(api.DEFAULT_LOCAL_ASSEMBLY_CAPTION_STYLE_PRESET, 'studio_default_v1');
   assert.equal(api.RECOMMENDED_LOCAL_ASSEMBLY_CAPTION_STYLE_PRESET, 'shorts_ja_large_v1');
-  assert.deepEqual(api.LOCAL_ASSEMBLY_CAPTION_STYLE_PRESETS, ['studio_default_v1', 'shorts_ja_large_v1']);
+  assert.deepEqual(api.LOCAL_ASSEMBLY_CAPTION_STYLE_PRESETS, ['shorts_ja_phrase_v1', 'studio_default_v1', 'shorts_ja_large_v1']);
   assert.equal(api.DEFAULT_LOCAL_ASSEMBLY_AUDIO_MIX_PRESET, 'narration_only_v1');
   assert.deepEqual(api.LOCAL_ASSEMBLY_AUDIO_MIX_PRESETS, ['narration_only_v1', 'source_under_narration_v1']);
 

@@ -14,6 +14,7 @@ DEFAULT_CAPTION_STYLE_PRESET = CAPTION_STYLE_PRESET_STUDIO_DEFAULT_V1
 CAPTION_STYLE_PRESETS = (
     CAPTION_STYLE_PRESET_STUDIO_DEFAULT_V1,
     CAPTION_STYLE_PRESET_SHORTS_JA_LARGE_V1,
+    "shorts_ja_phrase_v1",
 )
 AUDIO_MIX_PRESET_NARRATION_ONLY_V1 = "narration_only_v1"
 AUDIO_MIX_PRESET_SOURCE_UNDER_NARRATION_V1 = "source_under_narration_v1"
@@ -126,6 +127,15 @@ _CAPTION_STYLE_DEFINITIONS: dict[str, dict[str, Any]] = {
         "encoding": 1,
         "wrap_style": 0,
     },
+}
+
+_CAPTION_STYLE_DEFINITIONS['shorts_ja_phrase_v1'] = {
+    **_CAPTION_STYLE_DEFINITIONS[CAPTION_STYLE_PRESET_SHORTS_JA_LARGE_V1],
+    'preset':'shorts_ja_phrase_v1', 'ass_style_name':'ShortsJaPhrase',
+    # ASS font metrics render Yu Gothic smaller than CSS at the same number.
+    # 96 keeps the actual Japanese glyphs readable at a 360px phone width.
+    'font_size':96, 'margin_left':72, 'margin_right':180, 'margin_vertical':470,
+    'outline_width':4, 'shadow_depth':2,
 }
 
 _AUDIO_MIX_POLICY_FIELDS = {

@@ -1071,6 +1071,27 @@ def _ass_color(value: str, *, alpha: int = 0) -> str:
     return f"&H{alpha:02X}{blue}{green}{red}"
 
 
+def _phrase_caption_cues(cues):
+    """Bounded phrase cuts within measured speech; not word alignment."""
+    result=[]
+    for start,end,text in cues:
+        parts=[];chunk='';units=0
+        for char in text.replace('\n',''):
+            width=.54 if ord(char)<128 or '\uff61'<=char<='\uff9f' else 1
+            # Keep closing punctuation with its phrase, never as a tiny solo cue.
+            if units+width>10 and chunk and char not in '、。！？!?」』）)]':
+                parts.append(chunk);chunk='';units=0
+            chunk+=char;units+=width
+            if char in '、。！？!?' and units>=3:
+                parts.append(chunk);chunk='';units=0
+        if chunk:parts.append(chunk)
+        weights=[max(1,len(p)) for p in parts];total=sum(weights);offset=start;used=0
+        for i,part in enumerate(parts):
+            used+=weights[i];stop=end if i==len(parts)-1 else start+round((end-start)*used/total)
+            if stop-offset<200:raise AssemblyValidationError('Caption phrases are too fast; shorten the script',code='invalid_captions')
+            result.append((offset,stop,part));offset=stop
+    return result
+
 def _build_ass(
     data: bytes,
     *,
@@ -1079,6 +1100,7 @@ def _build_ass(
     caption_style_preset: str = DEFAULT_CAPTION_STYLE_PRESET,
 ) -> bytes:
     cues = _parse_srt(data)
+    if caption_style_preset == 'shorts_ja_phrase_v1':cues=_phrase_caption_cues(cues)
     style = _resolved_caption_style(caption_style_preset)
     ass_fields = [
         style["ass_style_name"],
@@ -1121,8 +1143,9 @@ def _build_ass(
         "Format: Layer, Start, End, Style, Text",
     ]
     for start_ms, end_ms, caption in cues:
+        animation = r'{\fad(50,60)\fscx96\fscy96\t(0,100,\fscx100\fscy100)}' if caption_style_preset == 'shorts_ja_phrase_v1' else ''
         lines.append(
-            f"Dialogue: 0,{_ass_time(start_ms)},{_ass_time(end_ms)},{style['ass_style_name']},{_escape_ass_text(caption)}"
+            f"Dialogue: 0,{_ass_time(start_ms)},{_ass_time(end_ms)},{style['ass_style_name']},{animation}{_escape_ass_text(caption)}"
         )
     return ("\n".join(lines) + "\n").encode("utf-8")
 
@@ -1301,7 +1324,7 @@ def _caption_policy(caption_style: Mapping[str, Any]) -> dict[str, Any]:
     except LocalAssemblyValidationError as exc:
         raise AssemblyValidationError(str(exc), code=exc.code) from exc
     return {
-        "policy_version": "srt-to-enum-preset-ass-v2",
+        "policy_version": "shorts-phrase-10units-attached-punctuation-v1" if canonical_style["preset"] == "shorts_ja_phrase_v1" else "srt-to-enum-preset-ass-v2",
         "format": "srt_to_preset_style_ass",
         "end_tolerance_ms": 250,
         "override_tags": "disabled_by_fullwidth_escape",
