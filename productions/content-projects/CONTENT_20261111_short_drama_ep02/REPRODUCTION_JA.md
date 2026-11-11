@@ -1,5 +1,7 @@
 # 『お父さんも、入って。』の再編集手順
 
+別のPCやworktreeでは、先に[ドラマ制作手順](../../../docs/video-production/SHORT_DRAMA_PRODUCTION_JA.md)でコードと素材のルートを確認する。PowerShell例の保管先は実際のフォルダーに合わせる。
+
 主cloneの `outputs/content-projects/` に次の二つの素材ルートが必要。Python 3.12.2、NumPy 1.26.4、Pillow 12.3.0、FFmpegとffprobe 8.1.2、Windows Yu Gothic Boldを使用した。
 
 | 素材 | 所在 |
@@ -13,7 +15,7 @@
 制作ブランチのルートで実行する。別版名を指定すると、元の出力を保ったまま同じ編集を再現できる。
 
 ```powershell
-$mediaRoot = 'C:\Users\mono_\MiniMaxH3\outputs\content-projects'
+$mediaRoot = (Resolve-Path -LiteralPath (Join-Path $env:USERPROFILE 'MiniMaxH3\outputs\content-projects')).Path
 $ep = Join-Path $mediaRoot 'CONTENT_20261111_short_drama_ep02'
 $prev = Join-Path $mediaRoot 'CONTENT_20261108_short_drama'
 python -B productions/content-projects/CONTENT_20261111_short_drama_ep02/render_episode.py $ep $prev --version v02-reproduction

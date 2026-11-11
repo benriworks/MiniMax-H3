@@ -29,10 +29,10 @@ Driveの「動画・ブログ制作レビュー」に45,369,226 bytesで保存�
 
 ### ピアノ版の再書き出し
 
-FFmpeg 8.1.2とPythonのNumPyを使用する。専用worktreeのルートで、主cloneに保存された音声素材とMP4、照合済みの原曲を指定する。`--version`には未使用の版を指定する。
+FFmpeg 8.1.2とPythonのNumPyを使用する。制作コードのルートで、[ドラマ制作手順](../../../docs/video-production/SHORT_DRAMA_PRODUCTION_JA.md)に沿って保管先を確認し、保存済みの音声素材とMP4、照合済みの原曲を指定する。`--version`には未使用の版を指定する。
 
 ```powershell
-$media = (Resolve-Path -LiteralPath '../../MiniMaxH3/outputs/content-projects').Path
+$media = (Resolve-Path -LiteralPath (Join-Path $env:USERPROFILE 'MiniMaxH3\outputs\content-projects')).Path
 $track = "$media/CONTENT_20261111_maho_compilation/_private/music/yuuguredoki.mp3"
 python -B productions/content-projects/CONTENT_20261111_maho_compilation/remix_piano.py $media $track --version v02-reproduction
 ```

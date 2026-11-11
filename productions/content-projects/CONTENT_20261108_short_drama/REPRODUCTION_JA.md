@@ -1,5 +1,7 @@
 # ショートドラマ v03〜v06 の再編集手順
 
+別のPCやworktreeでは、先に[ドラマ制作手順](../../../docs/video-production/SHORT_DRAMA_PRODUCTION_JA.md)でコードと素材のルートを確認する。PowerShell例の保管先は実際のフォルダーに合わせる。
+
 対象は「日曜、海に行かない？」のレビューv03。原本を使う再編集はAPI送信を必要としない。新しいワークツリーでは、主cloneのignored素材の存在とハッシュを照合する。
 
 | 入力 | 主clone内の位置 |
@@ -14,9 +16,9 @@
 環境はWindows、Python 3.12、FFmpeg／ffprobe 8.1.2、Pillow 12.3.0、NumPy 1.26.4、リポジトリのBudouX文節組版、WindowsのYu Gothic Bold。開いたリポジトリルートで、主cloneを環境に合わせて指定する。
 
 ```powershell
-$primaryClone = 'C:\Users\mono_\MiniMaxH3'
-$dramaMedia = Join-Path $primaryClone 'outputs\content-projects\CONTENT_20261108_short_drama'
-$pilotMedia = Join-Path $primaryClone 'outputs\benchmarks\h3-api-cost-latency-20261108\v01\pilot-5s-vertical.mp4'
+$localOutputRoot = (Resolve-Path -LiteralPath (Join-Path $env:USERPROFILE 'MiniMaxH3\outputs')).Path
+$dramaMedia = Join-Path $localOutputRoot 'content-projects\CONTENT_20261108_short_drama'
+$pilotMedia = Join-Path $localOutputRoot 'benchmarks\h3-api-cost-latency-20261108\v01\pilot-5s-vertical.mp4'
 python -B productions/content-projects/CONTENT_20261108_short_drama/render_short_drama.py $dramaMedia $pilotMedia --version v03-reproduction --voice-version v03 --master-gain-db 3.8
 ```
 
