@@ -1,0 +1,28 @@
+{
+  "status": "technical_and_ai_visual_review_passed",
+  "video": {
+    "path": "outputs/content-projects/CONTENT_20261029_gpt61_terra/v03/terra-explained-v03.mp4",
+    "bytes": 3405775,
+    "sha256": "E6DA71F6233747D29E07C7BEF49804F9A92535F238F06991785EB6D83FB93A45"
+  },
+  "seconds": 62.791667,
+  "frames": 1507,
+  "full_decode": "passed",
+  "original_pcm_identical": true,
+  "encoded_aac_identical": true,
+  "tts_calls": 0,
+  "minimax_calls": 0,
+  "subtitle_states_checked": 26,
+  "max_center_error_px": 1.0,
+  "user_approved": false,
+  "human_listening": "pending",
+  "smartphone_playback": "pending",
+  "ai_visual_review": "Full-body upright posture, both planted feet, matching identities/outfits, mutual gaze and mouth-state difference regions inspected. 10 scene contact sheet plus full-resolution frames checked.",
+  "drive": {
+    "id": "1F8Q6uGoW_FBlJid2nQDV9jK7_Mm9MQuC",
+    "url": "https://drive.google.com/file/d/1F8Q6uGoW_FBlJid2nQDV9jK7_Mm9MQuC/view",
+    "name": "GPT-6.1-Terra_説明動画_v03_直立対話・文字配置修正版.mp4",
+    "bytes": 3405775,
+    "parent": "1u6CNT7C-E1QtoSgxk-znNTI7XrZZSZBl"
+  }
+}
