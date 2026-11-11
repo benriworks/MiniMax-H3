@@ -1,0 +1,21 @@
+{
+  "revision": 54,
+  "accepted_proposal": "proposal_japan_breaches_v03",
+  "feedback": "まぁまぁよいのですが、以下を改善しましょう\n独自の点数化をやめて漏洩件数のみで順位評価\nそれに漏れた内容を詳しく解説\nKDDIは外して\n次に、インパクトが伝わらないので、演出を強めにしつつ、例えば漏洩件数は〇〇市の人口希望とか、分かりやすい例を示しましょう。",
+  "scope": "公表件数降順、KDDI除外、情報項目の詳説、人口規模の比較と強い画面演出。最新版のレビュー・採用・公開は別。",
+  "checks": {
+    "ready_for_production": true,
+    "blockers": [],
+    "warnings": [],
+    "technical_verified": false,
+    "human_reviewed": false,
+    "published": false
+  },
+  "assets": 24,
+  "scenes": {
+    "japan-breaches-full": 49,
+    "japan-breaches-short": 9
+  },
+  "final_candidate_adopted": false,
+  "published": false
+}

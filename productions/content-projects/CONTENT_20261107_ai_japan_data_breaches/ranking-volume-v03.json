@@ -1,0 +1,207 @@
+{
+  "as_of": "2026-11-07",
+  "metric": "published_scope_count_descending",
+  "excludes": {
+    "kddi-isp-mail-202605": "ユーザー指定",
+    "kyuden-backup-202605": "所在不明の媒体の保存数。漏えいの範囲として公表された値とは区別する。"
+  },
+  "population_figures": {
+    "japan": {
+      "name": "日本",
+      "number": 122690000,
+      "label": "1億2,269万人",
+      "as_of": "2026-10-01",
+      "note": "概算値",
+      "source": "総務省統計局「人口推計」2026年10月報",
+      "url": "https://www.stat.go.jp/data/jinsui/pdf/202610.pdf"
+    },
+    "yokohama": {
+      "name": "横浜市",
+      "number": 3753462,
+      "label": "約375万人",
+      "as_of": "2026-10-01",
+      "note": "推計人口",
+      "source": "横浜市「推計人口・世帯数」2026年10月1日",
+      "url": "https://www.city.yokohama.lg.jp/city-info/yokohamashi/tokei-chosa/portal/opendata/suikei01.html"
+    },
+    "osaka": {
+      "name": "大阪市",
+      "number": 2814191,
+      "label": "約281万人",
+      "as_of": "2026-10-01",
+      "note": "年齢別推計の総計",
+      "source": "大阪市「年齢別推計人口」2026年10月1日",
+      "url": "https://www.city.osaka.lg.jp/toshikeikaku/page/0000015211.html"
+    },
+    "tokyo": {
+      "name": "東京都",
+      "number": 14288867,
+      "label": "約1,429万人",
+      "as_of": "2026-10-01",
+      "note": "推計人口",
+      "source": "東京都「東京都の人口（推計）」2026年10月1日",
+      "url": "https://www.toukei.metro.tokyo.lg.jp/jsuikei/js-index.htm"
+    }
+  },
+  "comparisons": [
+    {
+      "incident_id": "arara-message-202610",
+      "population_id": "japan",
+      "quotient": 0.6628858668188117,
+      "label": "日本の総人口の約3分の2"
+    },
+    {
+      "incident_id": "sagawa-tracking-202609",
+      "population_id": "yokohama",
+      "quotient": 14.181574237330763,
+      "label": "横浜市の人口の約14倍"
+    },
+    {
+      "incident_id": "skyticket-server-202610",
+      "population_id": "tokyo",
+      "quotient": 1.0245738867889245,
+      "label": "東京都の人口に近い数字"
+    },
+    {
+      "incident_id": "burgerking-jp-app-202610",
+      "population_id": "yokohama",
+      "quotient": 2.978583505041479,
+      "label": "横浜市の人口の約3倍"
+    },
+    {
+      "incident_id": "daiichi-contractor-202610",
+      "population_id": "osaka",
+      "quotient": 3.100002807201075,
+      "label": "大阪市の人口の約3.1倍"
+    }
+  ],
+  "selected": [
+    {
+      "name": "アララ メッセージ",
+      "status": "持ち出し確認・重複除外",
+      "confirmed": true,
+      "rank": 1,
+      "incident_id": "arara-message-202610",
+      "n": 81329467,
+      "n_label": "81,329,467メールアドレス",
+      "source_ids": [
+        "arara-third",
+        "arara-second"
+      ]
+    },
+    {
+      "name": "佐川急便",
+      "status": "流出の可能性",
+      "confirmed": false,
+      "rank": 2,
+      "incident_id": "sagawa-tracking-202609",
+      "n": 53230000,
+      "n_label": "最大約5,323万件（重複あり）",
+      "source_ids": [
+        "sagawa-fifth"
+      ]
+    },
+    {
+      "name": "Cuenote",
+      "status": "漏えいのおそれ",
+      "confirmed": false,
+      "rank": 3,
+      "incident_id": "cuenote-202610",
+      "n": 51628280,
+      "n_label": "51,628,280件（延べ）",
+      "source_ids": [
+        "cuenote-second"
+      ]
+    },
+    {
+      "name": "無印良品",
+      "status": "流出の可能性",
+      "confirmed": false,
+      "rank": 4,
+      "incident_id": "muji-app-202610",
+      "n": 27260000,
+      "n_label": "最大約2,726万件",
+      "source_ids": [
+        "muji-second",
+        "muji-card",
+        "muji-second-pdf",
+        "muji-third"
+      ]
+    },
+    {
+      "name": "Eストアー ショップサーブ",
+      "status": "持ち出し確認",
+      "confirmed": true,
+      "rank": 5,
+      "incident_id": "estore-shopsserve-202605",
+      "n": 23356000,
+      "n_label": "約2,335万6,000人（概数）",
+      "source_ids": [
+        "estore-final"
+      ]
+    },
+    {
+      "name": "ソースネクスト",
+      "status": "流出の可能性",
+      "confirmed": false,
+      "rank": 6,
+      "incident_id": "sourcenext-202610",
+      "n": 22519960,
+      "n_label": "22,519,960件",
+      "source_ids": [
+        "sourcenext-first"
+      ]
+    },
+    {
+      "name": "EPARK PeakManager",
+      "status": "外部取得・削除を確認",
+      "confirmed": true,
+      "rank": 7,
+      "incident_id": "epark-peakmanager-202607",
+      "n": 22180000,
+      "n_label": "約2,218万レコード",
+      "source_ids": [
+        "epark-second"
+      ]
+    },
+    {
+      "name": "skyticket",
+      "status": "主サーバーの流出公表",
+      "confirmed": true,
+      "rank": 8,
+      "incident_id": "skyticket-server-202610",
+      "n": 14640000,
+      "n_label": "約1,464万件",
+      "source_ids": [
+        "skyticket-first",
+        "skyticket-second",
+        "skyticket-third"
+      ]
+    },
+    {
+      "name": "バーガーキング",
+      "status": "会員情報の漏えい確認",
+      "confirmed": true,
+      "rank": 9,
+      "incident_id": "burgerking-jp-app-202610",
+      "n": 11180000,
+      "n_label": "約1,118万件",
+      "source_ids": [
+        "burger-king"
+      ]
+    },
+    {
+      "name": "第一興商（委託先）",
+      "status": "漏えいのおそれ",
+      "confirmed": false,
+      "rank": 10,
+      "incident_id": "daiichi-contractor-202610",
+      "n": 8724000,
+      "n_label": "約8,724,000件",
+      "source_ids": [
+        "daiichi-first",
+        "daiichi-final"
+      ]
+    }
+  ]
+}
