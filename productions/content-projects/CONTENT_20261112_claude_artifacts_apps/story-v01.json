@@ -1,0 +1,248 @@
+{
+  "date": "2026-11-10",
+  "checked_at": "2026-11-12",
+  "titles": {
+    "short": "【Claude】試食会の予算がその場で再計算！Sheetsと外部アプリを解説",
+    "full": "【Claude】企画メモから予算表へ｜Whiteboards・Sheets・外部アプリを解説"
+  },
+  "short": [
+    {
+      "id": "s-result",
+      "title": "数量を変えると、合計も変わる",
+      "visual": "hook",
+      "target_seconds": 11,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "40個を45個に。Claudeの表で、試食会の予算が64,000円から67,250円に変わりました。"
+        }
+      ]
+    },
+    {
+      "id": "s-board",
+      "title": "Whiteboardsで企画を整理",
+      "visual": "board",
+      "target_seconds": 10,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "11月10日発表の新機能です。まずWhiteboardsで、会場予約からチラシ配布までを整理。"
+        }
+      ]
+    },
+    {
+      "id": "s-sheet",
+      "title": "Sheetsで予算表を作る",
+      "visual": "sheet",
+      "target_seconds": 13,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "次に、同じ企画の条件をSheetsに入力。セルを手で変えると再計算でき、Excel書き出しにも数式が残りました。"
+        }
+      ]
+    },
+    {
+      "id": "s-apps",
+      "title": "チャットの横で外部アプリを開く",
+      "visual": "app",
+      "target_seconds": 15,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "対応する外部アプリも、チャットの横や全画面で開けます。公式デモでは、Confluenceの文書にClaudeが要約を追記します。"
+        }
+      ]
+    },
+    {
+      "id": "s-access",
+      "title": "使えるプランと画面",
+      "visual": "short_access",
+      "target_seconds": 14,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "SheetsとWhiteboardsは有料プランのベータ。一般提供のClaude Dataにはデータ接続が必要です。外部アプリの新しい表示はウェブとデスクトップに順次展開です。"
+        }
+      ]
+    }
+  ],
+  "full": [
+    {
+      "id": "f-hook",
+      "title": "Claudeで試食会の予算を作る",
+      "visual": "hook",
+      "target_seconds": 19,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "試食会の参加者が、40人から45人に増えたら、予算はどうなる？"
+        },
+        {
+          "speaker": "female",
+          "text": "Claude Sheetsで数量を変えると、合計は64,000円から67,250円に。今日は、この表を企画メモからどう作ったかと、外部アプリの新機能を見ていきます。"
+        }
+      ]
+    },
+    {
+      "id": "f-release",
+      "title": "11月10日に発表された新機能",
+      "visual": "release",
+      "target_seconds": 21,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "表計算とホワイトボードは、どちらもClaudeの中で作れるんだね。"
+        },
+        {
+          "speaker": "female",
+          "text": "11月10日に、Claude WhiteboardsとClaude Sheetsがベータで登場しました。以前のDashboardsは、Claude Dataとして一般提供。日本語のウェブ画面でも、3つの入口を確認しました。"
+        }
+      ]
+    },
+    {
+      "id": "f-board",
+      "title": "試食会の工程をホワイトボードに",
+      "visual": "board",
+      "target_seconds": 22,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "まずは、試食会の準備を何から始めるか見えるようにしたい。"
+        },
+        {
+          "speaker": "female",
+          "text": "Whiteboardsを開き、チャットから3工程を整理するよう頼みました。会場の予約、試食セットの手配、チラシ配布。カードを矢印でつないで、下に予算上限の70,000円が入りました。"
+        }
+      ]
+    },
+    {
+      "id": "f-sheet",
+      "title": "同じ企画から予算表を作成",
+      "visual": "sheet",
+      "target_seconds": 23,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "見通しは立った。次は、会場費や試食代を足してみよう。"
+        },
+        {
+          "speaker": "female",
+          "text": "別のチャットで、同じ企画の条件をClaude Sheetsに渡しました。列は費目、数量、単価、金額。各行で数量と単価を掛け、合計と残額にも数式を入れます。初期の合計は64,000円です。"
+        }
+      ]
+    },
+    {
+      "id": "f-recalc",
+      "title": "試食セットを40個から45個に",
+      "visual": "recalc",
+      "target_seconds": 23,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "試食セットのセルだけ、40から45に変えるね。"
+        },
+        {
+          "speaker": "female",
+          "text": "試食代は29,250円。合計は67,250円で、予算上限の70,000円まで、あと2,750円です。合計セルを選ぶと、数式バーに合計の式が表示されます。"
+        }
+      ]
+    },
+    {
+      "id": "f-excel",
+      "title": "Excel書き出しに数式は残る？",
+      "visual": "excel",
+      "target_seconds": 23,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "この表をExcelに渡したときも、計算式は使える？"
+        },
+        {
+          "speaker": "female",
+          "text": "エクスポートからExcelを選び、書き出したファイルの中身を確認しました。掛け算、合計、差し引きの5つの数式が残り、保存された合計と残額もClaudeの画面と一致しました。"
+        }
+      ]
+    },
+    {
+      "id": "f-data",
+      "title": "実績を見るダッシュボードはClaude Data",
+      "visual": "data",
+      "target_seconds": 22,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "当日の売上や来場者数も、ダッシュボードにしたいね。"
+        },
+        {
+          "speaker": "female",
+          "text": "そこはClaude Dataの用途です。データウェアハウスなどを接続し、質問からグラフを作ります。今回のClaude Sheetsを、そのままDataのライブデータ元にすることはできません。"
+        }
+      ]
+    },
+    {
+      "id": "f-admin",
+      "title": "プランと初期設定を確認",
+      "visual": "admin",
+      "target_seconds": 21,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "職場のアカウントだと、すぐに使えるのかな？"
+        },
+        {
+          "speaker": "female",
+          "text": "この3機能は有料プランが対象です。Teamでは初期状態でオン。EnterpriseではSheetsとWhiteboardsは初期状態でオフです。Dataは設定済みの組織を除き、11月19日から既定でオンになります。"
+        }
+      ]
+    },
+    {
+      "id": "f-app",
+      "title": "外部アプリの画面でClaudeと作業",
+      "visual": "app",
+      "target_seconds": 26,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "もう一つの新機能は、今使っている外部アプリをチャットの横に開く話だね。"
+        },
+        {
+          "speaker": "female",
+          "text": "対応アプリは、横に表示したり全画面に広げたりできます。公式のConfluenceの例では、開いている企画書にClaudeが要約を追記します。自分で画面を触り、Claudeの操作を承認して同じ文書を確認できます。"
+        }
+      ]
+    },
+    {
+      "id": "f-vercel",
+      "title": "日本語画面でコネクタを確認",
+      "visual": "vercel",
+      "target_seconds": 22,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "対応コネクタなら、どの操作でも同じ画面が出る？"
+        },
+        {
+          "speaker": "female",
+          "text": "この環境ではVercelが接続済みだったので、公開ドキュメント検索を一度だけ許可しました。検索結果はテキスト表示でした。使える画面と操作は、コネクタや呼び出す機能、アプリ側の権限で変わります。"
+        }
+      ]
+    },
+    {
+      "id": "f-access",
+      "title": "外部アプリの対象と使い分け",
+      "visual": "access",
+      "target_seconds": 23,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "手元で探すなら、Claudeのカスタマイズからコネクタだね。"
+        },
+        {
+          "speaker": "female",
+          "text": "新しい表示は、全プランのウェブとデスクトップに順次展開中です。チャット横や全画面の表示はモバイル非対応。企画の整理と予算はClaudeの中で、既存の資料は対応する外部アプリで作業できます。"
+        }
+      ]
+    }
+  ]
+}
