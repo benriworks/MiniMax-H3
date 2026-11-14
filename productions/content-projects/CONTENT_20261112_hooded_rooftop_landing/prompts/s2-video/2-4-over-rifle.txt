@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Continuous photoreal cinematic shot over the shoulder of a masked soldier standing on a pale concrete roof, just after sunset. Start exactly at Picture 1. The soldier in the right foreground stays out of focus and almost still, his rifle barrel steady, pointing toward the young woman. On the dark roof one meter below, the young woman in the charcoal hooded sweatshirt keeps both open hands raised at shoulder height and slowly walks backward, one careful step at a time, toward the white air-conditioner units behind her, never turning her back, her eyes on the soldier. She moves about two meters back in five seconds. The camera stays still. The roofs, the air-conditioner units, the red water tank and the town stay exactly where they are. No text.
+
+overall_soundscape: Gas-mask breathing close to the camera, her slow footsteps on the roof membrane, wind, a distant siren.
+
+non_diegetic_music: N/A

@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Static medium shot of the news anchor at the studio desk. Start exactly at Picture 1. She reads the news to camera with a serious, composed face, speaking calmly in Japanese, small natural head movements and blinks, glancing down at her papers once. The video wall behind her slowly drifts over the hazy city. This is TV news footage shown as a horizontal picture in the middle of a vertical frame with blurred fill above and below; keep that layout fixed. No text, captions or logos appear.
+
+overall_soundscape: A calm female news anchor's voice reading a breaking-news report in Japanese, quiet studio room tone.
+
+non_diegetic_music: N/A

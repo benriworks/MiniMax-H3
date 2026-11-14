@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Continuous shot over the young woman's right shoulder on a rooftop at dawn. Start exactly at Picture 1. The thin column of yellow-green smoke keeps rising from the distant water purification plant. The camera pushes in slowly past her shoulder toward the plant; she lifts her chin, her hands close into fists, and her gaze sets. Keep the muted, desaturated cool-gray color grade where only the yellow-green gas has color. No text appears.
+
+overall_soundscape: Cold dawn wind, distant crows, a faraway low industrial hum, one slow determined breath.
+
+non_diegetic_music: N/A

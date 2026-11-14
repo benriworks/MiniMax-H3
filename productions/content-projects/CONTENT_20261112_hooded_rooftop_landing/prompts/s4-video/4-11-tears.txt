@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Continuous tight close-up of the young woman in the respirator, her face lit by the faint green glow of the device. Start exactly at Picture 1. A tear runs down from her eye over the edge of the respirator; she clenches her jaw, blinks hard, and slips the device into the pocket of her hoodie without looking away from the distance. Keep the dark blue-green industrial color grade; the only vivid color is the yellow-green gas and liquid. No text appears. No blood, no wounds.
+
+overall_soundscape: A shaky breath through the respirator, a quiet sniff, fabric rustling, machine hum fading.
+
+non_diegetic_music: N/A

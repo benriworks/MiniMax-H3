@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Continuous photoreal cinematic shot on a dark rooftop just after sunset, over the shoulder of a young woman with short black hair in a charcoal hooded sweatshirt, hood down, seen from behind and out of focus in the left foreground. Start exactly at Picture 1. The camera stays still at her shoulder. For the first second everything is quiet, only wind. At about 1.5 seconds the gray steel door of the concrete stairwell penthouse on the slightly higher pale roof ahead bursts open from the inside, kicked hard, and swings fully open against the wall. In the dark doorway, under the caged lamp, two soldiers in black full-face gas masks, green helmets and camouflage uniforms step out one after the other, rifles held low. The young woman flinches and her head and shoulder twist a little toward the right as she tenses. The roofs, the stairwell and the town stay exactly where they are. No text.
+
+overall_soundscape: A heavy metal door slamming open with a bang that echoes across the rooftops, boots on concrete, a sharp intake of breath, evening wind.
+
+non_diegetic_music: N/A

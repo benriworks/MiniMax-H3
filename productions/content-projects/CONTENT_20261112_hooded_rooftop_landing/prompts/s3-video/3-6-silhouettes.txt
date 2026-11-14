@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Continuous shot on a long lens in a misty residential street. Start exactly at Picture 1. The man in the suit runs toward the camera in panic and out of frame past the lens; behind him the gray-skinned figures with clouded eyes lurch forward out of the yellow-green mist after him, stiff and relentless. No blood, no attack shown. Keep the muted, desaturated cool-gray color grade where only the yellow-green gas has color. No text appears.
+
+overall_soundscape: Panicked running footsteps and breathing, a chorus of low groans, shuffling feet, wind.
+
+non_diegetic_music: N/A

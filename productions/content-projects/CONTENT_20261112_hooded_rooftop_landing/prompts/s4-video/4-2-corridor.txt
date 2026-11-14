@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Continuous low shot in a pipe-lined service corridor. Start exactly at Picture 1. The young woman in the respirator creeps forward along the wall in a crouch, glancing down at the unconscious soldier lying on the floor in the foreground; she steps carefully past him. Steam hisses from a pipe; the overhead light flickers. The soldier does not move. Keep the dark blue-green industrial color grade; the only vivid color is the yellow-green gas and liquid. No text appears. No blood, no wounds.
+
+overall_soundscape: Humming pumps, dripping water, a hiss of steam, her careful footsteps, muffled respirator breathing.
+
+non_diegetic_music: N/A

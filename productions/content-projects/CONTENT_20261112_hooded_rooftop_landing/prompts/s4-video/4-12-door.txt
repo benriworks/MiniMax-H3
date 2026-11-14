@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Continuous shot from inside the dark pump room toward the huge open door full of bright morning light. Start exactly at Picture 1. The young woman turns around and walks slowly out through the doorway into the light, her dark silhouette growing smaller, haze glowing around her. At the end the heavy steel door begins to slide shut from the side, darkening the frame. No text appears.
+
+overall_soundscape: Her footsteps echoing, morning birdsong from outside, then the heavy rumble of a steel door rolling shut and a deep metallic boom.
+
+non_diegetic_music: N/A

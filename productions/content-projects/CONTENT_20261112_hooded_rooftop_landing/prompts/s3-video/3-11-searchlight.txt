@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Continuous shot over the hidden young woman's shoulder on a dark rooftop at night. Start exactly at Picture 1. On the street below, the masked soldiers push the frightened residents along at gunpoint, hands raised. A white searchlight beam sweeps slowly across the rooftop toward her; she ducks lower behind the rusty water tank just as the beam slides over the tank and away. Keep the muted, desaturated cool-gray color grade where only the yellow-green gas has color. No text appears.
+
+overall_soundscape: A searchlight's electric hum, muffled shouted orders, frightened voices, boots on asphalt, her held breath.
+
+non_diegetic_music: N/A

@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Continuous photoreal cinematic shot, low angle from a lower rooftop looking up at the edge of a pale concrete roof one meter above, just after sunset. Start exactly at Picture 1. The two masked soldiers stand at the edge, rifles shouldered and aimed down toward the camera. They take one slow, deliberate step forward to the very edge, perfectly in sync, the rifles steady, the round filters of their gas masks rising and falling slowly with their breathing; the visors catch a glint of the orange sunset. The camera pushes in very slowly and slightly. Behind them the stairwell with its open door and glowing caged lamp and the big dusk sky stay unchanged. Cold, faceless, menacing. Their faces are never visible. No text.
+
+overall_soundscape: Slow, amplified breathing through gas-mask filters, a metallic click of a rifle safety, boots scraping concrete, low wind.
+
+non_diegetic_music: N/A

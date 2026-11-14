@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Continuous medium shot of the old scientist at the control desk. Start exactly at Picture 1. Startled, he turns his head toward the camera, his face twisting from surprise into a sly smile, and his gloved hand slides across the desk and closes around the small black remote device with the red button, lifting it. Keep the dark blue-green industrial color grade; the only vivid color is the yellow-green gas and liquid. No text appears. No blood, no wounds.
+
+overall_soundscape: A startled gasp, a chair creaking, the device scraping on the metal desk, panel beeps.
+
+non_diegetic_music: N/A

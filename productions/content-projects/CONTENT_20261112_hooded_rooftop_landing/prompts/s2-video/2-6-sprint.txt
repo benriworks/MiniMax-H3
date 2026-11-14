@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Continuous photoreal cinematic tracking shot, side-on at hip height, moving with her from left to right across a dark flat rooftop, just after sunset. Start exactly at Picture 1. The young woman with the black parachute backpack sprints flat out toward the roof edge on the right, arms pumping, hair streaming. Behind her on the roof surface, small bright sparks and puffs of dust jump where warning shots strike, one after another, closer and closer to her heels. The camera keeps pace with her; she stays in the frame and reaches the low edge just as the shot ends, her front foot planting on the metal cap. The town below and the dusk sky slide past in the background. No text.
+
+overall_soundscape: Rapid footsteps, hard breathing, sharp cracks of gunfire with ricochets pinging off concrete, wind roaring.
+
+non_diegetic_music: N/A

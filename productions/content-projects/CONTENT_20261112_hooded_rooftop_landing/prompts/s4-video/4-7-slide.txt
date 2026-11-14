@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Continuous low tracking shot at floor level. Start exactly at Picture 1. The young woman slides across the wet concrete floor, spray flying, grabs the black rifle off the floor in one motion, and rolls up onto one knee, bringing it up toward her shoulder. Fast, urgent movement. Keep the dark blue-green industrial color grade; the only vivid color is the yellow-green gas and liquid. No text appears. No blood, no wounds.
+
+overall_soundscape: A wet slide and splash, the rifle scraping on concrete, a sharp exhale, pumps rumbling.
+
+non_diegetic_music: N/A

@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Continuous photoreal first-person action-camera view from a young woman crouching on a dark rooftop just after a hard landing, just after sunset. Start exactly at Picture 1: both hands in black fingerless gloves spread on the dark roof, charcoal sleeves at the bottom of the frame, the white air-conditioner units, the red water tank and the low-rise town ahead. She is out of breath. For the first second and a half she stays down, the view rising and sinking with two heavy breaths, her fingers pressing into the roof. Then she pushes off the roof with both hands and slowly stands up in the same spot: the camera rises smoothly and steadily, straight up, by about one meter to standing eye height, the horizon staying level, so the dark roof drops away below and more of the roof and the town comes into view. Her hands leave the roof and sink out of the bottom of the frame as her arms hang at her sides. She ends standing still, looking straight ahead at the same air-conditioner units, red water tank and town, the view swaying slightly with her breathing. She does not walk, turn or jump; the roof, the objects and the town stay where they are.
+
+overall_soundscape: Close heavy breathing, a grunt of effort as she pushes up, cloth rustle, shoes shifting on the roof, evening wind opening up as she stands.
+
+non_diegetic_music: N/A

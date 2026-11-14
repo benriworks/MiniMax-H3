@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Continuous photoreal cinematic shot, extreme low angle from just below the edge of a flat rooftop looking up into the dusk sky, 24mm lens. Start exactly at Picture 1: the young woman is already in the air above the roof edge, launched forward in a dive-like leap, arms spread, the black parachute backpack on her back. In slow motion she sails across the frame and over the camera, her hoodie and hair rippling in the wind, the huge deep-blue-to-orange sky behind her with the first stars. As she passes overhead she begins to tilt forward and down, out of the top of the frame. The camera stays fixed. No text.
+
+overall_soundscape: All sound drops away into silence for a moment, only a faint high wind and her single breath, then a low rushing whoosh.
+
+non_diegetic_music: N/A

@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] News footage outside a quarantine facility. Start exactly at Picture 1. The line of ordinary residents shuffles forward and climbs onto the white bus, guarded by masked soldiers who gesture them on; the child looks back over her shoulder; floodlights glare. Slight handheld news-camera drift. This is TV news footage shown as a horizontal picture in the middle of a vertical frame with blurred fill above and below; keep that layout fixed. No text, captions or logos appear.
+
+overall_soundscape: Bus engine idling, footsteps on gravel, murmuring crowd, a child's voice, muffled orders through gas masks.
+
+non_diegetic_music: N/A

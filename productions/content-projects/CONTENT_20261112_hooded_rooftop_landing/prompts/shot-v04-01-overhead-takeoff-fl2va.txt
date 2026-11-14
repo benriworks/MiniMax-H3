@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 5.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Photoreal high-angle drone view of two separate city buildings just after sunset, camera completely locked. The pale concrete roof with its yellow line on the right, the narrow open gap between the buildings, the dark roof on the left that is one meter lower, the red water tank, the white air-conditioner units and the town below stay fixed in every frame. A young woman in a charcoal hooded sweatshirt with the hood up, black joggers, black shoes with white soles and black fingerless gloves starts at Picture 1 on the pale roof. For the first second she takes two steady breaths and settles into a ready stance. Then she accelerates into a hard sprint across the pale roof from right to left, four or five fast strides, arms pumping, hood and hem fluttering, her shadow racing beside her. She reaches the yellow line and the white edge cap only in the last half second, plants her foot and launches off the edge. The shot ends with her in mid-air above the open gap, knees tucking, arms swinging forward, exactly as in Picture 2. She does not land in this shot. Only she and her shadow move. One continuous shot.
+
+overall_soundscape: Soft city wind, two breaths, then fast running footfalls on concrete getting louder and quicker, a hard push-off, and a rush of air as she leaves the roof.
+
+non_diegetic_music: N/A

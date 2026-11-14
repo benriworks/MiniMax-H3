@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Telephoto news footage of the bridge being sealed. Start exactly at Picture 1. The masked soldiers hold their line behind the wire; one waves the stopped cars back; red warning lights flash; a second green truck pulls into place across the lanes. Slight handheld news-camera drift. This is TV news footage shown as a horizontal picture in the middle of a vertical frame with blurred fill above and below; keep that layout fixed. No text, captions or logos appear.
+
+overall_soundscape: Engines idling, car horns, a truck's air brakes, distant helicopter rotor, shouted orders muffled by masks.
+
+non_diegetic_music: N/A

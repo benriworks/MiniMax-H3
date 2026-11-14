@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Continuous tight close-up of the old scientist behind his goggles, lit from below by the green control panel. Start exactly at Picture 1. He watches the panel with delight; his grin widens and he lets out a soft, giddy chuckle, eyes crinkling, then taps a key with one gloved finger. The reflections in his goggles shift. Keep the dark blue-green industrial color grade; the only vivid color is the yellow-green gas and liquid. No text appears. No blood, no wounds.
+
+overall_soundscape: A soft giddy chuckle, panel beeps, the hum of machinery.
+
+non_diegetic_music: N/A

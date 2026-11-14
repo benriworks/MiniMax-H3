@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 5.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Photoreal cinematic medium shot on a rooftop just after sunset, camera locked off diagonally in front of a young Japanese woman about 20 years old, shallow depth of field. The concrete wall with its white cap behind her, the distant buildings with lit windows and the dusk sky stay fixed and softly out of focus. Start at Picture 1: she is bent forward with her gloved hands braced on her thighs, charcoal hood up, head bowed, face hidden, her shoulders rising and falling as she gasps for breath. For the first two seconds she stays like this, breathing hard. Then she slowly straightens up to her full height, lifts her right hand to the edge of the hood and pushes the hood back off her head in one smooth motion, so it drops behind her neck. Her short shaggy black hair is caught by the evening wind. Her face is revealed and held in view: slightly haggard, tired eyes, lips parted as she breathes, one small streak of dried mud on her left cheek. She looks past the camera into the distance, still breathing, her right hand still beside her head, matching Picture 2. One continuous shot, exactly one person.
+
+overall_soundscape: Heavy breathing slowly steadying, soft cloth rustle as the hood comes down, evening wind across the roof, distant city hum.
+
+non_diegetic_music: N/A

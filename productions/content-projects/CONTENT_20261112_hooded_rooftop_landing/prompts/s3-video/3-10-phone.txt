@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Continuous tight close-up in a dark storage shed at night. Start exactly at Picture 1. The young woman stares at the phone screen, its cold glow on her face. Her breathing quickens, her hands start to tremble, her eyes fill with tears; she bites her lip, then slowly turns the phone face down against her knees and the light on her face goes out, leaving her in near darkness. Keep the muted, desaturated cool-gray color grade where only the yellow-green gas has color. No text appears.
+
+overall_soundscape: Muffled news audio from the phone, her shaky breathing, a sniff, then the soft thud of the phone laid down and silence.
+
+non_diegetic_music: N/A

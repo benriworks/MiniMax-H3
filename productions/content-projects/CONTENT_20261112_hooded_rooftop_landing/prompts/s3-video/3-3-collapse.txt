@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Continuous static wide shot down the covered shopping arcade. Start exactly at Picture 1. The knee-high yellow-green gas drifts. The coughing people double over; one man sinks slowly to his knees and topples onto his side; oranges keep rolling out of the overturned basket; figures in the distance stumble away. No blood. Keep the muted, desaturated cool-gray color grade where only the yellow-green gas has color. No text appears.
+
+overall_soundscape: Coughing and gasping, a basket clattering, a dropped bag, distant screams, a low gas hiss.
+
+non_diegetic_music: N/A

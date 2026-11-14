@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Continuous close-up over the young woman's shoulder. Start exactly at Picture 1. Her gloved hands hold the rugged black communication device; the small bright green screen flickers and refreshes as a new message arrives, with a short vibration. She tilts it toward herself. The screen shows only a plain glowing green panel with no readable letters. Keep the dark blue-green industrial color grade; the only vivid color is the yellow-green gas and liquid. No text appears. No blood, no wounds.
+
+overall_soundscape: A short electronic chime and buzz from the device, her breathing, machinery hum.
+
+non_diegetic_music: N/A

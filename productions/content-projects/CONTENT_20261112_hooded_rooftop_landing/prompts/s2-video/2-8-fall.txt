@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 5.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Continuous photoreal cinematic shot, the camera falling with her just above and behind a young woman in free fall, looking straight down past her toward a low-rise town at dusk. Start exactly at Picture 1: she falls in a stable spread arch, the building wall streaking past at the left, the streets and tiled roofs with pale yellow-green mist rushing up. At about 2 seconds her right hand pulls the red handle on her strap. A thin, flat, dark gray ram-air canopy bursts out of the backpack, unfurls upward toward the camera with its suspension lines snapping taut, and inflates into a long flat wing. Her fall jerks to a slow glide; she swings upright beneath the canopy, hands on the steering toggles, drifting away from the building over the town, ending exactly as in Picture 2. No text.
+
+overall_soundscape: Roaring wind of free fall, a sharp fabric crack and a loud whump as the canopy opens, then the wind suddenly softens to a gentle flutter of nylon.
+
+non_diegetic_music: N/A

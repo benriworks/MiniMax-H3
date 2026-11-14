@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Continuous photoreal cinematic wide shot of a flat dark rooftop just after sunset, from a fixed camera at knee height. The camera does not move. Start exactly at Picture 1. The young woman with the black backpack sprints flat out from left to right across the dark roof toward the raised parapet at the right side of the frame. Every step lands on the dark roof surface; her feet never leave the roof except in normal running strides, and she never passes beyond the parapet. Behind her, small sparks and puffs of dust jump from the roof where warning shots strike, closer and closer to her heels. She covers the distance in about four and a half seconds. In the last half second she plants her right foot on top of the parapet's pale metal cap and crouches to spring, and the shot ends at that instant, before she leaves the roof. The parapet, the roof, the town and the sky stay fixed. No text.
+
+overall_soundscape: Rapid footsteps on the roof membrane, hard breathing, sharp cracks of gunfire with ricochets pinging off concrete, wind.
+
+non_diegetic_music: N/A

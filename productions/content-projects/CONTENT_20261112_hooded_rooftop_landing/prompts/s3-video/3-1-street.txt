@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Continuous handheld shot walking backward in front of the young woman in a covered shopping arcade, early evening. Start exactly at Picture 1. She walks toward the camera at an easy pace, the sports bag on her shoulder, earphones in, glancing at a shop window and adjusting the strap. Shoppers pass around her, lanterns sway slightly. An ordinary, peaceful evening; the air is completely clear. Keep the muted, desaturated cool-gray color grade where only the yellow-green gas has color. No text appears.
+
+overall_soundscape: Busy arcade ambience, footsteps, distant shop announcements, a bicycle bell, muffled music leaking from her earphones.
+
+non_diegetic_music: N/A

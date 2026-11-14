@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 5.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Continuous photoreal first-person action-camera view from a young woman running on a rooftop just after sunset, charcoal sleeves and black fingerless gloves swinging at the lower edge of the frame. Start at Picture 1, two strides before a yellow safety line and the roof edge, with an open alley ahead and a separate lower dark roof beyond it, a red water tank ahead left and white air-conditioner units ahead right. Two quick strides, then she jumps: the yellow line and the white edge cap drop out of the bottom of the frame and the dark empty alley passes below her. The far dark roof rises to meet her. Around the 2-second mark her black shoes meet the dark roof and the view sinks quickly and smoothly straight down as her knees bend, the horizon staying level. Both gloved hands come down into view and spread flat on the dark membrane in front of her. The view rests low and steady for a moment, moving gently with her breathing, then lifts slowly toward the red tank, the air-conditioner units and the lit skyline, matching Picture 2. One jump, one landing, the camera always upright and facing forward.
+
+overall_soundscape: Breathing and two footfalls, a rising rush of wind in the air, a heavy landing, palms on the roof, slow breaths close to the ear, then open evening wind.
+
+non_diegetic_music: N/A

@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Continuous shot from the bottom of an outdoor steel emergency staircase, low angle, tilting up to follow her. Start exactly at Picture 1. The young woman with her hood up and a sleeve over her mouth keeps climbing fast, two steps at a time, the sports bag bouncing, glancing down once; the yellow-green gas rises and swirls around the lowest steps behind her. She reaches the landing above and turns up the next flight. Keep the muted, desaturated cool-gray color grade where only the yellow-green gas has color. No text appears.
+
+overall_soundscape: Shoes clanging on steel steps, her muffled breathing through the sleeve, the stairs rattling, gas hissing below.
+
+non_diegetic_music: N/A

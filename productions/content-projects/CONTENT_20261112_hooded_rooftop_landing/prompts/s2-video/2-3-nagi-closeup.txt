@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Continuous photoreal cinematic close-up of the same young woman as in Picture 1, 85mm lens, very shallow depth of field, just after sunset. Start exactly at Picture 1. She holds her breath, frozen. Her body does not move; only her eyes move: they flick quickly to one side, then to the other, searching for an escape route, then settle and narrow with a sudden decision. A strand of hair moves in the wind across her face; her lips stay parted; she swallows once. The camera drifts in very slightly. Her face, the mud streak on her cheek and the blurred rooftop background stay the same. No text.
+
+overall_soundscape: Near silence, her held breath, distant wind, a faint muffled gas-mask breath far off, a single heartbeat-like low thump.
+
+non_diegetic_music: N/A

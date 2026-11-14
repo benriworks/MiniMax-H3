@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Continuous high wide shot of the vast pump room. Start exactly at Picture 1. The old scientist in the white coat at the base of the giant tank keeps pouring the glowing yellow-green liquid from a drum into the main pipe, rocking slightly as if humming to himself; the liquid glows brighter as it flows down the transparent pipe section; vapor curls along the floor. The camera slowly pushes in. Keep the dark blue-green industrial color grade; the only vivid color is the yellow-green gas and liquid. No text appears. No blood, no wounds.
+
+overall_soundscape: Deep rumbling pumps, gurgling liquid, an old man humming a cheerful tune, echoes in a huge room.
+
+non_diegetic_music: N/A

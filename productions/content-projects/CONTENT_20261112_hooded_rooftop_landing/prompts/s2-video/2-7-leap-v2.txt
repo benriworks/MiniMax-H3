@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Fast, violent, real-time action shot, NOT slow motion, from an extreme low angle just below the edge of a flat rooftop, 24mm lens, at dusk. Start exactly at Picture 1: the young woman with the black backpack has just exploded off the roof edge in a full-speed running dive. In the first second she rockets across the frame and over the camera at full speed, hair and hoodie snapping violently in the wind, with strong motion blur. The camera instantly whips around and tilts down to chase her, shaking hard like a handheld action camera, and she drops away fast, head first, toward the town far below; the building wall streaks past at the edge of the frame and the streets and roofs rush up. Everything moves quickly and urgently for the whole five seconds; there is no slow motion and no pause. No text.
+
+overall_soundscape: A sharp grunt of effort, a sudden roaring rush of wind that keeps building, hoodie fabric flapping violently, a distant gunshot crack behind her.
+
+non_diegetic_music: N/A

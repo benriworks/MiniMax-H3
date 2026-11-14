@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Continuous static shot at ground level. Start exactly at Picture 1. Thick yellow-green gas keeps welling up out of the storm drain grate and the edges of the manhole cover, curling and spilling slowly across the pavement toward the camera, hugging the ground. In the background, people's feet walk past unaware, one pair stops. Keep the muted, desaturated cool-gray color grade where only the yellow-green gas has color. No text appears.
+
+overall_soundscape: A low hissing rumble from under the street, faint gurgling, footsteps passing, arcade chatter.
+
+non_diegetic_music: N/A

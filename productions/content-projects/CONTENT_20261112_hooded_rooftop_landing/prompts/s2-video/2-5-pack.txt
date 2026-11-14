@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Continuous photoreal cinematic shot, low camera near a dark roof beside a row of white air-conditioner units, just after sunset. Start exactly at Picture 1. The young woman kneeling beside the units yanks the compact black parachute backpack out from the shadowed gap behind the units in one fast motion, swings it onto her back, slides both arms through the wide shoulder straps and snaps the chest buckle shut with a firm click, then pulls the straps tight. She glances back over her shoulder once, and her face hardens with resolve. The camera stays low and close. The units and the town stay where they are. No text.
+
+overall_soundscape: Nylon dragging on concrete, straps rustling, a sharp plastic buckle click, her quick breathing, wind.
+
+non_diegetic_music: N/A
