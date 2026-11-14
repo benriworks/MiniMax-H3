@@ -1,6 +1,6 @@
 # 動画・関連記事の制作索引
 
-2026-11-12更新。このリポジトリの制作情報は、索引・総覧・案件ごとの再開履歴兼ノウハウの3種類を入口に管理する。チャット履歴がない別チャット・別担当者も、ここから再開する。
+2026-11-14更新。このリポジトリの制作情報は、索引・総覧・案件ごとの再開履歴兼ノウハウの3種類を入口に管理する。チャット履歴がない別チャット・別担当者も、ここから再開する。
 
 技術比較を行う場合は [H3 APIとローカルの動作比較](../../H3_MOTION_COMPARISON_JA.md) を参照する（2026-10-29追加）。同じプロンプトの実用比較を独立CLIで実行し、原本・条件差・品質評価・費用の未測定事項を残す。比較実装の検証と、実生成品質の確認を分ける。公開紹介企画へ進む場合は本ガイドの実演・記事素材・レビュー工程を適用する。
 
@@ -35,7 +35,7 @@ BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_J
 
 ## 案件・素材の再開入口
 
-2026-10-30、初回に35単位の再開入口を整備し、その後Pro利用枠ニュース、10/31ニュース2本の共通案件、Tiboチャレンジのショートとフル版、dotsとBlenderの東京駅模型、12月のChatGPT・Codex利用枠共通化ニュース、dotsとBlenderのワインCG、字幕と成果物の見せ方の4本改訂、技術・キャラクター解説20チャンネルの比較調査、OpenAI×Anthropicモデル競争の重点企画、Anthropic関係者の退社を考えるショート企画、【AI】BERT・GPT誕生史、【AI】2026年の国内情報漏えい企画、オリジナルショートドラマ企画と短編30本の比較を追加し、現在の索引は50単位。シリーズは各回の原稿・台帳をまとめる親単位、人物素材は再利用元の単位としている。順序は現在の制作判断を探しやすくするためのもので、全案件が制作中・完了・採用済みという意味ではない。
+2026-10-30、初回に35単位の再開入口を整備した。2026-11-14の「灰の街」の追加時点で、案件・素材の一覧は54行。シリーズは各回の原稿・台帳をまとめる親単位とし、人物素材は再利用元の単位で掲載する。
 
 各再開記録には照合元の文書をリンクする。今回の整理は文書の照合であり、媒体の再生・全decode、Driveのアクセス、公開URL、最新の製品仕様を新たに検証したものではない。別ブランチ・別cloneだけにある案件は、対象ブランチを確認してから同じ形式で追加する。
 
@@ -43,6 +43,7 @@ BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_J
 
 | 案件・素材 | 再開時の入口 |
 | --- | --- |
+| 「灰の街」3分版。屋上から回想までの2分版v02と水道施設の制作履歴。Lyria 3.5で作った23.415秒のループBGM v01を技術検査済み。試聴と映像への配置は確認待ち | [案件・BGMの再開記録](../../productions/content-projects/CONTENT_20261112_hooded_rooftop_landing/RESUME_AND_KNOWHOW_JA.md) |
 | 【AI】2026年の国内情報漏えい。公表件数の順に改訂。人口との比較、対象情報の詳細、指定除外と第一興商の追加。**フルv03 9分8.125秒、ショートv03 59.625秒**。白衣人物と一部音声を継承。記事草稿・PDF v03と媒体QC済み。人の試聴・採用・公開待ち。個人fork Draft PR #21 | [案件・現在地](../../productions/content-projects/CONTENT_20261107_ai_japan_data_breaches/RESUME_AND_KNOWHOW_JA.md)／[改訂とQC](../../productions/content-projects/CONTENT_20261107_ai_japan_data_breaches/REVISION_V03_JA.md)／[再現手順](../../productions/content-projects/CONTENT_20261107_ai_japan_data_breaches/REPRODUCTION_JA.md)／[件数表](../../productions/content-projects/CONTENT_20261107_ai_japan_data_breaches/ranking-volume-v03.json)／[記事草稿](../../productions/content-projects/CONTENT_20261107_ai_japan_data_breaches/ARTICLE_DRAFT_V03_JA.md) |
 | 【AI】BERT・GPT誕生史：旧short v03／full v02の編集品質を差し戻され、**short v07／58.5秒・full v05／約7分6秒**へ改訂。主図拡大・具体例・公式原図4種・顔アップ/胸上/中景、同じ白衣人物のローカルMiniMax2素材追加。全decode・107字幕状態・音量・指定箇所の実フレーム、Drive保存読戻し済み。記事v04・図入りPDFv06。人の最終試聴・完成品採用・公開は未完了。再現手順・入力139件を記録、個人fork PR #20はmain統合済み（306646c） | [案件・現在地](../../productions/content-projects/CONTENT_20261106_ai_bert_gpt_history/RESUME_AND_KNOWHOW_JA.md)／[最新QC](../../productions/content-projects/CONTENT_20261106_ai_bert_gpt_history/FINAL_REVIEW_QC_V04_JA.md)／[記事草稿](../../productions/content-projects/CONTENT_20261106_ai_bert_gpt_history/ARTICLE_DRAFT_V04_JA.md)／[人物](../../productions/content-projects/CONTENT_20261106_ai_bert_gpt_history/CHARACTERS_JA.md) |
 | Claude Fable 5.2の公式9図を収録したショートv02とフルv03。SSDのBGM、図表読解の実行ログ、記事草稿を収録。技術検査済み、ユーザー試聴と公開判断待ち | [制作記録](../../productions/content-projects/CONTENT_20261110_fable_5_2/RESUME_AND_KNOWHOW_JA.md) |
