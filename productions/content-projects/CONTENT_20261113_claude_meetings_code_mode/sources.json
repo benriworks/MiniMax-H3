@@ -1,0 +1,124 @@
+{
+  "checked_at": "2026-11-14",
+  "sources": {
+    "launch": {
+      "title": "Introducing Claude Meetings",
+      "url": "https://claude.com/ja/resources/articles/claude-meetings",
+      "published_at": "2026-11-12"
+    },
+    "help": {
+      "title": "Use Claude Meetings",
+      "url": "https://support.claude.com/en/articles/18325154-use-claude-meetings"
+    },
+    "release-notes": {
+      "title": "Claude公式更新履歴",
+      "url": "https://support.claude.com/en/articles/12138966-release-notes"
+    },
+    "code-guide": {
+      "title": "Run tool calls from code with Code Mode",
+      "url": "https://code.claude.com/docs/en/code-mode"
+    },
+    "code-release": {
+      "title": "Claude Code v2.1.323",
+      "url": "https://github.com/anthropics/claude-code/releases/tag/v2.1.323",
+      "published_at": "2026-11-12"
+    },
+    "code-changelog": {
+      "title": "Claude Code公式変更履歴",
+      "url": "https://code.claude.com/docs/en/changelog"
+    },
+    "wallet": {
+      "title": "Introducing ChatGPT Wallet",
+      "url": "https://openai.com/index/introducing-chatgpt-wallet/",
+      "published_at": "2026-11-13"
+    },
+    "codex": {
+      "title": "ChatGPT & Codex changelog",
+      "url": "https://learn.chatgpt.com/docs/changelog"
+    },
+    "music-terms": {
+      "title": "甘茶の音楽工房 利用規約",
+      "url": "https://amachamusic.chagasi.com/terms.html"
+    },
+    "music": {
+      "title": "甘茶の音楽工房「ハッピータイム」",
+      "url": "https://amachamusic.chagasi.com/music_happytime.html"
+    }
+  },
+  "images": [
+    {
+      "id": "participant",
+      "source": "launch",
+      "original": "participant.png",
+      "image_url": "https://assets.claude.com/c3058c8a8e4222788e9d908be5c697697137faaa.png",
+      "sha256": "ca8754cba3bc346cee6af49c1049e9f7085d3c7eaea1fe29c4a95be05f51fcde",
+      "alt": "Google Meetの参加者一覧にClaudeのタイルが加わったAnthropic公式例",
+      "caption": "下段のClaudeタイルが会議への参加を示す。"
+    },
+    {
+      "id": "meeting-plan",
+      "source": "launch",
+      "original": "meeting-plan.png",
+      "image_url": "https://assets.claude.com/6230bdd7ee4d9bd1415ac139dc9e54e4f0defe0e.png",
+      "sha256": "99d81d7ea50cbb71759b504e2256ec607c80cb1a0afa8c05d54df19b501b6ef8",
+      "alt": "Google Meetと、月ごとの作業を並べたClaude Whiteboardsを並べたAnthropic公式例",
+      "caption": "ホワイトボードの列には、会場予約・招待・名札印刷などの作業が並ぶ。"
+    },
+    {
+      "id": "meeting-page",
+      "source": "launch",
+      "original": "meeting-page.png",
+      "image_url": "https://assets.claude.com/a8f4de962073f5e5b755fbefdb73a4bc4a764785.png",
+      "sha256": "f31f801c5f85744085ffea7d81bb25e969f1c4690cb0b6a36ba80f9b9451c470",
+      "alt": "Claude会議ページの左にチャット、中央に要約・決定事項・アクション項目",
+      "caption": "会議ページでは、議事録と作成した資料のタブを参照できる。"
+    },
+    {
+      "id": "launch-screen",
+      "source": "launch",
+      "original": "launch-screen.png",
+      "crop": [
+        430,
+        214,
+        1485,
+        720
+      ],
+      "alt": "Claude MeetingsのAnthropic公式発表タイトルと2026年11月12日の日付",
+      "caption": "Anthropic公式発表の日付。ニュースの見出しは11月13日版。"
+    },
+    {
+      "id": "help-screen",
+      "source": "help",
+      "original": "help-screen.png",
+      "crop": [
+        390,
+        568,
+        1230,
+        840
+      ],
+      "alt": "Claudeヘルプの会議追加手順と、文字起こしへの同意の注意",
+      "caption": "参加者全員に共有し、同意を得てから追加する。"
+    },
+    {
+      "id": "code-screen",
+      "source": "code-guide",
+      "original": "code-screen.png",
+      "crop": [
+        414,
+        150,
+        1158,
+        570
+      ],
+      "alt": "Claude Code公式ガイドのCode Modeの説明と既定オフの注記",
+      "caption": "JavaScriptでツールを呼ぶ実験機能。既定では無効。"
+    }
+  ],
+  "music": {
+    "title": "ハッピータイム",
+    "author": "甘茶の音楽工房",
+    "original": "happytime.mp3",
+    "sha256": "04875cc4d522511497b72c25aad0f535dbd6716dbfade7b7dec1846db4ec5d94",
+    "source": "music",
+    "terms": "music-terms"
+  }
+}

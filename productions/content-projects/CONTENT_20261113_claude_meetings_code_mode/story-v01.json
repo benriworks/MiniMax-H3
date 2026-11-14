@@ -1,0 +1,270 @@
+{
+  "edition": "2026-11-13",
+  "checked_at": "2026-11-14",
+  "version": "v01",
+  "titles": {
+    "short": "【Claude】Google Meetに参加。会議中にホワイトボードも作る新機能",
+    "full": "【Claude】Google Meetの会議中に議事録・資料を作る｜Claude MeetingsとCode Mode"
+  },
+  "short": [
+    {
+      "id": "s-board",
+      "title": "会議中に、資料ができる",
+      "target_seconds": 10,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "会議で日程を話している間に、ホワイトボードができる。ClaudeがGoogle Meetの参加者になりました。"
+        }
+      ]
+    },
+    {
+      "id": "s-join",
+      "title": "参加者にClaudeが加わる",
+      "target_seconds": 10,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "11月12日発表のClaude Meetings。話しかけたり、チャットで頼んだりすると、議事録に加えて資料の下書きも作ります。"
+        }
+      ]
+    },
+    {
+      "id": "s-notes",
+      "title": "会議後は、担当と期限を確認",
+      "target_seconds": 10,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "会議が終わると、文字起こし、決まったこと、担当と期限、作った資料をClaudeの会議ページで確認できます。"
+        }
+      ]
+    },
+    {
+      "id": "s-access",
+      "title": "対象はTeam・Enterprise",
+      "target_seconds": 12,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "ベータはTeamとEnterpriseに順次提供。Google Calendarを接続し、参加者全員に文字起こしの同意を取ってから追加します。"
+        }
+      ]
+    },
+    {
+      "id": "s-code",
+      "title": "Claude Codeにも新機能",
+      "target_seconds": 11,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "もう一つ。Claude Codeの実験的なCode Modeでは、複数のツール操作をJavaScriptにまとめて実行できます。"
+        }
+      ]
+    },
+    {
+      "id": "s-end",
+      "title": "会議で決めたことを、すぐ資料に",
+      "target_seconds": 7,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "会議が終わる頃には、次の作業に使える下書きが手元にある。ここが今回の変化です。"
+        }
+      ]
+    }
+  ],
+  "full": [
+    {
+      "id": "f-hook",
+      "title": "会議中に、次の作業が始まる",
+      "target_seconds": 17,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "イベントの会議が終わったら、また誰かが日程表を作るのかな？"
+        },
+        {
+          "speaker": "female",
+          "text": "公式例では、話し合っている最中にClaudeがホワイトボードを作っています。Google Meetに参加して、決まったことをその場で資料にできるんです。"
+        }
+      ]
+    },
+    {
+      "id": "f-join",
+      "title": "Claudeは参加者として表示される",
+      "target_seconds": 20,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "別の画面に議事録を頼みに行かなくてもいい？"
+        },
+        {
+          "speaker": "female",
+          "text": "うん。11月12日発表のClaude Meetingsでは、Google MeetにClaudeのタイルが出ます。声で呼ぶかチャットで質問すると、通常は会議チャットに文字で答えます。"
+        }
+      ]
+    },
+    {
+      "id": "f-board",
+      "title": "日程と担当をホワイトボードに",
+      "target_seconds": 24,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "たとえば、会場を押さえてから招待状を送る、って話が決まったら？"
+        },
+        {
+          "speaker": "female",
+          "text": "話している間に、会場予約、招待、名札の印刷を、月ごとのカードに並べるよう頼めます。公式例でも、チームとClaudeが同じホワイトボードを見ながら日程を詰めています。"
+        }
+      ]
+    },
+    {
+      "id": "f-notes",
+      "title": "会議後は、議事録と資料が同じ場所に",
+      "target_seconds": 22,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "会議のあと、どこを見れば自分の仕事が分かる？"
+        },
+        {
+          "speaker": "female",
+          "text": "Claudeの会議ページです。要約、決定事項、担当や期限が入ったアクション項目、文字起こしを確認できます。ホワイトボードや資料の下書きも、同じページに残ります。"
+        }
+      ]
+    },
+    {
+      "id": "f-setup",
+      "title": "Google Calendarから会議を選ぶ",
+      "target_seconds": 24,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "チームで使うときは、どこから始めればいい？"
+        },
+        {
+          "speaker": "female",
+          "text": "対象はTeamとEnterpriseのベータ。組織でGoogle Calendarを使えるようにして、ClaudeのMeetingsから予定を選びます。全員の同意を確かめたら、Add Claudeを押します。"
+        }
+      ]
+    },
+    {
+      "id": "f-privacy",
+      "title": "誰が見られるかを先に確認",
+      "target_seconds": 25,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "取引先がいる会議でも使えるの？"
+        },
+        {
+          "speaker": "female",
+          "text": "外部の参加者を含む会議は組織設定によります。Teamは既定で許可、Enterpriseは管理者が許可します。許可されても外部ゲストは会議ページを開けません。Claudeは文字起こしや要約を保存します。"
+        }
+      ]
+    },
+    {
+      "id": "f-terms",
+      "title": "組織の設定と、利用枠を確認",
+      "target_seconds": 26,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "費用と、使えない組織の条件も知りたい。"
+        },
+        {
+          "speaker": "female",
+          "text": "Enterpriseでは機能を管理者が有効化します。データを保持しない設定など、一部の組織はベータ対象外。議事録はプランに含まれ、会議で作る文書とホワイトボードは2027年2月10日まで無料です。接続ツールを使う分は利用量に数えます。"
+        }
+      ]
+    },
+    {
+      "id": "f-check",
+      "title": "実演で確かめたいこと",
+      "target_seconds": 15,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "日本語の会議でも、担当や期限まで正しく拾える？"
+        },
+        {
+          "speaker": "female",
+          "text": "今回は公式画面で確認しました。日本語の認識精度や、このアカウントで実際に参加できるかは未検証です。試すなら、架空の会議で担当と期限を照合します。"
+        }
+      ]
+    },
+    {
+      "id": "f-code",
+      "title": "Code Modeは、ツールの呼び出し方が変わる",
+      "target_seconds": 24,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "開発者向けにも、Claude CodeのCode Modeが出たんだよね？"
+        },
+        {
+          "speaker": "female",
+          "text": "バージョン2.1.323に入った実験機能です。たとえばファイルを探し、読んで、結果を集める。通常はツールを順番に呼びますが、Code ModeではClaudeが一つのJavaScriptに手順をまとめられます。"
+        }
+      ]
+    },
+    {
+      "id": "f-compare",
+      "title": "同じ作業で、手順の違いを見る",
+      "target_seconds": 21,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "まとめると、いつも速くなったり安くなったりする？"
+        },
+        {
+          "speaker": "female",
+          "text": "結果を次の操作に渡したり、独立した作業を並行したりできます。速度や費用の改善幅は未測定です。このPCのClaude Codeは対応前の版だったので、ここは公式仕様を基にした図です。"
+        }
+      ]
+    },
+    {
+      "id": "f-code-requirements",
+      "title": "対応する端末・モデルで任意に有効化",
+      "target_seconds": 22,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "誰でも、いつもの画面から使える？"
+        },
+        {
+          "speaker": "female",
+          "text": "対象は対応モデルを使うネイティブ版の対話ターミナルです。初期状態ではオフ。対応モデルにはFable 5.2などがあり、デスクトップアプリやVS Codeのパネルは対象外です。条件は記事にまとめました。"
+        }
+      ]
+    },
+    {
+      "id": "f-openai",
+      "title": "同日、OpenAIの公式更新も確認",
+      "target_seconds": 15,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "11月13日には、米国の対象Pro向けにChatGPT Walletが順次展開。Codexのコマンドライン版にも更新があります。今回はClaudeの二つの機能を取り上げました。"
+        }
+      ]
+    },
+    {
+      "id": "f-end",
+      "title": "会議で決めたことを、次の作業につなぐ",
+      "target_seconds": 12,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "次の担当が分かって、作り始めた資料も残るんだね。"
+        },
+        {
+          "speaker": "female",
+          "text": "うん。会議後に使う日程表や担当一覧まで、その場で用意できるところに注目です。"
+        }
+      ]
+    }
+  ]
+}
