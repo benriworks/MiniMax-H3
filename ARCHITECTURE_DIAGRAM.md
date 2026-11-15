@@ -1,5 +1,20 @@
 # Architecture diagram
 
+## 「灰の街」の180秒劇伴（2026-11-15）
+
+```mermaid
+flowchart LR
+    ScoreSources[保存済みの雰囲気と弦と終幕の原音] --> ScoreHash[原音hashと形式の照合]
+    ScoreConfig[6区間と音量と無音のJSON] --> ScoreRender[オフライン劇伴レンダラー]
+    ScoreHash --> ScoreRender
+    ScoreRender --> ScoreWav[180秒WAVとrender台帳]
+    ScoreWav --> ScoreQC[全デコードと音量とAI補助聴取]
+    ScoreQC --> ScoreRecord[索引と総覧と案件記録]
+    ScoreQC --> ScoreHuman[人の試聴と映像ミックスは別工程]
+```
+
+詳細は[案件の独立構成図](productions/content-projects/CONTENT_20261112_hooded_rooftop_landing/ARCHITECTURE_DIAGRAM.md)。
+
 ## 30秒のオリジナルショートドラマ（2026-11-08）
 
 ```mermaid

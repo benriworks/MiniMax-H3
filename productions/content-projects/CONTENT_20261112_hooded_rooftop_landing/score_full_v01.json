@@ -1,0 +1,71 @@
+{
+  "version": "score-full-v01",
+  "duration_seconds": 180,
+  "master_lufs": -23,
+  "maximum_true_peak_dbtp": -2,
+  "required_silence_seconds": [[50, 51], [155, 165]],
+  "sources": {
+    "atmosphere": {
+      "path": "audio/score-v01/_generation/lyria-original.wav",
+      "sha256": "7d93a578adb5d947eee9ec08d06a1a7945641cd4a348ac6f978f28dc275fedec"
+    },
+    "strings": {
+      "path": "audio/score-full-v01/_generation/take-01/source.wav",
+      "sha256": "f002188ea8b7bf6a3a2991d79a1236ddb8ffe747bbe57b8a58c440274f302572"
+    },
+    "ending": {
+      "path": "audio/score-full-v01/_generation/take-02/source.wav",
+      "sha256": "841b78962ec754c6ce00a4c908e47b96605bf8596388b5cd3b5c82833c3cc894"
+    }
+  },
+  "cues": [
+    {
+      "id": "rooftop-breath",
+      "source": "atmosphere",
+      "source_seconds": [32.119, 56.119],
+      "start_seconds": 0,
+      "target_lufs": -26,
+      "envelope": [[0, 0], [0.8, 1], [9, 1], [12, 0.72], [19, 0.8], [21, 0.9], [24, 0]]
+    },
+    {
+      "id": "confrontation-first-crest",
+      "source": "strings",
+      "source_seconds": [29.5, 58.5],
+      "start_seconds": 21,
+      "target_lufs": -24,
+      "envelope": [[0, 0], [3, 0.55], [9, 0.65], [14, 0.8], [20, 1.1], [25, 1.4], [28.84, 1.6], [29, 0]]
+    },
+    {
+      "id": "fall-and-memory",
+      "source": "ending",
+      "source_seconds": [0, 17],
+      "start_seconds": 51,
+      "target_lufs": -27,
+      "envelope": [[0, 0], [1.2, 0.8], [8.5, 1], [13.5, 1], [17, 0]]
+    },
+    {
+      "id": "disaster-news-decision-infiltration",
+      "source": "atmosphere",
+      "source_seconds": [80, 148],
+      "start_seconds": 65,
+      "target_lufs": -26,
+      "envelope": [[0, 0], [3, 0.9], [10, 1.2], [18, 1.4], [21, 1.2], [24.8, 0.32], [39.8, 0.32], [42, 0.9], [45, 1.05], [50, 1.1], [53, 1.05], [55, 0.7], [60, 0.8], [65, 0.85], [68, 0]]
+    },
+    {
+      "id": "revelation-main-crest",
+      "source": "strings",
+      "source_seconds": [79, 105],
+      "start_seconds": 129,
+      "target_lufs": -22.2,
+      "envelope": [[0, 0], [3, 0.28], [9, 0.4], [15, 0.7], [20, 1.1], [24, 1.5], [25.92, 1.5], [26, 0]]
+    },
+    {
+      "id": "tears-and-daylight",
+      "source": "ending",
+      "source_seconds": [42, 57],
+      "start_seconds": 165,
+      "target_lufs": -25,
+      "envelope": [[0, 0], [1.2, 0.65], [4.5, 1], [8, 1.15], [11, 1], [14, 0.55], [15, 0]]
+    }
+  ]
+}

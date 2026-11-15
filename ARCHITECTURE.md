@@ -1,5 +1,9 @@
 # Architecture
 
+## 「灰の街」の180秒劇伴（2026-11-15）
+
+[案件の独立設計](productions/content-projects/CONTENT_20261112_hooded_rooftop_landing/ARCHITECTURE.md)を参照。`render_full_score.py` は保存済み3原音のhashを確認し、JSONに定義した重複しない6区間、音量曲線、所定の無音で180秒の単体WAVを作る。波形補間・低域調整・静的ゲインと検査結果を台帳へ残し、旧版を上書きしない。生成API、映像ミックス、共有・公開とは独立したオフライン処理である。
+
 ## 30秒のオリジナルショートドラマ（2026-11-08）
 
 [案件](productions/content-projects/CONTENT_20261108_short_drama/RESUME_AND_KNOWHOW_JA.md)の `generate_h3_shot.py` は承認した画像とカット別プロンプトを既存 `H3Client` へ渡す。送信前の状態、受付ID、使用量、原本hashを保存し、受付IDが得られた場合は同じタスクを照会できる。`render_short_drama.py` は保存済みの映像、画像、Geminiの二言から7カットを720フレームに構成する。表示字幕は文節組版を使い、声、ピアノ、環境音は分離してから共通BGM設定で混合する。生成と再編集の境界、映像・音声の検査、レビュー用Drive、記事フレームの出所を案件の再現手順と台帳で追えるようにした。

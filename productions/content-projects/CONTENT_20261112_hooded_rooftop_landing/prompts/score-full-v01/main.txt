@@ -1,0 +1,30 @@
+Compose a complete, through-composed 180-second original cinematic instrumental film score. It follows a three-minute urban survival mystery in real time. Give it an opening, two dramatic string-led crests, a contrasting memory, a substantial silence after the climax, and a quiet unresolved ending. This is a finished dramatic underscore.
+
+The foundation is intimate, cold suspense: low bowed cellos, soft heartbeat-like bass, occasional felt piano, muted violas, delicate bow texture. The strings should sound organic, with expressive bowing, and have room to bloom. Keep a small three-note motif around D-F-E, D minor/add9 harmony and a D pedal. Roughly 80 BPM where rhythmic, with natural rubato in the quiet sections. Orchestration must evolve through every scene. Use restrained bass that stays clear on small speakers. Use a quiet stereo room, detailed midrange and natural dynamics, with ample peak headroom.
+
+The two principal crescendos must be driven by increasingly active and layered REALISTIC ORCHESTRAL STRINGS. Add celli and viola ostinati, then sweeping violin countermelodies and higher string harmonies. The second is stronger and more urgent than the first. Keep the emotion human: danger, fear, grief, then resolve. No triumphant heroic fanfare. Instrumental only throughout. No voices, choir, humming, words, sound effects, drum kit, electronic dance beat, trailer braams or sudden percussion hits.
+
+Use this absolute-time score map and make the complete piece last three minutes:
+
+[0:00 - 0:10] Rooftop escape. Begin immediately with dark low strings, a discreet pulse and a few urgent viola strokes. Moderate nervous momentum, far below the later climaxes.
+[0:10 - 0:20] Catching breath. Thin out to a cello drone and a sparse, fragile three-note piano motif. An uneasy human pause.
+[0:20 - 0:35] Confrontation. The low strings tighten, soft tremolo appears, held dissonances build gradually. Leave room for breaths and footsteps.
+[0:35 - 0:45] Decision and running. Clear string-led escalation: a rising cello/viola ostinato, widening harmonies, violins begin climbing. This is the first unmistakable swell.
+[0:45 - 0:50] First crest. Full expressive strings surge toward the jump, urgent and expansive, then cut away at exactly 0:50.
+[0:50 - 0:51] One second of musical silence.
+[0:51 - 1:00] Falling and drifting into memory. A high, airy string suspension descends and melts into a soft piano figure, with the pulse removed.
+[1:00 - 1:07] Before the disaster. Briefly warmer and intimate piano and cello, a memory of ordinary life, wistful.
+[1:07 - 1:25] The disaster spreads. Unease grows into disturbed bowed textures, irregular viola figures and controlled tremolo. Grow more anxious while staying below the first crest.
+[1:25 - 1:30] Withdraw. The movement and treble strings recede into a low, thin sustained harmony.
+[1:30 - 1:45] News report space. Extremely quiet, sparse low strings only, no rhythmic attacks or melodic lead. These fifteen seconds must be much softer for spoken news.
+[1:45 - 2:00] Decision to investigate. The original piano motif returns, a searching cello line answers it, cautious resolve grows gradually.
+[2:00 - 2:20] Inside the facility. Cold and restrained, low cello pulse, distant tremolo and isolated piano notes. Suspense starts low again.
+[2:20 - 2:30] Understanding and anger. Strings gather: accelerating bow figures, rising violas, wider and darker string harmony. A sustained buildup.
+[2:30 - 2:35] Main climax. The largest, emotionally intense swell of the whole score, with layered violins above urgent celli and violas, fortissimo controlled tension. Reach the apex just before 2:35.
+[2:35 - 2:40] Abrupt aftermath. Strings stop playing; only the dying room resonance is left, almost completely quiet.
+[2:40 - 2:45] Complete musical silence, leaving only the film's machinery.
+[2:45 - 2:50] The threat remains. A single low cello note returns, then a faint unsettled piano motif.
+[2:50 - 2:57] Tears and determination. A tender, restrained legato violin melody supported by cello, quietly emotional, bittersweet. This is a small emotional rise, not another action climax.
+[2:57 - 3:00] Ending. A suspended minor/add9 chord thins into a natural short decay and silence, ending exactly at three minutes.
+
+The first and second crests must be obvious musical changes in string orchestration, not just a louder copy of the opening. Avoid repeated song sections and avoid looping a fixed phrase. Preserve continuity of motif and timbre across the scene changes. Finish with a complete ending.

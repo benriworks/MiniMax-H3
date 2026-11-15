@@ -1,0 +1,106 @@
+{
+  "version": "score-full-v01",
+  "verified_at_utc": "2026-11-15T07:16:29.673900+00:00",
+  "media_root": "outputs/content-projects/CONTENT_20261112_hooded_rooftop_landing",
+  "delivery": "audio/score-full-v01/hai-no-machi-full-score-v01.wav",
+  "bytes": 51840068,
+  "sha256": "4e4c3f6218958f1228f0898db2949cf033c053126a81efd48c3db83bb534dd8d",
+  "sample_rate": 48000,
+  "channels": 2,
+  "bits_per_sample": 24,
+  "samples_per_channel": 8640000,
+  "duration_seconds": 180,
+  "loudness_lufs": -23.01,
+  "true_peak_dbtp": -3.36,
+  "loudness_range_lu": 14.9,
+  "output_full_scale_channel_samples": 0,
+  "full_decode_passed": true,
+  "required_silence_zero_pcm_seconds": [
+    [
+      50,
+      51
+    ],
+    [
+      155,
+      165
+    ]
+  ],
+  "first_and_last_samples_zero": true,
+  "nonoverlapping_source_ranges": true,
+  "no_tempo_or_pitch_change": true,
+  "same_environment_rerender_sha256_matches": true,
+  "original_loop_unchanged": true,
+  "source_files_unchanged": true,
+  "reference_movie_unchanged": true,
+  "reference_movie_sha256": "e77f5222d1fcab6dc4037f5ddd726d66f3eef597f3115e8024e612d9a929ac89",
+  "region_rms_dbfs": {
+    "first_crest_45_50": -20.428,
+    "news_90_105": -35.536,
+    "main_crest_150_155": -19.448,
+    "ending_165_180": -27.893
+  },
+  "source_records": {
+    "atmosphere": {
+      "bytes": 34244124,
+      "sha256": "7d93a578adb5d947eee9ec08d06a1a7945641cd4a348ac6f978f28dc275fedec",
+      "duration_seconds": 178.31466666666665,
+      "source_full_scale_channel_samples": 40377,
+      "interpolated_channel_samples": 40377
+    },
+    "strings": {
+      "bytes": 34698780,
+      "sha256": "f002188ea8b7bf6a3a2991d79a1236ddb8ffe747bbe57b8a58c440274f302572",
+      "duration_seconds": 180.68266666666668,
+      "source_full_scale_channel_samples": 8054,
+      "interpolated_channel_samples": 8054
+    },
+    "ending": {
+      "bytes": 11175452,
+      "sha256": "841b78962ec754c6ce00a4c908e47b96605bf8596388b5cd3b5c82833c3cc894",
+      "duration_seconds": 58.165333333333336,
+      "source_full_scale_channel_samples": 8929,
+      "interpolated_channel_samples": 8929
+    }
+  },
+  "generation": [
+    {
+      "take": "take-01",
+      "model": "lyria-3.5",
+      "state": "audio_saved",
+      "sent_at_utc": "2026-11-15T06:55:41.821521+00:00",
+      "received_at_utc": "2026-11-15T06:56:26.810571+00:00",
+      "listed_price_usd": 0.08,
+      "bytes": 34698780,
+      "sha256": "f002188ea8b7bf6a3a2991d79a1236ddb8ffe747bbe57b8a58c440274f302572"
+    },
+    {
+      "take": "take-02",
+      "model": "lyria-3.5",
+      "state": "audio_saved",
+      "sent_at_utc": "2026-11-15T07:02:33.061003+00:00",
+      "received_at_utc": "2026-11-15T07:02:50.725037+00:00",
+      "listed_price_usd": 0.08,
+      "bytes": 11175452,
+      "sha256": "841b78962ec754c6ce00a4c908e47b96605bf8596388b5cd3b5c82833c3cc894"
+    }
+  ],
+  "ai_listening": {
+    "model": "gemini-3.5-flash",
+    "state": "completed",
+    "delivery_hash_matches_reviewed_source": true,
+    "report": "audio/score-full-v01/_generation/qc/review-edit-03/report.txt",
+    "not_human_review": true
+  },
+  "human_listening": "pending",
+  "user_acceptance": "pending",
+  "film_mix": "not_performed",
+  "code_sha256": "3e4539cae3b2fa0d4db92dc1a9c84f69099e796284c31913aa715ce875a01d11",
+  "config_sha256": "1b48a62be5033e3e8871cb550663b60e13952e4aa8f8e5e6470ec260976580c1",
+  "environment": {
+    "python": "3.12.2",
+    "numpy": "1.26.4",
+    "scipy": "1.13.0",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "ffmpeg": "ffmpeg version 8.1.2-full_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers"
+  }
+}
