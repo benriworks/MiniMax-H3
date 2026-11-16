@@ -43,6 +43,7 @@ BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_J
 
 | 案件・素材 | 再開時の入口 |
 | --- | --- |
+| 既存の男女キャラクターの春服・夏服v01。基準画4枚、表情・仕草の無音モーション8本、約21秒の確認用MP4。実フレーム・全編デコード・素材ZIPを検査し、限定Driveへ保存。素材採用は確認待ち | [春服と夏服の素材記録](../../productions/CHARACTERS_20261117_spring_summer_duo/RESUME_AND_KNOWHOW_JA.md)／[素材台帳](../../productions/CHARACTERS_20261117_spring_summer_duo/motion-manifest-v01.json) |
 | 【Claude】日本の利用指数32位と職場でのAI活用。ショートv01 55.208秒、フルv02 206.417秒。公式グラフ・国内調査・架空の会議メモ実演。限定Driveに動画2本と記事v01。採用と人の通し試聴は確認待ち | [案件の再開記録](../../productions/content-projects/CONTENT_20261117_japan_ai_usage/RESUME_AND_KNOWHOW_JA.md)／[納品検査](../../productions/content-projects/CONTENT_20261117_japan_ai_usage/DELIVERY_QC_JA.md) |
 | 既存の男女キャラクターの冬服v02。ケーブル編み・リブ編みの基準画2枚と、案内・思考・質問・相づちの無音モーション4本。検査済みの編集用ZIP・プレビューを限定Driveに保存。素材採用は確認待ち | [冬服の素材記録](../../productions/CHARACTERS_20261117_winter_duo/RESUME_AND_KNOWHOW_JA.md)／[素材台帳](../../productions/CHARACTERS_20261117_winter_duo/motion-manifest-v02.json) |
 | 「灰の街」3分版v01（36カット、180秒）。静止画→ローカル試作→H3仕上げ、ニュースの声と字幕、時間のテロップを後から重ねる。Lyria 3.5のループBGM v01は技術検査済みで未配置。ユーザーの確認待ち | [案件・BGMの再開記録](../../productions/content-projects/CONTENT_20261112_hooded_rooftop_landing/RESUME_AND_KNOWHOW_JA.md)／[制作ノウハウ](H3_ACTION_DRAMA_KNOWHOW_JA.md) |

@@ -1,0 +1,386 @@
+{
+  "schema_version": 1,
+  "edition": "v01",
+  "keyframes": [
+    {
+      "id": "spring-male",
+      "file": "keyframes/spring-male.png",
+      "outfit": "ライトブルーの薄手シャツジャケット",
+      "pixels": [
+        937,
+        1679
+      ],
+      "bytes": 1367750,
+      "sha256": "4b3d09b7b65ae3c6b6439bce40d6036450cf90f8bd2ac4c471708a560e4a2304"
+    },
+    {
+      "id": "spring-female",
+      "file": "keyframes/spring-female.png",
+      "outfit": "セージグリーンの薄手カーディガン",
+      "pixels": [
+        937,
+        1679
+      ],
+      "bytes": 1478326,
+      "sha256": "01e08132b77cd397aaea932cfe803fc249163e01794808008e46d7468ca3f588"
+    },
+    {
+      "id": "summer-male",
+      "file": "keyframes/summer-male.png",
+      "outfit": "ネイビーの半袖ポロシャツ",
+      "pixels": [
+        937,
+        1679
+      ],
+      "bytes": 1439931,
+      "sha256": "04abc5afc150a510d6f22efdb7c4fe70d8170401ee05bc025664bd42dc78ab30"
+    },
+    {
+      "id": "summer-female",
+      "file": "keyframes/summer-female.png",
+      "outfit": "淡いブルーの半袖リネンブラウス",
+      "pixels": [
+        937,
+        1679
+      ],
+      "bytes": 1468982,
+      "sha256": "34ac9c975c30fad62b9ea43519e4c35a55548283e6ad6ee1a5a9edfd127fd0bb"
+    }
+  ],
+  "clips": [
+    {
+      "id": "spring-male-point",
+      "look_id": "spring-male",
+      "file": "clips/spring/spring-male-point-v01.mp4",
+      "motion": "人差し指を立てて要点を示す",
+      "intended_use": "大事な条件を一つ挙げる",
+      "visual_notes": "実フレームは画面左の手。指先を含む全幅で確認。",
+      "usable_seconds": [
+        1.95,
+        4.15
+      ],
+      "width": 768,
+      "height": 1344,
+      "fps": 24,
+      "frames": 124,
+      "seconds": 5.166667,
+      "has_audio": false,
+      "model": "MiniMax-H3",
+      "mode": "FL2VA",
+      "source_sha256": "9ff420840e1f2e1df43d4060aa967f33c23fa81b2b1cba97ba58980a48fd8946",
+      "source_bytes": 369418,
+      "keyframe_sha256": "4b3d09b7b65ae3c6b6439bce40d6036450cf90f8bd2ac4c471708a560e4a2304",
+      "provider_seconds": 118,
+      "usage": {
+        "total_seconds": 5,
+        "input_seconds": 0,
+        "output_seconds": 5,
+        "input_image_count": 2,
+        "total_tokens": 188785,
+        "prompt_tokens": 26040,
+        "completion_tokens": 162745
+      },
+      "user_approved": false,
+      "bytes": 336744,
+      "sha256": "47d4b1ccdfe0fb845e2a0d0b62d63d75da3beeba969ef9f9b0c0cd2b2d41512e"
+    },
+    {
+      "id": "spring-female-wave",
+      "look_id": "spring-female",
+      "file": "clips/spring/spring-female-wave-v01.mp4",
+      "motion": "笑顔で小さく手を振る",
+      "intended_use": "冒頭の挨拶や締め",
+      "visual_notes": "画面左の手を上げ、小さく手首を動かす。",
+      "usable_seconds": [
+        0.75,
+        2.55
+      ],
+      "width": 768,
+      "height": 1344,
+      "fps": 24,
+      "frames": 124,
+      "seconds": 5.166667,
+      "has_audio": false,
+      "model": "MiniMax-H3",
+      "mode": "FL2VA",
+      "source_sha256": "01659976c8997fd82cf9c89ba0659c808e879fea13a2e3f24348114332dac364",
+      "source_bytes": 471185,
+      "keyframe_sha256": "01e08132b77cd397aaea932cfe803fc249163e01794808008e46d7468ca3f588",
+      "provider_seconds": 118,
+      "usage": {
+        "total_seconds": 5,
+        "input_seconds": 0,
+        "output_seconds": 5,
+        "input_image_count": 2,
+        "total_tokens": 188785,
+        "prompt_tokens": 26040,
+        "completion_tokens": 162745
+      },
+      "user_approved": false,
+      "bytes": 465521,
+      "sha256": "9e2ce22332a4755464136555dcb716ea0ece1197b7c32c2b41be3d87296cc8df"
+    },
+    {
+      "id": "spring-male-surprise",
+      "look_id": "spring-male",
+      "file": "clips/spring/spring-male-surprise-v01.mp4",
+      "motion": "目を見開いて驚き、落ち着く",
+      "intended_use": "結果が予想と違ったとき",
+      "visual_notes": "表情中心。まぶた・口元が変わり、手はノートPCの裏。",
+      "usable_seconds": [
+        1.35,
+        3.25
+      ],
+      "width": 768,
+      "height": 1344,
+      "fps": 24,
+      "frames": 124,
+      "seconds": 5.166667,
+      "has_audio": false,
+      "model": "MiniMax-H3",
+      "mode": "FL2VA",
+      "source_sha256": "06d9694d33c06cceeb36b1395b8e5068584ac1c0ba1acd8b2d18066132b7cfb5",
+      "source_bytes": 333138,
+      "keyframe_sha256": "4b3d09b7b65ae3c6b6439bce40d6036450cf90f8bd2ac4c471708a560e4a2304",
+      "provider_seconds": 116,
+      "usage": {
+        "total_seconds": 5,
+        "input_seconds": 0,
+        "output_seconds": 5,
+        "input_image_count": 2,
+        "total_tokens": 188785,
+        "prompt_tokens": 26040,
+        "completion_tokens": 162745
+      },
+      "user_approved": false,
+      "bytes": 312186,
+      "sha256": "d3df8dcab49331ecd6d0d9f5967a5b32dabc8de69376fd43a4b29e067ca5e4f6"
+    },
+    {
+      "id": "spring-female-caution",
+      "look_id": "spring-female",
+      "file": "clips/spring/spring-female-caution-v01.mp4",
+      "motion": "真剣な表情で慎重に促す",
+      "intended_use": "注意点を伝えて一度止める",
+      "visual_notes": "身体の近くで掌を下に向け、小さく下げる。",
+      "usable_seconds": [
+        1.95,
+        3.25
+      ],
+      "width": 768,
+      "height": 1344,
+      "fps": 24,
+      "frames": 124,
+      "seconds": 5.166667,
+      "has_audio": false,
+      "model": "MiniMax-H3",
+      "mode": "FL2VA",
+      "source_sha256": "c66c4941b80e783ba2acad8383c8c76430c8b553cd0edebb4628b0f7111db3e8",
+      "source_bytes": 461666,
+      "keyframe_sha256": "01e08132b77cd397aaea932cfe803fc249163e01794808008e46d7468ca3f588",
+      "provider_seconds": 121,
+      "usage": {
+        "total_seconds": 5,
+        "input_seconds": 0,
+        "output_seconds": 5,
+        "input_image_count": 2,
+        "total_tokens": 188785,
+        "prompt_tokens": 26040,
+        "completion_tokens": 162745
+      },
+      "user_approved": false,
+      "bytes": 432390,
+      "sha256": "62083cc8e30f3070bfc1801fb40013c7dad6b322f199a3d2e15917feb695e005"
+    },
+    {
+      "id": "summer-male-shrug",
+      "look_id": "summer-male",
+      "file": "clips/summer/summer-male-shrug-v01.mp4",
+      "motion": "首を傾けて迷う",
+      "intended_use": "判断材料が足りないとき",
+      "visual_notes": "視線・眉・首の小さな動きが中心。肩をすくめる動きは控えめ。",
+      "usable_seconds": [
+        0.75,
+        2.55
+      ],
+      "width": 768,
+      "height": 1344,
+      "fps": 24,
+      "frames": 124,
+      "seconds": 5.166667,
+      "has_audio": false,
+      "model": "MiniMax-H3",
+      "mode": "FL2VA",
+      "source_sha256": "211856ab0d6ee0b9773d31ea8dad95d8c08daa6cc06ae3c4fd74d590db9f20b9",
+      "source_bytes": 278353,
+      "keyframe_sha256": "04abc5afc150a510d6f22efdb7c4fe70d8170401ee05bc025664bd42dc78ab30",
+      "provider_seconds": 120,
+      "usage": {
+        "total_seconds": 5,
+        "input_seconds": 0,
+        "output_seconds": 5,
+        "input_image_count": 2,
+        "total_tokens": 188785,
+        "prompt_tokens": 26040,
+        "completion_tokens": 162745
+      },
+      "user_approved": false,
+      "bytes": 272506,
+      "sha256": "bb89e6b144b5b3d791fa76f0891a243b0bc952599ec6de9af6080de78f36ebbd"
+    },
+    {
+      "id": "summer-female-compare",
+      "look_id": "summer-female",
+      "file": "clips/summer/summer-female-compare-v01.mp4",
+      "motion": "両手で二つの案を比べる",
+      "intended_use": "方法Aと方法Bを並べる",
+      "visual_notes": "両掌を上げ、視線を戻して下ろす。動作中は指先を含めて全幅で使用。",
+      "usable_seconds": [
+        1.95,
+        2.55
+      ],
+      "width": 768,
+      "height": 1344,
+      "fps": 24,
+      "frames": 124,
+      "seconds": 5.166667,
+      "has_audio": false,
+      "model": "MiniMax-H3",
+      "mode": "FL2VA",
+      "source_sha256": "b2142fed528ed0a74464ec941f8fbce813595df99af83145b288f2743a4aafdc",
+      "source_bytes": 498435,
+      "keyframe_sha256": "34ac9c975c30fad62b9ea43519e4c35a55548283e6ad6ee1a5a9edfd127fd0bb",
+      "provider_seconds": 113,
+      "usage": {
+        "total_seconds": 5,
+        "input_seconds": 0,
+        "output_seconds": 5,
+        "input_image_count": 2,
+        "total_tokens": 188785,
+        "prompt_tokens": 26040,
+        "completion_tokens": 162745
+      },
+      "user_approved": false,
+      "bytes": 433179,
+      "sha256": "69dea8059e0dba3eb70da45b2630977c9b6d34b922a38777239f11fae3a0314b"
+    },
+    {
+      "id": "summer-male-thumb",
+      "look_id": "summer-male",
+      "file": "clips/summer/summer-male-thumb-v01.mp4",
+      "motion": "親指を立てて確認完了",
+      "intended_use": "問題なしと伝える短い反応",
+      "visual_notes": "画面右の手を身体の近くで上げる。親指と他の指、人の顔の両方を確認。",
+      "usable_seconds": [
+        1.35,
+        2.55
+      ],
+      "width": 768,
+      "height": 1344,
+      "fps": 24,
+      "frames": 124,
+      "seconds": 5.166667,
+      "has_audio": false,
+      "model": "MiniMax-H3",
+      "mode": "FL2VA",
+      "source_sha256": "2e63ac5dcacb7f22f643d692e3784e8b5091f24048dc0901ff2ed0beb2453502",
+      "source_bytes": 318565,
+      "keyframe_sha256": "04abc5afc150a510d6f22efdb7c4fe70d8170401ee05bc025664bd42dc78ab30",
+      "provider_seconds": 118,
+      "usage": {
+        "total_seconds": 5,
+        "input_seconds": 0,
+        "output_seconds": 5,
+        "input_image_count": 2,
+        "total_tokens": 188785,
+        "prompt_tokens": 26040,
+        "completion_tokens": 162745
+      },
+      "user_approved": false,
+      "bytes": 296578,
+      "sha256": "866c9d433d8b2e86a49e7d551c23aaa72ff59c2cb7fa2e847f826e04b49dcf92"
+    },
+    {
+      "id": "summer-female-relief",
+      "look_id": "summer-female",
+      "file": "clips/summer/summer-female-relief-v01.mp4",
+      "motion": "肩の力を抜いてほっと笑う",
+      "intended_use": "照合が無事に終わった後",
+      "visual_notes": "視線を落とし、目を閉じて笑みを浮かべてから正面に戻る。",
+      "usable_seconds": [
+        1.95,
+        4.15
+      ],
+      "width": 768,
+      "height": 1344,
+      "fps": 24,
+      "frames": 124,
+      "seconds": 5.166667,
+      "has_audio": false,
+      "model": "MiniMax-H3",
+      "mode": "FL2VA",
+      "source_sha256": "e0f00994e6527e21cf6d03e27a7ea3b25056aa6170186fabbc66664811d08e83",
+      "source_bytes": 464507,
+      "keyframe_sha256": "34ac9c975c30fad62b9ea43519e4c35a55548283e6ad6ee1a5a9edfd127fd0bb",
+      "provider_seconds": 106,
+      "usage": {
+        "total_seconds": 5,
+        "input_seconds": 0,
+        "output_seconds": 5,
+        "input_image_count": 2,
+        "total_tokens": 188785,
+        "prompt_tokens": 26040,
+        "completion_tokens": 162745
+      },
+      "user_approved": false,
+      "bytes": 391094,
+      "sha256": "99fd560470bafe654ca35ce0e45294a9103ede1ec663c2fce2b9c63de690c7bb"
+    }
+  ],
+  "preview": {
+    "file": "spring-summer-duo-preview-v01.mp4",
+    "frames": 496,
+    "fps": 24,
+    "seconds": 20.666666666666668,
+    "bytes": 3018944,
+    "sha256": "b72827d9498d0a5b07228bda22d12878d5e946c29e6eb7bec2caa523532447f3"
+  },
+  "base_reference_frames": [
+    {
+      "role": "female",
+      "sampled_at_seconds": 1.2,
+      "prior_clip": "female-understanding.mp4",
+      "sha256": "50737bd0a2656206b34b878e1a24db1d81097d2f86ca6c93a7fbff66d76137e8",
+      "bytes": 486586
+    },
+    {
+      "role": "male",
+      "sampled_at_seconds": 1.2,
+      "prior_clip": "male-happy.mp4",
+      "sha256": "24ac6b6f5bd2e2a54933fe25c04118321fe5a0a57b718aeb7069d1bac8184583",
+      "bytes": 407792
+    }
+  ],
+  "review": {
+    "zip": {
+      "file": "spring-summer-duo-assets-v01.zip",
+      "members": 16,
+      "bytes": 11008123,
+      "sha256": "cfef90b5555a8ebfc4b78cdfef85e64e4b0fbb1168e488d22c1e06fec108245a"
+    },
+    "preview": {
+      "file": "spring-summer-duo-preview-v01.mp4",
+      "frames": 496,
+      "fps": 24,
+      "seconds": 20.666666666666668,
+      "bytes": 3018944,
+      "sha256": "b72827d9498d0a5b07228bda22d12878d5e946c29e6eb7bec2caa523532447f3"
+    },
+    "no_audio": true,
+    "complete_decode": true,
+    "visually_sampled": true
+  },
+  "provider_output_seconds": 40,
+  "estimated_h3_cost_usd": 3.2,
+  "observed_invoice": false
+}

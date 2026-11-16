@@ -1,0 +1,90 @@
+{
+  "spring-male-point": {
+    "take": "spring-male-point",
+    "version": "v01",
+    "status": "visual_review_passed",
+    "observed": "人差し指を立てて要点を示す",
+    "usable_seconds": [
+      1.95,
+      4.15
+    ],
+    "notes": "実フレームは画面左の手。指先を含む全幅で確認。"
+  },
+  "spring-female-wave": {
+    "take": "spring-female-wave",
+    "version": "v01",
+    "status": "visual_review_passed",
+    "observed": "笑顔で小さく手を振る",
+    "usable_seconds": [
+      0.75,
+      2.55
+    ],
+    "notes": "画面左の手を上げ、小さく手首を動かす。"
+  },
+  "spring-male-surprise": {
+    "take": "spring-male-surprise",
+    "version": "v01",
+    "status": "visual_review_passed",
+    "observed": "目を見開いて驚き、落ち着く",
+    "usable_seconds": [
+      1.35,
+      3.25
+    ],
+    "notes": "表情中心。まぶた・口元が変わり、手はノートPCの裏。"
+  },
+  "spring-female-caution": {
+    "take": "spring-female-caution",
+    "version": "v01",
+    "status": "visual_review_passed",
+    "observed": "真剣な表情で慎重に促す",
+    "usable_seconds": [
+      1.95,
+      3.25
+    ],
+    "notes": "身体の近くで掌を下に向け、小さく下げる。"
+  },
+  "summer-male-shrug": {
+    "take": "summer-male-shrug",
+    "version": "v01",
+    "status": "visual_review_passed",
+    "observed": "首を傾けて迷う",
+    "usable_seconds": [
+      0.75,
+      2.55
+    ],
+    "notes": "視線・眉・首の小さな動きが中心。肩をすくめる動きは控えめ。"
+  },
+  "summer-female-compare": {
+    "take": "summer-female-compare",
+    "version": "v01",
+    "status": "visual_review_passed",
+    "observed": "両手で二つの案を比べる",
+    "usable_seconds": [
+      1.95,
+      2.55
+    ],
+    "notes": "両掌を上げ、視線を戻して下ろす。動作中は指先を含めて全幅で使用。"
+  },
+  "summer-male-thumb": {
+    "take": "summer-male-thumb",
+    "version": "v01",
+    "status": "visual_review_passed",
+    "observed": "親指を立てて確認完了",
+    "usable_seconds": [
+      1.35,
+      2.55
+    ],
+    "notes": "画面右の手を身体の近くで上げる。親指と他の指、人の顔の両方を確認。"
+  },
+  "summer-female-relief": {
+    "take": "summer-female-relief",
+    "version": "v01",
+    "status": "visual_review_passed",
+    "observed": "肩の力を抜いてほっと笑う",
+    "usable_seconds": [
+      1.95,
+      4.15
+    ],
+    "notes": "視線を落とし、目を閉じて笑みを浮かべてから正面に戻る。"
+  }
+}

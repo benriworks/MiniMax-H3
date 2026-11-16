@@ -1,0 +1,100 @@
+{
+  "provider": "MiniMax-H3",
+  "mode": "FL2VA",
+  "durationSeconds": 5,
+  "resolution": "768P",
+  "looks": [
+    {
+      "key": "spring-male",
+      "person": "male",
+      "outfit": "ライトブルーの薄手シャツジャケット",
+      "spec": "a lightweight, pale dusty-blue cotton overshirt with a neat pointed collar, open over a plain light gray crewneck tee; lightweight spring fabric, full-length sleeves, simple unbranded buttons, no pattern or graphic"
+    },
+    {
+      "key": "spring-female",
+      "person": "female",
+      "outfit": "セージグリーンの薄手カーディガン",
+      "spec": "a lightweight, soft sage-green fine-gauge cardigan, open over a plain ivory crewneck top; long sleeves and a few simple small buttons, suitable for mild spring weather"
+    },
+    {
+      "key": "summer-male",
+      "person": "male",
+      "outfit": "ネイビーの半袖ポロシャツ",
+      "spec": "a dark navy, short-sleeved cotton piqué polo with a simple two-button collar, breathable summer fabric and loose short sleeves ending around the middle of the upper arm; no emblem or trim"
+    },
+    {
+      "key": "summer-female",
+      "person": "female",
+      "outfit": "淡いブルーの半袖リネンブラウス",
+      "spec": "a pale powder-blue short-sleeved linen blouse with a simple small pointed collar, an understated vertical placket, and light matte texture, suitable for an office in summer; opaque fabric and a regular relaxed fit"
+    }
+  ],
+  "clips": [
+    {
+      "id": "spring-male-point",
+      "key": "spring-male",
+      "label": "人差し指を立てて要点を示す",
+      "use": "大事な条件を一つ挙げる"
+    },
+    {
+      "id": "spring-female-wave",
+      "key": "spring-female",
+      "label": "笑顔で小さく手を振る",
+      "use": "冒頭の挨拶や締め"
+    },
+    {
+      "id": "spring-male-surprise",
+      "key": "spring-male",
+      "label": "目を見開いて驚き、落ち着く",
+      "use": "結果が予想と違ったとき"
+    },
+    {
+      "id": "spring-female-caution",
+      "key": "spring-female",
+      "label": "真剣な表情で慎重に促す",
+      "use": "注意点を伝えて一度止める"
+    },
+    {
+      "id": "summer-male-shrug",
+      "key": "summer-male",
+      "label": "軽く肩をすくめて迷う",
+      "use": "判断材料が足りないとき"
+    },
+    {
+      "id": "summer-female-compare",
+      "key": "summer-female",
+      "label": "両手で二つの案を比べる",
+      "use": "方法Aと方法Bを並べる"
+    },
+    {
+      "id": "summer-male-thumb",
+      "key": "summer-male",
+      "label": "親指を立てて確認完了",
+      "use": "問題なしと伝える短い反応"
+    },
+    {
+      "id": "summer-female-relief",
+      "key": "summer-female",
+      "label": "肩の力を抜いてほっと笑う",
+      "use": "照合が無事に終わった後"
+    }
+  ],
+  "pairs": [
+    [
+      "spring-male-point",
+      "spring-female-wave"
+    ],
+    [
+      "spring-male-surprise",
+      "spring-female-caution"
+    ],
+    [
+      "summer-male-shrug",
+      "summer-female-compare"
+    ],
+    [
+      "summer-male-thumb",
+      "summer-female-relief"
+    ]
+  ]
+}
