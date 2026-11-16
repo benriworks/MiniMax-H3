@@ -17,9 +17,15 @@ from tools.studio.longform_audio import plan_dialogue, read_voice
 FPS = 24
 
 
-def plan(kind, editor):
-    story = json.loads((HERE / "story-v01.json").read_text(encoding="utf-8"))
-    voice = json.loads((OUT / "voice/selected.json").read_text(encoding="utf-8"))
+def plan(kind, editor, edition="v01"):
+    if kind == "short" and edition == "v02":
+        from short_proposal_voice import SELECTED, revised_story
+        story = revised_story()
+        voice = json.loads(SELECTED.read_text(encoding="utf-8"))
+        editor.short_closing = ("提案書を仕上げる", "エージェントで下書き → 人が最終確認")
+    else:
+        story = json.loads((HERE / "story-v01.json").read_text(encoding="utf-8"))
+        voice = json.loads((OUT / "voice/selected.json").read_text(encoding="utf-8"))
     voice_root = OUT / "voice" / voice["method"]
     scenes = story[kind]
     for scene in scenes:
@@ -160,7 +166,7 @@ def main():
     parser.add_argument("--edition", choices=("v01", "v02"), default="v01")
     args = parser.parse_args()
     editor = Editor(args.kind)
-    timing = plan(args.kind, editor)
+    timing = plan(args.kind, editor, args.edition)
     if args.mode == "preview":
         review_frames(editor, timing, OUT / "previews" / args.edition / args.kind)
         print(f"{args.kind} {timing['seconds']:.3f}s; {timing['frames']} frames")

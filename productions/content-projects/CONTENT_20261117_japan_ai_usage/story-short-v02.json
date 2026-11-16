@@ -1,0 +1,45 @@
+[
+  {
+    "id": "s-demo",
+    "title": "顧客に合わせた提案書",
+    "visual": "proposal-input",
+    "target_seconds": 21,
+    "turns": [
+      {
+        "speaker": "male",
+        "text": "うちなら、どの仕事で試す？",
+        "view": "presenter"
+      },
+      {
+        "speaker": "female",
+        "text": "自社の提案書テンプレートと、お客様の要件をエージェントに渡す。",
+        "view": "proposal-input"
+      },
+      {
+        "speaker": "female",
+        "text": "例えば青葉製作所なら、\n3拠点の日報集計の課題と、\n1拠点で試す計画を、\n一つの提案書にまとめてくれる。",
+        "reading": "例えば あおばせいさくしょ なら、さんきょてんの日報集計の課題と、いちきょてんで試す計画を、一つの提案書にまとめてくれる。",
+        "view": "proposal-output"
+      }
+    ]
+  },
+  {
+    "id": "s-end",
+    "title": "最後は人が確認して仕上げる",
+    "visual": "proposal-review",
+    "target_seconds": 11,
+    "turns": [
+      {
+        "speaker": "female",
+        "text": "見積金額や納期、約束する範囲を\n元の資料と照らして、\n最後は人が確認して\n仕上げた方がいいね。",
+        "reading": "見積金額や納期、約束する範囲を元の資料と照らして、最後は人が確認して仕上げた方がいいね。",
+        "view": "proposal-review"
+      },
+      {
+        "speaker": "male",
+        "text": "あなたなら、どの仕事から始めますか？",
+        "view": "duo"
+      }
+    ]
+  }
+]

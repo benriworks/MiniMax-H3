@@ -11,7 +11,8 @@ PAPER, WHITE, INK, SOFT = "#F5F2E9", "#FFFFFF", "#172C2C", "#4E6761"
 TEAL, MINT, RED, PEACH = "#17685B", "#E1ECE4", "#A94323", "#F8E4D9"
 LINE, DARK = "#D7D4C8", "#172D2B"
 PROTECT = (*PROTECTED, "Upper middle", "Claude Code", "Anthropic", "1.91倍", "121の国・地域",
-           "6.40", "3.87", "3.78", "2026年5月", "11月20日", "6月26日", "AWS", "54％", "60％")
+           "6.40", "3.87", "3.78", "2026年5月", "11月20日", "6月26日", "AWS", "54％", "60％",
+           "提案書テンプレート", "青葉製作所", "日報集計", "エージェント", "見積金額")
 AEI = "出典　Anthropic Economic Index｜2026年5月"
 AWS = "出典　AWS 日本企業調査｜2026年11月12日"
 LIVE = "Claude Code 実行結果｜架空の会議メモ"
@@ -47,6 +48,7 @@ class Editor:
         self.size = 49 if self.short else 44
         self.canvas = Canvas()
         self.photos = {}
+        self.short_closing = ("1つの仕事から", "下書き → 確認 → チームで共有")
 
     def text(self, im, value, rect, size, color=INK, center=False):
         self.canvas.text(im, value, rect, size, color, center=center)
@@ -76,8 +78,7 @@ class Editor:
         x, y, r, b = self.x, self.y, self.r, self.b
         hook = chapter.endswith("hook")
         ending = chapter.endswith("end")
-        word = "32位" if hook else "1つの仕事から"
-        detail = "121の国・地域｜Claude利用指数" if hook else "下書き → 確認 → チームで共有"
+        word, detail = ("32位", "121の国・地域｜Claude利用指数") if hook else self.short_closing
         if self.short:
             box(im, (x, y, r, y+297), MINT if hook else PEACH, radius=30)
             self.text(im, word, (x+20, y+23, r-20, y+198), 136 if hook else 81, TEAL if hook else RED, True)
@@ -251,6 +252,43 @@ class Editor:
         self.cards(im, rows, (x, y, r, b), phase)
         return "チームで試す手順の例"
 
+    def proposal(self, im, view, phase):
+        x, y, r, b = self.x, self.y, self.r, self.b
+        if view == "proposal-input":
+            self.cards(im, [
+                ("自社の提案書テンプレート", "課題・提案内容・導入計画・見積と納期"),
+                ("お客様の要件", "青葉製作所・3拠点の日報集計"),
+                ("自社が提示できる条件", "まず1拠点で試行。金額と納期は要確認"),
+            ], (x, y, r, b), phase)
+            return "Claude Codeのエージェントが読む3資料｜架空例"
+        if view == "proposal-review":
+            self.cards(im, [
+                ("見積金額", "根拠のある見積になっているか"),
+                ("納期", "お客様と調整した日程になっているか"),
+                ("約束する範囲", "試行は1拠点・全拠点展開は試行結果から判断"),
+            ], (x, y, r, b), phase)
+            return "提出前に人が確認"
+
+        box(im, (x, y, r, b), WHITE, radius=30, outline=LINE, width=2)
+        left, right = x+37, r-36
+        self.text(im, "提案書の下書き", (left, y+28, right, y+86), 37, TEAL)
+        self.text(im, "青葉製作所様", (left, y+103, right, y+187), 65)
+        self.text(im, "日報集計の標準化", (left, y+190, right, y+270), 61)
+        rows = [
+            ("お客様の課題", "3拠点で様式が異なり、集計に週6時間"),
+            ("提案内容", "Excelの日報を共通様式にそろえる"),
+            ("導入計画", "1拠点で試し、集計時間と入力漏れを比較"),
+            ("見積・納期", "要確認"),
+        ]
+        for i, (heading, detail) in enumerate(rows):
+            top = y+301+i*168
+            fill = PEACH if i == 3 else MINT if i == phase else PAPER
+            color = RED if i == 3 else TEAL
+            box(im, (left, top, right, top+146), fill, radius=16)
+            self.text(im, heading, (left+20, top+15, right-20, top+67), 38, color)
+            self.text(im, detail, (left+20, top+74, right-20, top+131), 34, INK)
+        return "Claude Codeの提案書初稿を要約｜架空例"
+
     def frame(self, chapter, view, speaker, phase, motion, caption):
         im = Image.new("RGB", (self.w, self.h), PAPER)
         draw = ImageDraw.Draw(im)
@@ -273,6 +311,9 @@ class Editor:
             "demo-in": lambda: self.input(im, False, phase), "prompt": lambda: self.input(im, True, phase),
             "demo-out": lambda: self.output(im, False, phase), "compare": lambda: self.output(im, True, phase),
             "pilot": lambda: self.pilot(im, False, phase), "measure": lambda: self.pilot(im, True, phase),
+            "proposal-input": lambda: self.proposal(im, view, phase),
+            "proposal-output": lambda: self.proposal(im, view, phase),
+            "proposal-review": lambda: self.proposal(im, view, phase),
         }
         credit = visuals[view]()
         if credit:

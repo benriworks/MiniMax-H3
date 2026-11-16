@@ -10,11 +10,15 @@
 | 日本企業の導入43％→54％と、基礎的活用60％ | 2026年11月12日公表。AWS委託のStrand Partners調査。後者の分母はAI導入済み企業。公表文の要点2項目を幅1800pxのビューポート原本から911px幅で抜粋。 [AWS発表](https://press.aboutamazon.com/jp/2026/11/aws-research-finds-ai-adoption-accelerating-in-japan-with-a-narrowing-gap-between-advanced-and-basic-adopters) |
 | 仕事での試行の提案 | ツールと扱える情報をチームで確認する。計測項目と2週間という長さは制作側が示した試行の例。 [総務省・経済産業省ガイドライン](https://www.meti.go.jp/shingikai/mono_info_service/ai_shakai_jisso/20260331_report.html) |
 
-## 実演の経路
+## フルv02とショートv01の実演経路
 
 1. このPCのClaude Desktopの対象ウィンドウを確認。白い画面で会話欄を読み取れなかったため、表示可否の結果を記録。
 2. ローカルのClaude Code 2.1.316の接続と `claude -p` を利用し、2026年11月17日03:14 JSTに [架空の入力](demo-prompt.txt) を一度実行。ツールとセッション保存を無効化した状態で、返答のモデルは `claude-haiku-5-5`。実行レシートは出力ルートの `_private/demo-receipt.json`。
 3. 期限等を元のメモと照合した [応答全文](demo-result-v01.md) を保存し、表の値を映像用に組版。人物やアプリ画面を合成したUIの提示はしていない。検証範囲はこの架空例1回。時短や他の入力での精度は未計測。
+
+## ショートv02の実演経路
+
+同じローカルCLIで、架空のテンプレート・商談メモ・提案条件を3ファイルとして読み込み、青葉製作所の提案書初稿を別ファイルに書き出した。台本と画面の要約は実際に保存された初稿と元資料を照合した内容。 [入力、初稿、検査記録](PROPOSAL_SHORT_REVISION_V02_JA.md) · [CLIリファレンス](https://code.claude.com/docs/en/cli-reference) · [権限規則](https://code.claude.com/docs/en/permissions)
 
 ## 音源と人物
 
