@@ -1,0 +1,138 @@
+{
+  "checked_at": "2026-11-17",
+  "sources": {
+    "index": {
+      "title": "Anthropic Economic Index",
+      "url": "https://www.anthropic.com/economic-index"
+    },
+    "country": {
+      "title": "Anthropic Economic Index – Country usage",
+      "url": "https://www.anthropic.com/economic-index#country-usage"
+    },
+    "map": {
+      "title": "Anthropic Economic Index – Global usage",
+      "url": "https://www.anthropic.com/economic-index#global-usage"
+    },
+    "report": {
+      "title": "Anthropic Economic Index report: Cadences",
+      "url": "https://www.anthropic.com/research/economic-index-june-2026-report",
+      "published_at": "2026-06-26"
+    },
+    "data": {
+      "title": "Anthropic Economic Index – 2026-06-26 data",
+      "url": "https://huggingface.co/datasets/Anthropic/EconomicIndex/tree/caa39af/release_2026_06_26"
+    },
+    "docs": {
+      "title": "Anthropic Economic Index – Data Documentation",
+      "url": "https://huggingface.co/datasets/Anthropic/EconomicIndex/blob/caa39af/release_2026_06_26/data_documentation.md"
+    },
+    "aws": {
+      "title": "AWS調査：日本のAI導入が加速",
+      "url": "https://press.aboutamazon.com/jp/2026/11/aws-research-finds-ai-adoption-accelerating-in-japan-with-a-narrowing-gap-between-advanced-and-basic-adopters",
+      "published_at": "2026-11-12"
+    },
+    "meti": {
+      "title": "総務省・経済産業省 AI事業者ガイドライン 第1.2版",
+      "url": "https://www.meti.go.jp/shingikai/mono_info_service/ai_shakai_jisso/20260331_report.html"
+    },
+    "music": {
+      "title": "甘茶の音楽工房「ハッピータイム」",
+      "url": "https://amachamusic.chagasi.com/music_happytime.html"
+    },
+    "music-terms": {
+      "title": "甘茶の音楽工房 利用規約",
+      "url": "https://amachamusic.chagasi.com/terms.html"
+    }
+  },
+  "data": {
+    "file": "aei_claude_ai_2026-06-26.csv",
+    "sha256": "f974b358bce0e5a8417510c61da4342234cd0de9d9d0b62acf4c6dbcf8ec7b68",
+    "date_start": "2026-05-01",
+    "date_end_exclusive": "2026-06-01",
+    "rank": 32,
+    "countries": 121,
+    "indices": [
+      [
+        "AUS",
+        "豪州",
+        6.4
+      ],
+      [
+        "USA",
+        "米国",
+        3.87
+      ],
+      [
+        "KOR",
+        "韓国",
+        3.78
+      ],
+      [
+        "JPN",
+        "日本",
+        1.91
+      ]
+    ],
+    "japan_usage_pct": 3.28,
+    "work_pct": {
+      "JPN": 47,
+      "GLOBAL": 43.36
+    },
+    "aws": {
+      "prior_adoption": 43,
+      "adoption": 54,
+      "basic_among_adopters": 60
+    }
+  },
+  "images": [
+    {
+      "id": "map",
+      "source": "map",
+      "original": "map.png",
+      "crop": [
+        0,
+        27,
+        1364,
+        733
+      ],
+      "alt": "Anthropic公式の世界地図。Claude利用指数を4色で表示",
+      "caption": "公式地図の凡例。日本はUpper middle、利用指数で上から2番目の層。"
+    },
+    {
+      "id": "country",
+      "source": "country",
+      "original": "country.png",
+      "crop": [
+        0,
+        12,
+        666,
+        300
+      ],
+      "alt": "Anthropicの国別画面でJapanを選択。順位32 / 121、Claude利用指数1.91x",
+      "caption": "Japanの国別画面。2026年5月のデータ。"
+    },
+    {
+      "id": "country-full",
+      "source": "country",
+      "original": "country.png",
+      "alt": "日本のClaude利用指数、用途の一覧、利用タスクの職業別区分を示す国別画面",
+      "caption": "日本を選んだ公式画面の全体。"
+    },
+    {
+      "id": "aws-points",
+      "source": "aws",
+      "original": "aws-viewport-centered.png",
+      "crop": [274, 333, 1185, 503],
+      "alt": "AWS日本企業調査の発表要点。企業のAI導入率54%、導入済み企業の60%は基礎的な活用",
+      "caption": "AWSがStrand Partnersに委託した別の調査。54%と60%は分母が異なる。"
+    }
+  ],
+  "music": {
+    "title": "ハッピータイム",
+    "author": "甘茶の音楽工房",
+    "original": "happytime.mp3",
+    "sha256": "04875cc4d522511497b72c25aad0f535dbd6716dbfade7b7dec1846db4ec5d94",
+    "source": "music",
+    "terms": "music-terms"
+  }
+}

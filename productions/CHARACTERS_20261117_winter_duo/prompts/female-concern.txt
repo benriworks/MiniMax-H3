@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] A locked frontal vertical medium shot in the same cel-shaded animated studio style as <Picture 1>. The same original adult female presenter with a black bob and brown eyes wears the ivory cable-knit mock-neck sweater and sits behind the same black laptop and straight desk in the same dark chair. Match the exact face, expression at the start, proportions, body position, hairline, knit pattern, garment silhouette, and navy studio background of the reference. A steady cyan left rim and magenta right rim remain stable throughout. From 0.00 to 0.70 seconds she holds the listening pose. From 0.70 to 1.70 she lowers her eyes to the laptop by a narrow angle, glances across the invisible screen and draws her brows inward slightly, with a composed closed mouth. From 1.70 to 2.85 she looks thoughtful, with one natural blink and a quiet chin dip. From 2.85 to 4.35 she looks forward again with softer brows, an alert, mildly concerned expression. Both hands stay at rest behind the laptop. Hold the final new expression through 5.00 seconds. No camera movement, no cut, no zoom, no new props, no text, no exaggerated arm swing, no changes to fingers, face design, clothing or object geometry. Make a single natural, restrained gesture and keep the face and hands clear for a picture-in-picture crop.
+
+overall_soundscape: Silent clip. No dialogue, breathing, environmental audio, or effects.
+
+non_diegetic_music: None.

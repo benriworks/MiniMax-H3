@@ -1,0 +1,277 @@
+{
+  "titles": {
+    "short": "【Claude】日本は利用指数32位。仕事のAI活用、何から始める？",
+    "full": "【Claude】日本は「上位中堅」32位。仕事でAIをどう広げる？"
+  },
+  "short": [
+    {
+      "id": "s-hook",
+      "title": "日本のClaude利用、32位",
+      "visual": "duo",
+      "target_seconds": 12,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "日本がAIの「非先進国」扱いって、本当？"
+        },
+        {
+          "speaker": "female",
+          "text": "Claudeの利用指数で、日本は121の国・地域のうち32位。上から2番目の層だよ。",
+          "view": "score"
+        }
+      ]
+    },
+    {
+      "id": "s-index",
+      "title": "1.91は何の数字？",
+      "visual": "bars",
+      "target_seconds": 11,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "働く年齢の人口の割合に対し、日本のClaudeの会話は1.91倍。人口比より多いけど、米国や韓国を下回った。"
+        }
+      ]
+    },
+    {
+      "id": "s-aws",
+      "title": "導入は進んでいる",
+      "visual": "aws",
+      "target_seconds": 10,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "じゃあ、日本の職場はどうなの？",
+          "view": "presenter"
+        },
+        {
+          "speaker": "female",
+          "text": "AWSの別調査では導入54％。ただ、導入した企業の6割は基礎的な活用が中心。",
+          "view": "aws"
+        }
+      ]
+    },
+    {
+      "id": "s-demo",
+      "title": "会議メモから、次の作業へ",
+      "visual": "demo-out",
+      "target_seconds": 14,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "うちなら、どの仕事で試す？",
+          "view": "presenter"
+        },
+        {
+          "speaker": "female",
+          "text": "会議メモから、やること・担当・期限の表を作る。書いていない期限は未定にして、人が元のメモと照合する。",
+          "view": "demo-out"
+        }
+      ]
+    },
+    {
+      "id": "s-end",
+      "title": "あなたの職場なら、何から？",
+      "visual": "duo",
+      "target_seconds": 9,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "確認にかかる時間まで測って、効果があればチームで広げよう。"
+        },
+        {
+          "speaker": "male",
+          "text": "あなたなら、どの仕事から始めますか？"
+        }
+      ]
+    }
+  ],
+  "full": [
+    {
+      "id": "f-hook",
+      "title": "日本のClaude利用、32位",
+      "visual": "duo",
+      "target_seconds": 20,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "日本はAIの「非先進国」だって話、見た？ 仕事でもっと使わないとまずいのかな。"
+        },
+        {
+          "speaker": "female",
+          "text": "元の地図で日本を選ぶと、121の国・地域で32位。上位4分の1に次ぐ層だね。何の数字か見てから、職場でできることを考えよう。",
+          "view": "score"
+        }
+      ]
+    },
+    {
+      "id": "f-map",
+      "title": "公式地図の4区分",
+      "visual": "map",
+      "target_seconds": 20,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "アンソロピックの公式画面には、利用の多さで4つの色が付く。日本は上から2番目の「Upper middle」。これは2026年5月の会話データで、画面の更新は6月26日。"
+        },
+        {
+          "speaker": "male",
+          "text": "11月に話題になったけど、5月の会話を集計した数字なんだね。",
+          "view": "presenter"
+        }
+      ]
+    },
+    {
+      "id": "f-bars",
+      "title": "世界と比べると？",
+      "visual": "bars",
+      "target_seconds": 25,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "32位って、どのくらい差があるの？",
+          "view": "presenter"
+        },
+        {
+          "speaker": "female",
+          "text": "オーストラリアは6.40、米国は3.87、韓国は3.78。日本は1.91。この指数は、全体の会話に占める割合を、15歳から64歳の人口の割合で割ったもの。",
+          "view": "bars"
+        },
+        {
+          "speaker": "male",
+          "text": "1.0なら人口の割合どおり。日本は基準より上で、利用が多い国との間に差がある、と。",
+          "view": "method"
+        }
+      ]
+    },
+    {
+      "id": "f-reading",
+      "title": "何を測った調査？",
+      "visual": "method",
+      "target_seconds": 25,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "対象は、Claudeの個人向けプランのチャットとCowork。会話の量を見るので、何人が使ったかは別の調査が必要だよ。ChatGPTなどの他社ツールや企業のAPIは、この地図の集計外。"
+        },
+        {
+          "speaker": "male",
+          "text": "日本全体のAI利用率を知るには、別のデータも必要だね。",
+          "view": "presenter"
+        },
+        {
+          "speaker": "female",
+          "text": "そう。ちなみに、このデータでは、日本のClaudeの会話の47％が仕事向け。世界全体では約43％だった。",
+          "view": "work"
+        }
+      ]
+    },
+    {
+      "id": "f-aws",
+      "title": "国内企業では、利用が拡大",
+      "visual": "aws",
+      "target_seconds": 26,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "実際の職場では、もう広がってる？",
+          "view": "presenter"
+        },
+        {
+          "speaker": "female",
+          "text": "11月12日公表のAWSの調査では、日本の企業のAI導入率は前年の43％から54％へ。導入済みの企業に絞ると、60％は基礎的な活用が中心だった。",
+          "view": "aws"
+        },
+        {
+          "speaker": "male",
+          "text": "導入する会社は増えた。ここからは、日々の仕事で使える場面を増やしたいね。",
+          "view": "presenter"
+        }
+      ]
+    },
+    {
+      "id": "f-input",
+      "title": "実演　会議メモを渡す",
+      "visual": "demo-in",
+      "target_seconds": 25,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "仕事で試すなら、何から始める？",
+          "view": "presenter"
+        },
+        {
+          "speaker": "female",
+          "text": "手始めに、会議のあと毎回やる作業。架空の印刷会議で試すね。原稿案は制作担当が11月20日まで。見積もりは購買担当で、期限の記載なし。",
+          "view": "demo-in"
+        },
+        {
+          "speaker": "female",
+          "text": "決定事項を抜き出して、次の作業を、担当と期限の表に。分からないところは未定、と頼んだよ。",
+          "view": "prompt"
+        }
+      ]
+    },
+    {
+      "id": "f-output",
+      "title": "実演　締切を原文と照合",
+      "visual": "demo-out",
+      "target_seconds": 29,
+      "turns": [
+        {
+          "speaker": "female",
+          "text": "Claudeに実際に渡すと、決定事項は『資料はA4片面』。作業の表には、原稿案と見積もりが並んだ。購買担当の締切は、元のメモどおり未定。"
+        },
+        {
+          "speaker": "male",
+          "text": "次の打ち合わせは24日。見積もりの期限にその日付が入っていないか、元のメモと見比べるんだね。",
+          "view": "compare"
+        },
+        {
+          "speaker": "female",
+          "text": "そう。部数決めの担当も未定。担当や期限を人が見て、確認が取れたものから共有する。",
+          "view": "compare"
+        }
+      ]
+    },
+    {
+      "id": "f-pilot",
+      "title": "一つのチームで2週間",
+      "visual": "pilot",
+      "target_seconds": 26,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "これを仕事に根づかせるには？",
+          "view": "presenter"
+        },
+        {
+          "speaker": "female",
+          "text": "会社が認めたツールで、まず1チーム、2週間。入力できる情報を先に決めて、顧客情報や機密を外したメモから始める。",
+          "view": "pilot"
+        },
+        {
+          "speaker": "female",
+          "text": "普段のやり方と、AIで下書きした場合の両方で、確認までの時間と修正箇所を記録。現場が楽になれば、手順を共有して広げる。",
+          "view": "measure"
+        }
+      ]
+    },
+    {
+      "id": "f-end",
+      "title": "AIに任せたい作業は？",
+      "visual": "duo",
+      "target_seconds": 16,
+      "turns": [
+        {
+          "speaker": "male",
+          "text": "まず、うちの定例会議のメモからやってみようかな。"
+        },
+        {
+          "speaker": "female",
+          "text": "いいね。現場が毎週やっている作業を、一つ選んでみて。あなたの職場なら、どの作業から始めますか？"
+        }
+      ]
+    }
+  ]
+}

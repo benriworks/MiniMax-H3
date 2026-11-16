@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] A locked frontal vertical medium shot in the same cel-shaded animated studio style as <Picture 1>. The same original adult male presenter with black layered hair and blue-gray eyes wears the dark slate-blue rib-knit crewneck sweater and sits behind the same black laptop and straight desk in the same dark chair. Match the exact face, expression at the start, proportions, body position, hairline, knit pattern, garment silhouette, and navy studio background of the reference. A steady cyan left rim and magenta right rim remain stable throughout. From 0.00 to 0.70 seconds he listens, mouth softly closed and shoulders at rest. From 0.70 to 1.30 his eyes glance very slightly toward screen right and his brows relax. From 1.30 to 2.30 he makes one small, clearly visible nod of acknowledgement, chin down and back up, with no torso sway. From 2.30 to 3.65 his mouth eases into a quiet closed-mouth smile and he blinks once. Keep both hands at rest behind the laptop. From 3.65 to 5.00 he settles and holds a reassuring expression. No camera movement, no cut, no zoom, no new props, no text, no exaggerated arm swing, no changes to fingers, face design, clothing or object geometry. Make a single natural, restrained gesture and keep the face and hands clear for a picture-in-picture crop.
+
+overall_soundscape: Silent clip. No dialogue, breathing, environmental audio, or effects.
+
+non_diegetic_music: None.

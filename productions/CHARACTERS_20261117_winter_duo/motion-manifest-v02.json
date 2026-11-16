@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "edition": "v02",
+  "keyframes": [
+    {
+      "file": "keyframes/female-winter.png",
+      "pixels": [
+        937,
+        1679
+      ],
+      "bytes": 1553326,
+      "sha256": "8e2a1df3328ef3caebeb212e34bedbaa801c10c86ef43880e75c51e1c9a6ca27"
+    },
+    {
+      "file": "keyframes/male-winter.png",
+      "pixels": [
+        937,
+        1679
+      ],
+      "bytes": 1459266,
+      "sha256": "1199c576c83707fbb06b259fad898fcca5017a29be5f7559c859300260609349"
+    }
+  ],
+  "clips": [
+    {
+      "id": "female-guide",
+      "file": "clips/female-guide-v01.mp4",
+      "role": "女性・実務役",
+      "motion": "片手を開いて案内",
+      "intended_use": "説明や図を紹介する場面",
+      "resolution": [
+        768,
+        1344
+      ],
+      "fps": 24,
+      "frames": 124,
+      "seconds": 5.166667,
+      "keyframe_sha256": "8e2a1df3328ef3caebeb212e34bedbaa801c10c86ef43880e75c51e1c9a6ca27",
+      "source_sha256": "bd1557e7d58b14b1267845042aadf23d91038bc6b9bd4f4382b5bbaa52c9e424",
+      "source_bytes": 510076,
+      "model": "MiniMax-H3",
+      "provider_seconds": 115,
+      "usage": {
+        "total_seconds": 5,
+        "input_seconds": 0,
+        "output_seconds": 5,
+        "input_image_count": 1,
+        "total_tokens": 175765,
+        "prompt_tokens": 13020,
+        "completion_tokens": 162745
+      },
+      "has_audio": false,
+      "user_approved": false,
+      "bytes": 504450,
+      "sha256": "2f8f0d1d2930e412411100b550e01a88c36fac4b31171649ffd529ebb44972f2"
+    },
+    {
+      "id": "male-question",
+      "file": "clips/male-question-v02.mp4",
+      "role": "男性・聞き役",
+      "motion": "首を傾け、片手で質問",
+      "intended_use": "疑問を挟む場面",
+      "resolution": [
+        768,
+        1344
+      ],
+      "fps": 24,
+      "frames": 124,
+      "seconds": 5.166667,
+      "keyframe_sha256": "1199c576c83707fbb06b259fad898fcca5017a29be5f7559c859300260609349",
+      "source_sha256": "b0bd87d74bb37b288a7109de68d19a6621e5b0790d6d448c125031c000eb52a3",
+      "source_bytes": 707887,
+      "model": "MiniMax-H3",
+      "provider_seconds": 104,
+      "usage": {
+        "total_seconds": 5,
+        "input_seconds": 0,
+        "output_seconds": 5,
+        "input_image_count": 1,
+        "total_tokens": 175765,
+        "prompt_tokens": 13020,
+        "completion_tokens": 162745
+      },
+      "has_audio": false,
+      "user_approved": false,
+      "bytes": 702252,
+      "sha256": "b7b7c885b56d8355314d8a04a590f5a3074dcc25874dcb42c7f2b9e9ad4b7691"
+    },
+    {
+      "id": "female-concern",
+      "file": "clips/female-concern-v01.mp4",
+      "role": "女性・実務役",
+      "motion": "画面を見て考え、顔を上げる",
+      "intended_use": "数字や原文を照合する場面",
+      "resolution": [
+        768,
+        1344
+      ],
+      "fps": 24,
+      "frames": 124,
+      "seconds": 5.166667,
+      "keyframe_sha256": "8e2a1df3328ef3caebeb212e34bedbaa801c10c86ef43880e75c51e1c9a6ca27",
+      "source_sha256": "5e91a64c7fc64150718f49f1ec93079fe87c5af23e2fed9392812c62f22be03e",
+      "source_bytes": 438550,
+      "model": "MiniMax-H3",
+      "provider_seconds": 113,
+      "usage": {
+        "total_seconds": 5,
+        "input_seconds": 0,
+        "output_seconds": 5,
+        "input_image_count": 1,
+        "total_tokens": 175765,
+        "prompt_tokens": 13020,
+        "completion_tokens": 162745
+      },
+      "has_audio": false,
+      "user_approved": false,
+      "bytes": 432825,
+      "sha256": "982286cab12fa195a6ae3db26b710b0b64c1c594e7b59f3bbcd2e333d14f81e0"
+    },
+    {
+      "id": "male-nod",
+      "file": "clips/male-nod-v01.mp4",
+      "role": "男性・聞き役",
+      "motion": "小さくうなずいて微笑む",
+      "intended_use": "説明を聞いて納得する場面",
+      "resolution": [
+        768,
+        1344
+      ],
+      "fps": 24,
+      "frames": 124,
+      "seconds": 5.166667,
+      "keyframe_sha256": "1199c576c83707fbb06b259fad898fcca5017a29be5f7559c859300260609349",
+      "source_sha256": "c5d644ab886ac286c5695b6f308d267ef0f6f56b17700bc1168c12589fac578e",
+      "source_bytes": 383125,
+      "model": "MiniMax-H3",
+      "provider_seconds": 120,
+      "usage": {
+        "total_seconds": 5,
+        "input_seconds": 0,
+        "output_seconds": 5,
+        "input_image_count": 1,
+        "total_tokens": 175765,
+        "prompt_tokens": 13020,
+        "completion_tokens": 162745
+      },
+      "has_audio": false,
+      "user_approved": false,
+      "bytes": 377453,
+      "sha256": "0ea09f2bf7c663251e7a20acf47cebc0c7aa68d28f48500569a2a04d7b728ae6"
+    }
+  ],
+  "reel": {
+    "file": "winter-duo-preview-v02.mp4",
+    "frames": 248,
+    "fps": 24,
+    "bytes": 2124413,
+    "sha256": "de2f14b23d124b096c2c628a86b4839480fc215c24cb14ad4ade5865b6935ca9"
+  },
+  "reference_frames": [
+    {
+      "base_clip": "female-understanding.mp4",
+      "role": "female",
+      "sha256": "50737bd0a2656206b34b878e1a24db1d81097d2f86ca6c93a7fbff66d76137e8",
+      "bytes": 486586,
+      "seconds": 1.2
+    },
+    {
+      "base_clip": "male-happy.mp4",
+      "role": "male",
+      "sha256": "24ac6b6f5bd2e2a54933fe25c04118321fe5a0a57b718aeb7069d1bac8184583",
+      "bytes": 407792,
+      "seconds": 1.2
+    }
+  ],
+  "review_limitation": "The male question take pushes in after the neutral start. Best used as a separate question framing."
+}
