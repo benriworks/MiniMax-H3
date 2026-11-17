@@ -107,6 +107,17 @@ CUTS = [
     ("s4-4-10-t1", "shots/s4-v01/4-10-device-t1", "4-10-device", "シーン4", "MiniMax H3 API", "採用 通し180s-v01", ""),
     ("s4-4-11-t1", "shots/s4-v01/4-11-tears-t1", "4-11-tears", "シーン4", "MiniMax H3 API", "採用 通し180s-v01", ""),
     ("s4-4-12-t1", "shots/s4-v01/4-12-door-t1", "4-12-door", "シーン4", "MiniMax H3 API", "採用 通し180s-v01", ""),
+    ("s4-4-10-monitor-comfy-t2", "shots/s4-comfy/4-10-monitor-t2", "4-10 PC画面のメール（通信機は手に持つだけ）", "シーン4", "ローカル ComfyUI", "不採用（試作）", "480x864。t1はComfyUI停止中で失敗"),
+    ("s4-4-12-door-v2-comfy-t2", "shots/s4-comfy/4-12-door-v2-t2", "4-12 扉が閉まりきる（両端参照）", "シーン4", "ローカル ComfyUI", "不採用（試作）", "480x864。扉は閉まりきった"),
+    ("s4-4-10-monitor-t1", "shots/s4-v01/4-10-monitor-t1", "4-10 PC画面（メール貼り込み前）", "シーン4", "MiniMax H3 API", "素材", "画面は無地。screen_insert.pyで文面を貼る"),
+    ("s4-4-10-email-t1", "shots/s4-v01/4-10-monitor-email-t1", "4-10 PC画面のメール（貼り込み済み）", "シーン4", "MiniMax H3 API＋合成", "採用 通し180s-v03", "メール文面を画面に追従して貼り込み、1.0〜4.0秒で1.8倍まで寄る"),
+    ("s4-4-12-v2-t1", "shots/s4-v01/4-12-door-v2-t1", "4-12 扉が閉まりきる", "シーン4", "MiniMax H3 API", "採用 通し180s-v03", "光の中へ出ていき、約4秒で扉が閉まりきる"),
+    ("s4-4-10-approach-comfy-t1", "shots/s4-comfy/4-10-approach-t1", "4-10 倒れた科学者に凪が近づく", "シーン4", "ローカル ComfyUI", "不採用（試作）", "480x864"),
+    ("s4-4-10b-lastwords-comfy-t1", "shots/s4-comfy/4-10b-lastwords-t1", "4-10b 科学者の最期の一言（寄り）", "シーン4", "ローカル ComfyUI", "不採用（試作）", "480x864"),
+    ("s4-4-10-approach-t1", "shots/s4-v01/4-10-approach-t1", "4-10 倒れた科学者に凪が近づく", "シーン4", "MiniMax H3 API", "採用 別版179s-v05-lastwords", "頭を上げて弱く笑う。通しでは4秒に詰める"),
+    ("s4-4-10b-lastwords-t1", "shots/s4-v01/4-10b-lastwords-t1", "4-10b 科学者の最期の一言（寄り）", "シーン4", "MiniMax H3 API", "不採用（別版v05で使用）", "立っているように見え、前のカットの座り込みとつながらない（ユーザー指摘）"),
+    ("s4-4-10b-v4-comfy-t1", "shots/s4-comfy/4-10b-lastwords-v4-t1", "4-10b 科学者の最期の一言（座り込んだまま）", "シーン4", "ローカル ComfyUI", "不採用（試作）", "480x864。座ったまま"),
+    ("s4-4-10b-v4-t1", "shots/s4-v01/4-10b-lastwords-v4-t1", "4-10b 科学者の最期の一言（座り込んだまま）", "シーン4", "MiniMax H3 API", "採用 別版179s-v06-lastwords", "床に座り机にもたれたまま話し、目を閉じて頭が傾く"),
 ]
 
 p = argparse.ArgumentParser(description=__doc__)

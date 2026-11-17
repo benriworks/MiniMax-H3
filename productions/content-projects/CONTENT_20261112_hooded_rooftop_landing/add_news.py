@@ -14,6 +14,8 @@ p.add_argument("input", type=Path)
 p.add_argument("output", type=Path)
 p.add_argument("--start", type=float, required=True)
 p.add_argument("--voice-dir", type=Path, required=True, help="folder with 3-7-trim.wav, 3-8-trim.wav, 3-9-trim.wav")
+p.add_argument("--bed-levels", default="0.3,0.3,0.3",
+               help="level of the clip's own audio under each news cut; 0 removes it (3-7 carries the generator's own anchor voice)")
 a = p.parse_args()
 if a.output.exists():
     raise SystemExit(f"{a.output} already exists")
@@ -60,8 +62,12 @@ for i, (cut, _) in enumerate(CAPTIONS):
     af.append(f"[{4 + i}:a]aresample=48000,atempo={tempo:.3f},volume=1.6,adelay={delay}|{delay}[n{i}]")
     lines.append({"cut": cut, "seconds": round(d, 3), "tempo": round(tempo, 3)})
 s, e = a.start, a.start + 15
-af.append(f"[0:a]volume='if(between(t,{s},{e}),0.3,1)':eval=frame[bed]")
-af.append("[bed][n0][n1][n2]amix=inputs=4:duration=first:normalize=0,alimiter=limit=0.89[a]")
+lv = [float(x) for x in a.bed_levels.split(",")]
+bed = "1"
+for i in reversed(range(3)):
+    bed = f"if(between(t,{s + 5 * i},{s + 5 * i + 5}),{lv[i]},{bed})"
+af.append(f"[0:a]volume='{bed}':eval=frame[bed]")
+af.append("[bed][n0][n1][n2]amix=inputs=4:duration=first:normalize=0,alimiter=limit=0.7:attack=1:release=50:level=0[a]")
 cmd += ["-filter_complex", ";".join(vf + af), "-map", f"[{prev}]", "-map", "[a]", "-c:v", "libx264", "-crf", "16",
         "-preset", "slow", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(a.output)]
 subprocess.run(cmd, check=True)

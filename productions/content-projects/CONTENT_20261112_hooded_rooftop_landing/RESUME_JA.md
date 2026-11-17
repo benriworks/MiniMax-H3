@@ -131,3 +131,37 @@
 - 費用見積もり: Gemini画像15枚で約2米ドル。- 時間のテロップ（ユーザー依頼）: `add_titles.py <入力> <出力> --title <秒> <文字>`。回想の頭（1:00）に「3日前」、シーン4の頭（2:00）に「現在」。「3日前」でユーザー了承済み。2分版にテロップを入れたものが `review/full-120s-v02/`。- API版12本 `shots/s4-v01/`（審査で止められたカットはなし）。カット一覧は計99本。
 - 3分の通し `review/full-180s-v01/haino-machi-full-180s-v01.mp4`（180秒、約140MB）。作り方: `assemble_sequence.py --version full-180s-v01-raw`（36カット）→ `add_news.py --start 90` → `add_screen_text.py --at 166.2 --duration 3.6 --text 第二段階へ移行せよ`（4-10の通信機、緑の受信画面を画面上部に重ねる）→ `add_titles.py --title 60.3 3日前 --title 120.3 現在`。途中ファイルは `work/`。720p版 `preview-720p.mp4`（16MB）。ユーザーの確認待ち。
 - 費用見積もり: H3 12本60秒で約4.8米ドル。全体の累計は約19.5米ドル（単価は記憶による概算）。
+## BGM入りの試作（2026-11-15）
+
+- ユーザー依頼「BGM入りバージョンの作成」。ユーザーがプロジェクトチャットに上げたBGMファイルは、ライブラリにもPCにも見つからず、添付か場所を依頼中。
+- 先に別スレッドのLyriaループ曲（`audio/score-v01/hai-no-machi-loop-v01.wav`）で試作: `add_bgm.py <v01> <ループ> <出力> --gain-db -4`。音量は一定（ユーザーは音量の変動を嫌う）、ニュースの声の間0.3倍、2:35〜2:45は無音、最後に0.8倍で戻して終端でフェードアウト。
+- 採用候補 `review/full-180s-v02-bgm-lyria/haino-machi-full-180s-v02-bgm-lyria-t5.mp4`（−16.6 LUFS、ピーク−2.0 dB）。t1〜t4は音量とピークの調整途中で残した。alimiterは既定で出力を自動で持ち上げるので `level=0` が必要だった。
+- 元の3分版v01もピークが0.0 dBだった（ニュースの声を重ねたとき）。次に作り直すときは同じ対策を `add_news.py` にも入れる。- `add_news.py` のリミッターも `limit=0.7:level=0` に直し、BGMなしの3分版v02 `review/full-180s-v02/haino-machi-full-180s-v02.mp4` を作り直した（−16.7 LUFS、ピーク−2.6 dB、映像はv01と同じ）。
+- ユーザーは別のBGMを作成中で、後で渡すとのこと（2026-11-15）。届いたら `add_bgm.py <full-180s-v02> <曲> <出力>` で差し替える。曲の長さやループかどうかで `aloop` の扱いを見直す。
+- 2-7のフードのずれの作り直し（`prompts/s2-video/2-7-leap-v4.txt`）は、MiniMaxの残高不足（HTTP 402）で未送信。`shots/s2-v01/2-7-leap-v4-t1/generation.json` は `submission_unknown` のまま残っているので、再実行は別のフォルダー名（例 `-t2`）で行う。- 2026-11-15 ユーザー指示「フードの作り直しは不要です」。2-7は v3 のまま確定。2-7-leap-v4 は送らない。
+
+## 映像に合わせたスコアの試し版（2026-11-16）
+
+- ユーザー提示のBGM `audio/score-full-v01/hai-no-machi-full-score-v01.wav`（180秒ちょうど、ループではない、−23 LUFS、50〜51秒と155〜165秒は無音、ニュースの下は低い）。映像に合わせて作られているので、音量の山や下げは曲側に任せ、一定の音量でそのまま重ねた。
+- `review/full-180s-v03-score/haino-machi-full-180s-v03-score-g0.mp4`（BGM 0 dB、−17.0 LUFS、ピーク−2.5 dB）を推奨。−3 dB版 `-g3.mp4`（−17.2 LUFS）も残した。土台はBGMなしの3分版v02。720p版 `preview-720p-score.mp4`。
+- コマンド: `ffmpeg -i <v02> -i <score> -filter_complex "[1:a]aresample=48000,volume=0dB[m];[0:a]aresample=48000[d];[d][m]amix=inputs=2:duration=first:normalize=0,alimiter=limit=0.7:attack=1:release=50:level=0[a]" -map 0:v -map "[a]" -c:v copy -c:a aac -b:a 192k`
+## 通信機をPC画面のメールに、ラストの扉を閉めきる（2026-11-16、v03）
+
+- ユーザー指摘: 2:46の通信機のポップアップは興味が削がれる。PC画面のメールに「第二段階へ移行」と「待ち合わせ場所」を書き、通信機は拾うだけに。最後は扉が全て閉まって終わるように。
+- 4-10: 新しい静止画 `plates/s4-v02/4-10-monitor-a.png`（凪の肩越しに正面向きのモニター、画面は無地、通信機は手に持つだけ）→ H3 `shots/s4-v01/4-10-monitor-t1`。カメラ固定と書いても少し引いたので、`screen_insert.py --zoom 1.0 4.0 1.8` で画面を毎フレーム検出（明るい長方形、前後5フレームで平滑化）してメールを貼り、頭が画面の手前に来る部分は明るさで抜いて頭を残し、画面へ寄せた。合成済みは `shots/s4-v01/4-10-monitor-email-t1/source.mp4`。文面は「件名：第二段階への移行／第一段階の散布を確認した。予定どおり、第二段階へ移行せよ。／待ち合わせ場所 旧港湾 第3倉庫 11月18日 05:00」（差出人は非表示）。
+- 4-12: 始端「背中を見せて光の中へ」と終端「扉が閉まりきり暗い」を編集で作り（`plates/s4-v02/4-12-door-start-a.png`、`-end-a.png`）、両端参照で `shots/s4-v01/4-12-door-v2-t1`。約4秒で閉まりきる。
+- ローカル試作はComfyUIが止まっていてt1が失敗、起動し直してt2。
+- 通し `review/full-180s-v03/haino-machi-full-180s-v03.mp4`（BGMなし。`add_screen_text.py` は使わない）とスコア入り `haino-machi-full-180s-v03-score.mp4`（−17.1 LUFS、ピーク−2.5 dB）。カット一覧は計104本。
+- 費用見積もり: H3 2本10秒で約0.8米ドル、Gemini画像3枚で約0.4米ドル。
+## 2分59秒版 v04（2026-11-17）
+
+- ユーザー指摘「3分を少し越えている。2分59秒に収めたい」（v03は180.01秒）。
+- v03（スコア入り・BGMなしの両方）から2:43.0〜2:44.0の1秒（24フレーム、4-9 科学者が倒れたあとのほぼ静止した場面。スコアも155〜165秒は無音）を抜いた。`review/full-179s-v04/haino-machi-full-179s-v04-score.mp4` と `-v04.mp4`、ともに179.000秒・4,296フレーム。−17.1 LUFS、ピーク−2.5 dB。つなぎ目は前後のコマで目立たないことを確認。720p版 `preview-720p-score.mp4`。
+- コマンド: `ffmpeg -i <v03> -filter_complex "[0:v]select='not(between(n,3912,3935))',setpts=N/24/TB[v];[0:a]aselect='not(between(t,163,164))',asetpts=N/SR/TB,atrim=0:179[a]" -frames:v 4296 ...`
+## 別版: メールをやめ、科学者の最期の一言（2026-11-17、v05-lastwords）
+
+- ユーザー: 2:48前後のメールの場面は分かりにくい。メールのカットを外した別版を作り、撃たれた科学者に凪が近づくと「残念だな、私を止めても、このプロジェクトは終わらない」と言って息を引き取るようにしたい。
+- 新カット2本（4-9の真上からの倒れ込みと、4-10のメールを置き換え）: 引き「凪が近づき、科学者が頭を上げて弱く笑う」`shots/s4-v01/4-10-approach-t1`（静止画 `plates/s4-v03/4-10-lastwords-a.png`）と、寄り「話し終えて目を閉じ、頭が傾く」`shots/s4-v01/4-10b-lastwords-t1`（`4-10b-closeup-a.png`）。プロンプトは `prompts/s4-video/4-10-approach.txt.v3`、`4-10b-lastwords.txt.v3`。
+- 声: Gemini TTS（Charon、かすれた弱い声）「残念だな……。私を止めても、このプロジェクトは……終わらない。」`audio/s4-lastwords/lastwords-v1.wav`（7.65秒）を2つに分け1.06倍に（`part1.wav` 3.74秒＝引きの後半、`part2.wav` 3.41秒＝寄りの前半）。声の間は元の音を0.25倍、スコアは寄りの間0.5倍。
+- 尺: 引きの最初の1秒（2:40〜2:41、スコアは無音区間）を抜いて179.000秒。`review/full-179s-v05-lastwords/haino-machi-full-179s-v05-lastwords-score.mp4`（−17.0 LUFS、ピーク−2.0 dB）、720p版 `preview-720p-lastwords.mp4`。メール版v04は残してある。
+- 費用見積もり: H3 2本10秒で約0.8米ドル、Gemini画像2枚で約0.3米ドル、TTSはわずか。- 2026-11-17 ユーザー指摘: 2:46の寄りで科学者が起き上がって見え、前のカットの座り込みとつながらない。寄りの静止画を「床に座り込み机にもたれたまま、少し上から」の編集で作り直し（`plates/s4-v03/4-10b-closeup-b.png`）、動画プロンプトに「立たない、前にも乗り出さない」を足した `4-10b-lastwords.txt.v4` で `shots/s4-v01/4-10b-lastwords-v4-t1`。別版 `review/full-179s-v06-lastwords/haino-machi-full-179s-v06-lastwords-score.mp4`（179.000秒、−17.0 LUFS、ピーク−2.0 dB）。v05は残した。費用 H3 5秒で約0.4米ドル、画像1枚で約0.13米ドル。- 2026-11-17 ユーザー指摘: 科学者の「終わらない」の後ろで「終わりだね」のような小さな声が混ざる。原因はH3が2カット（4-10-approach、4-10b-v4）に自動で入れたつぶやき（無音検出で声の区間を確認）。v06では元の音を0.25倍に下げただけだった。v07は2カットの間（詰める前の160〜170秒）の元の音を0にし（前後0.15秒でフェード）、TTSとスコアだけにした。`review/full-179s-v07-lastwords/haino-machi-full-179s-v07-lastwords-score.mp4`（179.000秒、−17.0 LUFS、ピーク−2.0 dB）。学び: H3に「日本語で話す」と書くと口は動くが、意味の通らない声も音声に入る。TTSを重ねるカットは元の音を下げるのではなく消す。- 2026-11-17 ユーザー指摘「ニュースの場面も同じでは？」。3-7（アナウンサー）の元の音はH3が作った意味のない声で、平均−18.5 dBと大きかった（3-8、3-9は−35 dB前後の環境音）。`add_news.py` に `--bed-levels`（3カットそれぞれの元の音の量）を足し、`0,0.3,0.3` で3-7の元の音を消した。作り直した版: `review/full-179s-v08-lastwords/haino-machi-full-179s-v08-lastwords-score.mp4`（科学者の最期版）と `review/full-179s-v08-email/haino-machi-full-179s-v08-email-score.mp4`（メール版）。どちらも179.000秒、−17.1 LUFS、ピーク−2.7〜−2.8 dB。- 2026-11-17 科学者の最期版v08をS3へアップロード（許可フォルダーへコピーして送信、Status=verified、ArtifactId 6103365eb81a4ffeb68a5144ea4a257a、保存7日、リンク24時間）。YouTubeの設定案（タイトル、説明欄、タグ、カテゴリ、AI生成の開示など）を `youtube-v08-lastwords.txt` に保存。音楽のクレジットは、score-full-v01 の生成記録で3つの元曲がすべてLyria 3.5であることを確認して書いた。

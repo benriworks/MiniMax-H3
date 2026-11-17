@@ -1,16 +1,17 @@
 # 「灰の街」制作の再開記録
 
-2026-11-14更新。案件IDは `CONTENT_20261112_hooded_rooftop_landing`。
+2026-11-17更新。案件IDは `CONTENT_20261112_hooded_rooftop_landing`。
 
 ## 現在地
 
-2026-11-15更新。
+2026-11-17更新。
 
-- 題名と設定、ニュースのアナウンサー音声、時間のテロップ（1:00「3日前」、2:00「現在」）は採用済み。
-- 最新の通しは **3分版v01** `review/full-180s-v01/haino-machi-full-180s-v01.mp4`（180秒、36カット）。確認用は同じフォルダーの `preview-720p.mp4`。ユーザーの確認待ち。
-- 作り方と学びは [静止画から作る短編アクションドラマのノウハウ](../../../docs/video-production/H3_ACTION_DRAMA_KNOWHOW_JA.md)。時系列の詳しいログは同じフォルダーの `RESUME_JA.md`、全カットはメディアルートの `CUTS_CATALOG_JA.md`（99本）。
-- 3分版の再出力: `assemble_sequence.py --version <名前>-raw --cuts <36個のID>` → `add_news.py --start 90` → `add_screen_text.py --at 166.2 --duration 3.6 --text 第二段階へ移行せよ` → `add_titles.py --title 60.3 3日前 --title 120.3 現在`。IDの並びは `review/full-180s-v01-raw/render.json` にある。
-- 下のループBGM v01は別スレッドで作成済み。映像への配置は未着手で、0:50の跳躍、1:30〜1:45のニュース、2:40の機械音、最後の扉を基準に入りと抜きを決める。
+- **最新版は v08（科学者の最期版）** `review/full-179s-v08-lastwords/haino-machi-full-179s-v08-lastwords-score.mp4`（2分59秒＝179.000秒、4,296フレーム、−17.1 LUFS）。ユーザーの依頼で2026-11-17にS3へアップロード済み（ArtifactId 6103365eb81a4ffeb68a5144ea4a257a、保存7日）。YouTubeの設定案は `youtube-v08-lastwords.txt`。投稿はユーザーが行う。
+- 別版のメール版v08 `review/full-179s-v08-email/haino-machi-full-179s-v08-email-score.mp4` と、それ以前の版（v01〜v07）もすべて残してある。
+- 採用済み: 題名と設定、ニュースのアナウンサー音声、時間のテロップ（1:00「3日前」、2:00「現在」）、ユーザーが用意したスコア `audio/score-full-v01/hai-no-machi-full-score-v01.wav`、2-7はフードのずれを直さない。
+- 作り方と学びは [静止画から作る短編アクションドラマのノウハウ](../../../docs/video-production/H3_ACTION_DRAMA_KNOWHOW_JA.md)。時系列の詳しいログは同じフォルダーの `RESUME_JA.md`、全カットはメディアルートの `CUTS_CATALOG_JA.md`（110本）。
+- v08の再出力: `assemble_sequence.py --version <名前>-raw --cuts <36個のID>`（並びは `review/full-180s-v06-raw/render.json`）→ `add_news.py --start 90 --bed-levels 0,0.3,0.3` → `add_titles.py --title 60.3 3日前 --title 120.3 現在` → 科学者の台詞（`audio/s4-lastwords/part1.wav` を161.2秒、`part2.wav` を165.3秒）とスコアを重ね、160〜170秒の元の音は0 → 160〜161秒の1秒を抜く。コマンドの全文は `RESUME_JA.md` の v05〜v08 の項。
+- 下のループBGM v01は試作に使っただけで、最終版には入っていない。
 ## ループBGM v01
 
 低い弦、まばらな弱音ピアノ、心拍のような低音を指定した、歌のないサスペンス曲。配下のパスはメディアルート `outputs/content-projects/CONTENT_20261112_hooded_rooftop_landing/` からの相対位置。
