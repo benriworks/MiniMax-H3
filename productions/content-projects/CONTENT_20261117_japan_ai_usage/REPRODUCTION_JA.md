@@ -1,4 +1,4 @@
-# 再現手順｜ショートv02・フルv02・記事v01
+# 再現手順｜ショートv03・フルv02・記事v01
 
 個人フォーク `3d70c39` を基点に制作。Windows 11、Python 3.12系、Pillow・numpy・BudouX・markdown-it-py、Noto Sans JP（Studio同梱）、FFmpeg 8.1系。素材先は `outputs/content-projects/CONTENT_20261117_japan_ai_usage`。
 
@@ -15,3 +15,7 @@
 1. 上の1〜3の素材と、ショートv02選択記録 `voice/selected-short-v02.json`、`voice/gemini-short-v02/` のWAV・`takes.json` を照合する。記録は案件の出力ルートにある。再生成が必要なときは案件フォルダーで `python -X utf8 short_proposal_voice.py` を実行する。v01の検証済み音声を照合し、女性の変更3台詞を生成する処理。Geminiを呼ばずに再編集するときは保存済みWAVを使う。
 2. `python -X utf8 render.py preview short --edition v02` で字幕と画面を確認し、`python -X utf8 render.py render short --edition v02` で `release/v02/short/` にMP4・SRT・時刻・技術検査・復号フレームを出力する。既存MP4がある場合は別の出力環境で実行する。
 3. 提案書の生成を再検証する場合は Claude Code 2.1.316以降の実行環境と利用可能な認証を確認し、未使用の連番で `python -X utf8 proposal-demo-v02/run.py --attempt 4` を実行する。これは新しいモデル呼び出しになる。今回の入力・実応答・検査結果は [v02改訂記録](PROPOSAL_SHORT_REVISION_V02_JA.md)。モデルの応答のバイト一致は未検証。
+
+## ショートv03の書き出し
+
+ショートv02の保存済み入力素材・WAVを参照し、案件フォルダーで `python -X utf8 render.py preview short --edition v03`、`python -X utf8 render.py render short --edition v03` を実行する。出力先は `release/v03/short/`。復号フレームの `s-hook-turn-00.jpg` と `s-end-turn-01.jpg` で人物下の表示を確認し、v02とv03のAACパケット・時刻とSRTのハッシュを比較する。 [納品検査](DELIVERY_QC_JA.md#ショートv03)

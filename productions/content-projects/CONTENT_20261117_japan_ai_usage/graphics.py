@@ -39,8 +39,9 @@ def portrait(clip, frame, width, height):
 
 
 class Editor:
-    def __init__(self, kind):
+    def __init__(self, kind, *, show_role_labels=True):
         self.short = kind == "short"
+        self.show_role_labels = show_role_labels
         self.w, self.h = (1080, 1920) if self.short else (1920, 1080)
         self.x, self.r = (67, 945) if self.short else (77, 1843)
         self.y, self.b = (340, 1373) if self.short else (193, 850)
@@ -99,11 +100,12 @@ class Editor:
             clip = ("male-happy" if ending else "male-thinking") if person == "male" else (
                 "female-happy" if ending else "female-understanding")
             self.person(im, clip, motion if person == speaker else 0, rect)
-            left, _, right, bottom = rect
             if person == speaker:
                 ImageDraw.Draw(im).rounded_rectangle(rect, radius=24, outline=TEAL, width=5)
-            self.text(im, "聞き役" if person == "male" else "実務役",
-                      (left, bottom+10, right, bottom+48), 28, SOFT, True)
+            if self.show_role_labels:
+                left, _, right, bottom = rect
+                self.text(im, "聞き役" if person == "male" else "実務役",
+                          (left, bottom+10, right, bottom+48), 28, SOFT, True)
         return AEI if hook else None
 
     @staticmethod

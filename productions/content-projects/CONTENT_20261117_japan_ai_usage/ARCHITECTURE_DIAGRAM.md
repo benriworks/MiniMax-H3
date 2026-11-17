@@ -7,6 +7,7 @@ flowchart LR
     Story["台本・表示文・画面指定"] --> Voice["読み原稿と話者別の音声"]
     RevisedStory["ショートv02の差し替え台本"] --> Voice
     RevisedStory --> Render
+    ShortV03["ショートv03の表示指定<br/>人物の役割名を非表示"] --> Render
     Story --> Render["縦／横の編集・字幕・音量検査"]
     Demo["架空の会議メモとClaudeの実応答"] --> Render
     ProposalInputs["架空の自社テンプレート・商談メモ・提案条件"] --> Agent["Claude Codeで初稿を作成・検証"]

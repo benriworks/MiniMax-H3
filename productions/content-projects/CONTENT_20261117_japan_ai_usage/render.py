@@ -18,7 +18,7 @@ FPS = 24
 
 
 def plan(kind, editor, edition="v01"):
-    if kind == "short" and edition == "v02":
+    if kind == "short" and edition in ("v02", "v03"):
         from short_proposal_voice import SELECTED, revised_story
         story = revised_story()
         voice = json.loads(SELECTED.read_text(encoding="utf-8"))
@@ -163,9 +163,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("mode", choices=("preview", "render"))
     parser.add_argument("kind", choices=("short", "full"))
-    parser.add_argument("--edition", choices=("v01", "v02"), default="v01")
+    parser.add_argument("--edition", choices=("v01", "v02", "v03"), default="v01")
     args = parser.parse_args()
-    editor = Editor(args.kind)
+    if args.kind == "full" and args.edition == "v03":
+        parser.error("v03 is available for the short")
+    editor = Editor(args.kind, show_role_labels=args.edition != "v03")
     timing = plan(args.kind, editor, args.edition)
     if args.mode == "preview":
         review_frames(editor, timing, OUT / "previews" / args.edition / args.kind)
