@@ -8,6 +8,7 @@
 - `proposal-demo-v02/run.py` は独立した作業フォルダーで、Claude Codeへ架空の提案書テンプレート・商談メモ・提案条件を渡す。ツール実行と保存された初稿を検査する。掲載する画面は台本と `graphics.py` で要約し、レンダリングは保存済み素材だけで実行できる。
 - `render.py` と `graphics.py` が動画ごとの表示・字幕時刻を組み立て、`mix_audio.py` が既定のBGM処理と最終音量を調整する。PillowとFFmpegで静止画・既存人物・音声を組み合わせ、MP4とSRT、技術検査を版付きで保存する。
 - ショートv03はショートv02の台本と音声選択記録を読み、`Editor` の `show_role_labels` を無効にして、2人の下の役割名を描画せずに出力する。
+- `thumbnail.py` はショートv03で使った人物の静止フレームと提案書の組版を利用し、投稿用PNG・縮小確認画像・入出力ハッシュの台帳を独立したフォルダーへ保存する。
 - `record_workspace.py` はStudioの共通CLIへ企画・調査・素材・記事を登録する。`package_article.py` はStudioの画像出力からMDXとHTMLのレイアウト確認用ZIPを作る。
 - Gitの対象は台本・出典・編集コード・検証要約。素材・映像・音声・全応答レシートは `outputs/content-projects` の案件フォルダーで管理する。
 

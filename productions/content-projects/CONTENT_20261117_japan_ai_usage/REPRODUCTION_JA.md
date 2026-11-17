@@ -19,3 +19,7 @@
 ## ショートv03の書き出し
 
 ショートv02の保存済み入力素材・WAVを参照し、案件フォルダーで `python -X utf8 render.py preview short --edition v03`、`python -X utf8 render.py render short --edition v03` を実行する。出力先は `release/v03/short/`。復号フレームの `s-hook-turn-00.jpg` と `s-end-turn-01.jpg` で人物下の表示を確認し、v02とv03のAACパケット・時刻とSRTのハッシュを比較する。 [納品検査](DELIVERY_QC_JA.md#ショートv03)
+
+## ショートv03用サムネイル
+
+同じ案件出力の `motion/male-happy/017.jpg` と `motion/female-happy/001.jpg`、Studio同梱のNoto Sans JP、保存済みの提案書画面の組版を使う。案件フォルダーで `python -X utf8 thumbnail.py` を実行すると `thumbnail-v01/` にPNG、縮小確認画像、入出力のハッシュを記録した `manifest.json` を保存する。既存の版を確認するときは `--output-dir <確認用の別フォルダー>` で再出力し、PNGのSHA-256と見え方を比較する。 [サムネイルの納品検査](DELIVERY_QC_JA.md#ショートv03用サムネイル-v01)

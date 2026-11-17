@@ -28,3 +28,10 @@
 - v02と比較した182通りの描画状態のうち、2人が並ぶ88状態の役割名の領域に差分がある。差分の外接矩形は `[239, 1340, 771, 1367]`。照合結果は `_private/role-labels-layout-v03.json`。
 - AAC 2,927パケットの時刻とSHA-256、SRTとタイムラインのハッシュはv02と一致。v02本体のSHA-256も照合した。
 - レビュー用Driveのファイル名、6,376,568 bytes、親フォルダーと非共有設定を照合した。ローカル受領書は `_private/drive-receipt-short-v03.json`。スマホ再生、通し試聴、採用、公開は確認待ち。
+
+## ショートv03用サムネイル v01
+
+- `outputs/content-projects/CONTENT_20261117_japan_ai_usage/thumbnail-v01/` の `claude-japan-ai-short-thumbnail-v01.png`。2160×3840 px、9:16、RGB PNG、1,095,822 bytes。SHA-256は `67b38df27b483da6d6aa7f510cc973e83e0a70cd05fb84a6aaa8bfbcfede229a`。
+- 既存の男性・女性と、架空の青葉製作所向け提案書初稿の画面を採用。360px幅の縦型プレビューと中央360×360の抜粋で、見出し・顔・提案書名の見え方を実画像で確認。入力フレームの版・ハッシュ、フォント、切り出し座標を同じフォルダーの `manifest.json` に記録。別フォルダーへの再出力はバイト単位で一致。
+- 限定DriveのPNGのファイル名・容量・親フォルダー・共有設定を照合。受領書は `_private/drive-receipt-thumbnail-v01.json`。画像の採用、ユーザーのYouTube Studio上での設定と表示は確認待ち。
+- 2026年11月17日確認。確認済みアカウントのPC版YouTube Studioで、ショート動画のサムネイルを画像ファイルから追加できる。公式推奨は2160×3840 px。 [YouTube公式ヘルプ](https://support.google.com/youtube/answer/72431?hl=ja)

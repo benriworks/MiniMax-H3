@@ -13,6 +13,9 @@ flowchart LR
     ProposalInputs["架空の自社テンプレート・商談メモ・提案条件"] --> Agent["Claude Codeで初稿を作成・検証"]
     Agent --> Draft["顧客別の提案書初稿"]
     Draft -->|画面用要約| Render
+    Prepare --> Thumbnail["ショート用サムネイル組版"]
+    Draft -->|提案書画面の抜粋| Thumbnail
+    Thumbnail --> ThumbnailImage["縦型PNG・縮小確認・素材台帳"]
     Voice --> Render
     Prepare --> Render
     Music["確認済みのローカルBGM"] --> Render
