@@ -1,0 +1,187 @@
+{
+  "version": "v01",
+  "titles": {
+    "short": "【ChatGPT・Codex】GPT-6.2 AstraとSol、どっちを選ぶ？",
+    "full": "【ChatGPT・Codex】GPT-6.2 AstraとSolの使い分け｜コード修正・資料作成・API料金"
+  },
+  "short": [
+    {
+      "id": "s01",
+      "speaker": "female",
+      "display": "ふだんの仕事はSol。難しい仕事はAstra。これが、GPT-6.2の使い分け。",
+      "visual": "hero",
+      "title": "GPT-6.2 Astra と Sol",
+      "target_seconds": 7
+    },
+    {
+      "id": "s02",
+      "speaker": "male",
+      "display": "たとえば、普段のコード修正なら、どっちを選ぶ？",
+      "visual": "duo",
+      "title": "どっちを選ぶ？",
+      "target_seconds": 4.2
+    },
+    {
+      "id": "s03",
+      "speaker": "female",
+      "display": "小さな修正やレビューならSolから。文章の下書きにも使いやすい、普段使いのモデルだよ。",
+      "visual": "sol",
+      "title": "小さな修正は Sol",
+      "target_seconds": 6.8
+    },
+    {
+      "id": "s04",
+      "speaker": "male",
+      "display": "原因がいくつものサービスにまたがる不具合なら？",
+      "visual": "duo",
+      "title": "原因が一か所にないときは？",
+      "target_seconds": 4.6
+    },
+    {
+      "id": "s05",
+      "speaker": "female",
+      "display": "そういう時はAstra。原因を追って直し、影響するところまでテストする仕事に向いてる。",
+      "visual": "astra",
+      "title": "原因調査からテストまで",
+      "target_seconds": 7.2
+    },
+    {
+      "id": "s06",
+      "speaker": "female",
+      "display": "OpenAIが11月17日に発表。ChatGPT WorkとCodexで使えて、開発者はAPIからも選べるよ。",
+      "visual": "picker",
+      "title": "実際のモデル選択画面",
+      "target_seconds": 9
+    },
+    {
+      "id": "s07",
+      "speaker": "male",
+      "display": "まずSol。調査も修正もまたぐならAstra、だね。",
+      "visual": "end",
+      "title": "最初の一手は Sol",
+      "target_seconds": 6.1
+    }
+  ],
+  "full": [
+    {
+      "id": "f01",
+      "speaker": "female",
+      "display": "ふだんの仕事はSol。難しい仕事はAstra。これが、GPT-6.2の使い分け。",
+      "visual": "hero",
+      "title": "GPT-6.2 Astra と Sol",
+      "target_seconds": 7
+    },
+    {
+      "id": "f02",
+      "speaker": "male",
+      "display": "どこまでが普段の仕事なんだろう。たとえば、いつも使う予約アプリの修正なら？",
+      "visual": "duo",
+      "title": "同じアプリでも、作業で変わる",
+      "target_seconds": 7
+    },
+    {
+      "id": "f03",
+      "speaker": "female",
+      "display": "予約ボタンの文言を直したり、小さな変更のレビューを頼むなら、まずSol。変更する場所と確認したい点を、一緒に伝えると進めやすいよ。",
+      "visual": "sol",
+      "title": "Sol｜範囲が見えている修正",
+      "target_seconds": 11
+    },
+    {
+      "id": "f04",
+      "speaker": "male",
+      "display": "じゃあ、予約は完了したのに確認メールが届かない。画面だけ見ても原因が分からない場合は？",
+      "visual": "duo",
+      "title": "予約できたのに、メールが来ない",
+      "target_seconds": 7.8
+    },
+    {
+      "id": "f05",
+      "speaker": "female",
+      "display": "それならAstraを試す場面。予約の記録から、通知を送る処理まで追う。直したあとも、予約と通知の両方が動くか確かめる。",
+      "visual": "astra",
+      "title": "Astra｜調査、修正、テスト",
+      "target_seconds": 11.3
+    },
+    {
+      "id": "f06",
+      "speaker": "female",
+      "display": "頼むときは、何をすれば再現するか、どこまで確認したいかを渡してみて。実行したテストと、確認できなかった点も分けて返してもらおう。",
+      "visual": "request",
+      "title": "依頼に添える3つの情報",
+      "target_seconds": 11.5
+    },
+    {
+      "id": "f07",
+      "speaker": "male",
+      "display": "コード以外だと、Astraを選ぶのはどんなとき？",
+      "visual": "duo",
+      "title": "資料づくりにも違いはある？",
+      "target_seconds": 4.8
+    },
+    {
+      "id": "f08",
+      "speaker": "female",
+      "display": "OpenAIの公式作例に、画像で渡された見本に合わせて、取引先の進捗を1枚にまとめる課題がある。これが元のスライド。",
+      "visual": "template",
+      "title": "公式作例｜元のスライド",
+      "target_seconds": 10
+    },
+    {
+      "id": "f09",
+      "speaker": "female",
+      "display": "右が新しいAstra。見本と同じ濃紺の帯を残しつつ、見出しには2店舗で試験導入が決まったことを書いた。表には次の作業、担当、日付が並んでる。",
+      "visual": "slides",
+      "title": "公式作例｜新旧Astraの出力",
+      "target_seconds": 13
+    },
+    {
+      "id": "f10",
+      "speaker": "male",
+      "display": "ぱっと見て、何が決まったかと、次に誰が動くかが分かる。元の数字や担当者が合っているかは、提出前に照合したいね。",
+      "visual": "slide-detail",
+      "title": "確認する箇所は、結論・担当・期限",
+      "target_seconds": 10
+    },
+    {
+      "id": "f11",
+      "speaker": "female",
+      "display": "OpenAIの発表は11月17日。ChatGPTではWorkを開く。Codexでは、このPCで撮った画面のように、モデル選択にAstraとSolが並んでいるよ。",
+      "visual": "picker",
+      "title": "ChatGPT Work と Codexで選ぶ",
+      "target_seconds": 12
+    },
+    {
+      "id": "f12",
+      "speaker": "male",
+      "display": "いつものChatを開いていたら、まずWorkに移る。使えるかどうかはプランや、組織の設定も確認だね。",
+      "visual": "access",
+      "title": "プラン・組織の設定を確認",
+      "target_seconds": 9.5
+    },
+    {
+      "id": "f13",
+      "speaker": "female",
+      "display": "APIでは、100万トークンあたり、Solが入力2ドル、出力10ドル。Astraは入力8ドル、出力40ドル。いずれも米ドルの標準単価だよ。",
+      "visual": "price",
+      "title": "APIの標準単価",
+      "target_seconds": 12
+    },
+    {
+      "id": "f14",
+      "speaker": "male",
+      "display": "同じ量の入力と出力なら単価は4倍。実際に払う額は、使うトークンの量でも変わるんだね。",
+      "visual": "price",
+      "title": "単価と1件あたりの費用",
+      "target_seconds": 8.5
+    },
+    {
+      "id": "f15",
+      "speaker": "female",
+      "display": "まずSolで回せる作業から。複数の工程を追う調査や、見本に揃えて仕上げる資料ならAstra。最後は、欲しかった成果物と確認結果で選ぼう。",
+      "visual": "end",
+      "title": "迷ったら、仕事の範囲で選ぶ",
+      "target_seconds": 12
+    }
+  ]
+}
