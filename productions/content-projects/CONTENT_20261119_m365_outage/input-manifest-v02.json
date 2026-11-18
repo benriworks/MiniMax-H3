@@ -1,0 +1,314 @@
+{
+  "environment": {
+    "python": "3.12.2",
+    "packages": {
+      "Pillow": "12.3.0",
+      "numpy": "1.26.4",
+      "budoux": "0.10.2",
+      "PyMuPDF": "1.27.2",
+      "playwright": "1.58.0"
+    },
+    "ffmpeg": "ffmpeg version 8.1.2-full_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers",
+    "video_font": {
+      "path": "studio/public/template-assets/NotoSansJP-Variable.ttf",
+      "bytes": 9589900,
+      "sha256": "c2f3b4d463500a2ddcd3849cded1fceeb9fd6d1c32e6cbecd568453ba50fc68f"
+    },
+    "pdf_font": "BIZ UDPゴシック Regular/Bold (Windows, TTC subfont 1)",
+    "base_commit": "523e49eff66092da0431e3268040a9eced837fc7"
+  },
+  "motion": {
+    "male-thinking": {
+      "sha256": "b284c50afa0eb95cb81d9786f47d6ae4bd9670a27da60b56d6107af8eb1f7799",
+      "bytes": 1573682,
+      "frames": 62
+    },
+    "female-understanding": {
+      "sha256": "df4967a3ab73e2eb598e020fd8959ed7756fdb5e4a24a64424dabd1f42897126",
+      "bytes": 2491542,
+      "frames": 62
+    },
+    "male-understanding": {
+      "sha256": "336f23df42622d7c56d158b293a785d31b373ce0aabbf9294fab8b0a6ae70351",
+      "bytes": 662455,
+      "frames": 62
+    }
+  },
+  "capture": {
+    "report-lock": {
+      "source": "https://ismg-cdn.nyc3.cdn.digitaloceanspaces.com/asset_files/external/microsoft-report.pdf",
+      "page": 3,
+      "phrase": "lock contention",
+      "rects": [
+        [
+          261.7699890136719,
+          142.77345275878906,
+          335.6247253417969,
+          156.2532958984375
+        ]
+      ],
+      "sha256": "3c735ddad074c822e2cfdda4ad85ac1c85c62df0c1e7e6b27f14c532c641085b",
+      "original": {
+        "path": "_private/capture/preliminary-pir.pdf",
+        "bytes": 123975,
+        "sha256": "3c735ddad074c822e2cfdda4ad85ac1c85c62df0c1e7e6b27f14c532c641085b"
+      }
+    },
+    "report-rate": {
+      "source": "https://ismg-cdn.nyc3.cdn.digitaloceanspaces.com/asset_files/external/microsoft-report.pdf",
+      "page": 3,
+      "phrase": "more than 80% of servers were unresponsive.",
+      "rects": [
+        [
+          436.04656982421875,
+          622.013427734375,
+          522.0563354492188,
+          635.4932861328125
+        ],
+        [
+          72.02400207519531,
+          635.473388671875,
+          201.65744018554688,
+          648.9532470703125
+        ]
+      ],
+      "sha256": "3c735ddad074c822e2cfdda4ad85ac1c85c62df0c1e7e6b27f14c532c641085b",
+      "original": {
+        "path": "_private/capture/preliminary-pir.pdf",
+        "bytes": 123975,
+        "sha256": "3c735ddad074c822e2cfdda4ad85ac1c85c62df0c1e7e6b27f14c532c641085b"
+      }
+    },
+    "report-wait": {
+      "source": "https://ismg-cdn.nyc3.cdn.digitaloceanspaces.com/asset_files/external/microsoft-report.pdf",
+      "page": 4,
+      "phrase": "immediately overwhelmed by waiting traffic",
+      "rects": [
+        [
+          461.4455261230469,
+          170.49342346191406,
+          522.5850219726562,
+          183.9732666015625
+        ],
+        [
+          72.02400207519531,
+          183.9334259033203,
+          216.42721557617188,
+          197.41326904296875
+        ]
+      ],
+      "sha256": "3c735ddad074c822e2cfdda4ad85ac1c85c62df0c1e7e6b27f14c532c641085b",
+      "original": {
+        "path": "_private/capture/preliminary-pir.pdf",
+        "bytes": 123975,
+        "sha256": "3c735ddad074c822e2cfdda4ad85ac1c85c62df0c1e7e6b27f14c532c641085b"
+      }
+    },
+    "meiji": {
+      "url": "https://www.my-pharm.ac.jp/news/detail/513/?target=candidates",
+      "final_origin": "www.my-pharm.ac.jp",
+      "title": "Microsoft 365（Outlook等）の障害に伴うお問い合わせ対応について｜明治薬科大学",
+      "status": 200,
+      "phrase": "お電話にてご連絡ください。",
+      "crop_css": {
+        "x": 912.828125,
+        "y": 470.75,
+        "width": 210.015625,
+        "height": 28
+      },
+      "original": {
+        "path": "_private/capture/meiji.png",
+        "bytes": 368960,
+        "sha256": "03b9a67731c3b31d7457b9688f8fc728dd8f6479d42921326d3f283e1ae3e637"
+      }
+    },
+    "rits": {
+      "url": "https://www.ritsumei.ac.jp/extension/news/detail/?id=32",
+      "final_origin": "www.ritsumei.ac.jp",
+      "title": "エクステンションセンターからのお知らせ | エクステンションセンター | 立命館大学<",
+      "status": 200,
+      "phrase": "再度予約する必要はありません。",
+      "crop_css": {
+        "x": 508.4375,
+        "y": 501.078125,
+        "width": 226.40625,
+        "height": 20
+      },
+      "original": {
+        "path": "_private/capture/rits.png",
+        "bytes": 431425,
+        "sha256": "b0bcbd8e434a2c0950749f60b747d903f745fdddf7a9e6aa58ab491546bb33dd"
+      }
+    },
+    "osaka": {
+      "url": "https://www.ompu.ac.jp/news/cc9f84000002dv21.html",
+      "final_origin": "www.ompu.ac.jp",
+      "title": "Microsoft 365の障害および11月16日（月）大学院統合講義について | 大阪医科薬科大学",
+      "status": 200,
+      "phrase": "Outlookが復旧次第",
+      "crop_css": {
+        "x": 604.578125,
+        "y": 572.34375,
+        "width": 151.671875,
+        "height": 28
+      },
+      "original": {
+        "path": "_private/capture/osaka.png",
+        "bytes": 318740,
+        "sha256": "c389b5cf23d8367c7492f16b99ab27b677b0095b7f42228d74c25821f9c8eb13"
+      }
+    }
+  },
+  "inputs": [
+    {
+      "path": "captures/meiji.png",
+      "bytes": 6900,
+      "sha256": "5091cbae16bd21f0f404e4bf8c2c0672f3bbb1b058802fd611f9375bdc0ab191"
+    },
+    {
+      "path": "captures/osaka.png",
+      "bytes": 6108,
+      "sha256": "f45ff05ec58c254ec66bee2fc048c57874c9b1da051ed08b94869020f9df509c"
+    },
+    {
+      "path": "captures/report-lock-0.png",
+      "bytes": 3101,
+      "sha256": "47124f268b73dbc1959ac628be11944a536fcf17fff7f93220430b3dbf21e642"
+    },
+    {
+      "path": "captures/report-rate-0.png",
+      "bytes": 5091,
+      "sha256": "85a54f3380f19614aa35fe68b1b5586ede9238c88df7f13b46a28e067903fa36"
+    },
+    {
+      "path": "captures/report-rate-1.png",
+      "bytes": 5432,
+      "sha256": "f14b1b17a093f5be4b8dc7341811ff2262ef81cd1cd1e8e90e03abc41615665f"
+    },
+    {
+      "path": "captures/report-wait-0.png",
+      "bytes": 3446,
+      "sha256": "b2838664450591113580f2d81d6ff663495aab4c540b6db74d5fc6a27f8c210d"
+    },
+    {
+      "path": "captures/report-wait-1.png",
+      "bytes": 7404,
+      "sha256": "391a22ec46df20ca116687bfe2503020333a71be8916e1abfb776d58cb2aa1b8"
+    },
+    {
+      "path": "captures/rits.png",
+      "bytes": 7510,
+      "sha256": "12d8ebbae0808751b30278d4e0bfd632abb8d2d1b71153e841b0a60271b3dca9"
+    },
+    {
+      "path": "voice/selected-v02/backlog/turn-00/voice.wav",
+      "bytes": 741690,
+      "sha256": "9cca8bc6fa6416f3f04bc6f5944805d229721d6dde769898983d12b0755efafc"
+    },
+    {
+      "path": "voice/selected-v02/capacity/turn-00/voice.wav",
+      "bytes": 613050,
+      "sha256": "6f3807f08b29c7c000e4d1026b949178916a0d29af2fc5a878fdc5ef84325842"
+    },
+    {
+      "path": "voice/selected-v02/cascade/turn-00/voice.wav",
+      "bytes": 682170,
+      "sha256": "6036deb16fa6ff4eec3fa9825782a1b71d54715f5735486e5cc2f7d10392b64a"
+    },
+    {
+      "path": "voice/selected-v02/clock/turn-00/voice.wav",
+      "bytes": 866490,
+      "sha256": "ee1a12ff8047a75d620be2f0f3fa172ffa1238d11974e1b509f1ea622ef823db"
+    },
+    {
+      "path": "voice/selected-v02/eighty/turn-00/voice.wav",
+      "bytes": 751290,
+      "sha256": "1998c87b1fe9bac24c2389dae3461b28b9f83e0e810d1640b856272939a55e11"
+    },
+    {
+      "path": "voice/selected-v02/end/turn-00/voice.wav",
+      "bytes": 737850,
+      "sha256": "2de5c5074b9d5d6208fdf95670187df5d457eb5a7e37febf749563906035f986"
+    },
+    {
+      "path": "voice/selected-v02/exam/turn-00/voice.wav",
+      "bytes": 551610,
+      "sha256": "e2dc940d8c416b152afb1bc924a907116b34ab5607b9e0a4d5d6e7c955b64232"
+    },
+    {
+      "path": "voice/selected-v02/fix/turn-00/voice.wav",
+      "bytes": 657210,
+      "sha256": "c4f2614da33cc23c74f5846f57239bdac68d9c4fa269de61ad5b6c79e03b4629"
+    },
+    {
+      "path": "voice/selected-v02/gateway/turn-00/voice.wav",
+      "bytes": 664890,
+      "sha256": "7dfc72d7401fcbc7551b80f2a015162ca6ad143da3d041b55b10efbc48874348"
+    },
+    {
+      "path": "voice/selected-v02/july/turn-00/voice.wav",
+      "bytes": 709050,
+      "sha256": "96cea88d32e42216492dcba58a01b8c3246a62a55a15019f6e053e796f925847"
+    },
+    {
+      "path": "voice/selected-v02/lab/turn-00/voice.wav",
+      "bytes": 657210,
+      "sha256": "92448356de68fd0bc639ae9b1c9fd7b04492c58fde9ff1d02046a1d482fc877e"
+    },
+    {
+      "path": "voice/selected-v02/labq/turn-00/voice.wav",
+      "bytes": 455610,
+      "sha256": "af3f5295e81d05090c4490481cff11138db6490cc4c3db6e6a50341dbdb2535d"
+    },
+    {
+      "path": "voice/selected-v02/mail/turn-00/voice.wav",
+      "bytes": 495930,
+      "sha256": "b4ded4db16e8a94e9420276a86b7ad29913c41e4f8a3844f038c15b62473d981"
+    },
+    {
+      "path": "voice/selected-v02/opening/turn-00/voice.wav",
+      "bytes": 797370,
+      "sha256": "144750040498d4c9b204fa92bd3af380364e92b1d03079e6a49a0b2d153a096e"
+    },
+    {
+      "path": "voice/selected-v02/paris/turn-00/voice.wav",
+      "bytes": 666810,
+      "sha256": "899d8b8abbef1059f6c92562850110fa47828a95d1eb7c01889259d4673615c6"
+    },
+    {
+      "path": "voice/selected-v02/queue/turn-00/voice.wav",
+      "bytes": 638010,
+      "sha256": "03a41b5e47557ed5400abe433f4949203699a250be1ed5fabce855bbdcad26a0"
+    },
+    {
+      "path": "voice/selected-v02/receipt/turn-00/voice.wav",
+      "bytes": 511290,
+      "sha256": "9de32469184fac90cc9b95eda21214d4dce59e715d040f99af11ceaa7bb2cb9a"
+    },
+    {
+      "path": "voice/selected-v02/restoreq/turn-00/voice.wav",
+      "bytes": 340410,
+      "sha256": "0ff396d9b52d04bc725b5fb924b8b7f14d83dc16a6a27ef9a24bd5a1b3dee48f"
+    },
+    {
+      "path": "voice/selected-v02/scope/turn-00/voice.wav",
+      "bytes": 766650,
+      "sha256": "9373998f0486fbe0fb28ac8061cf20d1e0c3bc89b586fd932329c9a65ea88dbf"
+    },
+    {
+      "path": "voice/selected-v02/scopeq/turn-00/voice.wav",
+      "bytes": 357690,
+      "sha256": "d1159cf5ba3011e08a5a229001c17a03093c538d5c8fbc902f95a81018880dc3"
+    },
+    {
+      "path": "voice/selected-v02/teams/turn-00/voice.wav",
+      "bytes": 678330,
+      "sha256": "2ec3db9220dd28c308947e5c5e455d74158ac414207722c4e6333b88a4d7d9a2"
+    },
+    {
+      "path": "voice/selected-v02/where/turn-00/voice.wav",
+      "bytes": 348090,
+      "sha256": "0273e697ebb731491835c77010304029319de12d42d5019ed912fbc483e6ccd2"
+    }
+  ]
+}

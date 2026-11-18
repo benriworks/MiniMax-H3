@@ -1,0 +1,71 @@
+{
+  "version": "v02",
+  "file": "microsoft365-outage-full-v02.mp4",
+  "frames": 7287,
+  "seconds": 303.625,
+  "width": 1920,
+  "height": 1080,
+  "fps": 24,
+  "codec": "H.264/AAC",
+  "bytes": 13868318,
+  "sha256": "9b35ea67a22989af0cec369e6c05f2dbb05f6dbf4064f44bd862bd33c678880a",
+  "decode": true,
+  "captions": 63,
+  "final_lufs": "-16.06",
+  "final_dbtp": "-1.46",
+  "bgm": "explanation_v1",
+  "user_approved": false,
+  "published": false,
+  "visual_checks": {
+    "editorial_plates": 22,
+    "measured_text_layouts": 195,
+    "decoded_frame_scenes": [
+      "opening",
+      "exam",
+      "teams",
+      "cascade",
+      "eighty",
+      "clock",
+      "backlog",
+      "end"
+    ]
+  },
+  "audio_checks": {
+    "new_provider_takes": 23,
+    "reused_from_v01": 21,
+    "local_asr_scenes_v01": 22,
+    "independent_audio_only_checks_v01": 8,
+    "revised_opening_audio_only_checked": true,
+    "full_human_listening": false
+  },
+  "drive": {
+    "read_back": true,
+    "access": "private",
+    "pc_chrome_progress_seen": "0:02 / 5:04",
+    "phone_playback_verified": false
+  },
+  "article": {
+    "pages": 3,
+    "page_links": [
+      6,
+      9,
+      6
+    ],
+    "poppler_visual_check": true,
+    "viewport_widths": [
+      390,
+      1280
+    ],
+    "pictures_loaded": 2,
+    "pdf": {
+      "path": "article/microsoft365-outage-article.pdf",
+      "bytes": 753555,
+      "sha256": "359f2d135d76e3e56772c7679a8e2a3821d67eac4e21361089efb61b867db824"
+    },
+    "archive": {
+      "path": "article/blog-review.zip",
+      "bytes": 840285,
+      "sha256": "cf64c160909708325672bf3d5bc441e4d73badda4c8204a1a32ae6a5015fe6ff"
+    }
+  }
+}

@@ -1,5 +1,21 @@
 # Architecture diagram
 
+## Microsoft 365障害の解説制作
+
+```mermaid
+flowchart LR
+    Evidence["暫定報告・大学告知・取材"] --> Story["出典つき台本"]
+    Evidence --> Quotes["短文の実画面引用"]
+    Story --> Dialogue["2人の音声と字幕"]
+    Quotes --> Film["人物・通信図・レビューMP4"]
+    Dialogue --> Film
+    Story --> Article["記事PDF・ブログ原稿"]
+    Film --> Review["検証と案件記録"]
+    Article --> Review
+```
+
+[案件内の制作構成図](productions/content-projects/CONTENT_20261119_m365_outage/ARCHITECTURE_DIAGRAM.md)
+
 ## 30秒のオリジナルショートドラマ（2026-11-08）
 
 ```mermaid

@@ -1,0 +1,42 @@
+{
+  "PIR": [
+    "Microsoft、11月15日付の暫定事後報告書（公開写し）",
+    "https://ismg-cdn.nyc3.cdn.digitaloceanspaces.com/asset_files/external/microsoft-report.pdf",
+    "official"
+  ],
+  "EVP": [
+    "MicrosoftのCharles Lamanna氏による説明",
+    "https://x.com/clamanna/status/2122209697226948729",
+    "official"
+  ],
+  "RELEASE": [
+    "Microsoft 365 Statusによる暫定報告の告知",
+    "https://x.com/MSFT365Status/status/2122205066157257160",
+    "official"
+  ],
+  "FEED": [
+    "Microsoftの障害通知（ペンシルベニア大学が掲載）",
+    "https://mailservices.isc.upenn.edu/computing/email/penno365/alerts/ms-incidents.html",
+    "official"
+  ],
+  "MEIJI": [
+    "明治薬科大学の入試に関する案内",
+    "https://www.my-pharm.ac.jp/news/detail/513/?target=candidates",
+    "official"
+  ],
+  "RITS": [
+    "立命館大学エクステンションセンターの案内",
+    "https://www.ritsumei.ac.jp/extension/news/detail/?id=32",
+    "official"
+  ],
+  "OSAKA": [
+    "大阪医科薬科大学の大学院統合講義の案内",
+    "https://www.ompu.ac.jp/news/cc9f84000002dv21.html",
+    "official"
+  ],
+  "LEMONDE": [
+    "Le Mondeがパリの広報担当者に聞いた当日の様子",
+    "https://www.lemonde.fr/en/economy/article/2026/11/14/microsoft-outage-shows-french-businesses-dependence-on-digital-tools-we-were-all-in-the-same-boat_6780424_19.html",
+    "first_hand"
+  ]
+}
