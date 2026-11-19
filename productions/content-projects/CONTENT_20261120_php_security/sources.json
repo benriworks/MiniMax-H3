@@ -1,0 +1,62 @@
+{
+  "oct": {
+    "title": "PHP開発チーム・10月21日の緊急告知",
+    "url": "https://www.php.net/archive/2026.php#2026-10-21-5"
+  },
+  "follow": {
+    "title": "PHP開発チーム・10月23日の追加告知",
+    "url": "https://www.php.net/archive/2026.php#2026-10-23-1"
+  },
+  "pre": {
+    "title": "PHPセキュリティチーム・11月18日の予告",
+    "url": "https://www.php.net/archive/2026.php#2026-11-18-1"
+  },
+  "release": {
+    "title": "PHP開発チーム・11月19日の4系列の公開",
+    "url": "https://www.php.net/archive/2026.php#2026-11-19-4"
+  },
+  "changes": {
+    "title": "PHP 8.5.13 変更履歴",
+    "url": "https://www.php.net/ChangeLog-8.php#8.5.13"
+  },
+  "advisories": {
+    "title": "PHP開発元のセキュリティ告知一覧",
+    "url": "https://github.com/php/php-src/security/advisories"
+  },
+  "api": {
+    "title": "php-srcの公式アドバイザリーメタデータ",
+    "url": "https://api.github.com/repos/php/php-src/security-advisories"
+  },
+  "session": {
+    "title": "PHP開発元・セッション保存に関する告知",
+    "url": "https://github.com/php/php-src/security/advisories/GHSA-fm2m-fjf5-v3cp"
+  },
+  "progress": {
+    "title": "PHP開発元・10月23日予告分の正式告知",
+    "url": "https://github.com/php/php-src/security/advisories/GHSA-658j-r8rw-q6mx"
+  },
+  "ipa": {
+    "title": "IPA・11月19日の事前準備の案内",
+    "url": "https://www.ipa.go.jp/security/security-alert/2026/pre-alert20261119.html"
+  },
+  "intro": {
+    "title": "PHP公式マニュアル・入門",
+    "url": "https://www.php.net/manual/ja/introduction.php"
+  },
+  "manual": {
+    "title": "PHP公式マニュアル・セッションの基本",
+    "url": "https://www.php.net/manual/ja/session.examples.basic.php"
+  },
+  "ubuntu": {
+    "title": "Ubuntuの10月修正に見るパッケージ番号の例",
+    "url": "https://ubuntu.com/security/notices/USN-8948-1"
+  },
+  "music": {
+    "title": "甘茶の音楽工房・ハッピータイム",
+    "url": "https://amachamusic.chagasi.com/music_happytime.html"
+  },
+  "terms": {
+    "title": "甘茶の音楽工房・利用規約",
+    "url": "https://amachamusic.chagasi.com/terms.html"
+  }
+}

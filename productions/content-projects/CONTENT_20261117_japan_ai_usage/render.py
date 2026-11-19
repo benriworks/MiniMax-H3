@@ -94,12 +94,12 @@ def timestamp(seconds):
     return f"{ms//3600000:02}:{ms//60000%60:02}:{ms//1000%60:02},{ms%1000:03}"
 
 
-def encode(editor, timing, kind, edition, folder):
+def encode(editor, timing, kind, edition, folder, *, stem="claude-japan-ai", mixer=mix, sample_state=sample):
     folder.mkdir(parents=True, exist_ok=True)
-    output = folder / f"claude-japan-ai-{kind}-{edition}.mp4"
+    output = folder / f"{stem}-{kind}-{edition}.mp4"
     if output.exists():
         raise FileExistsError("Preserve the existing edition")
-    audio, bed = mix(timing, folder / "work")
+    audio, bed = mixer(timing, folder / "work")
     command = ["ffmpeg", "-v", "error", "-nostdin", "-n", "-f", "image2pipe", "-framerate", str(FPS),
                "-c:v", "mjpeg", "-i", "pipe:0", "-i", str(audio), "-map", "0:v", "-map", "1:a",
                "-vf", "scale=in_range=pc:out_range=tv:in_color_matrix=bt601:out_color_matrix=bt709,format=yuv420p",
@@ -112,7 +112,7 @@ def encode(editor, timing, kind, edition, folder):
             for chapter in timing["chapters"]:
                 cache = {}
                 for frame in range(chapter["frames"]):
-                    state = sample(chapter, chapter["start"]+(frame+.5)/FPS)
+                    state = sample_state(chapter, chapter["start"]+(frame+.5)/FPS)
                     if state not in cache:
                         data = BytesIO()
                         editor.frame(chapter, *state).save(data, format="JPEG", quality=92)

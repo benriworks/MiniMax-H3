@@ -1,0 +1,583 @@
+{
+  "date": "2026-11-20",
+  "cuts": {
+    "short": {
+      "edition": "v01",
+      "title": "【PHP】10月に更新したサイトも要確認。11月の脆弱性は何が違う？",
+      "file": "php-security-november-short-v01.mp4",
+      "bytes": 5797716,
+      "sha256": "745dccec2111d74c8a7d92c4b3fed927314a78e20549ae7bc4fd8947db72cfff",
+      "duration": 51.25,
+      "resolution": [
+        1080,
+        1920
+      ],
+      "fps": 24,
+      "frames": 1230,
+      "captions": 12,
+      "integrated_lufs": -15.11,
+      "true_peak_dbtp": -1.45,
+      "voice": {
+        "method": "Gemini TTS",
+        "model": "gemini-2.5-flash-preview-tts",
+        "female": "Aoede",
+        "male": "Charon"
+      },
+      "bgm": {
+        "track": "ハッピータイム",
+        "credit": "甘茶の音楽工房",
+        "sha256": "04875cc4d522511497b72c25aad0f535dbd6716dbfade7b7dec1846db4ec5d94",
+        "source_lufs": -15.26,
+        "input_gain_db": -10.74,
+        "clip_end_seconds": 99.2,
+        "crossfade_seconds": 1.6,
+        "repeat_count": 0,
+        "gain_profile": "explanation_v1",
+        "speech_blocks_joined_under_seconds": 2.0,
+        "peak_before_mix_normalization": 0.9846077561378479
+      },
+      "full_decode": "passed",
+      "human_listening": "pending",
+      "user_approved": false,
+      "published": false,
+      "turn_count": 7,
+      "srt_sha256": "69a1ea5e46af84839de18c1e45080c454746b7a922a317202702b08712e6a3ef",
+      "chapters": [
+        {
+          "title": "10月と11月、違いは影響条件",
+          "start": 0.0
+        },
+        {
+          "title": "重大な問題が起きる条件",
+          "start": 14.333
+        },
+        {
+          "title": "10月に直したサイトも確認",
+          "start": 30.958
+        },
+        {
+          "title": "契約先に聞く一言",
+          "start": 38.125
+        }
+      ],
+      "voice_lines": [
+        {
+          "line": "lead",
+          "speaker": "Aoede",
+          "sha256": "09727ec438f79c9812df9de95ec694c4420db56e767e06f8d7ceb995898f28a3"
+        },
+        {
+          "line": "again",
+          "speaker": "Charon",
+          "sha256": "717df6460aa5cda547943baa9e7f39df5cbaf97182a5e4fa91c3db786386c48e"
+        },
+        {
+          "line": "short-condition",
+          "speaker": "Aoede",
+          "sha256": "8e815e200b33df37bbd21cd01eaa32d6ac9b79addc74d725a70fb7957d5b97f6"
+        },
+        {
+          "line": "short-number",
+          "speaker": "Aoede",
+          "sha256": "e7fbf61e12b3c2c1109b29aac271de1af0a4be3aec3137b908e79221841ba1bd"
+        },
+        {
+          "line": "short-version",
+          "speaker": "Charon",
+          "sha256": "9a0405fde27f88170042bdb3da3cc8ddb2ea1244b11926271c98993d2e82c53e"
+        },
+        {
+          "line": "short-host",
+          "speaker": "Aoede",
+          "sha256": "1516291763a0a195224c6513a99345c87cbbc74b18726e001c14db8110e8369c"
+        },
+        {
+          "line": "short-end",
+          "speaker": "Charon",
+          "sha256": "a68f38e9de2afd9b71c2ee6cabbe16d49c7c44eb73bd855048341f3e8c4a864a"
+        }
+      ],
+      "decoded_review_frames": 11
+    },
+    "full": {
+      "edition": "v02",
+      "title": "【PHP】11月の脆弱性はPHP2Shellと何が違う？ 影響条件・修正版・契約先への確認方法",
+      "file": "php-security-november-full-v02.mp4",
+      "bytes": 22082474,
+      "sha256": "664a9964e7e3e787f34f8171ab02d62163491772bd5bbe12495c4916271fe405",
+      "duration": 201.83333333333334,
+      "resolution": [
+        1920,
+        1080
+      ],
+      "fps": 24,
+      "frames": 4844,
+      "captions": 41,
+      "integrated_lufs": -15.07,
+      "true_peak_dbtp": -1.25,
+      "voice": {
+        "method": "Gemini TTS",
+        "model": "gemini-2.5-flash-preview-tts",
+        "female": "Aoede",
+        "male": "Charon"
+      },
+      "bgm": {
+        "track": "ハッピータイム",
+        "credit": "甘茶の音楽工房",
+        "sha256": "04875cc4d522511497b72c25aad0f535dbd6716dbfade7b7dec1846db4ec5d94",
+        "source_lufs": -15.26,
+        "input_gain_db": -10.74,
+        "clip_end_seconds": 99.2,
+        "crossfade_seconds": 1.6,
+        "repeat_count": 2,
+        "gain_profile": "explanation_v1",
+        "speech_blocks_joined_under_seconds": 2.0,
+        "peak_before_mix_normalization": 1.0310944318771362
+      },
+      "full_decode": "passed",
+      "human_listening": "pending",
+      "user_approved": false,
+      "published": false,
+      "turn_count": 21,
+      "srt_sha256": "0eb57be067041282b644e115530f34bec0d08d1a5f710b1a7a8c695c0087cd9e",
+      "chapters": [
+        {
+          "title": "10月と11月、違いは影響条件",
+          "start": 0.0
+        },
+        {
+          "title": "10月のPHP2Shell",
+          "start": 27.333
+        },
+        {
+          "title": "なぜ今回は構成を見るのか",
+          "start": 54.458
+        },
+        {
+          "title": "買い物かごで見るセッション",
+          "start": 81.542
+        },
+        {
+          "title": "前回の追加告知とのつながり",
+          "start": 108.333
+        },
+        {
+          "title": "自分の系列で修正版を探す",
+          "start": 129.417
+        },
+        {
+          "title": "予約サイトを管理していたら",
+          "start": 161.875
+        }
+      ],
+      "voice_lines": [
+        {
+          "line": "full-lead",
+          "speaker": "Aoede",
+          "sha256": "0005a7a7e05227e7912052ff6babe3bcc19323782917fb095350aff809c3e089"
+        },
+        {
+          "line": "full-again",
+          "speaker": "Charon",
+          "sha256": "694d07f7dec00bb41334b58896529ef93ae7cf96a5aad4e96bcd505dc750d61f"
+        },
+        {
+          "line": "full-again-answer",
+          "speaker": "Aoede",
+          "sha256": "40bb03c62a92367746eae646e8bab63068e64b8cddefdc6c7d82a414f6fd1065"
+        },
+        {
+          "line": "oct-question",
+          "speaker": "Charon",
+          "sha256": "7d0acc0250919e8d7482f4348e52b1fb60b4702519c1836eab562c5e28c3a9cf"
+        },
+        {
+          "line": "oct-answer",
+          "speaker": "Aoede",
+          "sha256": "1a143d129cd71ccd3c32a22dbb9530b85d2e4ae5cdf1825c8e1428ae2b4c1597"
+        },
+        {
+          "line": "oct-impact",
+          "speaker": "Aoede",
+          "sha256": "669182bfdbd295856c71e5d3863efa8de07514c1f0ff0248d44d6343af56302c"
+        },
+        {
+          "line": "nov-q",
+          "speaker": "Charon",
+          "sha256": "105bcf52ada580a2282781a999f762cb6e4b818162c88b0636308d497a4cd409"
+        },
+        {
+          "line": "nov-condition",
+          "speaker": "Aoede",
+          "sha256": "f919dd4e49bc6cf4e11c0246a60cb1f664acd49ba821ed1d0fed2615896bd404"
+        },
+        {
+          "line": "short-number",
+          "speaker": "Aoede",
+          "sha256": "e7fbf61e12b3c2c1109b29aac271de1af0a4be3aec3137b908e79221841ba1bd"
+        },
+        {
+          "line": "session-q",
+          "speaker": "Charon",
+          "sha256": "d91cd8ab5bab40ae1d15f535d36285023f10e401a5a3a2cdec63178945898492"
+        },
+        {
+          "line": "session-answer",
+          "speaker": "Aoede",
+          "sha256": "b0bacf63f25a1c3417b7f14c4a354fbe44c0d6276109f706e29a58c47738e1c4"
+        },
+        {
+          "line": "session-distinct",
+          "speaker": "Aoede",
+          "sha256": "67bd45de8a8d03593db7562260471a18d898a84ca8c8e6804bdba37241edf651"
+        },
+        {
+          "line": "bridge-q",
+          "speaker": "Charon",
+          "sha256": "73eb143fa739ddafaeda9a3ad8c996b6b63891a0267de01b6cb9d69d841e4231"
+        },
+        {
+          "line": "bridge-a",
+          "speaker": "Aoede",
+          "sha256": "143386631af3f3837940ddec99696c867ab33401f2ec73e482679e55b538f1fc"
+        },
+        {
+          "line": "version-q",
+          "speaker": "Charon",
+          "sha256": "82524c307169a2c965368b0b1b2e7f42068ddb1c82606930e66777b74ed6b065"
+        },
+        {
+          "line": "version-clarity",
+          "speaker": "Aoede",
+          "sha256": "e071a0e0a7bc774dceaf1e6673252a462a24b2d17e6b59ba2a48b1dea6a64a2b"
+        },
+        {
+          "line": "vendor",
+          "speaker": "Aoede",
+          "sha256": "d464d9bf5cad016d205fa873ed348690b1658426adad381961327281b922e027"
+        },
+        {
+          "line": "host-q",
+          "speaker": "Charon",
+          "sha256": "e4ee7e3a424ccbff1a81ddc32523d5a9a358ff3804215abe5bfd267eee25ea9e"
+        },
+        {
+          "line": "host-a",
+          "speaker": "Aoede",
+          "sha256": "d24315ae50b17a442287e8d325a8df6b224dab6ceabb46c377bb57a41a7ece2b"
+        },
+        {
+          "line": "self",
+          "speaker": "Aoede",
+          "sha256": "ba4805227372c8a33385df7870ba31fa826f75c181aeee01d2251d022448aee9"
+        },
+        {
+          "line": "full-end",
+          "speaker": "Charon",
+          "sha256": "01ff2dc37dee2ed61a43f089063c0d59e8418bc0c6138a7a8769caf2879e5ac3"
+        }
+      ],
+      "decoded_review_frames": 28
+    }
+  },
+  "full_v01": {
+    "file": "php-security-november-full-v01.mp4",
+    "sha256": "7727ed43a3f9afb066e0975854b299f249f28c0078c211c002a2273750ddccbd",
+    "duration": 204.79166666666666
+  },
+  "full_v02_reused_turns": 20,
+  "source_captures": [
+    {
+      "id": "october",
+      "url": "https://www.php.net/archive/2026.php#2026-10-21-5",
+      "page_title": "PHP: News Archive - 2026",
+      "quote": "Critical remote code execution vulnerabilities, update now",
+      "retrieved": "2026-11-19T16:32:16.360692+00:00",
+      "viewport_pixels": [
+        3000,
+        1900
+      ],
+      "raw_sha256": "153952f3d57f8c71673bb9273c30fcd2ec29b260ca35e5bfd07daa82be89089e",
+      "raw_bytes": 492051,
+      "crop_rects": [
+        [
+          508,
+          959,
+          1788,
+          1018
+        ]
+      ],
+      "quote_pixels": [
+        1312,
+        91
+      ],
+      "quote_sha256": "6d78b0e3bde64edf233aa11361be55e4174e5ce9f4b5ac4945d6ebc45a3778f2",
+      "quote_bytes": 15869
+    },
+    {
+      "id": "conditions",
+      "url": "https://www.php.net/archive/2026.php#2026-11-18-1",
+      "page_title": "PHP: News Archive - 2026",
+      "quote": "The issues rated CRITICAL require either non-default configuration or uncommon setups.",
+      "retrieved": "2026-11-19T16:32:16.647760+00:00",
+      "viewport_pixels": [
+        3000,
+        1900
+      ],
+      "raw_sha256": "725da3b7ee1cafb633cba9472e729c6b29a392b63ec3afbd78630785ce3b6f6f",
+      "raw_bytes": 370435,
+      "crop_rects": [
+        [
+          107,
+          967,
+          1392,
+          1008
+        ]
+      ],
+      "quote_pixels": [
+        1317,
+        73
+      ],
+      "quote_sha256": "e171aa4a7038e1bfff904d46a2acd627bd5745de330a9c292795440f146bc699",
+      "quote_bytes": 11868
+    },
+    {
+      "id": "november",
+      "url": "https://www.php.net/archive/2026.php#2026-11-19-4",
+      "page_title": "PHP: News Archive - 2026",
+      "quote": "PHP 8.5.13 Released!",
+      "retrieved": "2026-11-19T16:32:16.919561+00:00",
+      "viewport_pixels": [
+        3000,
+        1900
+      ],
+      "raw_sha256": "5f4491554e810c06e1c8d953a0e4ee09704a4d2aab37ce9a487a014db2a26f38",
+      "raw_bytes": 396957,
+      "crop_rects": [
+        [
+          107,
+          969,
+          549,
+          1028
+        ]
+      ],
+      "quote_pixels": [
+        474,
+        91
+      ],
+      "quote_sha256": "31bf1c7a88413b51baa47eb79305985b4776cb2c3512bee0d02fdc9aa13a22a0",
+      "quote_bytes": 7451
+    },
+    {
+      "id": "ipa",
+      "url": "https://www.ipa.go.jp/security/security-alert/2026/pre-alert20261119.html",
+      "page_title": "【事前準備のお願い】PHPのセキュリティリリース公開予定について（11月） | 情報セキュリティ | IPA 独立行政法人 情報処理推進機構",
+      "quote": "一般的ではないセットアップ",
+      "retrieved": "2026-11-19T16:32:17.954908+00:00",
+      "viewport_pixels": [
+        3000,
+        1900
+      ],
+      "raw_sha256": "aacdd6cbdbd00a7ed1c9a59c23a311262498ac6a1233f87930896f9d0aead1ee",
+      "raw_bytes": 671890,
+      "crop_rects": [
+        [
+          741,
+          863,
+          1122,
+          902
+        ]
+      ],
+      "quote_pixels": [
+        413,
+        71
+      ],
+      "quote_sha256": "b9e1e6f8297aca8ab440666c390a03bffafffd7e27ded7429761e0b5965d8874",
+      "quote_bytes": 6418
+    }
+  ],
+  "vendor_advisories": [
+    {
+      "cve": "CVE-2026-115560",
+      "severity": "critical",
+      "url": "https://github.com/php/php-src/security/advisories/GHSA-658j-r8rw-q6mx",
+      "published": "2026-11-19T14:08:31Z"
+    },
+    {
+      "cve": "CVE-2026-126714",
+      "severity": "critical",
+      "url": "https://github.com/php/php-src/security/advisories/GHSA-fm2m-fjf5-v3cp",
+      "published": "2026-11-19T14:06:39Z"
+    },
+    {
+      "cve": "CVE-2026-127960",
+      "severity": "high",
+      "url": "https://github.com/php/php-src/security/advisories/GHSA-mmf9-xm3v-hg2x",
+      "published": "2026-11-19T14:06:08Z"
+    },
+    {
+      "cve": "CVE-2026-128064",
+      "severity": "high",
+      "url": "https://github.com/php/php-src/security/advisories/GHSA-f6gg-rchx-xw8j",
+      "published": "2026-11-19T14:06:12Z"
+    },
+    {
+      "cve": "CVE-2026-128090",
+      "severity": "high",
+      "url": "https://github.com/php/php-src/security/advisories/GHSA-68fq-fh7h-f8gr",
+      "published": "2026-11-19T14:08:01Z"
+    },
+    {
+      "cve": "CVE-2026-129182",
+      "severity": "critical",
+      "url": "https://github.com/php/php-src/security/advisories/GHSA-2fjv-p558-g82m",
+      "published": "2026-11-19T14:06:04Z"
+    },
+    {
+      "cve": "CVE-2026-129289",
+      "severity": "critical",
+      "url": "https://github.com/php/php-src/security/advisories/GHSA-qc49-hpvq-g2w6",
+      "published": "2026-11-19T14:08:40Z"
+    },
+    {
+      "cve": "CVE-2026-129291",
+      "severity": "high",
+      "url": "https://github.com/php/php-src/security/advisories/GHSA-jm4m-qfqx-967m",
+      "published": "2026-11-19T14:05:55Z"
+    },
+    {
+      "cve": "CVE-2026-129292",
+      "severity": "medium",
+      "url": "https://github.com/php/php-src/security/advisories/GHSA-3mg3-cr28-46gc",
+      "published": "2026-11-19T14:07:47Z"
+    },
+    {
+      "cve": "CVE-2026-129438",
+      "severity": "medium",
+      "url": "https://github.com/php/php-src/security/advisories/GHSA-mg3p-mxj9-g2mm",
+      "published": "2026-11-19T14:06:16Z"
+    },
+    {
+      "cve": "CVE-2026-129474",
+      "severity": "critical",
+      "url": "https://github.com/php/php-src/security/advisories/GHSA-8mjj-2r7p-4hg2",
+      "published": "2026-11-19T14:06:20Z"
+    },
+    {
+      "cve": "CVE-2026-129481",
+      "severity": "critical",
+      "url": "https://github.com/php/php-src/security/advisories/GHSA-g3vh-838c-65v7",
+      "published": "2026-11-19T14:06:00Z"
+    },
+    {
+      "cve": "CVE-2026-129496",
+      "severity": "critical",
+      "url": "https://github.com/php/php-src/security/advisories/GHSA-gr4f-wgx5-jpfv",
+      "published": "2026-11-19T14:06:44Z"
+    },
+    {
+      "cve": "CVE-2026-129501",
+      "severity": "medium",
+      "url": "https://github.com/php/php-src/security/advisories/GHSA-x8r7-mg3g-74hg",
+      "published": "2026-11-19T14:08:18Z"
+    },
+    {
+      "cve": "CVE-2026-129506",
+      "severity": "medium",
+      "url": "https://github.com/php/php-src/security/advisories/GHSA-4646-p932-gw34",
+      "published": "2026-11-19T14:08:23Z"
+    },
+    {
+      "cve": "CVE-2026-129538",
+      "severity": "medium",
+      "url": "https://github.com/php/php-src/security/advisories/GHSA-5j3f-64r7-f564",
+      "published": "2026-11-19T14:07:53Z"
+    },
+    {
+      "cve": "CVE-2026-15353",
+      "severity": "medium",
+      "url": "https://github.com/php/php-src/security/advisories/GHSA-q23r-hr55-xmpg",
+      "published": "2026-11-19T14:08:10Z"
+    }
+  ],
+  "inputs": {
+    "winter": [
+      {
+        "id": "female-guide",
+        "source": "outputs/characters/CHARACTERS_20261117_winter_duo/v01/review-v02/clips/female-guide-v01.mp4",
+        "bytes": 504450,
+        "sha256": "2f8f0d1d2930e412411100b550e01a88c36fac4b31171649ffd529ebb44972f2",
+        "sample_fps": 12,
+        "sample_frames": 62
+      },
+      {
+        "id": "male-question",
+        "source": "outputs/characters/CHARACTERS_20261117_winter_duo/v01/review-v02/clips/male-question-v02.mp4",
+        "bytes": 702252,
+        "sha256": "b7b7c885b56d8355314d8a04a590f5a3074dcc25874dcb42c7f2b9e9ad4b7691",
+        "sample_fps": 12,
+        "sample_frames": 62
+      },
+      {
+        "id": "female-concern",
+        "source": "outputs/characters/CHARACTERS_20261117_winter_duo/v01/review-v02/clips/female-concern-v01.mp4",
+        "bytes": 432825,
+        "sha256": "982286cab12fa195a6ae3db26b710b0b64c1c594e7b59f3bbcd2e333d14f81e0",
+        "sample_fps": 12,
+        "sample_frames": 62
+      },
+      {
+        "id": "male-nod",
+        "source": "outputs/characters/CHARACTERS_20261117_winter_duo/v01/review-v02/clips/male-nod-v01.mp4",
+        "bytes": 377453,
+        "sha256": "0ea09f2bf7c663251e7a20acf47cebc0c7aa68d28f48500569a2a04d7b728ae6",
+        "sample_fps": 12,
+        "sample_frames": 62
+      }
+    ],
+    "music": {
+      "title": "ハッピータイム",
+      "author": "甘茶の音楽工房",
+      "original": "happytime.mp3",
+      "sha256": "04875cc4d522511497b72c25aad0f535dbd6716dbfade7b7dec1846db4ec5d94",
+      "bytes": 1668968
+    },
+    "font": {
+      "path": "studio/public/template-assets/NotoSansJP-Variable.ttf",
+      "bytes": 9589900,
+      "sha256": "c2f3b4d463500a2ddcd3849cded1fceeb9fd6d1c32e6cbecd568453ba50fc68f"
+    }
+  },
+  "tts": {
+    "verified_takes": 28,
+    "reported_total_tokens": 9607
+  },
+  "article": {
+    "bytes": 54378,
+    "sha256": "cfc951708e4203b5638b464b2c4a7a0fd125a980073678fcc023b68eb4912448",
+    "entries": 10,
+    "pages": [
+      {
+        "images": 4,
+        "width": 390,
+        "body": 390,
+        "figures": 4
+      },
+      {
+        "images": 4,
+        "width": 1440,
+        "body": 1440,
+        "figures": 4
+      }
+    ],
+    "figures": 4
+  },
+  "runtime": {
+    "python": "3.12.2",
+    "pillow": "12.3.0",
+    "ffmpeg": "ffmpeg version 8.1.2-full_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers"
+  },
+  "phone_review": "pending",
+  "human_listening": "pending",
+  "published": false
+}

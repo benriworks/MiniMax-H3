@@ -50,10 +50,10 @@ def track_for(length, source_pcm, overlap, start=0):
     return out, repeats
 
 
-def mix(plan, folder):
+def mix(plan, folder, *, source_path=None, music_spec=None):
     folder.mkdir(parents=True, exist_ok=True)
-    spec = SOURCES["music"]
-    path = OUT / "_private" / spec["original"]
+    spec = SOURCES["music"] if music_spec is None else music_spec
+    path = OUT / "_private" / spec["original"] if source_path is None else Path(source_path)
     if digest(path) != spec["sha256"]:
         raise ValueError("Local music differs from the selected inventory copy")
     measure = loudness(path)

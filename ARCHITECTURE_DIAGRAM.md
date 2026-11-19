@@ -1,5 +1,19 @@
 # Architecture diagram
 
+## PHP更新解説の比較と書き出し（2026-11-20）
+
+```mermaid
+flowchart LR
+    S["PHP・IPAの公開情報"] --> E["公式画面と日付別の告知照合"]
+    E --> V["冬服男女・縦横の編集"]
+    A["会話音声と字幕時刻"] --> V
+    V --> M["既存エンコーダー・ローカルBGM"]
+    M --> Q["ショートとフルの媒体検査"]
+    E --> B["Studioの出典・記事草稿・画像"]
+```
+
+[案件の詳細図](productions/content-projects/CONTENT_20261120_php_security/ARCHITECTURE_DIAGRAM.md)
+
 ## 30秒のオリジナルショートドラマ（2026-11-08）
 
 ```mermaid

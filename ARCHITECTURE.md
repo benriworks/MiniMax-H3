@@ -1,5 +1,9 @@
 # Architecture
 
+## PHPの11月セキュリティ更新を比較する縦・横動画（2026-11-20）
+
+[案件の制作構成](productions/content-projects/CONTENT_20261120_php_security/ARCHITECTURE.md)に、公開告知の撮影、冬服モーションの原本照合、音声と字幕の時刻決定、縦横の書き出しを記録した。既存の会話エンコーダーは呼び出し側がファイル名・画面の選択・ミックスを指定できる。音源の明示指定時も登録済みのハッシュを照合する。[データフロー](productions/content-projects/CONTENT_20261120_php_security/ARCHITECTURE_DIAGRAM.md)
+
 ## 30秒のオリジナルショートドラマ（2026-11-08）
 
 [案件](productions/content-projects/CONTENT_20261108_short_drama/RESUME_AND_KNOWHOW_JA.md)の `generate_h3_shot.py` は承認した画像とカット別プロンプトを既存 `H3Client` へ渡す。送信前の状態、受付ID、使用量、原本hashを保存し、受付IDが得られた場合は同じタスクを照会できる。`render_short_drama.py` は保存済みの映像、画像、Geminiの二言から7カットを720フレームに構成する。表示字幕は文節組版を使い、声、ピアノ、環境音は分離してから共通BGM設定で混合する。生成と再編集の境界、映像・音声の検査、レビュー用Drive、記事フレームの出所を案件の再現手順と台帳で追えるようにした。
