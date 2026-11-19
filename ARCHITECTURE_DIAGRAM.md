@@ -9,8 +9,13 @@ flowchart LR
     Story --> Dialogue["2人の音声と字幕"]
     Quotes --> Film["人物・通信図・レビューMP4"]
     Dialogue --> Film
+    Cast["既存の思案・新規H3の驚き"] --> Film
+    Music["新曲を横・縦の尺へ編曲"] --> Film
+    Film --> Full["フルv03・23台詞"]
+    Film --> Short["ショートv01・縦型6台詞"]
     Story --> Article["記事PDF・ブログ原稿"]
-    Film --> Review["検証と案件記録"]
+    Full --> Review["検証と案件記録"]
+    Short --> Review
     Article --> Review
 ```
 

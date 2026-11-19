@@ -2,6 +2,8 @@
 
 ## Microsoft 365障害の報道解説（2026-11-19）
 
+フルv03とショートv01では、共通の取材資料・人物原本を使い、画角別に台詞と字幕、カットを組む。現行サイトのキャプチャには撮影日時と切り出し位置が付き、講演録と同じ入力から記事の追補を生成する。書き下ろした音楽は2つのタイムラインに合わせて別々に編曲した。[版別の構成・検証記録](productions/content-projects/CONTENT_20261119_m365_outage/PAIR_REVIEW_JA.md)
+
 案件制作コードは[構成と再現手順](productions/content-projects/CONTENT_20261119_m365_outage/ARCHITECTURE.md)と[独立した構成図](productions/content-projects/CONTENT_20261119_m365_outage/ARCHITECTURE_DIAGRAM.md)を参照。公式資料の引用、出典を追える記事、PCMで計った掛け合いとH.264出力を同じ案件データから作る。既存の字幕・音声・Studio台帳を利用する。
 
 ## 30秒のオリジナルショートドラマ（2026-11-08）

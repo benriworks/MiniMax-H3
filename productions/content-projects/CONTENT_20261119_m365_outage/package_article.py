@@ -43,7 +43,8 @@ def rich(text):
     return re.sub(r'\*\*(.+?)\*\*',r'<font color="#085954">\1</font>',text)
 
 
-def article_pdf(path,pages,figures):
+def article_pdf(path,pages,figures,descriptions=None):
+    descriptions=FIGS if descriptions is None else descriptions
     fonts=Path(os.environ["WINDIR"])/"Fonts"
     pdfmetrics.registerFont(TTFont("ArticleJP",str(fonts/"BIZ-UDGothicR.ttc"),subfontIndex=1))
     pdfmetrics.registerFont(TTFont("ArticleJP-Bold",str(fonts/"BIZ-UDGothicB.ttc"),subfontIndex=1))
@@ -91,7 +92,7 @@ def article_pdf(path,pages,figures):
                 fh=width*ih/iw; y-=fh
                 # ReportLab handles the PNG copy reliably across Pillow versions.
                 with Image.open(fig) as img: canv.drawInlineImage(img.convert("RGB"),left,y,width,fh)
-                y-=5;drawpara(FIGS[key],"caption",8)
+                y-=5;drawpara(descriptions[key],"caption",8)
             elif line.startswith("# "): drawpara(line[2:],"main",6)
             elif line.startswith("## "): drawpara(line[3:],"h2",6)
             else: drawpara(line,"body",9)
@@ -105,8 +106,10 @@ def article_pdf(path,pages,figures):
 
 
 def main():
-    ap=argparse.ArgumentParser();ap.add_argument("media",type=Path);args=ap.parse_args()
+    ap=argparse.ArgumentParser();ap.add_argument("media",type=Path);ap.add_argument("--pair",action="store_true");args=ap.parse_args()
     media=args.media.resolve(); out=media/"article";out.mkdir(exist_ok=True)
+    if args.pair:
+        out=out/"v02";out.mkdir(exist_ok=True)
     target=out/"figures";target.mkdir(exist_ok=True)
     figures={}
     for key in FIGS:
@@ -115,14 +118,23 @@ def main():
             im.crop((108,294,1812,792)).save(dest,quality=94)
         figures[key]=dest
     txt=(HERE/"article-draft.md").read_text(encoding="utf-8")
+    descriptions=dict(FIGS)
+    if args.pair:
+        txt+="\n<!-- page -->\n"+(HERE/"article-pair-addendum.md").read_text(encoding="utf-8")
+        descriptions.update({"keynote-quote":"Microsoft Igniteの公式講演録から。2026年11月17日、1ページ目。",
+                             "status":"Microsoftの公開サービス状態ページ。2026年11月19日撮影。"} )
+        for key in ("keynote-quote","status"):
+            figures[key]=target/(key+".webp")
+            with Image.open(media/"captures/revision-03"/(key+".png")) as im:im.save(figures[key],lossless=True)
     condensed=portable(txt)
-    article_pdf(out/"microsoft365-outage-article.pdf",condensed.split("<!-- page -->"),figures)
+    article_pdf(out/"microsoft365-outage-article.pdf",condensed.split("<!-- page -->"),figures,descriptions)
     web=condensed.replace("<!-- page -->","")
     mdx=web
-    for key,alt in FIGS.items():
+    for key,alt in descriptions.items():
+        with Image.open(figures[key]) as pic:width,height=pic.size
         tag="<!-- figure:"+key+" -->"
-        web=web.replace(tag,f'<figure><img src="figures/{key}.webp" width="1704" height="498" alt={quoteattr(alt)}><figcaption>{alt}</figcaption></figure>')
-        mdx=mdx.replace(tag,f'<Figure src="/images/articles/{SLUG}/{key}.webp" width={{1704}} height={{498}} alt={quoteattr(alt)} caption={quoteattr(alt)} zoom />')
+        web=web.replace(tag,f'<figure><img src="figures/{key}.webp" width="{width}" height="{height}" alt={quoteattr(alt)}><figcaption>{alt}</figcaption></figure>')
+        mdx=mdx.replace(tag,f'<Figure src="/images/articles/{SLUG}/{key}.webp" width={{{width}}} height={{{height}}} alt={quoteattr(alt)} caption={quoteattr(alt)} zoom />')
     rendered=MarkdownIt("commonmark",{"html":True}).enable("table").render(web)
     css="body{max-width:790px;margin:32px auto;padding:0 20px 60px;color:#183438;background:#f9f8f3;font:17px/1.85 system-ui,sans-serif}h1,h2{line-height:1.4}h2{margin-top:2em;color:#145b59}figure{margin:18px 0}img{width:100%;height:auto}figcaption{font-size:14px}a{color:#08645e}td,th{padding:5px;border-bottom:1px solid #b7c6bf;text-align:left}td:first-child{min-width:6.2em}table{border-collapse:collapse}"
     (out/"index.html").write_text('<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Outlookの受信箱が開かなかった日</title><style>'+css+"</style><main>"+rendered+"</main></html>",encoding="utf-8")

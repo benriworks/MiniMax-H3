@@ -1,0 +1,539 @@
+{
+  "full": {
+    "file": "microsoft365-outage-full-v03.mp4",
+    "sha256": "4042b35c9ec45e2fab023d61080902eecc908862d6b78b1d352e0d5dd14f3ab6",
+    "bytes": 30246309,
+    "dimensions": [
+      1920,
+      1080
+    ],
+    "fps": 24,
+    "seconds": 317.8333333333333,
+    "frames": 7628,
+    "captions": 65,
+    "cuts": 63,
+    "cast_seconds": {
+      "male": 124.958,
+      "female": 103.333
+    },
+    "loudness_lufs": -15.99,
+    "true_peak_dbtp": -1.59,
+    "score": {
+      "title": "返事を待つ朝",
+      "arrangement": "full",
+      "bpm": 92,
+      "duck_profile": "explanation_v1",
+      "new_composition": true,
+      "external_samples": false,
+      "speech_over_bed_rms_db": 10.78
+    },
+    "full_decode": true,
+    "user_accepted": false,
+    "published": false,
+    "sampled_encoded_seconds": [
+      0,
+      2,
+      19,
+      32.5,
+      37,
+      83,
+      112,
+      160.3,
+      166.5,
+      179,
+      260,
+      278,
+      305,
+      310.7,
+      316
+    ],
+    "voices": [
+      {
+        "id": "opening",
+        "speaker": "female",
+        "file": "voice/selected-v02/opening/turn-00/voice.wav",
+        "bytes": 797370,
+        "sha256": "144750040498d4c9b204fa92bd3af380364e92b1d03079e6a49a0b2d153a096e"
+      },
+      {
+        "id": "mail",
+        "speaker": "male",
+        "file": "voice/selected-v02/mail/turn-00/voice.wav",
+        "bytes": 495930,
+        "sha256": "b4ded4db16e8a94e9420276a86b7ad29913c41e4f8a3844f038c15b62473d981"
+      },
+      {
+        "id": "exam",
+        "speaker": "female",
+        "file": "voice/selected-v02/exam/turn-00/voice.wav",
+        "bytes": 551610,
+        "sha256": "e2dc940d8c416b152afb1bc924a907116b34ab5607b9e0a4d5d6e7c955b64232"
+      },
+      {
+        "id": "receipt",
+        "speaker": "male",
+        "file": "voice/selected-v02/receipt/turn-00/voice.wav",
+        "bytes": 511290,
+        "sha256": "9de32469184fac90cc9b95eda21214d4dce59e715d040f99af11ceaa7bb2cb9a"
+      },
+      {
+        "id": "paris",
+        "speaker": "female",
+        "file": "voice/selected-v02/paris/turn-00/voice.wav",
+        "bytes": 666810,
+        "sha256": "899d8b8abbef1059f6c92562850110fa47828a95d1eb7c01889259d4673615c6"
+      },
+      {
+        "id": "where",
+        "speaker": "male",
+        "file": "voice/selected-v02/where/turn-00/voice.wav",
+        "bytes": 348090,
+        "sha256": "0273e697ebb731491835c77010304029319de12d42d5019ed912fbc483e6ccd2"
+      },
+      {
+        "id": "gateway",
+        "speaker": "female",
+        "file": "voice/selected-v02/gateway/turn-00/voice.wav",
+        "bytes": 664890,
+        "sha256": "7dfc72d7401fcbc7551b80f2a015162ca6ad143da3d041b55b10efbc48874348"
+      },
+      {
+        "id": "july",
+        "speaker": "female",
+        "file": "voice/selected-v02/july/turn-00/voice.wav",
+        "bytes": 709050,
+        "sha256": "96cea88d32e42216492dcba58a01b8c3246a62a55a15019f6e053e796f925847"
+      },
+      {
+        "id": "labq",
+        "speaker": "male",
+        "file": "voice/selected-v02/labq/turn-00/voice.wav",
+        "bytes": 455610,
+        "sha256": "af3f5295e81d05090c4490481cff11138db6490cc4c3db6e6a50341dbdb2535d"
+      },
+      {
+        "id": "lab",
+        "speaker": "female",
+        "file": "voice/selected-v02/lab/turn-00/voice.wav",
+        "bytes": 657210,
+        "sha256": "92448356de68fd0bc639ae9b1c9fd7b04492c58fde9ff1d02046a1d482fc877e"
+      },
+      {
+        "id": "teams",
+        "speaker": "female",
+        "file": "voice/selected-v02/teams/turn-00/voice.wav",
+        "bytes": 678330,
+        "sha256": "2ec3db9220dd28c308947e5c5e455d74158ac414207722c4e6333b88a4d7d9a2"
+      },
+      {
+        "id": "capacity",
+        "speaker": "male",
+        "file": "voice/selected-v02/capacity/turn-00/voice.wav",
+        "bytes": 613050,
+        "sha256": "6f3807f08b29c7c000e4d1026b949178916a0d29af2fc5a878fdc5ef84325842"
+      },
+      {
+        "id": "cascade",
+        "speaker": "female",
+        "file": "voice/selected-v02/cascade/turn-00/voice.wav",
+        "bytes": 682170,
+        "sha256": "6036deb16fa6ff4eec3fa9825782a1b71d54715f5735486e5cc2f7d10392b64a"
+      },
+      {
+        "id": "eighty",
+        "speaker": "female",
+        "file": "voice/selected-v02/eighty/turn-00/voice.wav",
+        "bytes": 751290,
+        "sha256": "1998c87b1fe9bac24c2389dae3461b28b9f83e0e810d1640b856272939a55e11"
+      },
+      {
+        "id": "scopeq",
+        "speaker": "male",
+        "file": "voice/selected-v02/scopeq/turn-00/voice.wav",
+        "bytes": 357690,
+        "sha256": "d1159cf5ba3011e08a5a229001c17a03093c538d5c8fbc902f95a81018880dc3"
+      },
+      {
+        "id": "scope",
+        "speaker": "female",
+        "file": "voice/selected-v02/scope/turn-00/voice.wav",
+        "bytes": 766650,
+        "sha256": "9373998f0486fbe0fb28ac8061cf20d1e0c3bc89b586fd932329c9a65ea88dbf"
+      },
+      {
+        "id": "restoreq",
+        "speaker": "male",
+        "file": "voice/selected-v02/restoreq/turn-00/voice.wav",
+        "bytes": 340410,
+        "sha256": "0ff396d9b52d04bc725b5fb924b8b7f14d83dc16a6a27ef9a24bd5a1b3dee48f"
+      },
+      {
+        "id": "queue",
+        "speaker": "female",
+        "file": "voice/selected-v02/queue/turn-00/voice.wav",
+        "bytes": 638010,
+        "sha256": "03a41b5e47557ed5400abe433f4949203699a250be1ed5fabce855bbdcad26a0"
+      },
+      {
+        "id": "fix",
+        "speaker": "female",
+        "file": "voice/selected-v02/fix/turn-00/voice.wav",
+        "bytes": 657210,
+        "sha256": "c4f2614da33cc23c74f5846f57239bdac68d9c4fa269de61ad5b6c79e03b4629"
+      },
+      {
+        "id": "clock",
+        "speaker": "male",
+        "file": "voice/selected-v02/clock/turn-00/voice.wav",
+        "bytes": 866490,
+        "sha256": "ee1a12ff8047a75d620be2f0f3fa172ffa1238d11974e1b509f1ea622ef823db"
+      },
+      {
+        "id": "backlog",
+        "speaker": "female",
+        "file": "voice/selected-v02/backlog/turn-00/voice.wav",
+        "bytes": 741690,
+        "sha256": "9cca8bc6fa6416f3f04bc6f5944805d229721d6dde769898983d12b0755efafc"
+      },
+      {
+        "id": "end",
+        "speaker": "female",
+        "file": "voice/selected-v02/end/turn-00/voice.wav",
+        "bytes": 737850,
+        "sha256": "2de5c5074b9d5d6208fdf95670187df5d457eb5a7e37febf749563906035f986"
+      },
+      {
+        "id": "keynote",
+        "speaker": "male",
+        "file": "voice/pair-v03/keynote/turn-00/voice.wav",
+        "bytes": 645690,
+        "sha256": "cc4106e5495107471c54a9b5f85d5703ac2e792759d6806b16c6147dd276ccd1"
+      }
+    ],
+    "standalone_score": {
+      "bytes": 30512044,
+      "sha256": "ecca941f8533d04e08e91d24195df532544542f5ad4f9eae4fc51fe9c7d34078"
+    }
+  },
+  "short": {
+    "file": "microsoft365-outage-short-v01.mp4",
+    "sha256": "a73a43740386ecfa2a7d247414c84bb0df5d232c1e0452b130370b6fa2808eed",
+    "bytes": 3916865,
+    "dimensions": [
+      1080,
+      1920
+    ],
+    "fps": 24,
+    "seconds": 46.041666666666664,
+    "frames": 1105,
+    "captions": 15,
+    "cuts": 13,
+    "cast_seconds": {
+      "male": 15.0,
+      "female": 16.125
+    },
+    "loudness_lufs": -16.05,
+    "true_peak_dbtp": -1.78,
+    "score": {
+      "title": "返事を待つ朝",
+      "arrangement": "short",
+      "bpm": 100,
+      "duck_profile": "explanation_v1",
+      "new_composition": true,
+      "external_samples": false,
+      "speech_over_bed_rms_db": 11.18
+    },
+    "full_decode": true,
+    "user_accepted": false,
+    "published": false,
+    "sampled_encoded_seconds": [
+      0,
+      2,
+      11.5,
+      16,
+      20,
+      24,
+      29.5,
+      32,
+      36,
+      39.8,
+      43.5,
+      45.7
+    ],
+    "voices": [
+      {
+        "id": "why",
+        "speaker": "male",
+        "file": "voice/pair-v03/why/turn-00/voice.wav",
+        "bytes": 453690,
+        "sha256": "4a4c754af111665807fa88c92f2274f1f4fad93213f848f7d7abafc270f8367f"
+      },
+      {
+        "id": "escape",
+        "speaker": "female",
+        "file": "voice/pair-v03/escape/turn-00/voice.wav",
+        "bytes": 177210,
+        "sha256": "a670d6b060d6b98b43e126e3869c36d3660151ce33b10aaf575f8a44b14ac0a4"
+      },
+      {
+        "id": "chain",
+        "speaker": "male",
+        "file": "voice/pair-v03/chain/turn-00/voice.wav",
+        "bytes": 405690,
+        "sha256": "67188d512a8bb4bd652e0699a051df57fad4d059a4a7334fd19a3767a95b56bd"
+      },
+      {
+        "id": "examday",
+        "speaker": "female",
+        "file": "voice/pair-exam-02/examday/turn-00/voice.wav",
+        "bytes": 376890,
+        "sha256": "eda555648d9b926cfed867bdad3cc91e8ef612df718441dcac5ee3b7768bd506"
+      },
+      {
+        "id": "repair",
+        "speaker": "male",
+        "file": "voice/pair-v03/repair/turn-00/voice.wav",
+        "bytes": 296250,
+        "sha256": "292b1e8c089bd087523b3be82f171aef923f797c97efde635a242739e5d91fba"
+      },
+      {
+        "id": "time",
+        "speaker": "female",
+        "file": "voice/pair-v03/time/turn-00/voice.wav",
+        "bytes": 388410,
+        "sha256": "da1f4031e33af868fdcea881b45261ab5891502a709d387ae75580a30fc88928"
+      }
+    ],
+    "standalone_score": {
+      "bytes": 4420044,
+      "sha256": "9ff5ea284b47efb02e2c47b950cf5f773403cb699ba531feea252e6710f2f961"
+    },
+    "cover": {
+      "bytes": 261806,
+      "sha256": "d5d0d9b0af58fcdba1dfb30d4559ad022a7d9237ce3a128b96662342c2411470"
+    }
+  },
+  "article": {
+    "bytes": 804602,
+    "sha256": "0ee0ecc683507246e6192860d9500adc27e8a2c4c9e664398e42c180804c9ebd",
+    "pages": 4,
+    "links": 25
+  },
+  "previous_full_male_seconds": 45.583,
+  "cast_inputs": {
+    "male-thinking": {
+      "sha256": "b284c50afa0eb95cb81d9786f47d6ae4bd9670a27da60b56d6107af8eb1f7799",
+      "bytes": 1573682,
+      "jpeg_frames": 62,
+      "filter": "fps=12,scale=640:-2,crop=640:640:0:210",
+      "source": "male-thinking.mp4"
+    },
+    "male-surprise": {
+      "sha256": "9357b0668750eb38d01af1d147ce335a3f2d81c525d75274c25709d1424a951b",
+      "bytes": 349477,
+      "jpeg_frames": 62,
+      "filter": "fps=12,scale=640:640",
+      "source": "motion/revision-03-male-surprise/source.mp4",
+      "input_image": "male-input.jpg",
+      "input_sha256": "00d4b5c1a79ed535bedfc0c07efff77f6e0c39d5586bb5ae9a0dac5b42720b06",
+      "model": "MiniMax-H3",
+      "seconds": 5,
+      "resolution": "768P",
+      "provider_seconds": 107,
+      "usage": {
+        "total_seconds": 5,
+        "input_seconds": 0,
+        "output_seconds": 5,
+        "input_image_count": 1,
+        "total_tokens": 175765,
+        "prompt_tokens": 13020,
+        "completion_tokens": 162745
+      }
+    },
+    "male-understanding": {
+      "sha256": "336f23df42622d7c56d158b293a785d31b373ce0aabbf9294fab8b0a6ae70351",
+      "bytes": 662455,
+      "jpeg_frames": 62,
+      "filter": "fps=12,scale=640:-2,crop=640:640:0:210",
+      "source": "male-understanding.mp4"
+    },
+    "female-thinking": {
+      "sha256": "315c2c9eab5d7738647fc5a4f5bb5697481cad9b4c56e500b55ebb8a2db9c1d7",
+      "bytes": 2220123,
+      "jpeg_frames": 62,
+      "filter": "fps=12,scale=640:-2,crop=640:640:0:210",
+      "source": "female-thinking.mp4"
+    },
+    "female-surprise": {
+      "sha256": "571d84ba3551994ce3a096780cb08914ffabd753f3581d6ba1fdf8c4d826a1fc",
+      "bytes": 386857,
+      "jpeg_frames": 62,
+      "filter": "fps=12,scale=640:640",
+      "source": "motion/revision-03-female-surprise/source.mp4",
+      "input_image": "female-input.jpg",
+      "input_sha256": "775587ae0295d09268e79f4415cbd4d3308cacccf2e7af56988be90c9b8d727e",
+      "model": "MiniMax-H3",
+      "seconds": 5,
+      "resolution": "768P",
+      "provider_seconds": 94,
+      "usage": {
+        "total_seconds": 5,
+        "input_seconds": 0,
+        "output_seconds": 5,
+        "input_image_count": 1,
+        "total_tokens": 175765,
+        "prompt_tokens": 13020,
+        "completion_tokens": 162745
+      }
+    },
+    "female-understanding": {
+      "sha256": "df4967a3ab73e2eb598e020fd8959ed7756fdb5e4a24a64424dabd1f42897126",
+      "bytes": 2491542,
+      "jpeg_frames": 62,
+      "filter": "fps=12,scale=640:-2,crop=640:640:0:210",
+      "source": "female-understanding.mp4"
+    }
+  },
+  "captures": {
+    "status": {
+      "url": "https://status.cloud.microsoft/",
+      "title": "Microsoft service health status",
+      "http_status": 200,
+      "captured_utc": "2026-11-19T12:05:57.219079+00:00",
+      "viewport": [
+        1440,
+        900
+      ],
+      "dpr": 1.5,
+      "raw_sha256": "51cb1f92338a9d79b4966f83c1b1f52b719b091ff7e9465793786dfa5ff1e8d0",
+      "crop_px": [
+        453,
+        21,
+        1698,
+        426
+      ],
+      "derivatives": {
+        "status": {
+          "bytes": 31770,
+          "sha256": "5539d09ecba2a33bfa3fbe2d47969f15b770815e0390851abc03f1842bfca108"
+        }
+      }
+    },
+    "news": {
+      "url": "https://news.microsoft.com/events/ignite/2026/",
+      "title": "Microsoft Ignite 2026 | Explore More",
+      "http_status": 200,
+      "captured_utc": "2026-11-19T12:06:00.838049+00:00",
+      "viewport": [
+        1440,
+        900
+      ],
+      "dpr": 1.5,
+      "raw_sha256": "7231a45a624d9bbec86f112d859c88e66e6b1af5c08583590a1b6a158463b821",
+      "crop_px": [
+        0,
+        0,
+        2160,
+        1290
+      ],
+      "derivatives": {
+        "news": {
+          "bytes": 1707680,
+          "sha256": "ea31830246b50f0378d27f62c618816c034244cbbbe8ad80553b107bc1acad07"
+        }
+      }
+    },
+    "meiji": {
+      "url": "https://www.my-pharm.ac.jp/news/detail/513/?target=candidates",
+      "title": "Microsoft 365（Outlook等）の障害に伴うお問い合わせ対応について｜明治薬科大学",
+      "http_status": 200,
+      "captured_utc": "2026-11-19T12:06:03.537084+00:00",
+      "viewport": [
+        1440,
+        900
+      ],
+      "dpr": 1.5,
+      "raw_sha256": "32cc84b4962dd3c8bf386a74b9efa66f71afe2f73b496acbaec597c66a4403e8",
+      "crop_px": [
+        180,
+        72,
+        2007,
+        890
+      ],
+      "derivatives": {
+        "meiji": {
+          "bytes": 140317,
+          "sha256": "7e053f79e9ebb4865ed86393b3cb91a298897533e85d176281340dc234d8c9aa"
+        }
+      }
+    },
+    "learn": {
+      "url": "https://learn.microsoft.com/ja-jp/microsoft-365/enterprise/view-service-health?view=o365-worldwide",
+      "title": "Microsoft 365 サービス正常性を確認する方法 - Microsoft 365 Enterprise | Microsoft Learn",
+      "http_status": 200,
+      "captured_utc": "2026-11-19T12:06:06.831259+00:00",
+      "viewport": [
+        1440,
+        900
+      ],
+      "dpr": 1.5,
+      "raw_sha256": "82460f6b2ef7719bc92234c6df81f6c55853ea1b9c9c7b1334360997e4011bd6",
+      "crop_px": [
+        552,
+        610,
+        1740,
+        1008
+      ],
+      "derivatives": {
+        "learn": {
+          "bytes": 70240,
+          "sha256": "d716c41d2c2b07d0945124017e1411e85d78018828828ab341bf9fdb9aed7086"
+        }
+      }
+    },
+    "keynote": {
+      "url": "https://news.microsoft.com/events/wp-content/uploads/2026/11/Nadella_TRANSCRIPT_Ignite-Keynote_Nov-2026.pdf",
+      "captured_utc": "2026-11-19T12:06:07.425058+00:00",
+      "page": 1,
+      "keynote-quote": {
+        "phrase": "we have work to do",
+        "rect_pt": [
+          304.6650390625,
+          445.2080078125,
+          401.3979797363281,
+          458.49200439453125
+        ]
+      },
+      "keynote-date": {
+        "phrase": "Tuesday, November 17, 2026",
+        "rect_pt": [
+          71.0250015258789,
+          114.10798645019531,
+          218.8300018310547,
+          127.3919906616211
+        ]
+      },
+      "raw_sha256": "67697c41a97813d97b72d15c4c1b167c123f4b6de95fd647bdfd0fdc778b800b",
+      "derivatives": {
+        "keynote-date": {
+          "bytes": 13065,
+          "sha256": "37417c0351d93072124d162d2c54f9d4a2ed75c670536e0a7508720b6d0a4540"
+        },
+        "keynote-quote": {
+          "bytes": 7709,
+          "sha256": "3d933671ef3fe10a94fa10254bcbec270589f8cd5dcaba6f90510c1a04eacc3d"
+        }
+      }
+    }
+  },
+  "environment": {
+    "python": "3.12.2",
+    "pillow": "12.3.0",
+    "scipy": "1.13.0",
+    "ffmpeg": "ffmpeg version 8.1.2-full_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers",
+    "font": {
+      "bytes": 9589900,
+      "sha256": "c2f3b4d463500a2ddcd3849cded1fceeb9fd6d1c32e6cbecd568453ba50fc68f"
+    }
+  }
+}

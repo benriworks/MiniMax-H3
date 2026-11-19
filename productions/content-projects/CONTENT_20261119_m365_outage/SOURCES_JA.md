@@ -15,6 +15,14 @@
 
 ## 引用と単位
 
+### フルv03・ショートv01で追加した公式画面
+
+- 11月17日の発言はMicrosoft自身が公開した講演録1ページの “we have work to do” と日付を短く切り出した。講演の会場ページもChromeで撮影した。原因の三要因は11月15日付の暫定報告に帰属する。[基調講演の公式PDF](https://news.microsoft.com/events/wp-content/uploads/2026/11/Nadella_TRANSCRIPT_Ignite-Keynote_Nov-2026.pdf) ／ [Microsoft Ignite 2026公式ページ](https://news.microsoft.com/events/ignite/2026/)
+- 11月19日に撮影した正常性ページは、確認日現在の表示として日付を付けた。Microsoft Learnにある管理者向けの入口も照合した。[Microsoftサービス状態](https://status.cloud.microsoft/) ／ [Microsoft Learnの手順](https://learn.microsoft.com/ja-jp/microsoft-365/enterprise/view-service-health?view=o365-worldwide)
+- 11月13日の案内と16日の更新が同居する大学ページは、大学名と見出しを撮影し直し、13日の電話連絡の一文へ切り替えた。[明治薬科大学の案内](https://www.my-pharm.ac.jp/news/detail/513/?target=candidates)
+
+### 暫定報告と当事者の説明
+
 - 報告書原文は「lock contention」「more than 80% of servers were unresponsive.」「immediately overwhelmed by waiting traffic」の範囲。二つの行にまたがる箇所は、語順を保ち改行だけを詰めて表示。各引用に日本語の意味とページを添えた。
 - 約14％の分母は前日に利用できなくなった当該ゲートウェイの処理容量。8割超は最悪時に応答できなかった当該ゲートウェイのサーバー台数の割合。報告人数・全Windows機・全サービス台数の数値に変換しない。
 - 12日16:20 UTC～13日16:10 UTCが公式の影響区間。日本時間はそれぞれ13日01:20、14日01:10。最終の管理者通知は14日04:15 UTC＝14日13:15 JST。告知の遅れを障害時間に加算しない。

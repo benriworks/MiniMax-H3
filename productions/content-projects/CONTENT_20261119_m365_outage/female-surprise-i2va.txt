@@ -1,0 +1,6 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] A locked, square medium close-up at eye level. The same adult anime woman in her ivory sweatshirt studies her laptop. Her eyes widen suddenly, eyebrows lift high and her mouth parts in surprise. She draws a hand to her lips, then her brows draw together as she looks down at the screen in thought. Hold on her concerned expression. Keep the angular cel-shaded illustration, soft teal and plum rim light, hair, face, clothing, dark studio and chair consistent with the reference throughout. The eyes and fingers are clearly visible. One continuous shot with a fixed lens. Silent reaction to an off-screen event.
+
+overall_soundscape: very soft studio room tone
+non_diegetic_music: N/A
