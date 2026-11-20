@@ -1,0 +1,6 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] A locked, square medium close-up at eye level. The same adult anime man in his charcoal hooded sweatshirt is checking the laptop. An unexpected notice catches his eye. Both eyebrows spring upward, eyes open noticeably wider, his jaw drops into a small O and his shoulders recoil once. He takes one hand off the keys and brings an open palm to his chest, holding a genuinely startled look for a beat, then leans forward with worry. Keep the angular cel-shaded illustration, soft teal and plum rim light, hair, face, clothing, dark studio and chair consistent with the reference throughout. The eyes and fingers are clearly visible. One continuous shot with a fixed lens. Silent reaction to an off-screen event.
+
+overall_soundscape: very soft studio room tone
+non_diegetic_music: N/A

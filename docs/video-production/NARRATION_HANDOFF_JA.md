@@ -23,6 +23,12 @@
 
 ## 2. この制作で採用した声と読み方
 
+### 2026年11月20日確認　次回収録のモデル選び
+
+Googleは、従来の解説が使う `gemini-2.5-flash-preview-tts` の提供終了を2026年12月18日とし、後継に `gemini-3.8-flash-tts` と `gemini-3.8-flash-lite-tts` を指定している。表情のある掛け合い・難読語を含む本番にはFlash、量の多い仮読みにはLiteを推奨する。男性Charonと女性Aoedeは両方の候補で指定できる。このシリーズで声の連続性と抑揚を判断するには、同じ台詞・声名・音量で旧版と聞き比べる。[提供終了日](https://aistudio.google.com/docs/deprecations#audio-preview-models) ／ [Googleの用途比較](https://aistudio.google.com/docs/models/gemini-3.8-flash-lite-tts) ／ [公式音声一覧](https://aistudio.google.com/docs/speech-generation)
+
+本番への切り替え時は、短編ドラマで使ったWAV応答の読込処理を参照する。解説用の旧デコーダーは24 kHzの生PCMを想定しており、3.8 Flashから実際に返ったWAVを弾いた例がある。[短編で検証したWAVの処理](../../productions/content-projects/CONTENT_20261111_short_drama_ep02/synthesize_dialogue.py) ／ [素材回収の記録](../../productions/content-projects/CONTENT_20261108_short_drama/REPRODUCTION_JA.md)
+
 - 基本：**Aoede**。ユーザーが試聴して選択した声。
 - 候補：**Kore**。必要な回で比較する候補。担当者だけの判断でシリーズの声を毎回変えない。
 - dots詳細動画の2話者：女性の実務・解説役は **Aoede**、男性の質問役は **Charon**。v03動画の採用記録を参照し、他シリーズへの割り当ては個別に決める。

@@ -1,5 +1,11 @@
 # Architecture
 
+## Microsoft 365障害の報道解説（2026-11-19）
+
+フルv03とショートv01では、共通の取材資料・人物原本を使い、画角別に台詞と字幕、カットを組む。現行サイトのキャプチャには撮影日時と切り出し位置が付き、講演録と同じ入力から記事の追補を生成する。書き下ろした音楽は2つのタイムラインに合わせて別々に編曲した。[版別の構成・検証記録](productions/content-projects/CONTENT_20261119_m365_outage/PAIR_REVIEW_JA.md)
+
+案件制作コードは[構成と再現手順](productions/content-projects/CONTENT_20261119_m365_outage/ARCHITECTURE.md)と[独立した構成図](productions/content-projects/CONTENT_20261119_m365_outage/ARCHITECTURE_DIAGRAM.md)を参照。公式資料の引用、出典を追える記事、PCMで計った掛け合いとH.264出力を同じ案件データから作る。既存の字幕・音声・Studio台帳を利用する。
+
 ## 30秒のオリジナルショートドラマ（2026-11-08）
 
 [案件](productions/content-projects/CONTENT_20261108_short_drama/RESUME_AND_KNOWHOW_JA.md)の `generate_h3_shot.py` は承認した画像とカット別プロンプトを既存 `H3Client` へ渡す。送信前の状態、受付ID、使用量、原本hashを保存し、受付IDが得られた場合は同じタスクを照会できる。`render_short_drama.py` は保存済みの映像、画像、Geminiの二言から7カットを720フレームに構成する。表示字幕は文節組版を使い、声、ピアノ、環境音は分離してから共通BGM設定で混合する。生成と再編集の境界、映像・音声の検査、レビュー用Drive、記事フレームの出所を案件の再現手順と台帳で追えるようにした。
