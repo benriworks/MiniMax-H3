@@ -13,18 +13,27 @@ from tools.studio.dialogue_narration import synthesize
 
 def load_story(edition):
     story=json.loads((HERE/"story-v01.json").read_text(encoding="utf-8"))
-    if edition=="v02":
+    if edition in ("v02", "v03"):
         patch=json.loads((HERE/"full-v02.json").read_text(encoding="utf-8"))
         scene=next(ch for ch in story["full"] if ch["id"]==patch["chapter"])
         turn=next(t for t in scene["turns"] if t["line"]==patch["replace"])
         turn["line"]=patch["line"]
         story["lines"][patch["line"]]={k:patch[k] for k in ("speaker","text","reading")}
+        update = json.loads((HERE / "distribution-revision.json").read_text(encoding="utf-8"))
+        story["lines"].update(update["lines"])
+        story["short"] = update["short"]
+        story["titles"]["short"] = update["titles"]["short"]
+        if edition=="v03":
+            story["titles"]["full"] = update["titles"]["full"]
+            chapters = {chapter["id"]: chapter for chapter in story["full"]}
+            chapters.update({chapter["id"]: chapter for chapter in update["full_overrides"]})
+            story["full"] = [chapters[key] for key in update["full_order"]]
     return story
 
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument("--kind", choices=("short","full","all"), default="all")
-    parser.add_argument("--edition", choices=("v01","v02"), default="v01")
+    parser.add_argument("--edition", choices=("v01","v02","v03"), default="v01")
     parser.add_argument("--line", help="Render one named line from this edition")
     args=parser.parse_args()
     story=load_story(args.edition)

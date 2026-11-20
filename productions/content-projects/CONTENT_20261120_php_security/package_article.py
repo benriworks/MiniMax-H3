@@ -1,8 +1,10 @@
 """Package the illustrated article and validate its mobile and desktop review pages."""
+import argparse
 import hashlib
 from html import escape
 import json
 from pathlib import Path
+from urllib.parse import urlsplit
 import re
 from zipfile import ZIP_DEFLATED, ZipFile
 from markdown_it import MarkdownIt
@@ -11,14 +13,23 @@ from playwright.sync_api import sync_playwright
 from capture import HERE,OUT,sha,write
 from record_project import SLUG
 
-FIGURE=re.compile(r"<!-- figure:([a-z]+) -->")
+FIGURE=re.compile(r"<!-- figure:([a-z-]+) -->")
 def main():
-    handoff=OUT/"blog-handoff/v01"
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--edition",choices=("v01","v02"),default="v01")
+    edition=parser.parse_args().edition
+    suffix="-sources" if edition=="v02" else ""
+    output=OUT/"release"/edition/"article"/f"php-security-article-{edition}{suffix}.zip"
+    if output.exists():raise FileExistsError(output)
+    handoff=OUT/"blog-handoff"/edition
     info=json.loads((handoff/"asset-manifest.json").read_text(encoding="utf-8"))
     assets={item["asset_id"]:item for item in info["assets"]}
-    draft=(HERE/"article-draft-v01.md").read_text(encoding="utf-8")
+    draft=(HERE/f"article-draft-{edition}.md").read_text(encoding="utf-8")
     if set(FIGURE.findall(draft))!=set(assets):raise ValueError("Draft and official screenshots disagree")
     files={"sources.md":(HERE/"SOURCES_JA.md").read_bytes(),"asset-manifest.json":(handoff/"asset-manifest.json").read_bytes()}
+    if edition=="v02":
+        for reference in ("sources.json","verification-v01.json","youtube/verification-v02.json"):
+            files[reference]=(HERE/reference).read_bytes()
     for item in assets.values():
         path=handoff/item["handoff_path"]
         if sha(path)!=item["sha256"].lower():raise ValueError(path)
@@ -30,7 +41,13 @@ def main():
             return (f'<figure><a href="{src}"><img loading="eager" src="{src}" width="{a["width"]}" height="{a["height"]}" alt="{alt}"></a>'
                     f'<figcaption>{caption} <a href="{url}">公式原文</a></figcaption></figure>')
         if mode=="mdx":
+            if edition=="v02":
+                host=urlsplit(a["source_url"]).hostname
+                label={"www.redhat.com":"Red Hat","access.redhat.com":"Red Hat","blog.remirepo.net":"Remi’s RPM repository","www.php.net":"PHP","www.ipa.go.jp":"IPA"}.get(host,host)
+                return f'<Figure src="/images/articles/{SLUG}/{Path(src).name}" width="{a["width"]}" height="{a["height"]}" alt="{alt}" caption="{caption}" sourceLabel="{label}" sourceUrl="{url}" />'
             return f'<Figure src="/images/articles/{SLUG}/{Path(src).name}" width="{a["width"]}" height="{a["height"]}" alt="{alt}" caption="{caption}" sourceUrl="{url}" />'
+        if edition=="v02":
+            return f'![{a["alt"]}]({src})\n\n{a["caption"]} [出典ページ]({a["source_url"]})'
         return f'![{a["alt"]}]({src})'
     content=MarkdownIt("commonmark",{"html":True}).enable("table").render(FIGURE.sub(lambda m:snippet(m[1],"html"),draft))
     content=content.replace("<table>","<div class=tablewrap><table>").replace("</table>","</table></div>")
@@ -44,7 +61,7 @@ img{display:block;max-width:100%;height:auto}figcaption{margin-top:12px;color:#4
     files["index.html"]=html.encode("utf-8")
     files["article.md"]=FIGURE.sub(lambda m:snippet(m[1],"md"),draft).encode("utf-8")
     files["blog-body.mdx"]=FIGURE.sub(lambda m:snippet(m[1],"mdx"),draft).encode("utf-8")
-    review=OUT/"article-review/v01";review.mkdir(parents=True,exist_ok=True)
+    review=OUT/"article-review"/edition;review.mkdir(parents=True,exist_ok=True)
     for name,data in files.items():
         path=review/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(data)
     checks=[]
@@ -55,17 +72,17 @@ img{display:block;max-width:100%;height:auto}figcaption{margin-top:12px;color:#4
             page.goto((review/"index.html").as_uri(),wait_until="load")
             status=page.evaluate("""() => ({images:[...document.images].filter(i=>i.complete && i.naturalWidth>0).length,
                 width:innerWidth,body:document.documentElement.scrollWidth,figures:document.querySelectorAll('figure').length})""")
-            if status["images"]!=4 or status["figures"]!=4 or status["body"]>width:raise ValueError(status)
+            if status["images"]!=len(assets) or status["figures"]!=len(assets) or status["body"]>width:raise ValueError(status)
             page.screenshot(path=str(review/f"review-{width}.png"))
             checks.append(status);page.close()
         browser.close()
     sums={name:hashlib.sha256(blob).hexdigest() for name,blob in files.items()}
     files["SHA256SUMS.json"]=(json.dumps(sums,indent=2)+"\n").encode()
-    output=OUT/"release/v01/article/php-security-article-v01.zip";output.parent.mkdir(parents=True,exist_ok=True)
+    output.parent.mkdir(parents=True,exist_ok=True)
     with ZipFile(output,"x",compression=ZIP_DEFLATED) as z:
         for name,blob in sorted(files.items()):z.writestr(name,blob)
     with ZipFile(output) as z:
         if z.testzip() or any(hashlib.sha256(z.read(name)).hexdigest()!=hash_ for name,hash_ in sums.items()):raise ValueError("Article ZIP verification failed")
-    write(output.with_suffix(".qc.json"),dict(bytes=output.stat().st_size,sha256=sha(output),entries=len(files),pages=checks,figures=4))
+    write(output.with_suffix(".qc.json"),dict(bytes=output.stat().st_size,sha256=sha(output),entries=len(files),pages=checks,figures=len(assets)))
     print(output.name,output.stat().st_size,checks)
 if __name__=="__main__":main()

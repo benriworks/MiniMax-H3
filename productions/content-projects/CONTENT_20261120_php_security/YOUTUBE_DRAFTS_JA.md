@@ -1,33 +1,25 @@
-# YouTube投稿案
+# PHP動画のYouTube投稿素材
 
-## ショート v01
+## 11月21日の改訂版
 
-**【PHP】10月に更新したサイトも要確認。11月の脆弱性は何が違う？**
+| 対象動画 | 投稿タイトル | コピー用の概要欄 |
+| --- | --- | --- |
+| ショート v02 | 【PHP】10月に更新済みでも？ 11月分をRed Hat・Remiで確かめる | [ショートの概要欄全文](youtube/short-v02-description.txt) |
+| フル v03 | 【PHP】PHP2Shellと11月更新の違い。Red HatとRemiで修正版を確認する | [フルの概要欄全文・チャプター](youtube/full-v03-description.txt) |
 
-10月のPHP2Shellと11月19日のセキュリティ更新では、影響が及ぶ条件が違います。公式配布の8.4系を例に更新番号を見比べ、管理を委託している人が契約先に聞ける一言を紹介します。
+情報の基準日は2026年11月21日。テキストは各ファイルの先頭から末尾までを概要欄へ貼り付けられる。フルは8章、配布元の比較は2分30秒から。本文末尾にはRed Hatの写真掲載ページ、配布元の告知、音楽クレジットを収録した。
 
-## フル v02
+| 対象動画 | サムネイルの見出し | 画像ファイル |
+| --- | --- | --- |
+| ショート v02 | PHP／10月に更新済み？／11月も確認／Red Hat / Remi | `php-security-short-v02-thumbnail.jpg`（2160×3840、975,365 bytes） |
+| フル v03 | PHP2Shell その後／11月更新／何が変わった？／Red Hat / Remi | `php-security-full-v03-thumbnail.jpg`（3840×2160、828,262 bytes） |
 
-**【PHP】11月の脆弱性はPHP2Shellと何が違う？ 影響条件・修正版・契約先への確認方法**
+2枚は冬服の2人を参照したイラスト。公式の会場写真は本編と記事の引用として表示した。ローカルの投稿用5ファイルは案件出力 `outputs/content-projects/CONTENT_20261120_php_security/release/youtube-v02/`、レビュー共有は非公開Drive。縮小確認用画像と原本は[再現手順](REPRODUCTION_JA.md)、ファイル対応とSHA-256は[検査記録](youtube/verification-v02.json)を参照。
 
-10月はWebでPHPを使う環境に広く緊急更新が呼びかけられました。11月のCriticalの問題には、設定や構成ごとに影響条件があります。買い物かごを例に、セッションの意味、前回の追加告知がどう修正されたか、公式版とOS配布版の確認先をたどります。最後はレンタルサーバーへの問い合わせ例です。
+## 前の版
 
-```text
-0:00 10月と11月で何が違う？
-0:27 前回のPHP2Shell
-0:54 今回のCriticalと影響条件
-1:21 買い物かごで見るセッション
-1:48 10月23日の追加告知の続き
-2:09 系列別に見る11月の修正版
-2:41 予約サイトの管理先に聞くこと
-```
+ショートv01「【PHP】10月に更新したサイトも要確認。11月の脆弱性は何が違う？」の[説明](youtube/short-v01-description.txt)、フルv02「【PHP】11月の脆弱性はPHP2Shellと何が違う？ 影響条件・修正版・契約先への確認方法」の[説明](youtube/full-v02-description.txt)を保存。旧版では配布元の例を一般名で説明していた。
 
-## 両方の説明欄に添える情報
+## 投稿時の内部メモ
 
-情報確認は2026年11月20日。17件・うちCritical 7件は、PHP開発元が11月19日UTCに公開した個別告知の集計です。サイト例は架空です。[PHP公式の11月発表](https://www.php.net/archive/2026.php#2026-11-19-4)／[PHP開発元の告知一覧](https://github.com/php/php-src/security/advisories)／[IPAの事前案内](https://www.ipa.go.jp/security/security-alert/2026/pre-alert20261119.html)
-
-BGMは甘茶の音楽工房「ハッピータイム」。[曲のページ](https://amachamusic.chagasi.com/music_happytime.html)
-
-#PHP #セキュリティ #Web運用
-
-運用メモは「Content ID登録なし」。タイトルと説明は投稿案。公開前に最新版の案内と投稿先の状態を確認する。
+BGMは甘茶の音楽工房「ハッピータイム」。Content ID登録なし。対象版ごとのレビュー・採用・公開状況は[案件記録](RESUME_AND_KNOWHOW_JA.md)で管理する。

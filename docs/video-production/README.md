@@ -1,6 +1,6 @@
 # 動画・関連記事の制作索引
 
-2026-11-20更新。このリポジトリの制作情報は、索引・総覧・案件ごとの再開履歴兼ノウハウの3種類を入口に管理する。チャット履歴がない別チャット・別担当者も、ここから再開する。
+2026-11-21更新。このリポジトリの制作情報は、索引・総覧・案件ごとの再開履歴兼ノウハウの3種類を入口に管理する。チャット履歴がない別チャット・別担当者も、ここから再開する。
 
 技術比較を行う場合は [H3 APIとローカルの動作比較](../../H3_MOTION_COMPARISON_JA.md) を参照する（2026-10-29追加）。同じプロンプトの実用比較を独立CLIで実行し、原本・条件差・品質評価・費用の未測定事項を残す。比較実装の検証と、実生成品質の確認を分ける。公開紹介企画へ進む場合は本ガイドの実演・記事素材・レビュー工程を適用する。
 
@@ -45,7 +45,7 @@ BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_J
 
 | 案件・素材 | 再開時の入口 |
 | --- | --- |
-| PHPの11月更新と10月のPHP2Shell。既存の冬服男女で影響条件・系列別修正版・契約先への確認を解説。ショートv01 51.250秒、フルv02 3分21.833秒。技術検査・Drive保存済み、試聴と採用待ち | [ショートの記録](../../productions/content-projects/CONTENT_20261120_php_security/RESUME_AND_KNOWHOW_JA.md#ショート-v01)／[フルの記録](../../productions/content-projects/CONTENT_20261120_php_security/RESUME_AND_KNOWHOW_JA.md#フル-v02)／[記事草稿](../../productions/content-projects/CONTENT_20261120_php_security/article-draft-v01.md)／[検査台帳](../../productions/content-projects/CONTENT_20261120_php_security/verification-v01.json) |
+| PHPの11月更新とPHP2Shell。冬服男女のショートv02 50.958秒、フルv03 4分02.583秒。Red HatとRemiの確認先と設定・利用構成の例を紹介。公式写真・実画面、記事v02、動画別の投稿素材は非公開Driveでレビュー中 | [ショートv02](../../productions/content-projects/CONTENT_20261120_php_security/RESUME_AND_KNOWHOW_JA.md#ショート-v02)／[フルv03](../../productions/content-projects/CONTENT_20261120_php_security/RESUME_AND_KNOWHOW_JA.md#フル-v03)／[投稿タイトル・概要欄・サムネイル](../../productions/content-projects/CONTENT_20261120_php_security/YOUTUBE_DRAFTS_JA.md)／[記事v02](../../productions/content-projects/CONTENT_20261120_php_security/article-draft-v02.md)／[改訂版の検査記録](../../productions/content-projects/CONTENT_20261120_php_security/youtube/verification-v02.json) |
 | 既存の男女キャラクターの春服・夏服v01。基準画4枚、表情・仕草の無音モーション8本、約21秒の確認用MP4。実フレーム・全編デコード・素材ZIPを検査し、限定Driveへ保存。素材採用は確認待ち | [春服と夏服の素材記録](../../productions/CHARACTERS_20261117_spring_summer_duo/RESUME_AND_KNOWHOW_JA.md)／[素材台帳](../../productions/CHARACTERS_20261117_spring_summer_duo/motion-manifest-v01.json) |
 | 【Claude】日本の利用指数32位と職場でのAI活用。ショートv03 62.417秒は顧客別提案書を実演。フルv02 206.417秒は公式グラフ・国内調査・会議メモ実演。レビュー動画とショート用の縦型サムネイルv01を限定Driveへ保存。採用と人の通し試聴は確認待ち | [案件の再開記録](../../productions/content-projects/CONTENT_20261117_japan_ai_usage/RESUME_AND_KNOWHOW_JA.md)／[ショートv02の実演記録](../../productions/content-projects/CONTENT_20261117_japan_ai_usage/PROPOSAL_SHORT_REVISION_V02_JA.md)／[ショートv03の納品検査](../../productions/content-projects/CONTENT_20261117_japan_ai_usage/DELIVERY_QC_JA.md#ショートv03)／[サムネイルv01](../../productions/content-projects/CONTENT_20261117_japan_ai_usage/DELIVERY_QC_JA.md#ショートv03用サムネイル-v01) |
 | 既存の男女キャラクターの冬服v02。ケーブル編み・リブ編みの基準画2枚と、案内・思考・質問・相づちの無音モーション4本。検査済みの編集用ZIP・プレビューを限定Driveに保存。素材採用は確認待ち | [冬服の素材記録](../../productions/CHARACTERS_20261117_winter_duo/RESUME_AND_KNOWHOW_JA.md)／[素材台帳](../../productions/CHARACTERS_20261117_winter_duo/motion-manifest-v02.json) |

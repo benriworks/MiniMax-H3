@@ -19,4 +19,12 @@ flowchart TD
     E --> Q["ショート・フルそれぞれの全編検査"]
     Q --> D["非公開Driveのレビュー用動画"]
     C --> H["記事草稿・画像・Studio台帳"]
+    Z["Red Hat公式の会場写真・PHP告知／Remiの配布記事"] --> X["capture_providers.py：原画面・写真・引用を照合"]
+    X --> L
+    X --> H
+    S2["版別の会話・表示原稿"] --> S
+    Q --> Y["package_youtube.py：実尺・章・投稿文・サムネイル照合"]
+    A2["冬服2人を参照した縦横画像"] --> Y
+    Y --> D
+    H --> J["記事v02の8画像・HTML・MDX・ZIP"]
 ```

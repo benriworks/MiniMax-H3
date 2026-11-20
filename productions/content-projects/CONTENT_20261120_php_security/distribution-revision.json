@@ -1,0 +1,322 @@
+{
+  "titles": {
+    "short": "【PHP】10月に更新済みでも？ 11月分をRed Hat・Remiで確かめる",
+    "full": "【PHP】PHP2Shellと11月更新の違い。Red HatとRemiで修正版を確認する"
+  },
+  "lines": {
+    "source-lead-short": {
+      "speaker": "female",
+      "text": "10月はWebで動くPHPに広く緊急更新。11月の重大な問題は、PHPの設定や利用構成によって影響が変わるよ。",
+      "reading": "じゅうがつは、ウェブで動くピーエイチピーに広く緊急更新。じゅういちがつの重大な問題は、ピーエイチピーの設定や利用構成によって、影響が変わるよ。"
+    },
+    "source-save-short": {
+      "speaker": "female",
+      "text": "うん。買い物かごなら、選んだ商品をサーバーにどう保存しているか。そこが関係する修正もあるんだ。",
+      "reading": "うん。買い物かごなら、選んだ商品をサーバーにどう保存しているか。そこが関係する修正もあるんだ。"
+    },
+    "source-where": {
+      "speaker": "male",
+      "text": "じゃあ、うちのPHPの修正はどこで確かめるの？",
+      "reading": "じゃあ、うちのピーエイチピーの修正は、どこで確かめるの？"
+    },
+    "source-red-short": {
+      "speaker": "female",
+      "text": "赤い帽子のRed Hatが配るPHPなら、Red Hatのセキュリティ告知で対象製品を確認できるよ。",
+      "reading": "赤い帽子のレッドハットが配るピーエイチピーなら、レッドハットのセキュリティ告知で、対象製品を確認できるよ。"
+    },
+    "source-remi-short": {
+      "speaker": "male",
+      "text": "同じLinuxでも、Remiから入れたらRemiの更新記事だね。8.4系は末尾が27から28に変わってる。",
+      "reading": "同じリナックスでも、レミから入れたら、レミの更新記事だね。はってんよん系は、末尾がにじゅうななから、にじゅうはちに変わってる。"
+    },
+    "source-ask-short": {
+      "speaker": "female",
+      "text": "そう。契約先には「PHPの配布元はどこで、11月分の修正はいつ適用されましたか」と聞いてみて。",
+      "reading": "そう。契約先には、ピーエイチピーの配布元はどこで、じゅういちがつ分の修正はいつ適用されましたか、と聞いてみて。"
+    },
+    "source-lead-full": {
+      "speaker": "female",
+      "text": "10月のPHP2Shellでは、WebでPHPを動かす環境に広く緊急更新が呼びかけられた。11月の重大な問題は、PHPの設定や利用構成によって、影響を受けるサイトが変わるんだ。",
+      "reading": "じゅうがつのピーエイチピー・トゥー・シェルでは、ウェブでピーエイチピーを動かす環境に広く緊急更新が呼びかけられた。じゅういちがつの重大な問題は、ピーエイチピーの設定や利用構成によって、影響を受けるサイトが変わるんだ。"
+    },
+    "source-save-full": {
+      "speaker": "female",
+      "text": "同じ買い物かごでも、一方はファイルに、もう一方はデータベースに保存しているかもしれない。管理者には、PHPのセッションをどこに保存しているか聞いてみよう。",
+      "reading": "同じ買い物かごでも、一方はファイルに、もう一方はデータベースに保存しているかもしれない。管理者には、ピーエイチピーのセッションをどこに保存しているか、聞いてみよう。"
+    },
+    "source-red-q": {
+      "speaker": "male",
+      "text": "あの赤い帽子はRed Hatだね。Red Hat Enterprise Linuxに入っているPHPなら、何を見ればいい？",
+      "reading": "あの赤い帽子は、レッドハットだね。レッドハット・エンタープライズ・リナックスに入っているピーエイチピーなら、何を見ればいい？"
+    },
+    "source-red-full": {
+      "speaker": "female",
+      "text": "Red Hatの標準パッケージなら、告知の「対象製品」を開こう。今回取り上げた7件のうち、2件は自社が配るRed Hat Enterprise LinuxのPHPには影響しないと、Red Hatは説明しているよ。",
+      "reading": "レッドハットの標準パッケージなら、告知の、対象製品を開こう。今回取り上げた、ななけんのうち、にけんは、自社が配るレッドハット・エンタープライズ・リナックスのピーエイチピーには影響しないと、レッドハットは説明しているよ。"
+    },
+    "source-backport": {
+      "speaker": "female",
+      "text": "Red Hatは元の版に修正を取り込むこともある。だから、PHPの数字だけで判断せず、Red Hatの更新情報に載るパッケージのリリース番号まで照合するんだ。",
+      "reading": "レッドハットは元の版に修正を取り込むこともある。だから、ピーエイチピーの数字だけで判断せず、レッドハットの更新情報に載るパッケージのリリース番号まで照合するんだ。"
+    },
+    "source-remi-q": {
+      "speaker": "male",
+      "text": "じゃあ、同じサーバーでも、PHPをRemiのリポジトリから入れたら？",
+      "reading": "じゃあ、同じサーバーでも、ピーエイチピーをレミのリポジトリから入れたら？"
+    },
+    "source-remi-full": {
+      "speaker": "female",
+      "text": "その場合はRemiの11月19日の記事だね。Linux向けに配るパッケージで、8.4系の末尾は27から28に変わったよ。OSが同じでも、PHPをどこから入れたかで確認先が決まるんだ。",
+      "reading": "その場合はレミの、じゅういちがつ、じゅうくにちの記事だね。リナックス向けに配るパッケージで、はってんよん系の末尾は、にじゅうななから、にじゅうはちに変わったよ。オーエスが同じでも、ピーエイチピーをどこから入れたかで、確認先が決まるんだ。"
+    }
+  },
+  "short": [
+    {
+      "id": "s-compare",
+      "title": "10月と11月、何が違う？",
+      "turns": [
+        {
+          "line": "source-lead-short",
+          "views": [
+            "lead",
+            "named-compare"
+          ]
+        },
+        {
+          "line": "again",
+          "views": [
+            "question"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s-risk",
+      "title": "どの設定が関係する？",
+      "turns": [
+        {
+          "line": "source-save-short",
+          "views": [
+            "save-example"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s-providers",
+      "title": "PHPはどこから入れた？",
+      "turns": [
+        {
+          "line": "source-where",
+          "views": [
+            "duoask"
+          ]
+        },
+        {
+          "line": "source-red-short",
+          "views": [
+            "redhat-photo",
+            "redhat-notice"
+          ]
+        },
+        {
+          "line": "source-remi-short",
+          "views": [
+            "remi-notice"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s-action",
+      "title": "契約先に聞くこと",
+      "turns": [
+        {
+          "line": "source-ask-short",
+          "views": [
+            "named-host",
+            "close"
+          ]
+        }
+      ]
+    }
+  ],
+  "full_order": [
+    "f-compare",
+    "f-october",
+    "f-november",
+    "f-session",
+    "f-linked",
+    "f-version",
+    "f-providers",
+    "f-action"
+  ],
+  "full_overrides": [
+    {
+      "id": "f-compare",
+      "title": "10月と11月、違いは影響条件",
+      "turns": [
+        {
+          "line": "source-lead-full",
+          "views": [
+            "lead",
+            "named-compare"
+          ]
+        },
+        {
+          "line": "full-again",
+          "views": [
+            "question"
+          ]
+        },
+        {
+          "line": "full-again-answer",
+          "views": [
+            "november",
+            "named-routes"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "f-november",
+      "title": "影響は設定と利用構成で変わる",
+      "turns": [
+        {
+          "line": "nov-q",
+          "views": [
+            "question"
+          ]
+        },
+        {
+          "line": "nov-condition",
+          "views": [
+            "conditions",
+            "ipa"
+          ]
+        },
+        {
+          "line": "short-number",
+          "views": [
+            "counts"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "f-session",
+      "title": "買い物かごで見るセッション",
+      "turns": [
+        {
+          "line": "session-q",
+          "views": [
+            "duoask"
+          ]
+        },
+        {
+          "line": "session-answer",
+          "views": [
+            "session",
+            "sessionfile"
+          ]
+        },
+        {
+          "line": "source-save-full",
+          "views": [
+            "save-example"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "f-version",
+      "title": "PHP公式の8.4系はどう変わった？",
+      "turns": [
+        {
+          "line": "version-q",
+          "views": [
+            "oldversion"
+          ]
+        },
+        {
+          "line": "version-clarity",
+          "views": [
+            "versions",
+            "versionsfocus"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "f-providers",
+      "title": "Red HatとRemi、確認先はどこ？",
+      "turns": [
+        {
+          "line": "source-red-q",
+          "views": [
+            "redhat-photo"
+          ]
+        },
+        {
+          "line": "source-red-full",
+          "views": [
+            "redhat-notice",
+            "redhat-products"
+          ]
+        },
+        {
+          "line": "source-backport",
+          "views": [
+            "backport-card"
+          ]
+        },
+        {
+          "line": "source-remi-q",
+          "views": [
+            "question"
+          ]
+        },
+        {
+          "line": "source-remi-full",
+          "views": [
+            "remi-notice",
+            "named-routes"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "f-action",
+      "title": "予約サイトを管理していたら",
+      "turns": [
+        {
+          "line": "host-q",
+          "views": [
+            "question",
+            "named-routes"
+          ]
+        },
+        {
+          "line": "host-a",
+          "views": [
+            "named-host",
+            "reply"
+          ]
+        },
+        {
+          "line": "self",
+          "views": [
+            "checks",
+            "confirm"
+          ]
+        },
+        {
+          "line": "full-end",
+          "views": [
+            "close"
+          ]
+        }
+      ]
+    }
+  ]
+}

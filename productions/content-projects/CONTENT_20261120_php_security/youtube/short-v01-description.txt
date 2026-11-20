@@ -1,0 +1,18 @@
+10月にPHP2Shellの対策を済ませたサイトも、11月分の更新状況を確認してください。10月はWebでPHPを使う環境に広く緊急更新が呼びかけられました。11月に最高の深刻度「Critical」とされた問題は、特定の設定や構成で影響が生じます。
+
+公式配布のPHP 8.4系を例にすると、10月の修正版は8.4.27、11月19日の修正版は8.4.28です。管理を委託している場合は「うちのサイトには11月分の修正が、いつ適用されましたか？」と契約先に尋ねてみてください。
+
+参考資料（動画の情報は2026年11月20日時点）
+PHP開発チームによる10月の緊急更新
+https://www.php.net/archive/2026.php#2026-10-21-5
+PHPセキュリティチームによる11月の影響条件の説明
+https://www.php.net/archive/2026.php#2026-11-18-1
+PHP開発チームによる11月19日の更新
+https://www.php.net/archive/2026.php#2026-11-19-4
+PHP開発元の個別告知（11月19日UTC公表分は17件、うちCriticalは7件）
+https://github.com/php/php-src/security/advisories
+
+音楽　甘茶の音楽工房「ハッピータイム」
+https://amachamusic.chagasi.com/music_happytime.html
+
+#PHP #セキュリティ #Web運用

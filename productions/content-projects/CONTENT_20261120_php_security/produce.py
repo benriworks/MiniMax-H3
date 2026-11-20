@@ -25,6 +25,7 @@ PROTECT=(*PROTECTED,"PHP2Shell","PHP","レンタルサーバー","セキュリ�
 
 def plan(kind,ed,edition="v01"):
     story=load_story(edition)
+    protected=(*PROTECT,"Red Hat Enterprise Linux","Red Hat","Remi","Linux","PHP2Shell","データベース") if ed.named_sources else PROTECT
     current=0; chapters=[]
     for chapter in story[kind]:
         start=current/FPS; turns=[]; captions=[]
@@ -40,7 +41,7 @@ def plan(kind,ed,edition="v01"):
             seconds=len(read_voice(path))/SR
             end=cursor+seconds
             turns.append(dict(**item,**line,start=cursor,end=end,voice_path=str(path)))
-            captions.extend(timed_captions(line["text"],cursor,seconds,ed.caption[2]-ed.caption[0]-72,ed.size,protected=PROTECT))
+            captions.extend(timed_captions(line["text"],cursor,seconds,ed.caption[2]-ed.caption[0]-72,ed.size,protected=protected))
             cursor=end+(.22 if ed.short else .31)
         frame_count=math.ceil((turns[-1]["end"]-start+(.42 if ed.short else .60))*FPS)
         current+=frame_count
@@ -92,10 +93,11 @@ def main():
     parser=argparse.ArgumentParser()
     parser.add_argument("mode",choices=("preview","render"))
     parser.add_argument("kind",choices=("short","full"))
-    parser.add_argument("--edition", choices=("v01","v02"),default="v01")
+    parser.add_argument("--edition", choices=("v01","v02","v03"),default="v01")
     args=parser.parse_args()
-    if args.kind=="short" and args.edition!="v01":parser.error("The short is v01")
-    ed=Editor(args.kind);timing=plan(args.kind,ed,args.edition)
+    if args.kind=="short" and args.edition=="v03":parser.error("Available short editions: v01, v02")
+    named_sources=(args.kind,args.edition) in {("short","v02"),("full","v03")}
+    ed=Editor(args.kind,named_sources=named_sources);timing=plan(args.kind,ed,args.edition)
     audit(ed,timing,args.kind,args.edition)
     if args.mode=="preview":return
     release=OUT/"release"/args.edition; release.mkdir(parents=True,exist_ok=True)

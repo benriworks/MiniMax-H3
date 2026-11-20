@@ -1,0 +1,29 @@
+10月のPHP2Shellと11月19日のセキュリティ更新では、影響を受ける条件が違います。10月はWebでPHPを使う環境に広く緊急更新が呼びかけられました。11月の更新で深刻度が最も高い「Critical」とされた問題について、PHPセキュリティチームは、標準とは異なる設定や珍しい構成が関係すると説明しています。
+
+架空の買い物かごを例に、ページを移っても商品が残る「セッション」の仕組みを解説します。後半では、PHP公式版とOS配布版それぞれの修正の確かめ方、レンタルサーバーの契約先に適用状況を聞くときの文例を紹介します。
+
+チャプター
+0:00 10月と11月で何が違う？
+0:27 前回のPHP2Shell
+0:54 今回のCriticalと影響条件
+1:21 買い物かごで見るセッション
+1:48 10月23日の追加告知の続き
+2:09 系列別に見る11月の修正版
+2:41 予約サイトの管理先に聞くこと
+
+参考資料（動画の情報は2026年11月20日時点）
+PHP開発チームによる10月の緊急更新
+https://www.php.net/archive/2026.php#2026-10-21-5
+PHPセキュリティチームによる11月の影響条件の説明
+https://www.php.net/archive/2026.php#2026-11-18-1
+PHP開発チームによる11月19日の更新
+https://www.php.net/archive/2026.php#2026-11-19-4
+PHP開発元の個別告知（11月19日UTC公表分は17件、うちCriticalは7件）
+https://github.com/php/php-src/security/advisories
+IPAの事前案内
+https://www.ipa.go.jp/security/security-alert/2026/pre-alert20261119.html
+
+音楽　甘茶の音楽工房「ハッピータイム」
+https://amachamusic.chagasi.com/music_happytime.html
+
+#PHP #PHP2Shell #セキュリティ #Web運用

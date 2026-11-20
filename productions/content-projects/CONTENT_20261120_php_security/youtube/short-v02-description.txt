@@ -1,0 +1,18 @@
+10月にPHP2Shellの緊急更新を済ませたサイトも、11月分の適用状況を確認してください。11月に最高の深刻度「Critical」とされた問題は、PHPの設定や利用構成によって影響が変わります。
+
+同じLinuxでも、Red Hatが配るPHPならRed Hatの告知、Remiから入れたPHPならRemiの更新記事へ。Remiの8.4系では8.4.27から8.4.28に変わりました。契約先には「PHPの配布元はどこで、11月分の修正はいつ適用されましたか」と聞いてみてください。
+
+参考資料（2026年11月21日確認）
+Red HatのPHPセキュリティ告知（RHSB-2026-020）
+https://access.redhat.com/security/vulnerabilities/RHSB-2026-020
+Remiの11月19日の更新記事
+https://blog.remirepo.net/post/2026/11/19/PHP-version-8.2.36-8.3.37-8.4.28-8.5.13
+PHPセキュリティチームが説明した11月の影響条件
+https://www.php.net/archive/2026.php#2026-11-18-1
+
+写真引用　Red Hat「The hat」掲載のRed Hat Summit会場
+https://www.redhat.com/en/about/brand/standards/the-hat
+音楽　甘茶の音楽工房「ハッピータイム」
+https://amachamusic.chagasi.com/music_happytime.html
+
+#PHP #RedHat #Remi #セキュリティ

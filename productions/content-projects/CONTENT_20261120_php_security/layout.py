@@ -13,6 +13,8 @@ DATES = ("10月21日", "11月19日")
 VERSION = [("8.2","8.2.35","8.2.36"),("8.3","8.3.36","8.3.37"),
            ("8.4","8.4.27","8.4.28"),("8.5","8.5.12","8.5.13")]
 QUESTIONS = {
+    "source-where":"うちのPHPは\nどこから入れた？",
+    "source-remi-q":"同じOSでも\nRemiから入れたら？",
     "again":"先月更新した\nうちのサイトも？", "full-again":"先月更新したのに\nまた対応が必要？",
     "oct-question":"前回、何が\n問題だった？", "nov-q":"深刻度は同じ。\n影響も同じ？",
     "session-q":"「使い方」って\nどういうこと？", "host-q":"予約サイトの更新を\n任せている場合は？",
@@ -26,6 +28,18 @@ QUOTES = {
 }
 # Each visual answers one operational question. The short has its own vertically stacked layout.
 CARDS = {
+ "named-compare":("今回の違いは、影響を受ける条件",[
+   ("10月21日","Webで動くPHP","広く緊急更新を呼びかけ"),
+   ("11月19日","設定や利用構成に依存","重大な問題ごとに条件が異なる")],"出典　PHP 開発チーム・セキュリティチーム"),
+ "save-example":("例　買い物かごの情報をどこに保存？",[
+   ("あるサイト","ファイルに保存","サーバー上に状態を記録"),
+   ("別のサイト","DBに保存","アプリが選んだ保存方式")],"PHPセッションの保存方法の例 ／ 該当条件は個別告知で確認"),
+ "named-routes":("同じOSでも、PHPの配布元を確かめる",[
+   ("Red Hat 標準","対象製品と修正情報","Red Hat Customer Portal"),
+   ("Remi から導入","11月19日の配布記事","Remi’s RPM repository")],"Red Hat・Remiの公開資料 ／ 2026年11月21日確認"),
+ "backport-card":("Red Hatの修正版をどう見分ける？",[
+   ("バックポート","元の版に修正を追加","先頭のPHP番号が同じ場合もある"),
+   ("照合するもの","リリース番号まで","自社のパッケージと告知を照合")],"出典　Red Hat「Security Backporting Practice」"),
  "compare":("運用者が最初に見るところ",[
    ("10月21日","Webで動くPHP","広い範囲に緊急更新を要請"),
    ("11月19日","設定と使い方","重大な問題ごとに条件を確認")],"出典　PHP 開発チーム・セキュリティチーム"),
@@ -90,8 +104,9 @@ def rule(im,xy,color=RULE,width=2):
     ImageDraw.Draw(im).line(xy,fill=color,width=width)
 
 class Editor:
-    def __init__(self,kind):
+    def __init__(self,kind,*,named_sources=False):
         self.short=kind=="short"
+        self.named_sources=named_sources
         self.w,self.h=(1080,1920) if self.short else (1920,1080)
         self.l,self.r=(68,938) if self.short else (84,1836)
         self.t,self.b=(337,1360) if self.short else (202,824)
@@ -123,12 +138,14 @@ class Editor:
             footer="PHP公式・2026年11月19日公開分" if view!="close" else "自社運用は配布元、委託は契約先へ"
         elif view in QUOTES:
             footer=self.quote(im,view)
+        elif view in PROVIDER_FIGURES:
+            footer=self.provider_figure(im,view)
         elif view=="counts":
             self.counts(im);footer="PHP開発元（php-src）／11月19日UTC公表分"
         elif view in ("versions","versionsfocus"):
             self.versions(im,view=="versionsfocus");footer="PHP 公式配布版 ／ 2026年11月19日"
-        elif view=="host":
-            self.host(im);footer="予約サイトの管理者から契約先への問い合わせ例"
+        elif view in ("host","named-host"):
+            self.host(im,providers=view=="named-host");footer="予約サイトの管理者から契約先への問い合わせ例"
         elif view in ("web","session","twoshops","routes","checks") and not self.short:
             label,rows,footer=CARDS[view];self.diagram(im,view,label,rows,phase)
         else:
@@ -149,7 +166,8 @@ class Editor:
         x,y,e,z=stage
         box(im,stage,DARK,24)
         if view=="lead":
-            for i,(tag,words) in enumerate((("10月","広く緊急更新"),("11月","設定・構成で差"))):
+            november = "設定・使い方で差" if self.named_sources else "設定・構成で差"
+            for i,(tag,words) in enumerate((("10月","広く緊急更新"),("11月",november))):
                 top=y+i*(z-y)//2
                 self.tx(im,tag,(x+38,top+15,e-30,top+83),36,SOFT if i==0 else "#91DCCA")
                 self.tx(im,words,(x+38,top+87,e-32,top+(z-y)//2-10),69 if self.short else 85,WHITE)
@@ -174,6 +192,8 @@ class Editor:
         im.paste(portrait(clip,motion,r-x,b-y),(x,y))
     def quote(self,im,key):
         org,date,line1,line2=QUOTES[key]
+        if self.named_sources and key=="ipa":
+            line1,line2="影響はPHPの設定や","利用構成に依存"
         l,t,r,b=self.l,self.t,self.r,self.b
         mid=t+round((b-t)*.53)
         box(im,(l,t,r,mid-15),WHITE,22,outline=RULE,width=2)
@@ -184,6 +204,34 @@ class Editor:
         self.tx(im,"公式発表の要点",(l+36,mid+21,r-22,mid+88),32,"#91DCCA")
         self.centered(im,line1+"\n"+line2,(l+35,mid+97,r-35,b-27),68 if self.short else 63,WHITE,True)
         return f"引用　{org}  ／  {date}"
+
+    def provider_figure(self,im,key):
+        org, heading, advice, credit = PROVIDER_FIGURES[key]
+        l,t,r,b=self.l,self.t,self.r,self.b
+        photo=key=="redhat-photo"
+        source=provider_image(key)
+        if self.short:
+            middle=t+int((b-t)*.55)
+            art=(l,t,r,middle-12); words=(l,middle,r,b)
+        elif photo:
+            split=l+int((r-l)*.51)
+            art=(l,t,split-10,b); words=(split+10,t,r,b)
+        else:
+            middle=t+int((b-t)*.48)
+            art=(l,t,r,middle-9); words=(l,middle+7,r,b)
+        x,y,e,z=art
+        box(im,art,WHITE,18,outline=RULE,width=2)
+        if photo:
+            fit(im,source,(x+8,y+8,e-8,z-8))
+        else:
+            self.tx(im,org,(x+27,y+12,e-25,y+80),36,TEAL)
+            fit(im,source,(x+32,y+95,e-32,z-25))
+        x,y,e,z=words
+        box(im,words,DARK,18)
+        self.tx(im,org if photo else "この告知で分かること",(x+36,y+17,e-30,y+86),35,"#91DCCA")
+        self.centered(im,heading,(x+35,y+94,e-31,z-107),58 if self.short else 60,WHITE,True)
+        self.tx(im,advice,(x+35,z-96,e-30,z-26),32,"#CDE7E5")
+        return credit
     def cards(self,im,label,rows,phase):
         l,t,r,b=self.l,self.t,self.r,self.b
         self.tx(im,label,(l,t+2,r,t+80),42 if self.short else 46,MUTED)
@@ -250,16 +298,29 @@ class Editor:
                         (49 if self.short else 53) if i>0 else 41,TEAL if i==2 else INK,True)
         if focus:
             ImageDraw.Draw(im).rectangle((l,head_b+8+2*rh,l+10,head_b+8+3*rh-5),fill=TEAL)
-    def host(self,im):
+    def host(self,im,providers=False):
         l,t,r,b=self.l,self.t,self.r,self.b
         box(im,(l,t,r,b),WHITE,22,outline=RULE,width=2)
         x=l+40;e=r-40
         self.tx(im,"問い合わせ例　／　レンタルサーバー",(x,t+24,e,t+98),36,TEAL)
         self.tx(im,"対象：予約サイト・契約プラン",(x,t+112,e,t+193),42,MUTED)
         rule(im,(x,t+216,e,t+216))
-        self.centered(im,"11月19日分の修正は\n適用済みですか？",(x,t+226,e,b-170),67 if self.short else 75,INK,True)
+        question="PHPの配布元はどこ？\n11月分の適用日は？" if providers else "11月19日分の修正は\n適用済みですか？"
+        self.centered(im,question,(x,t+226,e,b-170),67 if self.short else 75,INK,True)
         box(im,(x,b-144,e,b-35),ICE,14)
         self.tx(im,"適用日・予定日・こちらで必要な作業",(x+14,b-134,e-14,b-45),36 if self.short else 41,TEAL,True)
+
+PROVIDER_FIGURES = {
+    "redhat-photo":("Red Hat","赤い帽子の\nRed Hat","次に見るのは公式のセキュリティ告知","写真引用　Red Hat「The hat」／ Red Hat Summit 会場"),
+    "redhat-notice":("Red Hat Customer Portal","Red Hatが配るPHP","告知 RHSB-2026-020 の「Affected Products」へ","画面引用　Red Hat ／ RHSB-2026-020"),
+    "redhat-products":("Red Hat Enterprise Linux","7件のうち2件は対象外","Red HatがRHELで配るPHPについての判断","画面引用　Red Hat ／ RHSB-2026-020・要約"),
+    "remi-notice":("Remi’s RPM repository","RemiのPHP 8.4系","10月の8.4.27 → 11月の8.4.28","画面引用　Remi’s RPM repository ／ 2026.11.19"),
+}
+
+@lru_cache(maxsize=4)
+def provider_image(key):
+    ext = ".jpg" if key=="redhat-photo" else ".png"
+    with Image.open(OUT/"captures/providers-v01/quotes"/(key+ext)) as im: return im.convert("RGB")
 
 @lru_cache(maxsize=8)
 def make_symbol(name):

@@ -12,7 +12,7 @@ def main():
     p.add_argument("kind",choices=("short","full"))
     p.add_argument("--model",type=Path,required=True)
     p.add_argument("--dependencies",type=Path)
-    p.add_argument("--edition",choices=("v01","v02"),default="v01")
+    p.add_argument("--edition",choices=("v01","v02","v03"),default="v01")
     args=p.parse_args()
     if args.dependencies:sys.path.insert(0,str(args.dependencies.resolve()))
     from faster_whisper import WhisperModel

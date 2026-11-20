@@ -1,0 +1,521 @@
+{
+  "date": "2026-11-21",
+  "cuts": {
+    "short": {
+      "video": {
+        "edition": "v02",
+        "title": "【PHP】10月に更新済みでも？ 11月分をRed Hat・Remiで確かめる",
+        "file": "php-security-november-short-v02.mp4",
+        "bytes": 6134796,
+        "sha256": "d3528d4afc643605991f96078861399769b0ea7f076b39ffa3f2c80330237b18",
+        "duration": 50.958333333333336,
+        "resolution": [
+          1080,
+          1920
+        ],
+        "fps": 24,
+        "frames": 1223,
+        "captions": 14,
+        "integrated_lufs": -15.12,
+        "true_peak_dbtp": -1.44,
+        "voice": {
+          "method": "Gemini TTS",
+          "model": "gemini-2.5-flash-preview-tts",
+          "female": "Aoede",
+          "male": "Charon"
+        },
+        "bgm": {
+          "track": "ハッピータイム",
+          "credit": "甘茶の音楽工房",
+          "sha256": "04875cc4d522511497b72c25aad0f535dbd6716dbfade7b7dec1846db4ec5d94",
+          "source_lufs": -15.26,
+          "input_gain_db": -10.74,
+          "clip_end_seconds": 99.2,
+          "crossfade_seconds": 1.6,
+          "repeat_count": 0,
+          "gain_profile": "explanation_v1",
+          "speech_blocks_joined_under_seconds": 2.0,
+          "peak_before_mix_normalization": 0.972924530506134
+        },
+        "full_decode": "passed",
+        "human_listening": "pending",
+        "user_approved": false,
+        "published": false,
+        "turn_count": 7,
+        "srt_sha256": "c7cf20e70b004909dfa711e1cb6954dabcb86f3d9d20628cc709cf5fbbc9c3fa",
+        "chapters": [
+          {
+            "title": "10月と11月、何が違う？",
+            "start": 0.0
+          },
+          {
+            "title": "どの設定が関係する？",
+            "start": 15.542
+          },
+          {
+            "title": "PHPはどこから入れた？",
+            "start": 23.167
+          },
+          {
+            "title": "契約先に聞くこと",
+            "start": 42.583
+          }
+        ],
+        "voice_lines": [
+          {
+            "line": "source-lead-short",
+            "speaker": "Aoede",
+            "sha256": "eae973f0b737c53a8fcad504d264a2fc55821836556d2e68a7c81610e9297436"
+          },
+          {
+            "line": "again",
+            "speaker": "Charon",
+            "sha256": "717df6460aa5cda547943baa9e7f39df5cbaf97182a5e4fa91c3db786386c48e"
+          },
+          {
+            "line": "source-save-short",
+            "speaker": "Aoede",
+            "sha256": "899d35063352ec073dd9497af10f9d5d06bb0531d7c59234b0b287a28da8c94a"
+          },
+          {
+            "line": "source-where",
+            "speaker": "Charon",
+            "sha256": "0d15ab45b3e8b00b97377de92f0bb9a6a7e638c29f2d717b03397f234d332a5f"
+          },
+          {
+            "line": "source-red-short",
+            "speaker": "Aoede",
+            "sha256": "fe945387927e1924b929feae54393cf820e19973a3b3f919edc054f3062dcc99"
+          },
+          {
+            "line": "source-remi-short",
+            "speaker": "Charon",
+            "sha256": "766ef19c251ea8531c59f327be6f5f2e9b2506d2310028081d984de47d302520"
+          },
+          {
+            "line": "source-ask-short",
+            "speaker": "Aoede",
+            "sha256": "29b3e86c93ba235b3200d72f6c5fa60c975fada505e458eaeead1746c34e48ff"
+          }
+        ],
+        "decoded_review_frames": 11
+      },
+      "reused_voice_lines": 1,
+      "title": "【PHP】10月に更新済みでも？ 11月分をRed Hat・Remiで確かめる",
+      "description": {
+        "path": "php-security-short-v02-description.txt",
+        "bytes": 1229,
+        "sha256": "8fd5ab54d5f117c43884b123998cde2a4630e7961b55b7877474cd83222f56a5"
+      },
+      "thumbnail": {
+        "path": "php-security-short-v02-thumbnail.jpg",
+        "bytes": 975365,
+        "sha256": "5a7dfa87fd9f140cca2740b3fe59980cb7e9ce27b8bb497c46f1221156f752be",
+        "pixels": [
+          2160,
+          3840
+        ],
+        "format": "JPEG"
+      },
+      "art": {
+        "path": "youtube-v02/source/short-art-v02.png",
+        "bytes": 2404228,
+        "sha256": "286907f3d3814b8f2979f8b1cefaf62a6b7f0ca36411767cab2beb7cda56559b",
+        "pixels": [
+          941,
+          1672
+        ],
+        "format": "PNG"
+      },
+      "review": {
+        "path": "youtube-v02/review/short-phone.png",
+        "bytes": 384175,
+        "sha256": "dd44fd21cd57a0e6a49e082dfb24f75d529d6dba5e016c187389513b01d6ad2e",
+        "pixels": [
+          360,
+          640
+        ],
+        "format": "PNG"
+      }
+    },
+    "full": {
+      "video": {
+        "edition": "v03",
+        "title": "【PHP】PHP2Shellと11月更新の違い。Red HatとRemiで修正版を確認する",
+        "file": "php-security-november-full-v03.mp4",
+        "bytes": 25024951,
+        "sha256": "6eeb9c0029e39cfe9726d8ee2f3607b2fc8af73202dcf321eeba9233dc31a1fa",
+        "duration": 242.58333333333334,
+        "resolution": [
+          1920,
+          1080
+        ],
+        "fps": 24,
+        "frames": 5822,
+        "captions": 48,
+        "integrated_lufs": -15.07,
+        "true_peak_dbtp": -1.11,
+        "voice": {
+          "method": "Gemini TTS",
+          "model": "gemini-2.5-flash-preview-tts",
+          "female": "Aoede",
+          "male": "Charon"
+        },
+        "bgm": {
+          "track": "ハッピータイム",
+          "credit": "甘茶の音楽工房",
+          "sha256": "04875cc4d522511497b72c25aad0f535dbd6716dbfade7b7dec1846db4ec5d94",
+          "source_lufs": -15.26,
+          "input_gain_db": -10.74,
+          "clip_end_seconds": 99.2,
+          "crossfade_seconds": 1.6,
+          "repeat_count": 2,
+          "gain_profile": "explanation_v1",
+          "speech_blocks_joined_under_seconds": 2.0,
+          "peak_before_mix_normalization": 0.9969111084938049
+        },
+        "full_decode": "passed",
+        "human_listening": "pending",
+        "user_approved": false,
+        "published": false,
+        "turn_count": 25,
+        "srt_sha256": "a34e88315dbfd9ce322f2f3a92b7af6dbd3fe4c5b9a7026bc379ee1ebc3aab9c",
+        "chapters": [
+          {
+            "title": "10月と11月、違いは影響条件",
+            "start": 0.0
+          },
+          {
+            "title": "10月のPHP2Shell",
+            "start": 28.5
+          },
+          {
+            "title": "影響は設定と利用構成で変わる",
+            "start": 55.625
+          },
+          {
+            "title": "買い物かごで見るセッション",
+            "start": 82.708
+          },
+          {
+            "title": "前回の追加告知とのつながり",
+            "start": 109.0
+          },
+          {
+            "title": "PHP公式の8.4系はどう変わった？",
+            "start": 130.083
+          },
+          {
+            "title": "Red HatとRemi、確認先はどこ？",
+            "start": 150.208
+          },
+          {
+            "title": "予約サイトを管理していたら",
+            "start": 202.625
+          }
+        ],
+        "voice_lines": [
+          {
+            "line": "source-lead-full",
+            "speaker": "Aoede",
+            "sha256": "2025471fa90583b21bb5dbbbbe49917effe31ffec37611d215bdff5c6ed9d253"
+          },
+          {
+            "line": "full-again",
+            "speaker": "Charon",
+            "sha256": "694d07f7dec00bb41334b58896529ef93ae7cf96a5aad4e96bcd505dc750d61f"
+          },
+          {
+            "line": "full-again-answer",
+            "speaker": "Aoede",
+            "sha256": "40bb03c62a92367746eae646e8bab63068e64b8cddefdc6c7d82a414f6fd1065"
+          },
+          {
+            "line": "oct-question",
+            "speaker": "Charon",
+            "sha256": "7d0acc0250919e8d7482f4348e52b1fb60b4702519c1836eab562c5e28c3a9cf"
+          },
+          {
+            "line": "oct-answer",
+            "speaker": "Aoede",
+            "sha256": "1a143d129cd71ccd3c32a22dbb9530b85d2e4ae5cdf1825c8e1428ae2b4c1597"
+          },
+          {
+            "line": "oct-impact",
+            "speaker": "Aoede",
+            "sha256": "669182bfdbd295856c71e5d3863efa8de07514c1f0ff0248d44d6343af56302c"
+          },
+          {
+            "line": "nov-q",
+            "speaker": "Charon",
+            "sha256": "105bcf52ada580a2282781a999f762cb6e4b818162c88b0636308d497a4cd409"
+          },
+          {
+            "line": "nov-condition",
+            "speaker": "Aoede",
+            "sha256": "f919dd4e49bc6cf4e11c0246a60cb1f664acd49ba821ed1d0fed2615896bd404"
+          },
+          {
+            "line": "short-number",
+            "speaker": "Aoede",
+            "sha256": "e7fbf61e12b3c2c1109b29aac271de1af0a4be3aec3137b908e79221841ba1bd"
+          },
+          {
+            "line": "session-q",
+            "speaker": "Charon",
+            "sha256": "d91cd8ab5bab40ae1d15f535d36285023f10e401a5a3a2cdec63178945898492"
+          },
+          {
+            "line": "session-answer",
+            "speaker": "Aoede",
+            "sha256": "b0bacf63f25a1c3417b7f14c4a354fbe44c0d6276109f706e29a58c47738e1c4"
+          },
+          {
+            "line": "source-save-full",
+            "speaker": "Aoede",
+            "sha256": "5b1d20b87295bb794d80c0de1112d8d2aac53fa8f9bc9157d8ab3ac9b3eee975"
+          },
+          {
+            "line": "bridge-q",
+            "speaker": "Charon",
+            "sha256": "73eb143fa739ddafaeda9a3ad8c996b6b63891a0267de01b6cb9d69d841e4231"
+          },
+          {
+            "line": "bridge-a",
+            "speaker": "Aoede",
+            "sha256": "143386631af3f3837940ddec99696c867ab33401f2ec73e482679e55b538f1fc"
+          },
+          {
+            "line": "version-q",
+            "speaker": "Charon",
+            "sha256": "82524c307169a2c965368b0b1b2e7f42068ddb1c82606930e66777b74ed6b065"
+          },
+          {
+            "line": "version-clarity",
+            "speaker": "Aoede",
+            "sha256": "e071a0e0a7bc774dceaf1e6673252a462a24b2d17e6b59ba2a48b1dea6a64a2b"
+          },
+          {
+            "line": "source-red-q",
+            "speaker": "Charon",
+            "sha256": "9d50238a028e054e2c40e57b59a200f17ebfaae0b23b61dea68e9a060e7b6321"
+          },
+          {
+            "line": "source-red-full",
+            "speaker": "Aoede",
+            "sha256": "ce70a99f87f69a5519cc71bc2157845085f342e278f109d37eee94adfe3f1f88"
+          },
+          {
+            "line": "source-backport",
+            "speaker": "Aoede",
+            "sha256": "71e12ec764934d16bf7e862eb6b325feb3c60c398dd836bec7d92abcb75af3f8"
+          },
+          {
+            "line": "source-remi-q",
+            "speaker": "Charon",
+            "sha256": "e1f9306a858a2586b6d2150fee0a150106fa164f46b72e461bbcfdb7f5d32511"
+          },
+          {
+            "line": "source-remi-full",
+            "speaker": "Aoede",
+            "sha256": "06e7184b9f3fbb3cd540c8adb6230749ff4144bbe1c0942e40477ae6220feb21"
+          },
+          {
+            "line": "host-q",
+            "speaker": "Charon",
+            "sha256": "e4ee7e3a424ccbff1a81ddc32523d5a9a358ff3804215abe5bfd267eee25ea9e"
+          },
+          {
+            "line": "host-a",
+            "speaker": "Aoede",
+            "sha256": "d24315ae50b17a442287e8d325a8df6b224dab6ceabb46c377bb57a41a7ece2b"
+          },
+          {
+            "line": "self",
+            "speaker": "Aoede",
+            "sha256": "ba4805227372c8a33385df7870ba31fa826f75c181aeee01d2251d022448aee9"
+          },
+          {
+            "line": "full-end",
+            "speaker": "Charon",
+            "sha256": "01ff2dc37dee2ed61a43f089063c0d59e8418bc0c6138a7a8769caf2879e5ac3"
+          }
+        ],
+        "decoded_review_frames": 33
+      },
+      "reused_voice_lines": 18,
+      "title": "【PHP】PHP2Shellと11月更新の違い。Red HatとRemiで修正版を確認する",
+      "description": {
+        "path": "php-security-full-v03-description.txt",
+        "bytes": 1918,
+        "sha256": "852fd7de6584b52050e55eb41b2e124731df0dacaaf6a0a6c52a9c9b3325bfb6"
+      },
+      "thumbnail": {
+        "path": "php-security-full-v03-thumbnail.jpg",
+        "bytes": 828262,
+        "sha256": "2a52ccc842e0d084f40024f0a77a005960dac82258301c113914e16f165b2d9e",
+        "pixels": [
+          3840,
+          2160
+        ],
+        "format": "JPEG"
+      },
+      "art": {
+        "path": "youtube-v02/source/full-art-v02.png",
+        "bytes": 2230968,
+        "sha256": "8a7a7a49ee2ac6e30868399042f1a03bfdb6b252c28356a5a9f0278a94bf25d7",
+        "pixels": [
+          1672,
+          941
+        ],
+        "format": "PNG"
+      },
+      "review": {
+        "path": "youtube-v02/review/full-phone.png",
+        "bytes": 100220,
+        "sha256": "ad4372a3526dce9a153eddf774ab6793ae8688b506505506c6e2f258c45de185",
+        "pixels": [
+          320,
+          180
+        ],
+        "format": "PNG"
+      }
+    }
+  },
+  "user_approved": false,
+  "youtube_published": false,
+  "official_sources": {
+    "captured_utc": "2026-11-20T18:55:55.817794+00:00",
+    "viewport": [
+      1550,
+      1020
+    ],
+    "scale": 2,
+    "assets": {
+      "redhat-notice": {
+        "url": "https://access.redhat.com/security/vulnerabilities/RHSB-2026-020",
+        "title": "RHSB-2026-020 Multiple vulnerabilities - PHP (CVE-2026-115560, CVE-2026-126714, CVE-2026-129182, CVE-2026-129289, CVE-2026-129474, CVE-2026-129496, CVE-2026-129481) | Red Hat Customer Portal",
+        "passage": "RHSB-2026-020 Multiple vulnerabilities - PHP",
+        "crop_pixels": [
+          [
+            604,
+            464,
+            1614,
+            527
+          ]
+        ],
+        "original": {
+          "path": "captures/providers-v01/original/redhat-notice.png",
+          "pixels": [
+            3100,
+            2040
+          ],
+          "bytes": 471284,
+          "sha256": "b22618c6808cb217c279ad0b96c2bfcdbb5e814071b037cf3db8b6ab4878db87"
+        },
+        "quote": {
+          "path": "captures/providers-v01/quotes/redhat-notice.png",
+          "pixels": [
+            1046,
+            95
+          ],
+          "bytes": 14057,
+          "sha256": "854709669bf020fbdc7e169878365227325ce5cdf279a69899a80b61998a9528"
+        }
+      },
+      "redhat-products": {
+        "url": "https://access.redhat.com/security/vulnerabilities/RHSB-2026-020",
+        "title": "RHSB-2026-020 Multiple vulnerabilities - PHP (CVE-2026-115560, CVE-2026-126714, CVE-2026-129182, CVE-2026-129289, CVE-2026-129474, CVE-2026-129496, CVE-2026-129481) | Red Hat Customer Portal",
+        "passage": "The following two flaws do not affect PHP versions shipped in Red Hat Enterprise Linux",
+        "crop_pixels": [
+          [
+            1189,
+            973,
+            2522,
+            1016
+          ]
+        ],
+        "original": {
+          "path": "captures/providers-v01/original/redhat-products.png",
+          "pixels": [
+            3100,
+            2040
+          ],
+          "bytes": 400417,
+          "sha256": "b0ade8b47d7b20200c9e107bd513e3831b9056c8ab21186264b99406ad30c6ac"
+        },
+        "quote": {
+          "path": "captures/providers-v01/quotes/redhat-products.png",
+          "pixels": [
+            1369,
+            75
+          ],
+          "bytes": 18008,
+          "sha256": "79cbe45cbcb1985311d5135a5b9a08795b856f0a5f7ac9bcb1d7c128c97ce13b"
+        }
+      },
+      "remi-notice": {
+        "url": "https://blog.remirepo.net/post/2026/11/19/PHP-version-8.2.36-8.3.37-8.4.28-8.5.13",
+        "title": "🛡️ PHP version 8.2.36, 8.3.37, 8.4.28 and 8.5.13 - Remi's RPM repository - Blog",
+        "passage": "PHP version 8.2.36, 8.3.37, 8.4.28 and 8.5.13",
+        "crop_pixels": [
+          [
+            100,
+            364,
+            890,
+            407
+          ]
+        ],
+        "original": {
+          "path": "captures/providers-v01/original/remi-notice.png",
+          "pixels": [
+            3100,
+            2040
+          ],
+          "bytes": 500785,
+          "sha256": "2a85cf4814a8e12c0c4d8dbf7d99afe0fe190815f5190d0765071d5e9d2ae55c"
+        },
+        "quote": {
+          "path": "captures/providers-v01/quotes/remi-notice.png",
+          "pixels": [
+            826,
+            75
+          ],
+          "bytes": 10392,
+          "sha256": "86cfbd178a283fb2f5a41b1146155b80d42c645d659ed464ef4a2a19e7b12d3c"
+        }
+      },
+      "redhat-photo": {
+        "url": "https://www.redhat.com/en/about/brand/standards/the-hat",
+        "title": "The hat - Red Hat brand standards",
+        "photo_url": "https://www.redhat.com/rhdc/managed-files/Brand_standards-Red_Hat-The_hat-The_hat_today-2.jpg",
+        "description": "A display at Red Hat Summit features dozens of fedoras hanging above the Red Hat Cool Stuff Store booth.",
+        "credit": "写真引用　Red Hat「The hat」／Red Hat Summit",
+        "placement": "会場に並ぶ実物の赤い帽子から、Red Hatが配るPHPの告知へつなぐ。",
+        "original": {
+          "path": "captures/providers-v01/original/redhat-photo.png",
+          "pixels": [
+            3100,
+            2040
+          ],
+          "bytes": 3132681,
+          "sha256": "7d6ca3afa2d897a7e0b142e5282701f78006243372694384187176c446846a69"
+        },
+        "quote": {
+          "path": "captures/providers-v01/quotes/redhat-photo.jpg",
+          "pixels": [
+            833,
+            449
+          ],
+          "bytes": 96604,
+          "sha256": "e44b1c13eac7eb06c54bb3ebb8173e328865b16091317c9f39a0d74cdb86b66d"
+        }
+      }
+    }
+  },
+  "titles_file": {
+    "path": "php-security-youtube-titles-v02.txt",
+    "bytes": 195,
+    "sha256": "64347bdcee2d7b2af8857f28646922bda812d7c1ccc7a4a1218e054c11aa6556"
+  }
+}

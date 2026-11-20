@@ -2,6 +2,8 @@
 
 ## PHPの11月セキュリティ更新を比較する縦・横動画（2026-11-20）
 
+11月21日のショートv02／フルv03では、配布元別の公式写真・告知と、版に応じた台詞差分を編集工程に加えた。投稿用のタイトル・概要欄・縦横画像と対象MP4を照合する処理、図版付き記事v02の受け渡しも[案件の構成](productions/content-projects/CONTENT_20261120_php_security/ARCHITECTURE.md)に記した。
+
 [案件の制作構成](productions/content-projects/CONTENT_20261120_php_security/ARCHITECTURE.md)に、公開告知の撮影、冬服モーションの原本照合、音声と字幕の時刻決定、縦横の書き出しを記録した。既存の会話エンコーダーは呼び出し側がファイル名・画面の選択・ミックスを指定できる。音源の明示指定時も登録済みのハッシュを照合する。[データフロー](productions/content-projects/CONTENT_20261120_php_security/ARCHITECTURE_DIAGRAM.md)
 
 ## 30秒のオリジナルショートドラマ（2026-11-08）

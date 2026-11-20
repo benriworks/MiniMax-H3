@@ -1,0 +1,34 @@
+10月のPHP2Shellでは、WebでPHPを使う環境に広く緊急更新が呼びかけられました。11月の重大な問題は、PHPの設定や利用構成に依存します。買い物かごの情報をどう保存するかを例に、サイトごとに影響が変わる理由を解説します。
+
+Red Hat Enterprise Linuxで標準のPHPを使う場合はRed Hatの対象製品とパッケージのリリース番号へ。RemiのリポジトリからPHPを入れた場合は、Remiが11月19日に公表した配布記事へ。同じOSでも、インストール元が違えば修正の確認先も変わります。
+
+チャプター
+0:00 10月と11月で何が違う？
+0:28 前回のPHP2Shell
+0:55 影響はPHPの設定や利用構成に依存
+1:22 買い物かごとセッションの保存先
+1:49 10月23日の追加告知はどうなった？
+2:10 PHP公式の8.4系は27から28へ
+2:30 Red HatとRemi、それぞれの確認先
+3:22 契約先に配布元と適用日を聞く
+
+参考資料（2026年11月21日確認）
+PHP公式の10月の緊急更新
+https://www.php.net/archive/2026.php#2026-10-21-5
+PHP公式の11月19日の更新
+https://www.php.net/archive/2026.php#2026-11-19-4
+Red Hatのバックポート方針
+https://access.redhat.com/security/updates/backporting
+Red HatのPHPセキュリティ告知（RHSB-2026-020）
+https://access.redhat.com/security/vulnerabilities/RHSB-2026-020
+Remiの11月19日の更新記事
+https://blog.remirepo.net/post/2026/11/19/PHP-version-8.2.36-8.3.37-8.4.28-8.5.13
+PHPセキュリティチームが説明した11月の影響条件
+https://www.php.net/archive/2026.php#2026-11-18-1
+
+写真引用　Red Hat「The hat」掲載のRed Hat Summit会場
+https://www.redhat.com/en/about/brand/standards/the-hat
+音楽　甘茶の音楽工房「ハッピータイム」
+https://amachamusic.chagasi.com/music_happytime.html
+
+#PHP #PHP2Shell #RedHat #Remi #Web運用

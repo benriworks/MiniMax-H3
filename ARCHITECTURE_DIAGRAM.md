@@ -10,6 +10,9 @@ flowchart LR
     V --> M["既存エンコーダー・ローカルBGM"]
     M --> Q["ショートとフルの媒体検査"]
     E --> B["Studioの出典・記事草稿・画像"]
+    R["Red Hatの会場写真・PHP告知とRemiの配布記事"] --> E
+    R --> V
+    Q --> Y["対象版に合わせたYouTubeタイトル・概要欄・縦横サムネイル"]
 ```
 
 [案件の詳細図](productions/content-projects/CONTENT_20261120_php_security/ARCHITECTURE_DIAGRAM.md)

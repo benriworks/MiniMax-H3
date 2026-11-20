@@ -32,7 +32,29 @@ python -X utf8 "$p/verify.py"
 
 ローカル音声認識は `audio_check.py short --model <local-model>` と `audio_check.py full --edition v02 --model <local-model>`。依存が別ディレクトリなら `--dependencies` で指定する。faster-whisper small、CPU int8、元音声を最終AACから16kHz monoへ変換して日本語認識した。
 
-## 出力と受け渡し
+## 11月21日の配布元を実名で示す版
+
+ショートv02、フルv03、記事v02、YouTube投稿素材v02をそれぞれ別に保存した。修正した章・新規台詞・読みと公式表記は `distribution-revision.json`、旧フルの「末尾が27から28」は `full-v02.json` から継承する。旧動画は作業入力と比較に保持する。
+
+```powershell
+$p = 'productions/content-projects/CONTENT_20261120_php_security'
+python -B -X utf8 "$p/capture_providers.py"
+python -B -X utf8 "$p/voice.py" --kind short --edition v02
+python -B -X utf8 "$p/voice.py" --kind full --edition v03
+python -B -X utf8 "$p/produce.py" render short --edition v02
+python -B -X utf8 "$p/produce.py" render full --edition v03
+python -B -X utf8 "$p/package_youtube.py"
+python -B -X utf8 "$p/record_revision.py"
+python -B -X utf8 "$p/package_article.py" --edition v02
+```
+
+- 上の例は保存済み入力から新しい出力先を組み立てる順番。撮影済みの引用を再利用する場合は `captures/providers-v01/` の原本、3抜粋、Red Hat配信のJPEGとmanifestを同じ位置に用意し、撮影工程を省く。写真は833×449の全体を保った。Red Hatの告知とRemiの記事の抜粋は実DOMの文字範囲を計測した。
+- 画像生成の冬服参照は `motion/female-guide/022.jpg` と `motion/male-nod/012.jpg`。[最初の生成指示](youtube/thumbnail-prompts-v01.json)から得た2枚を参照に、[改訂の生成指示](youtube/thumbnail-prompts-v02.json)で配布元名を追加した。再編集には保存したPNG原本 `youtube-v02/source/{short,full}-art-v02.png` を使う。生成AIによる再生成結果は変わり得る。
+- `package_youtube.py` はFFmpegのLanczosで2160×3840／3840×2160のJPEGを書き出し、章時刻・本文・MP4・引用元画像・寸法・容量・SHA-256を検査する。縦360px／横320pxの確認画像は `youtube-v02/review/`。既存の納品物を再照合するには `python -B -X utf8 "$p/package_youtube.py" --check` を使う。
+- MP4は `release/v02/short/php-security-november-short-v02.mp4` と `release/v03/full/php-security-november-full-v03.mp4`。投稿素材は `release/youtube-v02/` にある個別の概要欄2件、JPEG2枚、推奨タイトルのテキスト1件。記事は `release/v02/article/php-security-article-v02-sources.zip`。Driveの非公開レシートは `_private/distribution-drive-v02.json`。検査要約は[改訂版台帳](youtube/verification-v02.json)。
+- 音声認識は同じ `audio_check.py` でショートに `--edition v02`、フルに `--edition v03` を指定した。結果は `_private/asr-short-v02.json`・`_private/asr-full-v03.json`。編集評価と自動認識の範囲は[再開記録](RESUME_AND_KNOWHOW_JA.md)に記した。
+
+## 11月20日の出力と受け渡し
 
 `outputs/content-projects/CONTENT_20261120_php_security/` からの相対位置。
 
