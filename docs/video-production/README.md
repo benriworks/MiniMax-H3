@@ -15,6 +15,8 @@
 
 運用の規定はルートの [AGENTS.md](../../AGENTS.md)。参照資料、対象案件・版、採用済み事項、次の作業を短く報告して着手する。ユーザーに過去の説明や長いフォーム入力をやり直してもらわず、助手が根拠資料から復元する。
 
+YouTube投稿用のタイトル・概要欄・サムネイル画像は、ショートとフルの各動画に同梱する。内容と画像の確認は[編集基準](EDITORIAL_PATTERNS_JA.md)、納品物の記録は[案件ひな形](templates/PRODUCTION_RECORD_JA.md)を参照（2026-11-21追記）。
+
 BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_JA.md)を参照。Proニュースv04を基に `explanation_v1` を採用した。
 
 編集の再現例は[BERT/GPTの手順](../../productions/content-projects/CONTENT_20261106_ai_bert_gpt_history/REPRODUCTION_JA.md)。139入力の版・hash、環境、APIを再実行しない経路、新しい版への出力例、依存の不足を記録した。
