@@ -124,7 +124,7 @@ BGMの現行既定は[音量・頭尾・発話中減音の設定](BGM_DEFAULTS_J
 | [題名・結論ファースト・人物と掛け合い](EDITORIAL_PATTERNS_JA.md) | 冒頭、質問役と実務役、全面表示とPIP、編集の確認項目 |
 | [演出・編集プレイブック](EXPLAINER_EDITING_PLAYBOOK_JA.md) | 20チャンネル比較から整理した60技法、適用条件と尺の検証案。全技法の同時適用や効果保証ではない |
 | [20チャンネルの比較報告](research/YOUTUBE_EXPLAINERS_20_20261103_JA.md) | チャンネル・登録者表示・動画リンク・時刻・画面／音声の確認範囲、カットと更新の標本 |
-| [ナレーションの別冊](NARRATION_HANDOFF_JA.md) | 担当者へ単体で渡せる原稿・声・読み・生成・再開・費用・試聴手順 |
+| [ナレーションの別冊](NARRATION_HANDOFF_JA.md) | 原稿・声・読み・生成・再開・費用・試聴手順。2.5 Preview TTSの終了日と3.8の移行候補（11月20日確認） |
 | [会話とBGM](DIALOGUE_NARRATION_JA.md) | 質問→回答→実演の進行、音声実尺、返答後の間、明るい伴奏 |
 | [ローカルのフリー音源](LOCAL_MUSIC_LIBRARY_JA.md) | SSD内の曲庫、出典・条件・hashの照合、入力音量の調整、BGMだけの差し替え、原曲を再配布しない保存 |
 | [公開前メモ：Content ID登録なし](../../productions/content-projects/CONTENT_20261104_anthropic_departures/PUBLICATION_SETTINGS_JA.md) | 今回の音源で行わない権利登録、通常投稿のライセンス・広告収益化・自動照合との区別。アカウント設定の操作やロックは未実施 |
