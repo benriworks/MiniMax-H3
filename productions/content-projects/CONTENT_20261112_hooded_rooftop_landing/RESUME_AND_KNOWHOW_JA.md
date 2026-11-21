@@ -12,6 +12,7 @@
 - 作り方と学びは [静止画から作る短編アクションドラマのノウハウ](../../../docs/video-production/H3_ACTION_DRAMA_KNOWHOW_JA.md)。時系列の詳しいログは同じフォルダーの `RESUME_JA.md`、全カットはメディアルートの `CUTS_CATALOG_JA.md`（110本）。
 - v08の再出力: `assemble_sequence.py --version <名前>-raw --cuts <36個のID>`（並びは `review/full-180s-v06-raw/render.json`）→ `add_news.py --start 90 --bed-levels 0,0.3,0.3` → `add_titles.py --title 60.3 3日前 --title 120.3 現在` → 科学者の台詞（`audio/s4-lastwords/part1.wav` を161.2秒、`part2.wav` を165.3秒）とスコアを重ね、160〜170秒の元の音は0 → 160〜161秒の1秒を抜く。コマンドの全文は `RESUME_JA.md` の v05〜v08 の項。
 - 下のループBGM v01は試作に使っただけで、最終版には入っていない。
+- 2026-11-18: ブログ用の振り返り記事の草稿と画像27枚をメディアルートの `blog/` に置いた（`blog/haino-machi-retrospective.md`、`blog/images/IMAGES_JA.md`）。公開はユーザーの了承待ち。
 ## ループBGM v01
 
 低い弦、まばらな弱音ピアノ、心拍のような低音を指定した、歌のないサスペンス曲。配下のパスはメディアルート `outputs/content-projects/CONTENT_20261112_hooded_rooftop_landing/` からの相対位置。
