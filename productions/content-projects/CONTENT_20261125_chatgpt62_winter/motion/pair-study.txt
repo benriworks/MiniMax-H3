@@ -1,0 +1,5 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+Overall style: polished adult Japanese anime newsroom, blue evening window, soft amber light; preserve reference faces, winter sweaters and the equal two-panel composition for the entire shot.
+Scene: The two hosts study a laptop on their desks, each reacting to an unexpected result. The man on the left looks down, slowly raises his eyebrows in genuine surprise, leans in and lightly taps his temple while thinking. The woman on the right looks down, looks back up thoughtfully, gently touches her chin, then opens her eyes and lifts a single finger having spotted the condition. Small distinct movements at different times. Maintain hand anatomy and hair silhouettes. Never place a joint or face across the center. Muted laptop hidden from the viewer, no legible text.
+Sound: soft room tone, no dialogue or music.
+[Shot 1] 0.00–8.00 seconds. Static camera, medium-close framing. Both start and end relaxed. No scene change.

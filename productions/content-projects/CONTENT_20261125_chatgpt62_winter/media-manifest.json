@@ -1,0 +1,361 @@
+{
+  "project": "CONTENT_20261125_chatgpt62_winter",
+  "version": "v01",
+  "original_series_references": {
+    "male-reference.png": {
+      "sha256": "57031cecc619f6894bcd176c05198541067cf978b1adfb58aea085217cf2b78c",
+      "bytes": 337314
+    },
+    "female-reference.png": {
+      "sha256": "04157ff085802b1ef8eb0d4abcb2391c1fe5e28483ed7010a8d31ad19df19a41",
+      "bytes": 1419256
+    }
+  },
+  "adopted_voice_source": {
+    "lead": "lead",
+    "s1": "s1",
+    "s2": "s2",
+    "s3": "s3",
+    "s4": "s4",
+    "s5": "s5",
+    "s6": "s6",
+    "old": "old",
+    "entry": "entry",
+    "select": "select",
+    "criteria": "criteria",
+    "ask": "ask",
+    "answer": "answer",
+    "checka": "checka",
+    "checkb": "checkb",
+    "ext": "ext",
+    "none": "none",
+    "stat1": "stat1",
+    "stat2": "stat2",
+    "search": "search",
+    "available": "available",
+    "last": "last",
+    "why3": "why-final"
+  },
+  "files": {
+    "article/v01/chatgpt62-chat-article-v01.zip": {
+      "bytes": 247498,
+      "sha256": "42acf14173de09a5a2faf1f8428860a5103200c42e7b491900c90ad1b9845bdd"
+    },
+    "captures/figures/answer.png": {
+      "bytes": 42791,
+      "sha256": "2ba3bafab30cc7c21dfec1b77ca15fad36b8533932e6e270d3a99d81b82baefe",
+      "pixels": [
+        606,
+        94
+      ]
+    },
+    "captures/figures/composer.png": {
+      "bytes": 10796,
+      "sha256": "9ed0e2c3556fb7a2ee04b06fc0767419c6b746416684d2e92184005c83349f5b",
+      "pixels": [
+        786,
+        83
+      ]
+    },
+    "captures/figures/follow-question.png": {
+      "bytes": 19375,
+      "sha256": "7caf77ab3a98ae3cb50f9f3ade41d78241300d4a893e839d8ff17675b1aa00d5",
+      "pixels": [
+        516,
+        49
+      ]
+    },
+    "captures/figures/followup.png": {
+      "bytes": 20799,
+      "sha256": "88f4a1bd190129959c3626aafbe0e0cc0f3ae5d114f19f2faaa9e64218b68a04",
+      "pixels": [
+        770,
+        49
+      ]
+    },
+    "captures/figures/picker.png": {
+      "bytes": 20790,
+      "sha256": "6db02ad8587d8dba08bc358355eeb9eb977223ced75e78bef1075b03e2e50ba3",
+      "pixels": [
+        257,
+        151
+      ]
+    },
+    "captures/figures/question.png": {
+      "bytes": 71247,
+      "sha256": "527a636456594e55c6c483d6718c4d2072277c2358316b7f9192778c4edc1ff6",
+      "pixels": [
+        774,
+        272
+      ]
+    },
+    "captures/figures/release.png": {
+      "bytes": 79179,
+      "sha256": "e4afbb0a57c16e69252f2948dcf5675b4a8f1e20f1a9007cbb4ac07e9fe38327",
+      "pixels": [
+        507,
+        275
+      ]
+    },
+    "captures/figures/rules-chart.png": {
+      "bytes": 38196,
+      "sha256": "a7a48ebc822f03d830ad0c11650992e75a589dd3f0e6eb4b0eebacd8fc85f186",
+      "pixels": [
+        600,
+        378
+      ]
+    },
+    "captures/figures/selected.png": {
+      "bytes": 12737,
+      "sha256": "ffb633475dc36fc85432b3a4cea5521f49d4b9258b7d11adeffd1eb8ede6e2f3",
+      "pixels": [
+        259,
+        80
+      ]
+    },
+    "captures/figures/tabs.png": {
+      "bytes": 4913,
+      "sha256": "92b725c0ba1fd33a7c0cf7b6dd969d7134d86f36d6fd221c8061457d50ff8b24",
+      "pixels": [
+        256,
+        59
+      ]
+    },
+    "captures/figures/visual-chart.png": {
+      "bytes": 31971,
+      "sha256": "a0d079331e0f3d1ec84ec6fe174f8e3c60845468156eca032e7fcb778b804612",
+      "pixels": [
+        603,
+        384
+      ]
+    },
+    "captures/figures/winter-rates.png": {
+      "bytes": 71543,
+      "sha256": "b650b47fe19877ceb35772fd1e0a801f90076e791448ccf9ee34f7f694b5a81d",
+      "pixels": [
+        1440,
+        900
+      ]
+    },
+    "captures/official/rules-chart.webp": {
+      "bytes": 16268,
+      "sha256": "eec33881d3e42d3592bd5a70b9a3f8775270e0488c3ae82b1a0fe23dc5de66eb",
+      "pixels": [
+        1344,
+        836
+      ]
+    },
+    "captures/official/visual-chart.webp": {
+      "bytes": 13880,
+      "sha256": "ec8294474a6ea4e488c70d759670bf71aea19764e0d264fcbac470cfa65ef700",
+      "pixels": [
+        1344,
+        836
+      ]
+    },
+    "cast/female.png": {
+      "bytes": 1147318,
+      "sha256": "af332cb8bf0920f1be08a8bc266f6a77a4df83fc6991f44812de56e687099bde",
+      "pixels": [
+        768,
+        1024
+      ]
+    },
+    "cast/male.png": {
+      "bytes": 1169411,
+      "sha256": "efeea3ba84938c7a91489c93850cd9cc0160d67060e5a4716b4716cd0a2bf87c",
+      "pixels": [
+        768,
+        1024
+      ]
+    },
+    "cast/winter-pair-motion-ref.jpg": {
+      "bytes": 190045,
+      "sha256": "fcf2429f637461a78a428659ecc58c660c10cdb006851b0069d6c218d4ed81fe",
+      "pixels": [
+        1152,
+        768
+      ]
+    },
+    "cast/winter-pair.png": {
+      "bytes": 2321875,
+      "sha256": "49d22fa5538c00a22a31fd56e72cce9554bf4582e77a92e45b9107637b8675dd",
+      "pixels": [
+        1536,
+        1024
+      ]
+    },
+    "motion/winter-duet/source.mp4": {
+      "bytes": 1887282,
+      "sha256": "085c2767983bd5ea6c8a3ce7ae2b52d14d0d5ef12d63f2739d209e2edc5ea34b"
+    },
+    "motion/winter-study/source.mp4": {
+      "bytes": 2393031,
+      "sha256": "18cf7707d900fd601f48639b1f05c5ad6065a0f4260d8ad6ddb55243307532b5"
+    },
+    "release/v01/full/chatgpt62-chat-full-v01.mp4": {
+      "bytes": 26077031,
+      "sha256": "b82bfcf3659775004d62058e4e8326b2c857aeb1e45fdfba30397647274fff01"
+    },
+    "release/v01/short/chatgpt62-chat-short-v01.mp4": {
+      "bytes": 6649808,
+      "sha256": "bd6d110996877f52d1eca92ae791d268df0865e74f3715bca918692d81acc077"
+    },
+    "voice/answer/turn-00/voice.wav": {
+      "bytes": 401308,
+      "sha256": "5a3abea35b7fa7cfa186614256f749b0b7792c0340d56ea13a9629e91c98a7e9"
+    },
+    "voice/ask/turn-00/voice.wav": {
+      "bytes": 566428,
+      "sha256": "1bb472647142bb82f30550d551fdd26465064c2971605759645d0ef83535e505"
+    },
+    "voice/available/turn-00/voice.wav": {
+      "bytes": 558748,
+      "sha256": "fa9bb344fa55d0cf190873fbd7d5443e303e7904f4881104c887dd22d7d9b139"
+    },
+    "voice/checka/turn-00/voice.wav": {
+      "bytes": 625948,
+      "sha256": "65a62b8cc43a6a7dd751d0261e14ea11ef6c88f40fb1b244f24069c53978a68c"
+    },
+    "voice/checkb/turn-00/voice.wav": {
+      "bytes": 547228,
+      "sha256": "b33db251c7ac214c3fc2808c5dc89d2e842b515ef0e014b00e5f5e5d66662aed"
+    },
+    "voice/criteria/turn-00/voice.wav": {
+      "bytes": 503068,
+      "sha256": "8b70dc89302dab8c5b84ac57bc1c8a51a52855f39661054d3e9f3f47d45ee14b"
+    },
+    "voice/entry/turn-00/voice.wav": {
+      "bytes": 510748,
+      "sha256": "7649f4d7834429b20b413d9fe219deb10518ebde577598b745e3b5be11576408"
+    },
+    "voice/ext/turn-00/voice.wav": {
+      "bytes": 430108,
+      "sha256": "c602a3c5e84094a3d334ef71d36e2329662f1b1c8ef5d17f3cfcaf0f818016e0"
+    },
+    "voice/last/turn-00/voice.wav": {
+      "bytes": 562588,
+      "sha256": "8f92816ca81d0ebccf322b4907adbad1f857f3325bd80a0602168b6844c2ebf6"
+    },
+    "voice/lead/turn-00/voice.wav": {
+      "bytes": 322588,
+      "sha256": "446206d897f3d5e6aa98b87774803985329ac8abff4429e272090229ce46a579"
+    },
+    "voice/none/turn-00/voice.wav": {
+      "bytes": 539548,
+      "sha256": "9446860e9223d4607de4c1adc75beab4de03bf19defaef0411f36dafd92060af"
+    },
+    "voice/old/turn-00/voice.wav": {
+      "bytes": 489628,
+      "sha256": "965420ac75a6e102876835b6c11f6fe1172c0c763960f32ddafb91d02b9fa97a"
+    },
+    "voice/s1/turn-00/voice.wav": {
+      "bytes": 316828,
+      "sha256": "b3f9c9d64398257726fb015998889f7419acde7b4a4984e37ba550f745a9e971"
+    },
+    "voice/s2/turn-00/voice.wav": {
+      "bytes": 328348,
+      "sha256": "58dd84926e485278a14b29e5edd665a9790cf6b588aa62f9f9b19750d75c8683"
+    },
+    "voice/s3/turn-00/voice.wav": {
+      "bytes": 422428,
+      "sha256": "da6dce052ccca515b4782e8b7725e48b4637eddc07236ee3f2cbfdc495f84d99"
+    },
+    "voice/s4/turn-00/voice.wav": {
+      "bytes": 251548,
+      "sha256": "e8785cff8a32df94292edbdf75004a91a1548cb4e9d9ec53d6a1a97550947a78"
+    },
+    "voice/s5/turn-00/voice.wav": {
+      "bytes": 376348,
+      "sha256": "a7a3e5abbf0522152214d9fae18157b6ab138620d4a0cce5dc4b07877cf7306a"
+    },
+    "voice/s6/turn-00/voice.wav": {
+      "bytes": 291868,
+      "sha256": "434ddfe4ed2e0f42d989b4c8de2890cba47e29aba4d2d378663519084f972d58"
+    },
+    "voice/search/turn-00/voice.wav": {
+      "bytes": 639388,
+      "sha256": "d9d7d5c177e8b64679733e1cee72dae09f12913822430b290167be5d67a186ee"
+    },
+    "voice/select/turn-00/voice.wav": {
+      "bytes": 504988,
+      "sha256": "4a7c1a9d3c05822d545cd7269966973d054f00517955fa4a4da6346df258e697"
+    },
+    "voice/stat1/turn-00/voice.wav": {
+      "bytes": 727708,
+      "sha256": "b55d4246e6b9cb903cbd11b6ec17f32eb967ea7ae6e80932b1fa1a0aecfc2fdb"
+    },
+    "voice/stat2/turn-00/voice.wav": {
+      "bytes": 658588,
+      "sha256": "3621b8ae6be177639fd1c8cba12ea288e5b6e4fc75e1170913f5d45cf7caa52c"
+    },
+    "voice/why-final/turn-00/voice.wav": {
+      "bytes": 527084,
+      "sha256": "b6331e1c0e7106fad10f2c1478aab26d9b6654be4d875f0cd2432016aecaba0b"
+    },
+    "youtube/v01/full-cover.jpg": {
+      "bytes": 360394,
+      "sha256": "dd7408f603b6cd289a3acf5c4552f1ba8dbf5082f7704b1b43d842705a824b1a",
+      "pixels": [
+        1920,
+        1080
+      ]
+    },
+    "youtube/v01/full-description.txt": {
+      "bytes": 1125,
+      "sha256": "b8e3d9c2e7f7a9acead3d6e2654653924556e332de8e1b2101633f90f42a0c9c"
+    },
+    "youtube/v01/short-cover.jpg": {
+      "bytes": 282241,
+      "sha256": "92c200a9f8034f7201dc09996a222cbb96b668773e69f5636dfceeac5d4ed166",
+      "pixels": [
+        1080,
+        1920
+      ]
+    },
+    "youtube/v01/short-description.txt": {
+      "bytes": 473,
+      "sha256": "9221b2888ca2c7347af0f313083a51a52e72f4404778bbf8059ed2efb2de2b84"
+    }
+  },
+  "movies": {
+    "short": {
+      "file": "chatgpt62-chat-short-v01.mp4",
+      "bytes": 6649808,
+      "sha256": "bd6d110996877f52d1eca92ae791d268df0865e74f3715bca918692d81acc077",
+      "width": 1080,
+      "height": 1920,
+      "fps": 24,
+      "frames": 1198,
+      "seconds": 49.916666666666664,
+      "decoded": "video and audio",
+      "level_lufs": -16.15,
+      "true_peak_dbtp": -1.74,
+      "captions": 15,
+      "voices": {
+        "male": 4,
+        "female": 3
+      },
+      "model": "gemini-3.8-flash-tts"
+    },
+    "full": {
+      "file": "chatgpt62-chat-full-v01.mp4",
+      "bytes": 26077031,
+      "sha256": "b82bfcf3659775004d62058e4e8326b2c857aeb1e45fdfba30397647274fff01",
+      "width": 1920,
+      "height": 1080,
+      "fps": 24,
+      "frames": 4741,
+      "seconds": 197.54166666666666,
+      "decoded": "video and audio",
+      "level_lufs": -16.05,
+      "true_peak_dbtp": -1.56,
+      "captions": 43,
+      "voices": {
+        "male": 9,
+        "female": 8
+      },
+      "model": "gemini-3.8-flash-tts"
+    }
+  }
+}

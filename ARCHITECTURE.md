@@ -1,5 +1,9 @@
 # Architecture
 
+## ChatGPTのGPT-6.2を試すショート・フル（2026-11-25）
+
+冬服の二人が使う宿の料金表を、実際のChatタブに画像として入力した。返信・公式資料の公開用領域と二人のH3動画を縦横別に配置し、Gemini 3.8 Flash TTSの台詞の長さから字幕とカットを決める。完成MP4から取り出したフレームをレビューし、同じ実演素材からサムネイルと記事用画像を作る。案件の[制作構成](productions/content-projects/CONTENT_20261125_chatgpt62_winter/ARCHITECTURE.md)、[構成図](productions/content-projects/CONTENT_20261125_chatgpt62_winter/ARCHITECTURE_DIAGRAM.md)、[素材と検証の記録](productions/content-projects/CONTENT_20261125_chatgpt62_winter/RESUME_AND_KNOWHOW_JA.md)に入出力と保存場所を記載した。
+
 ## 30秒のオリジナルショートドラマ（2026-11-08）
 
 [案件](productions/content-projects/CONTENT_20261108_short_drama/RESUME_AND_KNOWHOW_JA.md)の `generate_h3_shot.py` は承認した画像とカット別プロンプトを既存 `H3Client` へ渡す。送信前の状態、受付ID、使用量、原本hashを保存し、受付IDが得られた場合は同じタスクを照会できる。`render_short_drama.py` は保存済みの映像、画像、Geminiの二言から7カットを720フレームに構成する。表示字幕は文節組版を使い、声、ピアノ、環境音は分離してから共通BGM設定で混合する。生成と再編集の境界、映像・音声の検査、レビュー用Drive、記事フレームの出所を案件の再現手順と台帳で追えるようにした。

@@ -1,5 +1,20 @@
 # Architecture diagram
 
+## ChatGPTのGPT-6.2を試すショート・フル（2026-11-25）
+
+```mermaid
+flowchart LR
+    Source["Chatの実演とOpenAIの公式資料"] --> Layout["縦・横の専用編集"]
+    Winter["冬服の基準画"] --> Perform["H3の二人動画"]
+    Perform --> Layout
+    Speech["Gemini 3.8 Flash TTSの男女音声"] --> Layout
+    Layout --> Movies["ショート・フルのMP4"]
+    Movies --> Review["実フレーム・音量・Drive再生の確認"]
+    Source --> Article["記事と図版"]
+```
+
+[案件の入出力を含む詳細図](productions/content-projects/CONTENT_20261125_chatgpt62_winter/ARCHITECTURE_DIAGRAM.md)
+
 ## 30秒のオリジナルショートドラマ（2026-11-08）
 
 ```mermaid
