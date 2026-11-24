@@ -33,4 +33,10 @@
 
 ## 再編集
 
-検証済みの素材を使う場合は `specimen.py` → `prepare_visuals.py` の切り出し記録、`dialogue.json` と採用WAV、2本のH3原本、公式の原図を最初に照合する。新しい出力ルートにこれらをコピーし、`python render.py <媒体ルート> short --render` と `full --render` を案件ディレクトリから実行。`python review_frames.py <媒体ルート>` と `python kit.py <媒体ルート>` で実フレーム・投稿セットを作る。既存MP4を再書き出しする場合は別の版に保存する。新規生成は `narrate.py --generate`、`shoot_pair.py <媒体ルート> talk|study` が外部APIを使う。新規生成には同一の画・声を再取得できる保証がない。
+検証済みの素材を使う場合は、`dialogue.json` と採用WAV、H3原本、実画面と公式原図を媒体の台帳で照合する。新しい出力ルートに元のディレクトリ構成でコピーし、案件ディレクトリから `python render.py <媒体ルート> short --render` と `python render.py <媒体ルート> full --render` を実行する。`python review_frames.py <媒体ルート>` と `python kit.py <媒体ルート>` で実フレーム・投稿セットを作る。
+
+元の二人の絵と撮影原本から切り出し直すときは `python prepare_visuals.py <媒体ルート> <冬服の基準画>` を使う。H3に送ったJPEGは1152×768、品質86で、保存した原本とのSHA-256一致を確認した。外部APIの新規生成は `python narrate.py <媒体ルート> --generate` と `python shoot_pair.py <媒体ルート> talk` または `study` に分かれる。フルの2台詞目は保存済みの `why3` から `python edit_voice.py <媒体ルート>` で切り出した `why-final` を参照する。10.98秒の切り出し位置はこの収録テイクに対応する。
+
+## 保存と確認
+
+2026-11-25、案件・索引・総覧と構成図を個人フォークへ保存。制作コミット `98f82fe` が [Draft PR #27](https://github.com/benriworks/MiniMax-H3/pull/27) のブランチにあることを確認した。媒体台帳の50ファイルのサイズ・SHA-256、相対参照25件、既存の字幕・音声テスト12件を確認。次は2本のレビュー結果を版ごとに記録する。
