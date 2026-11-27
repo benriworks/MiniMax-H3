@@ -1,6 +1,6 @@
 # ChatGPTのチャットに来たGPT-6.2｜制作と再開
 
-更新日 2026-11-25 JST。案件 `CONTENT_20261125_chatgpt62_winter`。[制作索引](../../../docs/video-production/README.md) → [制作総覧](../../../docs/video-production/PRODUCTION_KNOWHOW_JA.md) → 本書。前回の開発環境向けAstra・Sol編は `CONTENT_20261118_gpt62_astra_sol` の別案件。
+更新日 2026-11-28 JST。案件 `CONTENT_20261125_chatgpt62_winter`。[制作索引](../../../docs/video-production/README.md) → [制作総覧](../../../docs/video-production/PRODUCTION_KNOWHOW_JA.md) → 本書。前回の開発環境向けAstra・Sol編は `CONTENT_20261118_gpt62_astra_sol` の別案件。
 
 ## 現在地
 
@@ -40,3 +40,5 @@
 ## 保存と確認
 
 2026-11-25、案件・索引・総覧と構成図を個人フォークへ保存。制作コミット `98f82fe` が [Draft PR #27](https://github.com/benriworks/MiniMax-H3/pull/27) のブランチにあることを確認した。媒体台帳の50ファイルのサイズ・SHA-256、相対参照25件、既存の字幕・音声テスト12件を確認。次は2本のレビュー結果を版ごとに記録する。
+
+2026-11-28、ユーザーから「GitHubリポジトリにプッシュしておいてください。私のGoogleドライブに、重要ソフトとしてリポジトリ名、機能、使い方をまとめておいてください」と依頼。個人フォークのPR #27と手元の制作版 `446963e` の一致を確認した。マイドライブの「ChatGPT／重要ツール」に「重要ソフト｜MiniMax-H3｜機能と使い方」を登録。チャットでの依頼例、WindowsでのStudio起動、冬服編のレビュー用フォルダーと制作記録へのリンクを掲載した。本文・リンク6件・格納先・非共有設定を読み戻して確認。ショート・フルの対象はともにv01で、引き続き動画別のレビューを待つ。
